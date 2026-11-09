@@ -50,6 +50,9 @@ The MIT license applies to **our code only**. Models, voice samples, dictionarie
 ## Documentation
 
 - [ภาษาไทย / รายละเอียดโปรเจกต์](README_TH.md)
+- [Project background and design rationale (Thai)](docs/PROJECT_VISION_TH.md)
+- [Detailed development plan and acceptance criteria (Thai)](docs/DEVELOPMENT_PLAN_TH.md)
+- [Requirement traceability (Thai)](docs/REQUIREMENTS_TH.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [API Contract](docs/API.md)
 - [Portable distribution plan](docs/PORTABLE.md)

@@ -1,5 +1,9 @@
 # Roadmap
 
+For the full rationale, detailed tasks, dependencies and acceptance tests, see [Project Vision (Thai)](PROJECT_VISION_TH.md), [Development Plan (Thai)](DEVELOPMENT_PLAN_TH.md), and [Requirements (Thai)](REQUIREMENTS_TH.md).
+
+**This is a proposed plan:** unchecked items are not implemented. The foundation only processes text; voice/audio streaming and Windows portable EXEs are future milestones.
+
 ## Milestone 0 — Foundation (in repository)
 - [x] Project identity, public repository and MIT source license
 - [x] Modular folder and privacy exclusions

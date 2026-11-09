@@ -21,8 +21,16 @@
 
 ไฟล์ `Test-Dev.cmd` สำหรับทดสอบแบบอัตโนมัติ
 
-## เอกสาร
-ดู docs/ARCHITECTURE.md, docs/API.md, docs/PORTABLE.md, docs/ROADMAP.md และ docs/SECURITY.md
+## ที่มาและแผนพัฒนา
+
+- [ที่มา ปัญหาที่ต้องการแก้ และเหตุผลของการออกแบบ](docs/PROJECT_VISION_TH.md)
+- [แผนพัฒนาแบบละเอียดพร้อมขั้นตอน ทดสอบ และเกณฑ์ยอมรับ](docs/DEVELOPMENT_PLAN_TH.md)
+- [ตารางข้อกำหนดและสถานะของฟีเจอร์](docs/REQUIREMENTS_TH.md)
+
+## เอกสารเทคนิค
+
+- [Architecture](docs/ARCHITECTURE.md) · [API](docs/API.md) · [Portable](docs/PORTABLE.md)
+- [Roadmap (checklist)](docs/ROADMAP.md) · [Security](docs/SECURITY.md)
 
 ## License
 MIT สำหรับซอร์สโค้ด VoxWeaveTTS เท่านั้น เสียงต้นฉบับ โมเดลที่ดาวน์โหลด และโค้ดจากบุคคลที่สามต้องตรวจสิทธิ์ของแต่ละรายการก่อนแจกจ่าย
