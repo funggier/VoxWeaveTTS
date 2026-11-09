@@ -16,8 +16,8 @@
 
 เพื่อไม่ให้สร้าง UI สวยก่อนแต่ระบบหลักยังใช้งานไม่ได้ จะพัฒนาแบบ **Vertical Slice**: ข้อความ → กฎ → เสียงจริง → Playback → Event/Subtitle → Portable; แต่ละระยะมี Demo และ Tests สั้น ๆ ที่ทำซ้ำได้
 
-**สิ่งที่มีแล้ว:** ตัวกรอง/คำอ่าน/แผนข้อความ/HTTP Preview/เว็บทดลอง/Unit Tests  
-**สิ่งที่ยังไม่มี:** Synthesizer/Voice Studio/Live Events/Connectors/Portable Binary; ไม่ควรติ๊กผ่านจนกว่าจะทดสอบจริง
+**สิ่งที่มีแล้ว:** ตัวกรอง/คำอ่าน/แผนข้อความ/HTTP Preview/เว็บทดลอง/Unit Tests และเพิ่มเติม **FastThaiG2P CPU ONNX สร้าง WAV ภาษาไทยจริงได้แล้วใน M1 Preview**
+**สิ่งที่ยังไม่มี:** Voice Cloning/Voice Studio ที่ปรับเสียงละเอียด/Live Events/Connectors/Portable Binary; ไม่ควรติ๊กผ่านจนกว่าจะทดสอบจริง
 
 ## 1. ข้อกำหนดข้ามทุกระยะ (Definition of Done)
 
@@ -66,16 +66,18 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 4. M1 — Thai TTS Engine และไฟล์เสียงจริง
 
+**สถานะปัจจุบัน: M1 Partial** — เพิ่ม VoiceEngine Protocol, FastThaiG2P CPU ONNX Adapter, WAV 24 kHz Mono, Silence PCM, API `/v1/speech` และปุ่มเล่นเสียงใน Web UI แล้ว ทดสอบจริงสร้างไฟล์ WAV สำเร็จแต่ยัง **ไม่ยืนยันการออกเสียงภาษาไทยด้วยการตรวจฟัง** ดู [M1_AUDIO_TH.md](M1_AUDIO_TH.md)
+
 **เป้าหมาย:** กดปุ่มแล้วได้ไฟล์ WAV จากข้อความไทย พร้อมประเมินว่าเสียงจริงออกถูกต้องหรือไม่
 
 งาน:
-- [ ] ออกแบบ `VoiceEngine` Interface: `capabilities()`, `synthesize(segments,profile)`, `cancel()`, `health()`
+- [x] ออกแบบเบื้องต้น `VoiceEngine` Protocol, Capability Discovery และ `render_wav` (ยังไม่มี `cancel()`/การ Streaming)
 - [ ] ประเมิน Engine ภาษาไทยที่ติดตั้งได้จริง (รวมขนาด/CPU-GPU/Latency/License/Offline/Custom Pronunciation) **ไม่ผูกขาดกับตัวใดตัวหนึ่ง**
-- [ ] เลือก Engine ขั้นต้น 1 ตัวก่อน และทำ Adapter พร้อม Error/Timeout
-- [ ] เก็บเสียงเป็น WAV PCM พร้อม sample rate/channel/metadata ชัดเจน
-- [ ] แปลง speech/silence segments เป็น Audio Timeline; Silence แบบ 400 ms ต้องเงียบจริงใน Audio Output
+- [x] เลือก FastThaiG2P CPU ONNX เป็น Engine ขั้นต้น และทำ Adapter แบบรายงาน Unsupported อย่างตรงไปตรงมา (ยังต้องเสริม Timeout/Cancellation)
+- [x] สร้าง WAV PCM16 Mono 24 kHz พร้อม Metadata ระยะเวลาต่อ Segment ภายใน Engine
+- [x] แปลง Speech/Silence/Skip Segment เป็น Audio WAV; Silence 400 ms เป็น Zero PCM จริง
 - [ ] ทดลองคำอ่านไทยยาก/วรรณยุกต์/ชื่อเฉพาะโดยฟังจริง และบันทึกผลผ่านชุดคำทดสอบ
-- [ ] รองรับการตรวจสอบ Engine Capability ว่าโคลนเสียง/ปรับ Pitch/Speed/Emotion ได้หรือไม่ได้
+- [x] ตรวจ Capability รายงานเสียง `thai_som` แบบคงที่และ Speed เท่านั้น; Voice Cloning/Pitch/Formant/Emotion ยังไม่รองรับ
 - [ ] กำหนด Audio Cache Key ตามข้อความที่ผ่านการแปลง + Engine Version + Profile + ค่าปรับ + กฎ + Model Hash เพื่อป้องกันใช้ Cache ผิด
 - [ ] ทดสอบข้อความยาวไม่ให้กิน RAM สูง; แบ่งคำพูดเป็นช่วงและจัดการ Backpressure
 - [ ] สรุป License/Attribution ของ Engine และ Model โดยไม่รวมโมเดลเข้า Public Repo

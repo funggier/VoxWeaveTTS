@@ -27,9 +27,9 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 - Real-time stream connectors and TTS engines must never share authentication secrets.
 - Local user data/models/reference audio are outside Git and package outputs.
 
-## Current implemented slice
+## Current implemented slice (M1 preview)
 
-Pure Python standard-library pipeline (`src/voxweavetts/processing.py`) performs literal longest-match replacement and explicit silence segmentation, then applies a pronunciation dictionary to the spoken side only. A small loopback HTTP API and local test page exercise this logic without producing audio.
+The stdlib text pipeline (`src/voxweavetts/processing.py`) performs literal longest-match replacement and explicit silence segmentation, then applies pronunciation hints on the spoken side only. **Optional** `src/voxweavetts/speech.py` uses PyThaiTTS/FastThaiG2P CPU ONNX to render real 24kHz PCM16 WAV with explicit silence samples. The localhost HTTP API offers `POST /v1/speech`, `GET /v1/engines` and `GET /v1/voices`, and the web tester can play the WAV. The engine has only fixed `thai_som` voice and adjustable speed. The Speech Coordinator, playback-clock events, voice cloning, streaming and overlay are not yet implemented.
 
 **Known limitation:** literal substring matching is not full Thai morphological segmentation. Future matching strategies should use tokenization/phrase boundaries and optional safe patterns, with robust tests against substrings and Unicode edge cases.
 

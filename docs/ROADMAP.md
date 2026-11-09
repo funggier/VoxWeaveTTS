@@ -2,7 +2,7 @@
 
 For the full rationale, detailed tasks, dependencies and acceptance tests, see [Project Vision (Thai)](PROJECT_VISION_TH.md), [Development Plan (Thai)](DEVELOPMENT_PLAN_TH.md), and [Requirements (Thai)](REQUIREMENTS_TH.md).
 
-**This is a proposed plan:** unchecked items are not implemented. The foundation only processes text; voice/audio streaming and Windows portable EXEs are future milestones.
+**Status:** The initial foundation processes text; M1 has a working fixed-voice Thai CPU WAV preview. Voice cloning, live audio streaming, synced subtitle events and Windows portable EXEs remain planned; unchecked items are not implemented.
 
 ## Milestone 0 — Foundation (in repository)
 - [x] Project identity, public repository and MIT source license
@@ -12,12 +12,15 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Unit tests
 - [ ] Model-based speech output
 
-## Milestone 1 — Real speech generation
-- [ ] Evaluate Thai TTS engines, licenses and offline constraints
-- [ ] Voice engine adapter interface and capability discovery
-- [ ] Stream-capable playback and cancellation
-- [ ] Local reference voice/profile storage
-- [ ] Real speech testing in Thai with pronunciation regressions
+## Milestone 1 — Real speech generation (partial: CPU preview works)
+- [x] Evaluate an initial Thai CPU ONNX TTS backend (FastThaiG2P), document source and licensing caveats
+- [x] Define voice engine protocol and capability discovery for the installed fixed voice
+- [x] Real 24kHz PCM16 WAV from Thai text via local API, plus exact silence from filtering rules
+- [x] Web preview of synthesized WAV, basic speed control, private test samples on T:
+- [ ] Streaming playback, explicit cancellation and queue policy
+- [ ] Voice cloning / reference voice storage
+- [ ] Listening-based Thai pronunciation regression testing and native phoneme overrides
+- [ ] Further engine quality/speed benchmarks and longer text stress tests
 
 ## Milestone 2 — Voice Studio
 - [ ] Speed, pitch, formant, EQ/brightness, expressivity and pause adjustment

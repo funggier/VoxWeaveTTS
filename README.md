@@ -1,8 +1,8 @@
 # VoxWeaveTTS
 
-**Portable Thai-first voice studio and real-time speech platform** — work in progress.
+**Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.1.0 foundation):** a working local text-processing HTTP API and preview page. **Voice synthesis, voice cloning, live Discord/YouTube connectors, subtitle event timing, and a bundled Windows portable executable are NOT implemented yet.** These are planned modules, not shipped capabilities.
+> **Current status (v0.2.0.dev0 M1 preview):** local text processing and **real Thai WAV generation** using PyThaiTTS/FastThaiG2P CPU ONNX, when the optional model/runtime are installed. **Voice cloning, voice-specific tuning beyond speed, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.**
 
 ## Goals
 
@@ -13,14 +13,15 @@
 - Playback-clock-driven subtitle events for OBS Browser Source and external apps.
 - Windows portable ZIP: all settings, voice references and model caches under a movable root, without forced writes to the system drive.
 
-## Run the foundation prototype (Windows)
+## Run the Thai audio preview (Windows)
 
-1. Install Python 3.11+ **for this development prototype only**.
-2. Run `Start-Dev.cmd` from this directory. It uses only the Python standard library.
-3. Open <http://127.0.0.1:8765/> in your browser.
-4. Run `Test-Dev.cmd` to execute unit tests.
+1. Install `uv` and GitHub CLI (`gh`) for development setup. Run `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` in the project directory. The optional CPU engine and ~326 MB voice model are stored under the project root.
+2. Run `Start-Dev.cmd` (picks the local `.venv` Python first).
+3. Open <http://127.0.0.1:8765/> and click **สร้างเสียง WAV** to synthesize and audition Thai speech; no voice cloning in this engine.
+4. Use `scripts/Generate-ThaiSample.ps1` while the local server is running to save `output/api_demo.wav`.
+5. Run `Test-Dev.cmd` for unit tests.
 
-No external model downloads, microphone access, platform permissions or accounts are needed for this milestone.
+The Python `.venv` is a developer environment, **not the final portable executable**. Offline synthesis works once the engine and model are installed.
 
 ## API
 
@@ -28,7 +29,9 @@ No external model downloads, microphone access, platform permissions or accounts
 - `GET /v1/rules` — locally stored replacement rules, if configured.
 - `GET /v1/pronunciations` — locally stored pronunciation overrides, if configured.
 - `POST /v1/text/process` — deterministic filter, replacement, silence and pronunciation processing.
-- `GET /` — local HTML tester.
+- `GET /v1/engines` and `GET /v1/voices` — available backend/capabilities and fixed voice.
+- `POST /v1/speech` — generate Thai PCM16/WAV through the optional FastThaiG2P CPU backend (500 spoken characters max per request).
+- `GET /` — local text and WAV preview.
 
 Example (PowerShell):
 
@@ -58,3 +61,4 @@ The MIT license applies to **our code only**. Models, voice samples, dictionarie
 - [Portable distribution plan](docs/PORTABLE.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Licensing and privacy](docs/SECURITY.md)
+- [M1 real Thai audio setup and verification (Thai)](docs/M1_AUDIO_TH.md)

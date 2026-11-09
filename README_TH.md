@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Foundation v0.1.0** — สร้างโครงโปรเจกต์, API ประมวลผลข้อความ, หน้าเว็บสำหรับทดสอบ และชุดทดสอบแล้ว **ยังไม่มี** TTS โมเดลจริง, ระบบโคลนเสียง, API เสียงแบบ Streaming, ตัวเชื่อม Discord/YouTube, หรือไฟล์ portable EXE
+**สถานะปัจจุบัน: M1 Preview v0.2.0.dev0** — มี Local API ข้อความ และ **สร้างเสียง WAV ภาษาไทยจริงผ่าน FastThaiG2P CPU ONNX ได้แล้ว** บนเครื่องที่ติดตั้งโมเดลกับ Runtime แต่ยัง **ไม่มี** การโคลนเสียงของผู้ใช้, ปรับ Pitch/Formant/Emotion, Audio Streaming, ตัวเชื่อม Discord/YouTube, Subtitle Sync หรือ Portable EXE
 
 ## ข้อกำหนดที่ต้องรักษา
 1. ปรับเสียงได้: ความเร็ว, ระดับเสียง, Formant, ความกังวาน, อารมณ์, เว้นจังหวะ (ขึ้นกับความสามารถของ TTS รุ่นนั้น)
@@ -16,10 +16,15 @@
 9. Portable: ย้ายโฟลเดอร์ได้ทั้งชุด; เก็บ Model/Cache/Config ภายในโฟลเดอร์หลัก
 10. โมดูลต่างๆ ต้องทดสอบแยกกันได้และเปลี่ยน TTS Engine ได้
 
-## ทดลองระบบข้อความในตอนนี้
-ดับเบิลคลิก `Start-Dev.cmd` (ต้องมี Python 3.11+ ในเครื่องเฉพาะสำหรับขั้นพัฒนา) แล้วเปิด http://127.0.0.1:8765
+## ทดลองเสียงภาษาไทยบนเครื่องจริง
 
-ไฟล์ `Test-Dev.cmd` สำหรับทดสอบแบบอัตโนมัติ
+1. รัน `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` เพื่อสร้าง `.venv` และติดตั้งโมเดลไทยไว้ในโฟลเดอร์โปรเจกต์ (ต้องมี `uv`, `gh` และอินเทอร์เน็ตในครั้งแรก)
+2. ดับเบิลคลิก `Start-Dev.cmd` และเปิด http://127.0.0.1:8765
+3. ปรับกฎกรอง/คำอ่าน กด **สร้างเสียง WAV** และฟังเสียงที่สร้างขึ้นจริง
+4. ใช้ `scripts/Generate-ThaiSample.ps1` เพื่อสร้าง `output/api_demo.wav` จาก API
+5. ใช้ `Test-Dev.cmd` ทดสอบ
+
+ยังเป็น Development Prototype ไม่ใช่โปรแกรม Portable ที่เปิดได้โดยไม่ติดตั้ง Python และยังไม่รองรับการใช้เสียงตัวอย่างของเจ้าของโปรเจกต์
 
 ## ที่มาและแผนพัฒนา
 
@@ -31,6 +36,7 @@
 
 - [Architecture](docs/ARCHITECTURE.md) · [API](docs/API.md) · [Portable](docs/PORTABLE.md)
 - [Roadmap (checklist)](docs/ROADMAP.md) · [Security](docs/SECURITY.md)
+- [M1 — การเชื่อม TTS Engine ไทยและผลทดลองเสียงจริง](docs/M1_AUDIO_TH.md)
 
 ## License
 MIT สำหรับซอร์สโค้ด VoxWeaveTTS เท่านั้น เสียงต้นฉบับ โมเดลที่ดาวน์โหลด และโค้ดจากบุคคลที่สามต้องตรวจสิทธิ์ของแต่ละรายการก่อนแจกจ่าย

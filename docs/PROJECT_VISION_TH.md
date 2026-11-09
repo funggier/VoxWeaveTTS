@@ -67,9 +67,9 @@ VoxWeaveTTS เริ่มจากความต้องการฟัง�
 
 ## 6. สถานะ ณ วันที่จัดทำเอกสาร
 
-Foundation v0.1.0 มี: โครง repo, MIT, การแทนคำด้วย Literal Rules, คำอ่านแบบ Dictionary Hint, การสร้างแผน Segment ประเภท speech/silence/skip, HTTP API แบบ loopback, หน้า HTML ทดลอง และ unit tests
+Foundation v0.1.0 มี: โครง repo, MIT, กฎข้อความ/Dictionary Hint, Segment แผนข้อความ, HTTP API และเว็บทดสอบ ต่อมา **M1 Preview v0.2.0.dev0** เพิ่ม CPU ONNX Thai Engine ที่สร้าง WAV จริงผ่าน /v1/speech พร้อมเงียบ 400 ms และหน้าฟังตัวอย่าง; ดูผลตรวจจริงใน [M1_AUDIO_TH.md](M1_AUDIO_TH.md)
 
-ยังไม่มี: **โมเดลเสียงจริง, ไฟล์เสียงออก, Voice Cloning, Voice Studio เต็มรูปแบบ, Event WebSocket, YouTube/Discord Connector, Overlay ที่ซิงก์เสียง, Portable EXE** — ดูขั้นตอนใน [DEVELOPMENT_PLAN_TH.md](DEVELOPMENT_PLAN_TH.md)
+ยังไม่มี: **Voice Cloning, Voice Studio ปรับเสียงขั้นสูง, Event WebSocket, YouTube/Discord Connector, Overlay Subtitle ซิงก์กับเสียง, Portable EXE** — Engine ที่ใช้งานได้ตอนนี้เป็นเสียงคงที่ thai_som และยังต้องตรวจฟังคำอ่านจริง ดู [M1_AUDIO_TH.md](M1_AUDIO_TH.md)
 
 ## 7. ความสำเร็จสุดท้ายที่ผู้ใช้ควรสัมผัสได้
 
