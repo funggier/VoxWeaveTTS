@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>VoxWeaveTTS · Foundation</title>
+<style>
+:root{font-family:Segoe UI,Tahoma,system-ui,sans-serif;color:#eaf0f9;background:#0d1422}
+*{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:36px auto;padding:0 20px 40px}
+header{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:12px;flex-wrap:wrap}
+h1{font-size:clamp(27px,4vw,38px);letter-spacing:-.04em;margin:0}h2{font-size:18px;margin:0 0 12px}
+.sub{color:#9baac0;line-height:1.7}.pill{background:#283449;color:#c3daff;padding:6px 12px;border-radius:30px;font-size:12px}
+.notice{background:#273044;border-left:3px solid #e3bd66;padding:12px 16px;border-radius:8px;margin:22px 0;color:#f7e8bf}
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{border:1px solid #32425b;background:#141f30;padding:20px;border-radius:14px;min-width:0}
+label{display:block;color:#bfd1e9;font-size:13px;margin:13px 0 7px}
+textarea{width:100%;border:1px solid #40516d;background:#0e1929;color:#eaf0f9;border-radius:9px;padding:12px;font:inherit;outline-offset:3px;min-height:115px;resize:vertical;line-height:1.7}
+textarea.json{min-height:135px;font:13px/1.6 Consolas,monospace}
+button{border:0;border-radius:9px;padding:12px 18px;color:#071627;background:#8cc8ff;cursor:pointer;font-weight:700;margin-top:17px}
+button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-break:break-word;font:13px/1.7 Consolas,monospace}
+.output{min-height:100px;background:#0c1727;padding:14px;border-radius:9px;line-height:1.9}
+.small{color:#9baac0;font-size:13px;line-height:1.6}.error{color:#f6a4a4}
+@media(max-width:780px){.layout{grid-template-columns:1fr}main{margin-top:22px}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai text processing · Pronunciation · Speech plan · Future voice studio</div></div><div class="pill">Foundation v0.1.0</div></header>
+<div class="notice"><strong>Prototype:</strong> ระบบนี้ประมวลผลข้อความและทดลองกฎได้จริง แต่ยังไม่สามารถสร้างเสียง TTS, โคลนเสียง หรือเชื่อมต่อไลฟ์สดได้</div>
+<div class="layout">
+<section class="panel">
+<h2>ข้อความและกฎ</h2>
+<label for="message">ข้อความภาษาไทย</label>
+<textarea id="message">ชายหนุ่มกลายเป็นอมตะ และพูดคำต้องห้าม ก่อนหัวเราะ 55555</textarea>
+<label for="rule">Rules (JSON array)</label>
+<textarea class="json" id="rule">[
+  {"match":"คำต้องห้าม","mode":"silence","display":"***","silence_ms":400},
+  {"match":"55555","mode":"replace","spoken":"ฮ่า ฮ่า ฮ่า","display":"55555"}
+]</textarea>
+<label for="pron">Pronunciations (JSON object)</label>
+<textarea class="json" id="pron">{"อมตะ":"อะ มะ ตะ","เซียน":"เซียน"}</textarea>
+<button id="run">ทดลองประมวลผลข้อความ</button>
+<p class="small">ข้อมูลทั้งหมดถูกส่งไปที่ Local API บนเครื่องเดียวกัน ไม่ถูกส่งไปบริการ Cloud โดยหน้านี้</p>
+</section>
+<section class="panel">
+<h2>ตัวอย่างผลลัพธ์</h2>
+<label>ข้อความ Subtitle</label><div class="output" id="display">–</div>
+<label>ข้อความสำหรับระบบอ่านเสียงในอนาคต</label><div class="output" id="spoken">–</div>
+<label>Speech / Silence Segments</label><pre class="output" id="segments">–</pre>
+<p id="error" class="error" role="status"></p>
+</section>
+</div>
+<p class="small">API: <code>GET /v1/status</code>, <code>POST /v1/text/process</code> · This project is distributed under the MIT license (code only).</p>
+</main>
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+el("run").addEventListener("click", async () => {
+  el("error").textContent = "";
+  try {
+    const request = {
+      text: el("message").value,
+      rules: JSON.parse(el("rule").value),
+      pronunciations: JSON.parse(el("pron").value)
+    };
+    const response = await fetch("/v1/text/process", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(request)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Request failed");
+    el("display").textContent = result.display_text || "(ว่าง)";
+    el("spoken").textContent = result.spoken_text || "(ว่าง)";
+    el("segments").textContent = JSON.stringify(result.segments,null,2);
+  } catch (err) {
+    el("error").textContent = String(err.message || err);
+  }
+});
+el("run").click();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "rules": [
+    {
+      "match": "คำต้องห้าม",
+      "mode": "silence",
+      "display": "***",
+      "silence_ms": 400
+    },
+    {
+      "match": "55555",
+      "mode": "replace",
+      "spoken": "ฮ่า ฮ่า ฮ่า",
+      "display": "55555"
+    },
+    {
+      "match": "คำหยาบ",
+      "mode": "replace",
+      "spoken": "คำสุภาพ",
+      "display": "คำสุภาพ"
+    }
+  ]
+}

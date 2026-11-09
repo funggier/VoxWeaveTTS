@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voxweavetts"
+version = "0.1.0"
+description = "Portable, modular Thai text processing and speech orchestration foundation."
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "funggier"}]
+readme = "README.md"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
