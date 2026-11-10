@@ -33,7 +33,7 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <body>
 <main>
 <header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai text processing · Pronunciation · Speech plan · Future voice studio</div></div><div class="pill">M1 Thai Audio Preview</div></header>
-<div class="notice"><strong>Development Preview:</strong> ประมวลผลคำอ่าน กรองคำ และสร้างไฟล์เสียงภาษาไทยจริงได้เมื่อมีโมเดล FastThaiG2P ติดตั้งในเครื่อง · ยังไม่รองรับโคลนเสียงจากผู้ใช้ ปรับ Pitch/Formant หรือข้อความไลฟ์สด</div>
+<div class="notice"><strong>Development Preview:</strong> รองรับสอง Thai TTS Engines พร้อมการแก้คำอ่านและ Voice Studio (Speed, Gain, Pitch, Bass, Treble) · ยังไม่มีการโคลน/ฝึกเสียงผู้ใช้ การปรับ Formant อิสระ หรือการอ่านข้อความไลฟ์สด</div>
 <div class="layout">
 <section class="panel">
 <h2>ข้อความและกฎ</h2>
@@ -59,23 +59,8 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 </div>
 <section class="panel" style="margin-top:18px">
 <h2>สร้างเสียงภาษาไทย (M1 · CPU)</h2>
-<p class="small">สร้าง WAV ภาษาไทยจริงจากข้อความด้านบน โดยใช้กฎคำอ่านและการกรองที่กำหนดไว้ · เสียงปัจจุบัน: <strong>thai_som</strong> ของ FastThaiG2P (ยังไม่รองรับเสียงของผู้ใช้, Pitch หรือ Formant)</p>
-<p class="small">โมเดลใช้เสียงผู้พูดแบบคงที่ <strong>thai_som</strong> การเปลี่ยน Seed แทบไม่ทำให้เนื้อเสียงเปลี่ยน และไม่รับประกันการแก้คำอ่านผิด หากคำว่า “ฮ่า” ฟังคล้าย “พาน/พ่าน” ให้ทดลองเปลี่ยนรูปข้อความที่ใช้สังเคราะห์เสียงด้านล่าง</p>
-<div style="border:1px solid #40516d;border-radius:10px;padding:14px;margin:14px 0">
-<h2>ทดลองคำอ่านเสียงหัวเราะจาก 55555</h2>
-<p class="small">เปลี่ยนเฉพาะข้อความสำหรับ TTS ในกฎ `five_run` และแสดงเลข 5 เดิมบน Subtitle (ไม่ใช้ไฟล์เสียงแทรก)</p>
-<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
-<div><label for="laughSpoken">รูปคำอ่านที่ส่งเข้าโมเดล</label><select id="laughSpoken" style="min-width:190px">
-<option value="ฮ่า ฮ่า ฮ่า">ฮ่า ฮ่า ฮ่า (แยกคำ)</option>
-<option value="ฮ่าฮ่าฮ่า">ฮ่าฮ่าฮ่า (คำติดกัน)</option>
-<option value="ฮ่าๆๆ">ฮ่าๆๆ (ไม้ยมก)</option>
-<option value="ฮะ ฮะ ฮะ">ฮะ ฮะ ฮะ (เสียงสั้น)</option>
-<option value="ฮ่า! ฮ่า! ฮ่า!">ฮ่า! ฮ่า! ฮ่า! (มีเครื่องหมายอัศเจรีย์)</option>
-</select></div>
-<button id="testLaughSpoken" type="button">ใช้คำอ่านนี้และทดลองเสียง</button>
-</div>
-<p class="small" role="status" id="laughSpokenStatus">ตัวเลือกคำอ่านเป็นการทดลอง ไม่รับประกันว่าโมเดลจะออกเสียงถูกทุกแบบ</p>
-</div>
+<p class="small">สร้าง WAV ภาษาไทยจริงจากข้อความด้านบน โดยใช้ Engine และเสียงผู้พูดที่เลือกไว้ด้านล่าง รวมถึง Rules/Pronunciations ที่กำหนด · ยังไม่มี Voice Cloning หรือการฝึกเสียงจากผู้ใช้</p>
+<p class="small">แต่ละ Engine อาจออกเสียงคำสั้นอย่าง “ฮ่า” ได้ต่างกัน การเปลี่ยน Seed ไม่ใช่การแก้การออกเสียงที่เชื่อถือได้ หากอ่านผิดสามารถปรับ Rules/Pronunciations ในส่วนข้อความด้านบนได้โดยตรง</p>
 <div style="display:flex;gap:14px;align-items:end;flex-wrap:wrap">
 <div class="voice-grid">
 <div><label for="engineSelect">TTS Engine</label><select id="engineSelect"><option value="fastthaig2p-cpu">กำลังโหลด Engine…</option></select></div>
@@ -299,26 +284,6 @@ fetch("/v1/settings/synthesis").then(async r => {
   el("seedStatus").textContent = "Seed ที่บันทึกไว้: " + result.seed;
 }).catch(err => {
   el("seedStatus").textContent = String(err.message || err);
-});
-el("testLaughSpoken").addEventListener("click", () => {
-  try {
-    const requested = el("laughSpoken").value;
-    const rules = JSON.parse(el("rule").value);
-    if (!Array.isArray(rules)) throw new Error("Rules ต้องเป็น JSON array");
-    const target = rules.find(rule => rule.match_mode === "five_run" && rule.mode === "replace");
-    if (!target) throw new Error("ไม่พบกฎ five_run แบบ replace โปรดเพิ่มกฎเลข 5 ก่อน");
-    target.spoken = requested;
-    el("rule").value = JSON.stringify(rules, null, 2);
-    el("laughSpokenStatus").textContent = "ใช้คำอ่าน \"" + requested +
-      "\" สำหรับเลข 5 ที่ซ้ำกันแล้ว (ค่าอยู่ในช่อง Rules)";
-    el("run").click();
-    if (!el("synthesize").disabled) {
-      autoPlayNextSeed = true;
-      el("synthesize").click();
-    }
-  } catch (error) {
-    el("laughSpokenStatus").textContent = String(error.message || error);
-  }
 });
 let autoPlayNextSeed = false;
 el("nextSeed").addEventListener("click", () => {

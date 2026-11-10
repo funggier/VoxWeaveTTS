@@ -147,3 +147,11 @@ class ServerTests(unittest.TestCase):
         with urlopen(self.base,timeout=3) as r:
             content=r.read().decode("utf-8")
         self.assertIn("VoxWeaveTTS",content)
+        # The retired laughter-spelling selector was deliberately removed.
+        self.assertNotIn('id="laughSpoken"', content)
+        self.assertNotIn('id="testLaughSpoken"', content)
+        self.assertNotIn('ทดลองคำอ่านเสียงหัวเราะจาก 55555', content)
+        # Generic pronunciation rules and two-Engine Voice Studio remain.
+        self.assertIn('id="rule"', content)
+        self.assertIn('id="engineSelect"', content)
+        self.assertIn('id="slider-pitch_semitones"', content)

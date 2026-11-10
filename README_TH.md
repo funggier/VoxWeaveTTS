@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Voice Studio Preview v0.2.0.dev4** — มี Local API ข้อความ และ **สร้างเสียง WAV ภาษาไทยจริงผ่าน FastThaiG2P CPU ONNX ได้แล้ว** บนเครื่องที่ติดตั้งโมเดลกับ Runtime แต่ยัง **ไม่มี** การโคลนเสียงของผู้ใช้, ปรับ Pitch/Formant/Emotion, Audio Streaming, ตัวเชื่อม Discord/YouTube, Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Voice Studio Preview v0.2.0.dev5** — มี Local API ข้อความ และ **สร้างเสียง WAV ภาษาไทยจริงผ่าน FastThaiG2P CPU ONNX ได้แล้ว** บนเครื่องที่ติดตั้งโมเดลกับ Runtime แต่ยัง **ไม่มี** การโคลนเสียงของผู้ใช้, ปรับ Pitch/Formant/Emotion, Audio Streaming, ตัวเชื่อม Discord/YouTube, Subtitle Sync หรือ Portable EXE
 
 ## ข้อกำหนดที่ต้องรักษา
 1. ปรับเสียงได้: ความเร็ว, ระดับเสียง, Formant, ความกังวาน, อารมณ์, เว้นจังหวะ (ขึ้นกับความสามารถของ TTS รุ่นนั้น)
@@ -20,7 +20,7 @@
 
 1. รัน `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` เพื่อสร้าง `.venv` และติดตั้งโมเดลไทยไว้ในโฟลเดอร์โปรเจกต์ (ต้องมี `uv`, `gh` และอินเทอร์เน็ตในครั้งแรก)
 2. ดับเบิลคลิก `Start-Dev.cmd` และเปิด http://127.0.0.1:8765
-3. เลือก **Engine** ระหว่าง FastThaiG2P และ MakHam Paradee, ปรับ Speed/Gain/Pitch/Bass/Treble ด้วย Slider หรือช่องตัวเลข (มีการตรวจค่าตามช่วงที่กำหนด) กด **สร้างเสียง WAV** และฟังผลจริง; เมื่ออ่าน `55555` เพี้ยนให้เลือกรูปคำอ่านในแผงทดลองคำอ่าน ไม่ใช่เปลี่ยน Seed
+3. เลือก **Engine** ระหว่าง FastThaiG2P และ MakHam Paradee, ปรับ Speed/Gain/Pitch/Bass/Treble ด้วย Slider หรือช่องตัวเลข (มีการตรวจค่าตามช่วงที่กำหนด) กด **สร้างเสียง WAV** และฟังผลจริง; เมื่ออ่าน `55555` เพี้ยน ให้ทดลองเปรียบเทียบ Engine และปรับกฎ `Rules/Pronunciations` ด้วยตนเอง (แผงเลือกคำอ่านเสียงหัวเราะเฉพาะกิจถูกถอดออกแล้ว) ไม่ใช่เปลี่ยน Seed
 4. สามารถตั้งชื่อและบันทึก **Voice Preset** แล้วโหลดกลับมาใช้งานได้ เก็บไว้ใน `data/presets/voice-presets.json` ภายในโปรเจกต์
 5. ใช้ `scripts/Generate-ThaiSample.ps1` เพื่อสร้าง WAV จาก API หรือใช้ `scripts/Smoke-VoiceStudio.ps1` เพื่อทดสอบ Engine ทั้งสอง
 6. ใช้ `Test-Dev.cmd` ทดสอบ

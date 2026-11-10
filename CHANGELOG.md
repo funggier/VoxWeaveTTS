@@ -2,6 +2,13 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.2.0.dev5 — Retire experimental laughter-spelling UI (2026-11-10)
+
+- Removed the dedicated "55555 laughter spelling" selector, test button, and associated frontend event handler on user request.
+- Kept the general Rules/Pronunciations editor, `five_run` text replacement, subtitle preservation, both TTS Engines, DSP controls, and Voice Presets.
+- Confirmed FastThaiG2P G2P maps `5`, `๕`, `ห้า`, and `ฮ่า` to the same IPA; the isolated-phoneme speech failure cannot be solved by swapping these spellings alone. `ฮ่าร้อย` gives the same first phoneme with extra context, but should not be substituted automatically because its ending remains audible.
+- Recorded user's observation that MakHam Paradee produces more recognizable laughter with a trailing s-like sound while FastThaiG2P still mispronounces isolated laughter.
+
 ## 0.2.0.dev4 — Two Thai Engines and detailed Voice Studio (2026-11-10)
 
 - Added MakHam Paradee 8.46 MB INT8 CPU ONNX as a second working Thai TTS Engine, alongside FastThaiG2P.

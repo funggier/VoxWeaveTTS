@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.2.0.dev4 Voice Studio preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
+> **Current status (v0.2.0.dev5 Voice Studio preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
 
 ## Goals
 
@@ -17,7 +17,7 @@
 
 1. Install `uv` and GitHub CLI (`gh`) for development setup. Run `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` in the project directory. The optional CPU engine and ~326 MB voice model are stored under the project root.
 2. Run `Start-Dev.cmd` (picks the local `.venv` Python first).
-3. Open <http://127.0.0.1:8765/> and click **สร้างเสียง WAV** to synthesize and audition Thai speech; no voice cloning in this engine. Select one of two locally installed Thai Engines, use paired Slider/Numeric controls for Speed, Gain, Pitch, Bass and Treble, audition the **laughter pronunciation** selector, and save/load Voice Presets. **Seed** remains an advanced reproducibility option, not voice timbre. FFmpeg with Rubber Band is an optional developer dependency for Pitch/EQ; volume and speed work independently. A fresh ONNX session still reproduces audio for fixed text/speed/seed on the tested runtime.
+3. Open <http://127.0.0.1:8765/> and click **สร้างเสียง WAV** to synthesize and audition Thai speech; no voice cloning in this engine. Select one of two locally installed Thai Engines, use paired Slider/Numeric controls for Speed, Gain, Pitch, Bass and Treble, edit pronunciation/replacement rules directly, and save/load Voice Presets. **Seed** remains an advanced reproducibility option, not voice timbre. FFmpeg with Rubber Band is an optional developer dependency for Pitch/EQ; volume and speed work independently. A fresh ONNX session still reproduces audio for fixed text/speed/seed on the tested runtime.
 4. Use `scripts/Generate-ThaiSample.ps1` while the local server is running to save `output/api_demo.wav`.
 5. Run `Test-Dev.cmd` for unit tests.
 
