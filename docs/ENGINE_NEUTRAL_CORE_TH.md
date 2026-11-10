@@ -75,6 +75,10 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 
 เมื่อ Browser เล่น WAV จริง จะรายงาน HTMLMediaElement.currentTime ไปยัง playback_state.py เพื่อเลือก Subtitle จาก Segment ที่ผ่านกฎกรองและให้ OBS Browser Source ดึงได้ที่ /overlay โดยไม่ต้องโหลดโมเดลในระบบเล่นเสียงและไม่ถือว่า Speech Job ready คือเริ่มเล่นแล้ว ดู [คู่มือ Playback/OBS](PLAYBACK_OVERLAY_TH.md)
 
+## Official Live / Discord Input Adapters
+
+SourceManager รับเฉพาะข้อความจาก API ทางการ YouTube Live Chat / Discord Bot ที่ผู้ใช้ตั้งค่าเอง เป็นการเชื่อมต่อแบบอ่านอย่างเดียว แยกจาก Engine Registry และ SpeechCoordinator ส่งข้อความผ่านคิวแบบ Bounded และใช้ค่า Engine/Voice/Rules ส่วนกลาง. การสลับ Workspace ยกเลิกการรับข้อความและ Auto-read ไม่ทำลายเสียงที่สร้างไว้ในโหมดอื่น (ดู [Live Input](LIVE_INPUT_ADAPTERS_TH.md)).
+
 ## Independent Workspaces
 
 เพิ่ม ModeState ส่วนกลางที่ให้สิทธิ์ Playback/OBS ได้เพียงโหมดเดียว; Browser Workspace UI แยกข้อความและตัวเล่นของแต่ละงาน ส่วน Engine Registry, Voice Controls, Seed, Presets และ Rules/Pronunciations ใช้ร่วมกันทั้งหมด สามารถบันทึก Engine/Voice/DSP ที่หน้า ตั้งค่ากลาง ได้ด้วย Local JSON. Live/Discord เป็น Source Simulator เท่านั้น (ยังไม่ใช่ Adapter แพลตฟอร์มจริง) ดู [Workspace Modes](WORKSPACE_MODES_TH.md).

@@ -1,6 +1,6 @@
 # VoxWeaveTTS — โหมดการทำงานอิสระและการตั้งค่ากลาง
 
-> v0.3.0.dev10 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord ยังเป็นข้อความทดลอง ไม่ใช่การเชื่อมแพลตฟอร์มจริง
+> v0.3.0.dev11 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord มีตัวรับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง
 
 ## โครงสร้าง
 
@@ -14,7 +14,7 @@
 |---|---|---|
 | สร้างเสียง | ข้อความเฉพาะโหมด, สร้าง/ฟัง/ดาวน์โหลด WAV, Subtitle | ใช้งานได้ |
 | อ่านเอกสาร | TXT/Markdown, แก้ข้อความในช่วง, เลือกบท, Bookmark, Auto-next, Subtitle | ใช้งานได้ |
-| อ่านไลฟ์สด | ข้อความจำลอง Live Chat, สร้าง WAV, เล่น/หยุด, Subtitle | ทดลอง Local เท่านั้น |
+| อ่านไลฟ์สด | ข้อความจำลอง Live Chat, สร้าง WAV, เล่น/หยุด, Subtitle | ทดลอง Local หรือรับ Official API เมื่อมี Credentials |
 | Discord | ข้อความจำลอง Discord, สร้าง WAV, เล่น/หยุด, Subtitle | ทดลอง Local เท่านั้น |
 | คิวและ Subtitle | ข้อความของคิว, WAV Jobs, Waveform และ Manual Alignment JSON | ใช้งานได้ |
 | คำอ่านและกฎ | Rules/Pronunciations JSON, ตรวจ/แก้/เพิ่ม/นำเข้า/บันทึก/ทดลองคำอ่าน | ค่ากลาง |
@@ -55,15 +55,15 @@ Token นี้ใช้เพื่อจัดการสิทธิ์เ�
 - GET /v1/settings/global-voice: อ่านค่ากลาง Engine/Voice/Speed/DSP ที่บันทึก
 - POST /v1/settings/global-voice: JSON {engine_id,voice_id,speed,voice_controls,expected_revision} กับ Header X-VoxWeaveTTS-Intent: save-global-voice; บันทึกแบบ Atomic และป้องกัน Revision ขัดแย้ง
 
-## Live / Discord: งานถัดไป
+## Live / Discord: Official Read-Only Inputs
 
-โหมด Live และ Discord มีช่องข้อความเป็นอิสระพร้อมการสร้างเสียงและ Subtitle ได้แล้ว แต่ยัง **ไม่มีการรับข้อความจาก YouTube Live หรือ Discord จริง** ต้องพัฒนา Input Adapter แยกในอนาคต พร้อม OAuth/Bot Authentication, Reconnection, Deduplication, Rate Limit, Moderation, Queue Priority และกฎการจัดการสิทธิ์/ข้อมูลของแต่ละแพลตฟอร์ม ไม่ควรถือว่าโหมดข้อความทดลองนี้เชื่อมบัญชีสำเร็จแล้ว
+เพิ่ม YouTube liveChatMessages.list และ Discord Bot REST Channel Messages Polling โดยผู้ใช้กรอก Credentials ชั่วคราวหรือใช้ Environment Variable ด้วยตนเอง โหมดเหล่านี้ยังรองรับการทดลองพิมพ์ข้อความโดยไม่เชื่อมบัญชี และปิด Auto-read เป็นค่าเริ่มต้น
 
-ระบบกลางยังใช้ Speech Coordinator ชุดเดียว มี CPU Inference เรียงคิว ไม่ได้แยกโมเดลรันพร้อมกันหลายชุด
+การใช้ Official API ต้องมีสิทธิ์และ Credentials ที่ถูกต้อง; ยังไม่ได้ยืนยันด้วยบัญชี Live/Discord จริง โหมดเหล่านี้ไม่มีการส่งข้อความกลับผู้ให้บริการ รองรับการอ่านทีละข้อความหลังตรวจกรอง และหยุด Source Worker ทันทีเมื่อเปลี่ยนโหมด อ่านรายละเอียด [คู่มือ Live Input](LIVE_INPUT_ADAPTERS_TH.md)
 
 ## สิ่งที่ยังไม่รองรับ
 
-- การอ่านจาก Live Platform/Discord Bot จริง
+- การทดสอบ Official API กับบัญชีที่ได้รับอนุญาตจริง และ Low-Latency Gateway/StreamList
 - Automatic Word/Syllable Forced Alignment ที่ตรวจ License ครบ
 - การบันทึกข้อความ Draft ของแต่ละโหมดข้าม Browser Restart
 - การตรวจสิทธิ์แบบ Login สำหรับ API ข้ามเครื่อง

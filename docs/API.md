@@ -65,7 +65,18 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
 
-## Independent Workspaces and Shared Voice Settings (v0.3.0.dev10)
+## Read-only YouTube / Discord Source Inputs (v0.3.0.dev11)
+
+- POST /v1/sources/start: JSON {mode:"live"|"discord",mode_token,source_id,credential,filters:{blocked_words,max_chars}} with X-VoxWeaveTTS-Intent: start-live-source. Credential optional if VOXWEAVE_YOUTUBE_API_KEY / VOXWEAVE_DISCORD_BOT_TOKEN set in the server environment. Current owner required; credentials never returned or persisted.
+- GET /v1/sources/status?mode=live|discord: read-only state/stats; no secrets.
+- POST /v1/sources/drain: JSON {mode,mode_token,limit:1..20}, X-VoxWeaveTTS-Intent: drain-live-source. Returns bounded messages and status only for active owner.
+- POST /v1/sources/stop: JSON {mode,mode_token}, X-VoxWeaveTTS-Intent: stop-live-source. Clears the source queue; switching workspace stops source automatically.
+- All source POST requests require Content-Type: application/json. Auth/ownership failures return HTTP 409; invalid fields return HTTP 400; missing intent 403; wrong content type 415.
+- YouTube first page establishes baseline and is not read. Subsequent pages use API nextPageToken/pollingIntervalMillis and require an API Key; Discord uses a Bot Token to poll Channel Messages after the latest Snowflake ID, obeying route rate-limit headers. Opt-in auto-read is OFF until enabled on the UI. No back-channel publishing or data persistence.
+
+See [Live Input Adapters](LIVE_INPUT_ADAPTERS_TH.md). Adapters are mocked-tested; external account test not yet completed.
+
+## Independent Workspaces and Shared Voice Settings (v0.3.0.dev11)
 
 - GET /v1/modes/state — active_mode, revision, exclusive_playback and supported mode IDs (no owner token).
 - POST /v1/modes/activate — requires JSON {"mode":"studio|reader|queue|live|discord|rules|settings"} and X-VoxWeaveTTS-Intent: activate-mode; atomically invalidates the previous playback session/OBS state and returns the new owner mode_token plus revision.

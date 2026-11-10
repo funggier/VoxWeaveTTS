@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev10** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev11** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -22,13 +22,21 @@
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
 
-## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.3.0.dev10)
+## เชื่อมอ่านข้อความจาก YouTube Live และ Discord (ทดลอง)
+
+โหมด **อ่านไลฟ์สด** และ **Discord** รองรับการรับข้อความใหม่จาก **Official API แบบอ่านอย่างเดียว** แล้ว โดยใช้ YouTube Data API v3 API Key หรือ Discord Bot Token ที่ผู้ใช้เป็นเจ้าของและได้รับอนุญาต กดเชื่อมต่อในโหมดนั้นจึงเริ่มทำงาน คีย์/โทเค็นจะอยู่ในหน่วยความจำชั่วคราว ไม่บันทึกลงดิสก์หรือ Git
+
+เลือกข้อความเพื่อสร้างเสียงด้วยตนเอง หรือเลือก **อ่านข้อความใหม่อัตโนมัติ** ซึ่ง **ปิดไว้เป็นค่าเริ่มต้น** ระบบกรองลิงก์ คำสั่ง Bot และคำที่ไม่ต้องการ พร้อมจำกัดคิวไม่ให้ข้อความเข้ามามากเกิน และหยุดรับ/อ่านเมื่อเปลี่ยนโหมด
+
+**หมายเหตุ:** โค้ด Official API และการทดสอบจำลองพร้อมแล้ว แต่ยังไม่ได้ยืนยันกับ Live/Discord จริงเพราะยังไม่มี Credentials ของผู้ใช้ และเป็น REST Polling ไม่ใช่ Push แบบ Latency ต่ำ คู่มือ: [Live/Discord Inputs](docs/LIVE_INPUT_ADAPTERS_TH.md)
+
+## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.3.0.dev11)
 
 หน้าตาใหม่แบ่งเป็น **สร้างเสียง, อ่านเอกสาร, ไลฟ์สด, Discord, คิว/Subtitle, คำอ่านและกฎ, ตั้งค่ากลาง** โดยแต่ละโหมดมีข้อความและตัวเล่นของตัวเอง เมื่อเปลี่ยนแท็บเสียงและการอ่านอัตโนมัติของโหมดเดิมจะหยุดทันที มีโหมดที่ได้รับสิทธิ์ส่งเสียงไป OBS ได้เพียงโหมดเดียว แม้เปิดหลายแท็บ
 
 **Engine/Model, Voice, Speed, DSP, Seed, Preset และ Rules/Pronunciations ใช้ค่ากลาง** ไม่ต้องตั้งซ้ำในทุกโหมด สามารถกดบันทึก Engine/Voice/DSP ที่หน้า ตั้งค่ากลาง เพื่อโหลดกลับมาเมื่อเปิดโปรแกรมรอบต่อไป ส่วน JSON คำอ่านและ Seed ใช้การบันทึกกลางเดิม
 
-**โหมด Live และ Discord ตอนนี้เป็นการทดลองพิมพ์ข้อความจำลองในแต่ละโหมด ยังไม่ได้เชื่อม YouTube Live หรือ Discord Bot จริง** เพื่อให้ทดสอบสถาปัตยกรรมเสียง/OBS/การสลับโหมดก่อน ดู [คู่มือโหมดและค่ากลาง](docs/WORKSPACE_MODES_TH.md)
+**โหมด Live และ Discord ยังคงให้ทดลองพิมพ์ข้อความจำลองได้** และสามารถเชื่อม Official API แบบอ่านอย่างเดียวเมื่อผู้ใช้ตั้งค่า Credentials เอง (ยังไม่ได้ทดสอบกับบัญชีจริง) ดู [คู่มือโหมดและค่ากลาง](docs/WORKSPACE_MODES_TH.md)
 
 ## ปรับปรุงการตัด Subtitle และช่วงอ่านภาษาไทย
 

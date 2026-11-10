@@ -61,12 +61,20 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 .mode-footer{padding:15px 8px}
 @media(max-width:900px){.app-workspace{grid-template-columns:1fr}.mode-sidebar{position:static}.mode-nav{display:flex;overflow-x:auto;padding-bottom:4px}.mode-nav-button{flex:0 0 auto;width:auto!important;white-space:nowrap}.side-help{display:none}}
 @media(max-width:720px){main{padding:0 12px;margin-top:14px}.panel{padding:14px}.voice-row{gap:6px}.mode-topbar{padding:8px}}
+
+.source-connector{border:1px solid #354960;padding:12px 15px;border-radius:10px;background:#102033}
+.source-connector>summary{cursor:pointer;font-weight:700;color:#bedaf6}
+.source-connector input[type=password]{width:100%;min-width:195px;background:#0e1929;color:#eaf0f9;border:1px solid #40516d;border-radius:9px;padding:9px}
+.source-message-list{padding-left:24px;max-height:290px;overflow-y:auto}
+.source-message{padding:8px 0;border-bottom:1px solid #30445d;color:#dfebfc;overflow-wrap:break-word}
+.source-author{color:#9dbdde;font-weight:600}
+.source-message button{margin:5px 8px;vertical-align:middle}
 </style>
 </head>
 <body>
 <main>
 <header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Workspaces · Shared Engine & Rules</div></div><div class="pill">Workspace Mode Preview</div></header>
-<div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละโหมดมีข้อความและการเล่นเสียงของตัวเอง · Engine, ค่าปรับเสียง และ Rules/Pronunciations ใช้ค่ากลาง · Live/Discord ยังเป็นโหมดทดสอบข้อความจำลอง ไม่ใช่การเชื่อมบริการจริง</div>
+<div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละโหมดมีข้อความและการเล่นเสียงของตัวเอง · Engine, ค่าปรับเสียง และ Rules/Pronunciations ใช้ค่ากลาง · Live/Discord เลือกใช้ข้อความทดลองหรือเชื่อมต่อ API ทางการโดยใช้ข้อมูลบัญชีของคุณ (ปิดไว้จนกดเชื่อมต่อ)</div>
 <div class="app-workspace">
 <aside class="mode-sidebar" aria-label="โหมดการทำงาน">
 <div class="side-heading">WORKSPACES</div>
@@ -143,7 +151,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <div class="mode-view" data-mode-view="live" hidden><section class="panel" style="margin-top:0">
 <h2>อ่านจากไลฟ์สด</h2>
-<p class="small">โหมดนี้มีช่องข้อความและตัวเล่นเสียงของตัวเอง ใช้ Engine/เสียง/กฎคำอ่านส่วนกลาง · <strong>ยังไม่เชื่อม Live API / Discord Bot จริง</strong> สามารถทดสอบข้อความจำลองและขั้นตอนการอ่านได้ก่อนโดยไม่ต้องใช้บัญชี</p>
+<p class="small">โหมดนี้มีช่องข้อความและตัวเล่นเสียงของตัวเอง ใช้ Engine/เสียง/กฎคำอ่านส่วนกลาง · <strong>เชื่อม YouTube Live Chat API หรือ Discord Bot API ได้เมื่อให้สิทธิ์และข้อมูลเชื่อมต่อ</strong> สามารถทดสอบข้อความจำลองและขั้นตอนการอ่านได้ก่อนโดยไม่ต้องใช้บัญชี</p>
 <label for="liveText">ข้อความจาก Live Chat (ทดลองป้อนข้อความเอง)</label>
 <textarea id="liveText" placeholder="พิมพ์หรือวางข้อความเพื่อทดลองการอ่านในโหมดนี้"></textarea>
 <div class="voice-grid">
@@ -151,6 +159,29 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" id="livePlay">เล่นเสียงที่สร้าง</button>
 <button type="button" id="liveStop">หยุดเสียงและยกเลิกงาน</button>
 </div>
+<details class="source-connector" style="margin:14px 0" open>
+<summary>รับข้อความจาก YouTube Live Chat จริง (อ่านอย่างเดียว)</summary>
+<p class="small">ต้องมีสิทธิ์เข้าถึง API อย่างถูกต้อง · ข้อความเก่าก่อนกดเชื่อมต่อจะไม่ถูกนำมาอ่าน · Token อยู่ในหน่วยความจำชั่วคราว ไม่ถูกบันทึกหรือส่งไป GitHub</p>
+<div class="voice-grid">
+<div><label for="liveFeedSourceId">YouTube liveChatId หรือ Video ID</label>
+<input type="text" id="liveFeedSourceId" autocomplete="off" placeholder="LiveChat ID / Video ID"></div>
+<div><label for="liveFeedCredential">YouTube Data API Key (ไม่บันทึก)</label>
+<input type="password" id="liveFeedCredential" autocomplete="new-password" placeholder="กรอกครั้งนี้ หรือใช้ Environment Variable"></div>
+</div>
+<div class="voice-grid">
+<div><label for="liveFeedBlocked">คำที่ไม่ต้องการให้อ่าน (คั่นด้วยจุลภาค)</label>
+<input type="text" id="liveFeedBlocked" placeholder="คำหยาบ, สแปม"></div>
+<div><label for="liveFeedMaxChars">ความยาวข้อความสูงสุด</label>
+<input type="number" id="liveFeedMaxChars" min="20" max="280" value="240"></div>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedAuto" style="width:auto">อ่านข้อความใหม่อัตโนมัติ (Opt-in)</label>
+</div>
+<div class="voice-grid">
+<button type="button" id="liveFeedStart">เชื่อมต่อ API</button>
+<button type="button" id="liveFeedStop">หยุดรับข้อความ</button>
+</div>
+<p id="liveFeedStatus" class="small" role="status">ยังไม่ได้เชื่อมต่อ · สามารถใช้ข้อความทดลองด้านบนได้โดยไม่ต้องเชื่อมบัญชี</p>
+<ol id="liveFeedItems" class="source-message-list"></ol>
+</details>
 <p id="liveStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
 <audio id="liveAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="liveSubtitle" class="mode-subtitle" role="status"></div>
@@ -167,6 +198,29 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" id="discordPlay">เล่นเสียงที่สร้าง</button>
 <button type="button" id="discordStop">หยุดเสียงและยกเลิกงาน</button>
 </div>
+<details class="source-connector" style="margin:14px 0" open>
+<summary>รับข้อความจาก Discord Bot Channel จริง (อ่านอย่างเดียว)</summary>
+<p class="small">ต้องมีสิทธิ์เข้าถึง API อย่างถูกต้อง · ข้อความเก่าก่อนกดเชื่อมต่อจะไม่ถูกนำมาอ่าน · Token อยู่ในหน่วยความจำชั่วคราว ไม่ถูกบันทึกหรือส่งไป GitHub</p>
+<div class="voice-grid">
+<div><label for="discordFeedSourceId">Discord Channel ID</label>
+<input type="text" id="discordFeedSourceId" autocomplete="off" placeholder="Channel Snowflake ID"></div>
+<div><label for="discordFeedCredential">Discord Bot Token (ไม่บันทึก)</label>
+<input type="password" id="discordFeedCredential" autocomplete="new-password" placeholder="กรอกครั้งนี้ หรือใช้ Environment Variable"></div>
+</div>
+<div class="voice-grid">
+<div><label for="discordFeedBlocked">คำที่ไม่ต้องการให้อ่าน (คั่นด้วยจุลภาค)</label>
+<input type="text" id="discordFeedBlocked" placeholder="คำหยาบ, สแปม"></div>
+<div><label for="discordFeedMaxChars">ความยาวข้อความสูงสุด</label>
+<input type="number" id="discordFeedMaxChars" min="20" max="280" value="240"></div>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedAuto" style="width:auto">อ่านข้อความใหม่อัตโนมัติ (Opt-in)</label>
+</div>
+<div class="voice-grid">
+<button type="button" id="discordFeedStart">เชื่อมต่อ API</button>
+<button type="button" id="discordFeedStop">หยุดรับข้อความ</button>
+</div>
+<p id="discordFeedStatus" class="small" role="status">ยังไม่ได้เชื่อมต่อ · สามารถใช้ข้อความทดลองด้านบนได้โดยไม่ต้องเชื่อมบัญชี</p>
+<ol id="discordFeedItems" class="source-message-list"></ol>
+</details>
 <p id="discordStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
 <audio id="discordAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="discordSubtitle" class="mode-subtitle" role="status"></div>
@@ -342,11 +396,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 </section>
 </div>
-<p class="small mode-footer">Single active workspace · กฎคำอ่านและ Voice Settings ใช้ร่วมกัน · OBS Overlay เป็นช่องเดียวของทุกโหมด · Live/Discord รับข้อความจำลองได้ก่อนเชื่อมบริการจริง</p>
+<p class="small mode-footer">Single active workspace · กฎคำอ่านและ Voice Settings ใช้ร่วมกัน · OBS Overlay เป็นช่องเดียวของทุกโหมด · Live/Discord เลือกข้อความจำลองหรือ Official API แบบอ่านอย่างเดียว</p>
 </div></div>
 </main>
 <script src="/mode_workspace.js"></script>
 <script src="/mode_inputs.js"></script>
+<script src="/source_feed.js"></script>
 <script src="/playback_clock.js"></script>
 <script src="/waveform_editor.js"></script>
 <script src="/manual_alignment.js"></script>
@@ -356,6 +411,8 @@ const el = id => document.getElementById(id);
 let modeRuntime = null;
 let liveMode = null;
 let discordMode = null;
+let liveFeed = null;
+let discordFeed = null;
 let studioGeneration = 0;
 let studioJobId = null;
 let studioReadyJob = null;
@@ -1474,6 +1531,8 @@ function suspendAllPlayback(){
   stopJobPoll();
   queueClock.clear();
   queueAudio.pause();
+  liveFeed?.suspend();
+  discordFeed?.suspend();
   liveMode?.suspend();
   discordMode?.suspend();
 }
@@ -1498,6 +1557,21 @@ if(typeof VoxModeInputs!=="undefined"){
     });
     if(mode==="live")liveMode=instance;
     else discordMode=instance;
+  }
+}
+if(typeof VoxSourceFeed!=="undefined"){
+  for(const mode of ["live","discord"]){
+    const inputMode=mode==="live"?liveMode:discordMode;
+    const feed=VoxSourceFeed.attach({
+      mode,el,
+      credentials:id=>modeRuntime.credentials(id),
+      guard:id=>Boolean(modeRuntime?.guard(id)),
+      onMessage:(entry,automatic)=>inputMode.receiveIncoming(entry,automatic),
+      onPick:entry=>{el(mode+"Text").value=entry.text;},
+      onStop:()=>inputMode.clearAutoQueue(),
+    });
+    if(mode==="live")liveFeed=feed;
+    else discordFeed=feed;
   }
 }
 if(typeof VoxWorkspaceModes!=="undefined"){

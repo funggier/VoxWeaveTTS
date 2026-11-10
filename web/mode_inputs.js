@@ -9,7 +9,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
   const get=id=>el(mode+id);
   const audio=get("Audio");
   let generation=0, jobId=null, lastReady=null, wavUrl=null;
-  let activeTask=null;
+  const incoming=[];
+  let autoBusy=false;
   const clock=clockLibrary.attach(audio,payload=>report(payload,mode),
     state=>{
       get("Subtitle").textContent=state.text;
@@ -48,11 +49,13 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
     if(old)feedback("หยุดเสียงของโหมดนี้แล้ว · ข้อความยังอยู่");
   }
   function suspend(){
+    incoming.length=0;
+    autoBusy=false;
     stop({discard:false});
     // Re-entering a mode should never automatically resume audio.
     if(audio.currentTime>0)audio.currentTime=0;
   }
-  async function submit(){
+  async function submit({autoPlay=false,messageId=null}={}){
     if(!guard(mode))throw Error("กรุณาเปิดโหมดนี้ให้เป็นโหมดปัจจุบันก่อน");
     const text=get("Text").value;
     if(!text.trim())throw Error("กรุณาใส่ข้อความทดลอง");
@@ -64,6 +67,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
     try{
       const body=getSpeechPayload(text);
       body.source=mode==="discord"?"discord":"youtube-live";
+      if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
         method:"POST",
         headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"queue-speech"},
@@ -96,8 +100,15 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
           audio.style.display="block";
           get("Download").href=wavUrl;
           get("Download").style.display="inline-block";
-          feedback("เสียงพร้อม · กด Play เพื่ออ่านจากข้อความทดลองของโหมดนี้");
-          return;
+          feedback("เสียงพร้อม · กด Play เพื่ออ่านข้อความของโหมดนี้");
+          if(autoPlay){
+            try{await audio.play();}
+            catch{
+              feedback("Browser ไม่อนุญาต Auto-play · กด Play เองได้");
+              return false;
+            }
+          }
+          return true;
         }
         if(["failed","cancelled"].includes(job.state))
           throw Error("งานเสียง "+job.state);
@@ -110,6 +121,36 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
       if(my===generation)get("Submit").disabled=false;
     }
   }
+  async function pumpIncoming(){
+    if(autoBusy||!guard(mode)||!get("FeedAuto").checked)return;
+    // Never interrupt an already playing WAV in this workspace.
+    if(!audio.paused&&!audio.ended)return;
+    const next=incoming.shift();
+    if(!next)return;
+    autoBusy=true;
+    get("Text").value=next.text;
+    const played=await submit({autoPlay:true,messageId:next.message_id});
+    if(!played){
+      autoBusy=false;
+      // Require explicit opt-in again if autoplay failed or was blocked.
+      get("FeedAuto").checked=false;
+      incoming.length=0;
+    }
+  }
+  function receiveIncoming(msg,autoRead){
+    if(!autoRead||!guard(mode)||typeof msg?.text!=="string")return;
+    if(incoming.length>=12)incoming.shift();
+    incoming.push(msg);
+    pumpIncoming().catch(error=>{
+      autoBusy=false;
+      feedback(String(error.message||error));
+    });
+  }
+  audio.addEventListener("ended",()=>{
+    autoBusy=false;
+    pumpIncoming().catch(error=>feedback(String(error.message||error)));
+  });
+  function clearAutoQueue(){incoming.length=0;autoBusy=false;}
   function resume(){
     if(lastReady && wavUrl){
       clock.setSpeech(lastReady.speech_id,lastReady.audio);
@@ -124,8 +165,13 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
     catch(error){feedback("Browser เล่นเสียงไม่สำเร็จ: "+String(error.message||error));}
   });
   get("Submit").addEventListener("click",()=>submit().catch(e=>feedback(String(e.message||e))));
-  get("Stop").addEventListener("click",()=>{stop({discard:true});feedback("หยุดอ่านในโหมดนี้แล้ว");});
-  return {stop,suspend,resume,submit,get jobId(){return jobId;}};
+  get("Stop").addEventListener("click",()=>{
+    clearAutoQueue();
+    get("FeedAuto").checked=false;
+    stop({discard:true});
+    feedback("หยุดอ่านในโหมดนี้แล้ว · หากต้องการอ่านอัตโนมัติให้เปิดตัวเลือกอีกครั้ง");
+  });
+  return {stop,suspend,resume,submit,receiveIncoming,clearAutoQueue,get jobId(){return jobId;}};
 }
 root.VoxModeInputs={attach};
 if(typeof module!=="undefined"&&module.exports)module.exports={attach};

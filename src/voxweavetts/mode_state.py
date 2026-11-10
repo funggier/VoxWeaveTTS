@@ -74,6 +74,16 @@ class ModeState:
             result = self.snapshot()
             return result if result["revision"] != previous_revision else None
 
+    def is_owner(self, mode: object, token: object) -> bool:
+        with self._lock:
+            return (
+                self._revision > 0 and isinstance(mode, str)
+                and isinstance(token, str)
+                and mode == self._active
+                and self._token is not None
+                and secrets.compare_digest(self._token, token)
+            )
+
     def report(self, payload: dict[str, Any], ready_job: Any,
                playback_state: Any) -> dict[str, Any]:
         with self._lock:

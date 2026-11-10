@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.3.0.dev10 Independent Workspace preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, word/phoneme subtitle alignment, a native hardware Playback Clock, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
+> **Current status (v0.3.0.dev11 Official Live Input preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, word/phoneme subtitle alignment, a native hardware Playback Clock, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
 
 ## Goals
 
@@ -42,11 +42,17 @@ The existing **Rules JSON array** and **Pronunciations JSON object** now provide
 
 When a generated WAV actually plays in the document reader or job queue player, a shared browser media-clock adapter reports currentTime, seek, pause, resume, end and stop to the local Playback API. A read-only transparent OBS overlay can open http://127.0.0.1:8765/overlay. The overlay follows Browser-reported time, hides silenced segments, and automatically hides stale captions. It does NOT play audio itself; capture audio from the original player separately in OBS. This is SEGMENT-level timing, not word/phoneme alignment or hardware-output-accurate synchronization. See [Playback and OBS guide (Thai)](docs/PLAYBACK_OVERLAY_TH.md).
 
+## Official YouTube Live / Discord message inputs (opt-in preview)
+
+Live and Discord workspaces now include read-only official message source adapters using user-provided YouTube Data API Key/liveChatId or Discord Bot Token/Channel ID. Messages are deduplicated and moderated before entering a bounded in-memory queue. The first page is only a baseline, not automatically spoken; the user can manually select messages or opt in to sequential TTS auto-reading (OFF by default). Only the active workspace can read messages and publish to the one OBS Overlay. Credentials are never committed or persisted by the app.
+
+The adapters are tested against mocked Official API responses but **not yet verified with a user's live authorized YouTube/Discord account**. YouTube uses list-polling with provider intervals, Discord uses REST polling with rate-limit backoff; neither is a low-latency gateway. See [Live Input Adapters Guide (Thai)](docs/LIVE_INPUT_ADAPTERS_TH.md).
+
 ## Independent workspaces and global Engine/Voice settings (preview)
 
 The UI now separates Studio, Document Reader, Live text simulation, Discord text simulation, Speech Queue/Subtitle/Manual Alignment, shared Pronunciation Rules, and shared Engine/Voice settings. Each mode keeps its own editable text/player; all modes share the global model, voice, speed, DSP, Seed, presets and dictionary/rules. The global voice defaults can be saved atomically to a gitignored local JSON file and reloaded next session.
 
-Switching modes synchronously stops other audio/reader autoplay, revokes the previous playback ownership token and clears the **single OBS Overlay**; a bounded SSE channel, BroadcastChannel and polling notify other tabs. Studio WAVs now use the job/clock API so they also support OBS captions. **Live/Discord are only local message simulations** at this stage; platform input adapters are not connected yet. See [Workspace modes guide (Thai)](docs/WORKSPACE_MODES_TH.md).
+Switching modes synchronously stops other audio/reader autoplay, revokes the previous playback ownership token and clears the **single OBS Overlay**; a bounded SSE channel, BroadcastChannel and polling notify other tabs. Studio WAVs now use the job/clock API so they also support OBS captions. **Live/Discord retain local simulation and can optionally connect to Official APIs** using the user's own credentials; live account testing is still pending. See [Workspace modes guide (Thai)](docs/WORKSPACE_MODES_TH.md).
 
 ## Safer Thai caption boundaries (fixed in v0.3.0.dev9)
 

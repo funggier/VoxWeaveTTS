@@ -97,11 +97,30 @@ async function main(){
   assert.notEqual(live.jobId,discord.jobId);
   assert.equal(get("liveText").value,"ข้อความจากไลฟ์");
   assert.equal(get("discordText").value,"ข้อความจาก Discord");
+  // Official feed auto-read is opt-in and serial, never interrupts a WAV.
+  get("discordFeedAuto").checked=true;
+  get("discordAudio").paused=true;
+  discord.receiveIncoming({message_id:"m1",text:"ข้อความใหม่หนึ่ง"},true);
+  discord.receiveIncoming({message_id:"m2",text:"ข้อความใหม่สอง"},true);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads[2].text,"ข้อความใหม่หนึ่ง");
+  assert.equal(payloads[2].source_message_id,"discord-m1");
+  assert.equal(payloads.length,3,"only one auto job starts before playback ends");
+  get("discordAudio").paused=true;
+  get("discordAudio").events.ended();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads[3].text,"ข้อความใหม่สอง");
+  get("discordAudio").paused=true;
+  get("discordAudio").events.ended();
+  discord.receiveIncoming({message_id:"m3",text:"ห้ามอ่านต่อ"},false);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.length,4,"unchecked auto-read must never queue speech");
+  discord.clearAutoQueue();
   discord.stop({discard:true});
   assert.equal(get("discordAudio").style.display,"none");
   assert.equal(discord.jobId,null);
-  assert.equal(get("discordText").value,"ข้อความจาก Discord");
+  assert.equal(get("discordText").value,"ข้อความใหม่สอง");
   assert.ok(blobUrl.size<=1);
-  console.log("PASS: independent Live/Discord drafts, global engine payload, own audio clock, stop-on-switch and no live connector claims");
+  console.log("PASS: independent Live/Discord drafts, global engine payload, own audio clock, stop-on-switch and serial opt-in connected-source playback");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

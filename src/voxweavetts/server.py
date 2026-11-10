@@ -32,6 +32,7 @@ from .text_settings import load_all as load_text_settings, load_section as load_
 from .reading_progress import load_position, save_position, clear_position, ProgressConflict
 from .playback_state import PlaybackState, PlaybackConflict, StreamFull
 from .mode_state import ModeState, ModeConflict, MODES
+from .source_manager import SourceManager
 from .manual_alignment import timing_metrics
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
@@ -48,6 +49,7 @@ _COORDINATOR_LOCK = threading.Lock()
 _COORDINATOR: SpeechCoordinator | None = None
 _PLAYBACK_STATE = PlaybackState()
 _MODE_LOCK = threading.Lock()
+_SOURCE_LOCK = threading.Lock()
 
 
 def _load_json(relative: str, default: Any) -> Any:
@@ -181,6 +183,14 @@ class Handler(BaseHTTPRequestHandler):
                 mode = ModeState()
                 self.server.mode_state = mode
             return mode
+
+    def _source_manager(self) -> SourceManager:
+        with _SOURCE_LOCK:
+            source = getattr(self.server, "source_manager", None)
+            if source is None:
+                source = SourceManager()
+                self.server.source_manager = source
+            return source
 
     @staticmethod
     def _job_route(route: str) -> tuple[str, str] | None:
@@ -359,8 +369,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js"}:
-                name = ("mode_inputs.js" if route == "/mode_inputs.js" else
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js"}:
+                name = ("source_feed.js" if route == "/source_feed.js" else
+                        "mode_inputs.js" if route == "/mode_inputs.js" else
                         "mode_workspace.js" if route == "/mode_workspace.js" else
                         "waveform_editor.js" if route == "/waveform_editor.js" else
                         "manual_alignment.js" if route == "/manual_alignment.js" else
@@ -396,7 +407,10 @@ class Handler(BaseHTTPRequestHandler):
                         "reproducible_seed": info.assets_ready and info.runtime_ready,
                         "voice_cloning": False,
                         "websocket_streaming": False,
-                        "live_connectors": False,
+                        "live_connectors": True,
+                        "youtube_live_polling": True,
+                        "discord_bot_rest_polling": True,
+                        "live_credentials_persisted": False,
                         "exclusive_workspace_modes": True,
                         "workspace_mode_sse": True,
                         "shared_voice_settings": True,
@@ -415,6 +429,10 @@ class Handler(BaseHTTPRequestHandler):
                         "portable_executable": False,
                     },
                 })
+            elif route == "/v1/sources/status":
+                params = parse_qs(urlsplit(self.path).query)
+                mode = params.get("mode", [""])[0]
+                self.send_json(200, self._source_manager().status(mode))
             elif route == "/v1/modes/state":
                 self.send_json(200, self._mode_state().snapshot())
             elif route == "/v1/modes/stream":
@@ -555,6 +573,35 @@ class Handler(BaseHTTPRequestHandler):
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
             return
+        if route in {"/v1/sources/start", "/v1/sources/stop", "/v1/sources/drain"}:
+            intent = {
+                "/v1/sources/start": "start-live-source",
+                "/v1/sources/stop": "stop-live-source",
+                "/v1/sources/drain": "drain-live-source",
+            }[route]
+            if self.headers.get("X-VoxWeaveTTS-Intent") != intent:
+                self.reject_unread_post(403, {"error": "missing source operation intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "source operation requires JSON"})
+                return
+            try:
+                data = self._read_json()
+                if not isinstance(data, dict):
+                    raise InputError("source operation requires JSON object")
+                sources = self._source_manager()
+                if route.endswith("/start"):
+                    result = sources.start(data, self._mode_state())
+                elif route.endswith("/stop"):
+                    result = sources.stop(data, self._mode_state())
+                else:
+                    result = sources.drain(data, self._mode_state())
+                self.send_json(200, result)
+            except ModeConflict as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
         if route == "/v1/settings/global-voice":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-global-voice":
                 self.reject_unread_post(403, {"error": "missing global voice settings intent"})
@@ -579,9 +626,13 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 data = self._read_json()
-                self.send_json(200, self._mode_state().activate(
+                activated = self._mode_state().activate(
                     data.get("mode"), self._playback_state()
-                ))
+                )
+                # A mode change revokes any prior Live/Discord reader and
+                # drops source messages not yet reviewed by the current owner.
+                self._source_manager().stop_all()
+                self.send_json(200, activated)
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
             return
@@ -766,7 +817,7 @@ def serve(port: int = 8765) -> None:
         print(
             "Thai CPU speech available:"
             f" {info.assets_ready and info.runtime_ready}"
-            " (voice clone and live connectors not implemented)",
+            " (voice cloning unavailable; live connectors require user credentials)",
             flush=True,
         )
         try:
@@ -775,6 +826,7 @@ def serve(port: int = 8765) -> None:
             print("\nStopping VoxWeaveTTS.")
         finally:
             global _COORDINATOR
+            getattr(server, "source_manager", None) and server.source_manager.stop_all()
             with _COORDINATOR_LOCK:
                 if _COORDINATOR is not None:
                     _COORDINATOR.close()

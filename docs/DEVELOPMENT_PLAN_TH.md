@@ -124,6 +124,8 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 6. M3 — Speech Coordinator, Queue และ Event Contract
 
+**เพิ่มใน v0.3.0.dev11:** Official Read-Only YouTube Live/Discord REST Input Adapters ที่ผู้ใช้กดเชื่อมด้วย API Key/Bot Token เอง มีตัวกรอง, Dedup, Backpressure, Retry/Rate Limit, Auto-read แบบ Opt-in และหยุดรับทันทีเมื่อเปลี่ยนโหมด ยังไม่ผ่านการทดสอบกับบัญชีจริง (ดู [LIVE_INPUT_ADAPTERS_TH.md](LIVE_INPUT_ADAPTERS_TH.md)).
+
 **เพิ่มใน v0.3.0.dev10:** แยก UI เป็น 7 Workspace ที่มีข้อความและตัวเล่นเสียงแยกกัน โดยใช้ Engine/Voice/Speed/DSP/Seed/Rules/Pronunciations ส่วนกลาง, บันทึกค่ากลางแบบ Atomic พร้อม Revision และกำหนดสิทธิ์เล่นเสียงเพียงโหมดเดียวต่อ Server ด้วย Token/SSE; มี Live/Discord เป็นข้อความทดลองก่อนทำ Adapter จริง (ดู [WORKSPACE_MODES_TH.md](WORKSPACE_MODES_TH.md)).
 
 **แก้ใน v0.3.0.dev9:** ปรับ Estimated Subtitle เลือกเฉพาะ Natural Boundaries และให้ Browser Wrap ภาษาไทยตามกฎภาษา, เพิ่ม Thai Leading-Vowel Hint กับคำเตือนเมื่อ Document Reader จำเป็นต้องตัดภายใน Thai Run และเปลี่ยน Document ID Revision เพื่อป้องกัน Bookmark เก่ากลับไปอ่านผิด Chunk (ดู [DOCUMENT_READER_TH.md](DOCUMENT_READER_TH.md) และ [PLAYBACK_OVERLAY_TH.md](PLAYBACK_OVERLAY_TH.md))

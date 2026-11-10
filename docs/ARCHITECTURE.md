@@ -12,6 +12,12 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Official Live Source Input Layer (v0.3.0.dev11)
+
+source_adapters.py implements bounded official HTTPS GET adapters for YouTube Live Chat and Discord Bot REST channel messages using Python's standard library, fixed official hosts and no redirects; source_manager.py owns an opt-in worker, exclusive active-mode ownership checks, first-page baseline, 512-ID dedup window, configurable filters, bounded 40-message pending queue and sanitized rate-limit/backoff. No credentials are returned by the source APIs or written to disk.
+
+The Browser source_feed.js displays source messages via textContent only and preserves the separate Live and Discord text editors. A user can select a message or opt in to sequential auto-playback through mode_inputs.js; the normal SpeechCoordinator/Media Clock/OBS pipeline remains the only sound and subtitle output. On workspace activation, SourceManager stops the previous reader. See [Live Input Guide](LIVE_INPUT_ADAPTERS_TH.md).
+
 ## Workspace Mode Ownership and Shared Configuration (v0.3.0.dev10)
 
 mode_state.py provides a per-HTTP-server exclusive workspace token and revision. POST /v1/modes/activate rotates the token and atomically clears playback_state.py before any new mode playback can be reported. The local SSE /v1/modes/stream pushes owner changes to other tabs; BroadcastChannel and periodic HTTP polling provide local browser fallbacks. Browser mode_workspace.js stops audio synchronously before activation and rejects play attempts from inactive views. Existing /overlay remains the one subtitle sink across all modes.

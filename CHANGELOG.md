@@ -2,6 +2,15 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev11 — Official YouTube Live/Discord read-only message adapters (2026-11-11)
+
+- Added opt-in read-only Official API source adapters for YouTube Live Chat (liveChatMessages.list with liveChatId or video ID, nextPageToken, pollingIntervalMillis) and Discord Bot REST channel message polling (after Snowflake ID, rate-limit Retry-After). Initial API history is deliberately skipped.
+- Added bounded per-server SourceManager workers, owner-mode checks and credential-in-memory handling, source-message deduplication, text moderation, constrained 40-message backend queue and safe rate-limit/backoff logic. Source workers are stopped on mode activation; no user tokens/self-bots, scraped pages, cross-host requests or disk credential persistence.
+- Added POST /v1/sources/start, /stop, /drain and GET /v1/sources/status?mode=live|discord, with explicit intent headers and current mode ownership verification.
+- Added Live/Discord UI controls to connect and disconnect Official API, view and select messages, enter local filter lists, and opt in to sequential automatic TTS reading. Auto-read is OFF by default; existing manual simulation stays available.
+- Added source connector tests for official response parsing (mocked API), moderation/dedup/rate-limit rules, local HTTP ownership, DOM-safe rendering, opt-in auto-play and queue ordering. No account secrets were required for tests.
+- Live/Discord official account integrations have **not** been verified against user-authorized live accounts: a user API Key/Bot Token and proper permissions are still required. REST polling is not Gateway/streamList low-latency delivery.
+
 ## 0.3.0.dev10 — Independent workspace modes with shared global TTS settings (2026-11-10)
 
 - Redesigned the web application as seven workspaces: Studio, Document Reader, Live simulation, Discord simulation, Speech Queue/Subtitle, Shared Reading Rules and Shared Engine/Voice Settings. Each working mode has independent text and player state while Engine/Voice/DSP/Seed/Presets/Rules/Pronunciations remain centralized.
