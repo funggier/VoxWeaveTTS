@@ -1,18 +1,18 @@
-"""Model-backed speech rendering with real PCM silence and pluggable adapters.
+"""Shared WAV renderer and current local ONNX adapters.
 
-Only FastThaiG2P ONNX on CPU is currently supported; it is a *fixed* Thai
-voice (not a voice clone). External assets live outside Git in models/.
+Engine-neutral registration is in engine_contract.py. The existing adapters
+remain here for backward compatibility and will be split into packages later.
 """
 from __future__ import annotations
 
 import io
 import threading
 import wave
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from .processing import InputError
+from .engine_contract import EngineInfo, EngineRegistry, VoiceEngine
 from .voice_controls import apply_voice_controls, control_schema, ffmpeg_path, validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,38 +38,6 @@ class SpeechFailure(Exception):
     """Synthesis failed without exposing private input in the API."""
 
 
-class VoiceEngine(Protocol):
-    id: str
-    sample_rate: int
-
-    def generate(self, text: str, speed: float) -> bytes:
-        """Return mono signed 16-bit PCM bytes without a WAV header."""
-
-
-@dataclass(frozen=True)
-class EngineInfo:
-    id: str
-    label: str
-    language: str
-    voice_id: str
-    sample_rate: int
-    assets_ready: bool
-    runtime_ready: bool
-    capabilities: dict[str, bool]
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "label": self.label,
-            "language": self.language,
-            "voice_id": self.voice_id,
-            "sample_rate": self.sample_rate,
-            "assets_ready": self.assets_ready,
-            "runtime_ready": self.runtime_ready,
-            "capabilities": self.capabilities,
-        }
-
-
 def assets_ready() -> bool:
     try:
         return all(
@@ -92,20 +60,33 @@ def paradee_assets_ready() -> bool:
         return False
 
 
-def list_engine_info() -> list[EngineInfo]:
-    primary = engine_info()
-    postprocessing = bool(ffmpeg_path())
-    # Report both supported built-in engine adapters, even when a model has
-    # not yet been installed. Never list a voice cloning backend as functional.
-    for item in (primary,):
-        item.capabilities.update({
-            "gain": True, "pitch_post_dsp": postprocessing,
-            "bass_post_dsp": postprocessing,
-            "treble_post_dsp": postprocessing,
-            "formant_preserve_on_pitch": postprocessing,
-            "independent_formant_shift": False,
-        })
-    paradee = EngineInfo(
+def _built_in_dsp_flags() -> dict[str, bool]:
+    ready = bool(ffmpeg_path())
+    return {
+        "gain": True,
+        "pitch_post_dsp": ready,
+        "bass_post_dsp": ready,
+        "treble_post_dsp": ready,
+        "formant_preserve_on_pitch": ready,
+        "independent_formant_shift": False,
+    }
+
+
+def _fast_descriptor() -> EngineInfo:
+    info = engine_info()
+    info.capabilities.update(_built_in_dsp_flags())
+    return info
+
+
+def _paradee_descriptor() -> EngineInfo:
+    capabilities = {
+        "speech": True, "speed": True, "seed_control": False,
+        "voice_cloning": False, "pitch": False, "formant": False,
+        "expressiveness": False, "streaming": False,
+        "phoneme_dictionary": False,
+    }
+    capabilities.update(_built_in_dsp_flags())
+    return EngineInfo(
         id=PARADEE_ENGINE_ID,
         label="MakHam Paradee Thai INT8 (CPU ONNX)",
         language="th",
@@ -113,26 +94,17 @@ def list_engine_info() -> list[EngineInfo]:
         sample_rate=SAMPLE_RATE,
         assets_ready=paradee_assets_ready(),
         runtime_ready=runtime_ready(),
-        capabilities={
-            "speech": True, "speed": True, "seed_control": False,
-            "voice_cloning": False, "pitch": False, "formant": False,
-            "expressiveness": False, "streaming": False,
-            "phoneme_dictionary": False,
-            "gain": True, "pitch_post_dsp": postprocessing,
-            "bass_post_dsp": postprocessing,
-            "treble_post_dsp": postprocessing,
-            "formant_preserve_on_pitch": postprocessing,
-            "independent_formant_shift": False,
-        },
+        capabilities=capabilities,
     )
-    return [primary, paradee]
+
+
+def list_engine_info() -> list[EngineInfo]:
+    """Enumerate registered adapters without loading model weights."""
+    return engine_registry().list()
 
 
 def get_engine_info(engine_id: str) -> EngineInfo:
-    for item in list_engine_info():
-        if item.id == engine_id:
-            return item
-    raise InputError("unknown engine_id")
+    return engine_registry().get(engine_id)
 
 
 def runtime_ready() -> bool:
@@ -263,12 +235,34 @@ class MakHamParadeeEngine:
             return _float32_to_pcm(self._native.generate(text))
 
 
+_REGISTRY_LOCK = threading.RLock()
+_REGISTRY: EngineRegistry | None = None
+
+
+def engine_registry() -> EngineRegistry:
+    """Return the explicit, extension-ready registry.
+
+    A future model adapter registers an ID, descriptor factory and engine
+    factory. It does not need to modify the HTTP server or the WAV renderer.
+    """
+    global _REGISTRY
+    with _REGISTRY_LOCK:
+        if _REGISTRY is None:
+            registry = EngineRegistry()
+            registry.register(
+                ENGINE_ID, describe=_fast_descriptor,
+                create=lambda seed: FastThaiG2PEngine(seed=seed),
+            )
+            registry.register(
+                PARADEE_ENGINE_ID, describe=_paradee_descriptor,
+                create=lambda seed: MakHamParadeeEngine(),
+            )
+            _REGISTRY = registry
+        return _REGISTRY
+
+
 def create_voice_engine(engine_id: str, seed: int) -> VoiceEngine:
-    if engine_id == ENGINE_ID:
-        return FastThaiG2PEngine(seed=seed)
-    if engine_id == PARADEE_ENGINE_ID:
-        return MakHamParadeeEngine()
-    raise InputError("unknown engine_id")
+    return engine_registry().create(engine_id, seed)
 
 
 def _chunks(text: str, limit: int = 110) -> list[str]:

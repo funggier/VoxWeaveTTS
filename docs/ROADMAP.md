@@ -20,7 +20,8 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Define voice engine protocol and capability discovery for the installed fixed voice
 - [x] Real 24kHz PCM16 WAV from Thai text via local API, plus exact silence from filtering rules
 - [x] Web preview of synthesized WAV, basic speed control, private test samples on T:
-- [ ] Streaming playback, explicit cancellation and queue policy
+- [x] Basic engine-neutral sequential speech generation queue, status events and cancellation (does not interrupt in-flight inference)
+- [ ] Streaming playback, hard cancellation during inference and advanced queue policies
 - [ ] Voice cloning / reference voice storage
 - [x] Fixed ONNX per-job seed control and verified byte-identical repeats for the same Thai text/seed in CPU smoke tests
 - [x] Bounded repeated-5 chat pattern (`555`, `55555`, etc.) with numerical-context exclusions and original Subtitle preservation
@@ -35,12 +36,22 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [ ] A/B audition, saved presets, non-destructive audio cache
 - [ ] Novel/TXT/Markdown multi-chapter pipeline
 
-## Milestone 3 — Live services
+## Milestone 3 — Shared Speech Coordinator / Live services (partial)
+- [x] Engine-neutral Adapter Contract v1 and explicit Registry (ready for self-trained engines)
+- [x] In-memory FIFO Audio Preparation Jobs, Dedup by source/message ID, bounded memory/TTL and Versioned Events
+- [x] HTTP Job Queue, Status, Cancel, Events and WAV Download endpoints; UI queue preview
+- [ ] Playback Clock based on actual output audio and Pause/Resume
+- [ ] Durable queue/snapshot and reconnect semantics
+- [ ] Nonblocking streaming, Backpressure and priority policies
+
 - [ ] Local authenticated HTTP/WebSocket speech APIs
-- [ ] Queue policies: sequential, latest, priority, manual, filtered
+- [x] Sequential queue baseline
+- [ ] Queue policies: latest, priority, manual, filtered
 - [ ] Discord message intents and authorization
 - [ ] YouTube Live Chat and video comment polling
 - [ ] Per-source safety filtering and anti-spam policies
+
+Read [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md) for contract and current limitations.
 
 ## Milestone 4 — Subtitle coordination
 - [ ] Playback-clock-led speech events and source-span mapping

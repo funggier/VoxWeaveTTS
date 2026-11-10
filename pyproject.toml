@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voxweavetts"
-version = "0.2.0.dev5"
-description = "Portable Thai-first speech and text processing platform, M1 CPU audio preview."
+version = "0.3.0.dev0"
+description = "Thai-first modular TTS with engine-neutral speech job queue and local WAV API."
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{name = "funggier"}]

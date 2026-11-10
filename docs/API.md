@@ -1,4 +1,4 @@
-# API Contract — M1 Thai WAV preview (v0.2.0.dev4)
+# API Contract — Engine-Neutral Core preview (v0.3.0.dev0)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -53,11 +53,23 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 
 `GET /v1/presets` lists local JSON presets. `POST /v1/presets` requires `X-VoxWeaveTTS-Intent: save-voice-preset` with JSON body containing `name`, `engine_id`, `voice_id`, `speed`, `seed`, and `voice_controls`. Up to 32 validated presets are saved locally in `data/presets/voice-presets.json`, which is Git-ignored. See [VOICE_STUDIO_TH.md](VOICE_STUDIO_TH.md).
 
+## Engine-neutral job queue (implemented)
+
+`POST /v1/jobs` accepts the same text processing, engine, voice, speed, seed and voice_controls fields as `POST /v1/speech`, plus optional `source_message_id` (1–128 chars). Requires `Content-Type: application/json` and header `X-VoxWeaveTTS-Intent: queue-speech`. Returns HTTP 202 with `{schema_version:1, speech_id, state, source, display_text, engine_id, voice_id, audio_ready, ...}`. Duplicates with the same non-empty `source` and `source_message_id` reuse the existing job.
+
+`GET /v1/jobs` returns `jobs[]` snapshots; `GET /v1/jobs/{speech_id}` returns one snapshot; `GET /v1/jobs/{speech_id}/events` returns strictly increasing numbered event records. `GET /v1/jobs/{speech_id}/audio` returns `audio/wav` only in `ready` state, otherwise 409. Unknown ID: 404.
+
+`POST /v1/jobs/{speech_id}/cancel` requires header `X-VoxWeaveTTS-Intent: cancel-speech-job`. Queued jobs are skipped; running jobs are marked cancelled and their results discarded when model inference eventually finishes (the model call is not force-stopped). Without intent: 403.
+
+Limits: 12 in-memory jobs, at most 16 MB WAV per job and 64 MB total WAV memory, 15-minute terminal-job lifetime; 429 when capacity is full and there is no terminal job to evict. All job data disappears on server restart. Status and Event payloads never include private spoken/original text or model error tracebacks.
+
+States: `queued`, `rendering`, `ready`, `failed`, `cancelled`. Events: `speech.queued`, `speech.rendering`, `speech.ready`, `speech.failed`, `speech.cancelled`. **Do not treat ready or generated segment offsets as live playback timestamps.** Audio Playback Clock, OBS Subtitle Event Bus, WebSocket and persistent queue are not yet implemented.
+
+Adapter Protocol Version 1 and capability commercial_status are documented in [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md).
+
 ## Planned; not yet callable
 
-- A queued/asynchronous version of `POST /v1/speech` returns a speech job
 - `WS /v1/speech/stream` streams generated audio
-- `POST /v1/queue` enqueues speech jobs
 - `GET /v1/voices` and profile management
 - `WS /v1/events` reports playback-led speech events
 - `GET /v1/playback/snapshot` for overlay reconnect

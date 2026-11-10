@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.2.0.dev5 Voice Studio preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
+> **Current status (v0.3.0.dev0 Engine-Neutral Core preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
 
 ## Goals
 
@@ -23,6 +23,17 @@
 
 The Python `.venv` is a developer environment, **not the final portable executable**. Offline synthesis works once the engine and model are installed.
 
+## Engine-neutral foundation (implemented preview)
+
+The text pipeline, engine registry, queue, event statuses and result delivery are separate from model implementations. The core runs on **Python standard library only**; actual inference still requires the selected engine's optional dependencies and model files. An independently trained Thai voice engine can be registered through the **Adapter API v1** without changing the HTTP server, processing rules or job queue.
+
+- Job states: `queued → rendering → ready`, or `cancelled/failed` (ready means generated, not played).
+- FIFO + source message dedup + explicit cancellation + bounded in-memory audio / job limits.
+- Versioned job events; no claim of playback/OBS synchronization yet.
+- All engines retain `commercial_status: review_required` unless their complete artifact and dependencies pass an audit.
+
+See [Engine-Neutral Core architecture (Thai)](docs/ENGINE_NEUTRAL_CORE_TH.md).
+
 ## API
 
 - `GET /v1/status` — build status and explicit capability flags.
@@ -30,6 +41,7 @@ The Python `.venv` is a developer environment, **not the final portable executab
 - `GET /v1/pronunciations` — locally stored pronunciation overrides, if configured.
 - `POST /v1/text/process` — deterministic filter, replacement, silence and pronunciation processing; optional `match_mode: five_run` safely maps repeated chat 5s to speech while retaining the original subtitle.
 - `GET /v1/engines` and `GET /v1/voices` — two Thai CPU engine adapters, their readiness, voice IDs and detailed DSP control schema.
+- `POST /v1/jobs`, `GET /v1/jobs` and `GET /v1/jobs/{id}` — engine-neutral asynchronous audio preparation queue; `GET /v1/jobs/{id}/events`, `GET /v1/jobs/{id}/audio` and `POST /v1/jobs/{id}/cancel`.
 - `POST /v1/speech` — generate Thai PCM16/WAV through the optional FastThaiG2P CPU backend (500 spoken characters max per request), with optional reproducible `seed`.
 - `GET/POST /v1/settings/synthesis` — view/store a preferred seed in local portable settings (POST requires an explicit intent header).
 - `GET/POST /v1/presets` — list/save local private Voice Studio Presets (POST requires explicit intent header).
@@ -67,3 +79,4 @@ The MIT license applies to **our code only**. Models, voice samples, dictionarie
 - [Voice Studio engines and control ranges (Thai)](docs/VOICE_STUDIO_TH.md)
 - [Voice cloning and fine-tuning plan (Thai)](docs/VOICE_TRAINING_TH.md)
 - [Commercial-first license policy and model audit (Thai)](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
+- [Engine-neutral Core, Registry and Queue (Thai)](docs/ENGINE_NEUTRAL_CORE_TH.md)

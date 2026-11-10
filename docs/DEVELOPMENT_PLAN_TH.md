@@ -124,10 +124,24 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 6. M3 — Speech Coordinator, Queue และ Event Contract
 
+**สถานะปัจจุบัน: M3 Core Partial (v0.3.0.dev0)** — พัฒนา Engine-neutral Registry และ Preparation Queue แล้ว โดยทดสอบด้วย Fake Engine โดยไม่ต้องติดตั้งโมเดล, และทดสอบ WAV ของ MakHam/FastThaiG2P จริงผ่าน HTTP Queue API ด้วย แต่ **Playback Clock / Pause / OBS / WebSocket ยังไม่ได้ทำ** ดู [ENGINE_NEUTRAL_CORE_TH.md](ENGINE_NEUTRAL_CORE_TH.md)
+
+สิ่งที่ใช้งานได้แล้ว:
+- [x] Engine Registry แบบ Explicit Registration, Adapter API Version 1 และ Status การตรวจสิทธิ์เชิงพาณิชย์ (เริ่มต้น Review Required)
+- [x] Job ID, Source, Engine, Voice, Sanitized Display, State และ Versioned Event Sequence
+- [x] FIFO Preparation Queue จำกัดงาน/Memory, Dedup ด้วย Source+MessageID, ยกเลิกงาน และ Drop ผล Audio ที่มาหลัง Cancel
+- [x] HTTP API: สร้าง Job, Status, Events, WAV Download, Cancel และหน้าเว็บทดลองคิว
+- [x] Unit/HTTP tests ด้วย Mock Engine และทดสอบจริงกับ Engine เดิมทั้งสองตัว
+- [ ] ทดสอบ Playback Clock ที่นับจากเสียงจริง, Pause/Resume/Started/Completed, OBS Sync
+- [ ] Persistence และ Restart Snapshot, Priority, Streaming Audio/Backpressure
+
+
+
 **เป้าหมาย:** ย้ายจากการสร้างไฟล์เสียงเป็นการ “สร้าง/เล่นหนึ่ง Speech Session” ที่มี ID และสถานะ
 
 งาน:
-- [ ] แบบข้อมูล `SpeechJob`/`SpeechSession`: `speech_id`, `source`, `source_message_id`, `stream_id`, `voice_id`, `original` (private), `display` (public), `segments`, timestamps
+- [x] `SpeechJob` เบื้องต้นพร้อม ID, Source, SourceMessageID, Engine/Voice, sanitized display, timestamps; Original/Spoken Plan อยู่ภายใน Memory ชั่วคราว
+- [ ] SpeechSession สำหรับ Playback จริง (stream_id, player timestamps, durable snapshots)
 - [ ] สถานะ: `queued`, `preparing`, `ready`, `playing`, `paused`, `completed`, `cancelled`, `failed`
 - [ ] นโยบายคิว: Sequential, Latest, Priority, Manual, Filtered พร้อมความจุสูงสุดและ Deadline/TTL
 - [ ] Playback Clock อ้างอิงการเล่น PCM จริง; ไม่สร้าง Timestamp จากตอนที่ข้อความเข้ามาหรือไฟล์ถูกสร้างเสร็จ

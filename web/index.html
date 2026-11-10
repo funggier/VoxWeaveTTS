@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>VoxWeaveTTS · Foundation</title>
+<title>VoxWeaveTTS · Engine-Agnostic Speech Studio</title>
 <style>
 :root{font-family:Segoe UI,Tahoma,system-ui,sans-serif;color:#eaf0f9;background:#0d1422}
 *{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:36px auto;padding:0 20px 40px}
@@ -32,7 +32,7 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 </head>
 <body>
 <main>
-<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai text processing · Pronunciation · Speech plan · Future voice studio</div></div><div class="pill">M1 Thai Audio Preview</div></header>
+<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech pipeline · Engine adapters · Voice Studio · Speech Queue</div></div><div class="pill">M3 Core Queue Preview</div></header>
 <div class="notice"><strong>Development Preview:</strong> รองรับสอง Thai TTS Engines พร้อมการแก้คำอ่านและ Voice Studio (Speed, Gain, Pitch, Bass, Treble) · ยังไม่มีการโคลน/ฝึกเสียงผู้ใช้ การปรับ Formant อิสระ หรือการอ่านข้อความไลฟ์สด</div>
 <div class="layout">
 <section class="panel">
@@ -103,6 +103,20 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 </div>
 <audio id="audioPreview" controls style="width:100%;margin-top:16px;display:none"></audio>
 <a id="downloadAudio" style="display:none;color:#9bd2ff;margin-top:10px" download="VoxWeaveTTS-thai.wav">บันทึกไฟล์ WAV</a>
+</section>
+<section class="panel" style="margin-top:18px">
+<h2>คิวเตรียมเสียง (Engine-independent)</h2>
+<p class="small">ทดลองส่งงานเข้า Speech Coordinator ที่ใช้ร่วมกันทุก Engine · คิวทำงานทีละรายการ, ตรวจสถานะ, ยกเลิกงาน และดาวน์โหลด WAV ที่สร้างเสร็จได้</p>
+<p class="small"><strong>หมายเหตุ:</strong> สถานะ <code>ready</code> หมายถึงสร้าง WAV เสร็จเท่านั้น ยังไม่มีตัวเล่นเสียงตามเวลา/ซิงก์ Subtitle กับ OBS และการยกเลิกขณะโมเดลกำลังคำนวณไม่หยุดโมเดลกลางคัน แต่จะทิ้งผลลัพธ์เมื่อคำนวณเสร็จ</p>
+<div class="voice-grid">
+<button id="queueSubmit" type="button">เพิ่มงานลงคิว</button>
+<button id="queueRefresh" type="button">ดูสถานะคิว</button>
+<button id="queueCancel" type="button" disabled>ยกเลิกงานที่เลือก</button>
+</div>
+<p class="small" id="queueMessage" role="status">ยังไม่มีงานใหม่ในหน้าต่างนี้</p>
+<pre class="output" id="queueList" style="min-height:55px">–</pre>
+<audio id="queueAudio" controls style="display:none;width:100%;margin-top:12px"></audio>
+<a id="queueDownload" style="display:none;color:#9bd2ff" download="VoxWeaveTTS-queued.wav">บันทึก WAV จากคิว</a>
 </section>
 <p class="small">API: <code>GET /v1/status</code>, <code>GET /v1/engines</code>, <code>POST /v1/text/process</code>, <code>POST /v1/speech</code> · MIT applies to project code, not third-party voice models.</p>
 </main>
@@ -316,6 +330,111 @@ el("saveSeed").addEventListener("click", async () => {
     el("saveSeed").disabled = false;
   }
 });
+const buildSpeechPayload = () => ({
+  text: el("message").value,
+  rules: JSON.parse(el("rule").value),
+  pronunciations: JSON.parse(el("pron").value),
+  engine_id: el("engineSelect").value,
+  voice_id: el("voiceSelect").value,
+  speed: readNumber("speed"),
+  voice_controls: readVoiceControls(),
+  seed: seedValue()
+});
+let latestQueuedId = null;
+let jobPollTimer = null;
+let queuedAudioUrl = null;
+function stopJobPoll() {
+  if (jobPollTimer !== null) {
+    clearInterval(jobPollTimer);
+    jobPollTimer = null;
+  }
+}
+async function getQueueJobs() {
+  const response = await fetch("/v1/jobs");
+  const result = await response.json();
+  if (!response.ok) throw Error(result.error || "Cannot load speech queue");
+  el("queueList").textContent = JSON.stringify(
+    result.jobs.map(({speech_id, state, engine_id, display_text}) => ({
+      speech_id, state, engine_id, display_text
+    })), null, 2
+  );
+}
+async function pollJob() {
+  if (!latestQueuedId) return;
+  const response = await fetch("/v1/jobs/" + latestQueuedId);
+  const job = await response.json();
+  if (!response.ok) throw Error(job.error || "Speech job not found");
+  el("queueMessage").textContent = "งาน " + job.speech_id.slice(0,8) +
+    " · " + job.state + " · " + job.engine_id;
+  el("queueCancel").disabled = !["queued","rendering","ready"].includes(job.state);
+  await getQueueJobs();
+  if (job.state === "ready") {
+    stopJobPoll();
+    const audioResponse = await fetch("/v1/jobs/" + job.speech_id + "/audio");
+    if (!audioResponse.ok) throw Error("Queued WAV is unavailable");
+    const audio = await audioResponse.blob();
+    if (queuedAudioUrl) URL.revokeObjectURL(queuedAudioUrl);
+    queuedAudioUrl = URL.createObjectURL(audio);
+    el("queueAudio").src = queuedAudioUrl;
+    el("queueAudio").style.display = "block";
+    el("queueDownload").href = queuedAudioUrl;
+    el("queueDownload").download = "VoxWeaveTTS-job-" + job.speech_id.slice(0,8) + ".wav";
+    el("queueDownload").style.display = "inline-block";
+  } else if (job.state === "cancelled" || job.state === "failed") {
+    stopJobPoll();
+  }
+  return job.state;
+}
+el("queueSubmit").addEventListener("click", async () => {
+  el("queueSubmit").disabled = true;
+  el("queueMessage").textContent = "กำลังส่งงานเข้าคิว...";
+  stopJobPoll();
+  try {
+    const response = await fetch("/v1/jobs", {
+      method: "POST",
+      headers: {"Content-Type":"application/json", "X-VoxWeaveTTS-Intent":"queue-speech"},
+      body: JSON.stringify(buildSpeechPayload())
+    });
+    const job = await response.json();
+    if (!response.ok) throw Error(job.error || "Queue request failed");
+    latestQueuedId = job.speech_id;
+    el("queueAudio").style.display = "none";
+    el("queueDownload").style.display = "none";
+    const observedState = await pollJob();
+    if (jobPollTimer === null && ["queued","rendering"].includes(observedState)) {
+      jobPollTimer = setInterval(() => {
+        pollJob().catch(err => { stopJobPoll(); el("queueMessage").textContent=String(err.message||err); });
+      }, 800);
+    }
+  } catch(err) {
+    el("queueMessage").textContent = String(err.message || err);
+  } finally {
+    el("queueSubmit").disabled = false;
+  }
+});
+el("queueRefresh").addEventListener("click", () => {
+  getQueueJobs().catch(err => { el("queueMessage").textContent = String(err.message || err); });
+});
+el("queueCancel").addEventListener("click", async () => {
+  if (!latestQueuedId) return;
+  try {
+    const response = await fetch("/v1/jobs/" + latestQueuedId + "/cancel", {
+      method:"POST", headers:{"X-VoxWeaveTTS-Intent":"cancel-speech-job"}
+    });
+    const job = await response.json();
+    if (!response.ok) throw Error(job.error || "Cannot cancel speech job");
+    stopJobPoll();
+    el("queueAudio").pause();
+    el("queueAudio").style.display = "none";
+    el("queueDownload").style.display = "none";
+    el("queueMessage").textContent = "ยกเลิกงาน " + job.speech_id.slice(0,8);
+    el("queueCancel").disabled = true;
+    await getQueueJobs();
+  } catch(err) {
+    el("queueMessage").textContent = String(err.message || err);
+  }
+});
+
 let currentAudioUrl = null;
 fetch("/v1/status").then(r => r.json()).then(status => {
   const ready = Boolean(status.capabilities && status.capabilities.tts_audio);
@@ -335,16 +454,7 @@ el("synthesize").addEventListener("click", async () => {
   autoPlayNextSeed = false;
   try {
     const requestedSeed = seedValue();
-    const body = {
-      text: el("message").value,
-      rules: JSON.parse(el("rule").value),
-      pronunciations: JSON.parse(el("pron").value),
-      engine_id: el("engineSelect").value,
-      voice_id: el("voiceSelect").value,
-      speed: readNumber("speed"),
-      voice_controls: readVoiceControls(),
-      seed: requestedSeed
-    };
+    const body = buildSpeechPayload();
     const response = await fetch("/v1/speech", {
       method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
     });

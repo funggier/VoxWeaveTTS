@@ -1,4 +1,4 @@
-"""Loopback-only JSON + WAV API for the VoxWeaveTTS M1 prototype."""
+"""Loopback-only text, Engine Registry, WAV preview and job queue HTTP API."""
 from __future__ import annotations
 
 import json
@@ -26,11 +26,18 @@ from .speech import (
 )
 from .voice_controls import control_schema
 from .presets import load_presets, save_preset
+from .engine_contract import ADAPTER_API_VERSION
+from .voice_controls import validate_controls
+from .speech_coordinator import (
+    SpeechCoordinator, QueueFull, JobMissing, JobNotReady, EVENT_SCHEMA_VERSION,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAX_REQUEST_BYTES = 65_536
 SYNTHESIS_SETTINGS = PROJECT_ROOT / "data" / "settings" / "synthesis.json"
 _SETTINGS_LOCK = threading.RLock()
+_COORDINATOR_LOCK = threading.Lock()
+_COORDINATOR: SpeechCoordinator | None = None
 
 
 def _load_json(relative: str, default: Any) -> Any:
@@ -82,8 +89,46 @@ def _save_seed(seed: int) -> None:
                 temporary.unlink(missing_ok=True)
 
 
+def _coordinator_default() -> SpeechCoordinator:
+    global _COORDINATOR
+    with _COORDINATOR_LOCK:
+        if _COORDINATOR is None:
+            _COORDINATOR = SpeechCoordinator(render_wav)
+        return _COORDINATOR
+
+
 class Handler(BaseHTTPRequestHandler):
-    server_version = "VoxWeaveTTS/0.1"
+    server_version = "VoxWeaveTTS/0.3"
+
+    def _coordinator(self) -> SpeechCoordinator:
+        # Tests can inject an isolated fake renderer into their HTTP server.
+        return getattr(self.server, "speech_coordinator", None) or _coordinator_default()
+
+    @staticmethod
+    def _job_route(route: str) -> tuple[str, str] | None:
+        parts = route.split("/")
+        if (len(parts) in (4, 5) and parts[:3] == ["", "v1", "jobs"]
+            and len(parts[3]) == 32
+            and all(ch in "0123456789abcdef" for ch in parts[3])):
+            suffix = parts[4] if len(parts) == 5 else ""
+            if suffix in ("", "audio", "events", "cancel"):
+                return parts[3], suffix
+        return None
+
+    def _speech_params(self, data: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
+        engine_id = data.get("engine_id", ENGINE_ID)
+        info = get_engine_info(engine_id)
+        voice_id = data.get("voice_id", info.voice_id)
+        speed = data.get("speed", 1.0)
+        validate_speech_request(plan, speed, voice_id, engine_id)
+        controls = validate_controls(data.get("voice_controls"))
+        seed = validate_seed(data.get("seed", _read_seed()))
+        if not (info.assets_ready and info.runtime_ready):
+            raise EngineUnavailable("selected Thai voice model is not installed or runtime is missing")
+        return {
+            "engine_id": engine_id, "voice_id": voice_id, "speed": speed,
+            "voice_controls": controls, "seed": seed,
+        }
 
     def _headers(self, status: int, content_type: str, length: int,
                  extra: dict[str, str] | None = None) -> None:
@@ -114,9 +159,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, {
                     "app": "VoxWeaveTTS",
                     "version": __version__,
+                    "adapter_api_version": ADAPTER_API_VERSION,
+                    "event_schema_version": EVENT_SCHEMA_VERSION,
                     "foundation": False,
                     "capabilities": {
                         "text_filter": True,
+                        "engine_registry": True,
+                        "audio_preparation_queue": True,
+                        "queue_events": True,
+                        "audio_playback_clock": False,
                         "pronunciation_hints": True,
                         "tts_audio": any(e.assets_ready and e.runtime_ready for e in list_engine_info()),
                         "reproducible_seed": info.assets_ready and info.runtime_ready,
@@ -127,6 +178,32 @@ class Handler(BaseHTTPRequestHandler):
                         "portable_executable": False,
                     },
                 })
+            elif route == "/v1/jobs":
+                self.send_json(200, {"schema_version": EVENT_SCHEMA_VERSION,
+                                     "jobs": self._coordinator().list()})
+            elif self._job_route(route):
+                job_id, action = self._job_route(route)
+                try:
+                    if action == "":
+                        self.send_json(200, self._coordinator().get(job_id))
+                    elif action == "events":
+                        self.send_json(200, {
+                            "schema_version": EVENT_SCHEMA_VERSION,
+                            "speech_id": job_id,
+                            "events": self._coordinator().events(job_id),
+                        })
+                    elif action == "audio":
+                        wav = self._coordinator().audio(job_id)
+                        self._headers(200, "audio/wav", len(wav), {
+                            "X-VoxWeaveTTS-Speech-Id": job_id,
+                        })
+                        self.wfile.write(wav)
+                    else:
+                        self.send_json(404, {"error": "not found"})
+                except JobMissing:
+                    self.send_json(404, {"error": "speech job not found"})
+                except JobNotReady:
+                    self.send_json(409, {"error": "speech audio is not ready"})
             elif route == "/v1/settings/synthesis":
                 self.send_json(200, {"seed": _read_seed()})
             elif route == "/v1/engines":
@@ -186,6 +263,40 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         route = urlsplit(self.path).path
+        job_route = self._job_route(route)
+        if job_route is not None and job_route[1] == "cancel":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "cancel-speech-job":
+                self.send_json(403, {"error": "missing cancel intent"})
+                return
+            try:
+                self.send_json(200, self._coordinator().cancel(job_route[0]))
+            except JobMissing:
+                self.send_json(404, {"error": "speech job not found"})
+            return
+        if route == "/v1/jobs":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "queue-speech":
+                self.send_json(403, {"error": "missing queue intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.send_json(415, {"error": "speech job requires application/json"})
+                return
+            try:
+                data = self._read_json()
+                plan = self._text_plan(data)
+                params = self._speech_params(data, plan)
+                job = self._coordinator().submit(
+                    plan, engine_id=params["engine_id"], voice_id=params["voice_id"],
+                    render_args=params,
+                    source_message_id=data.get("source_message_id"),
+                )
+                self.send_json(202 if job["state"] not in {"ready", "failed"} else 200, job)
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            except EngineUnavailable as exc:
+                self.send_json(503, {"error": str(exc)})
+            except QueueFull:
+                self.send_json(429, {"error": "speech queue is full"})
+            return
         if route == "/v1/settings/synthesis":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-synthesis-settings":
                 self.send_json(403, {"error": "missing settings update intent"})
@@ -223,23 +334,7 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/v1/text/process":
                 self.send_json(200, plan)
                 return
-            selected_engine = data.get("engine_id", ENGINE_ID)
-            selected_info = get_engine_info(selected_engine)
-            # Validate caller controls before reporting missing runtime or models.
-            validate_speech_request(
-                plan, data.get("speed", 1.0),
-                data.get("voice_id", selected_info.voice_id), selected_engine,
-            )
-            if not (selected_info.assets_ready and selected_info.runtime_ready):
-                raise EngineUnavailable("selected Thai voice model is not installed or runtime is missing")
-            wav, info = render_wav(
-                plan,
-                speed=data.get("speed", 1.0),
-                voice_id=data.get("voice_id", selected_info.voice_id),
-                engine_id=selected_engine,
-                voice_controls=data.get("voice_controls"),
-                seed=validate_seed(data.get("seed", _read_seed())),
-            )
+            wav, info = render_wav(plan, **self._speech_params(data, plan))
             headers = {
                 "X-VoxWeaveTTS-Engine": info["engine_id"],
                 "X-VoxWeaveTTS-Duration-Ms": str(info["duration_ms"]),
@@ -281,3 +376,9 @@ def serve(port: int = 8765) -> None:
             server.serve_forever()
         except KeyboardInterrupt:
             print("\nStopping VoxWeaveTTS.")
+        finally:
+            global _COORDINATOR
+            with _COORDINATOR_LOCK:
+                if _COORDINATOR is not None:
+                    _COORDINATOR.close()
+                    _COORDINATOR = None

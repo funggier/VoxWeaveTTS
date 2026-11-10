@@ -2,6 +2,15 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev0 — Engine-neutral adapter registry and speech job queue (2026-11-10)
+
+- Introduced explicit versioned, ML-independent EngineRegistry and PCM16 adapter protocol; future user-trained voice models can register without editing core text/HTTP/queue modules.
+- Kept FastThaiG2P and MakHam Paradee via the shared registry; unverified commercial model rights remain `review_required`.
+- Added bounded single-worker speech preparation queue: FIFO, source-message dedup, state transitions, cancellation, generic renderer injection and safe error handling.
+- Added HTTP queue/status/event/audio/cancel endpoints and a simple browser queue preview.
+- Explicitly separated generated audio segment offsets from live playback clock events (not implemented).
+- Verified mock-adapter tests without any ML dependency and real queued audio synthesis through both installed Thai CPU engines.
+
 ## 0.2.0.dev5 — Retire experimental laughter-spelling UI (2026-11-10)
 
 - Removed the dedicated "55555 laughter spelling" selector, test button, and associated frontend event handler on user request.

@@ -4,7 +4,7 @@ import unittest
 from http.server import ThreadingHTTPServer
 from urllib.request import Request,urlopen
 from voxweavetts.server import Handler
-from voxweavetts.speech import engine_info
+from voxweavetts.speech import engine_info, list_engine_info
 
 class ServerTests(unittest.TestCase):
     @classmethod
@@ -24,7 +24,11 @@ class ServerTests(unittest.TestCase):
         with urlopen(self.base+"/v1/status",timeout=3) as r:
             data=json.load(r)
         self.assertEqual(data["app"],"VoxWeaveTTS")
-        self.assertEqual(data["capabilities"]["tts_audio"], engine_info().assets_ready and engine_info().runtime_ready)
+        self.assertEqual(data["capabilities"]["tts_audio"], any(e.assets_ready and e.runtime_ready for e in list_engine_info()))
+        self.assertTrue(data["capabilities"]["engine_registry"])
+        self.assertTrue(data["capabilities"]["audio_preparation_queue"])
+        self.assertFalse(data["capabilities"]["audio_playback_clock"])
+        self.assertEqual(data["adapter_api_version"], 1)
         self.assertTrue(data["capabilities"]["text_filter"])
 
     def test_process(self):
@@ -42,6 +46,8 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(info["engines"][0]["id"], "fastthaig2p-cpu")
         self.assertEqual(info["engines"][0]["language"], "th")
         self.assertFalse(info["engines"][0]["capabilities"]["voice_cloning"])
+        self.assertEqual(info["engines"][0]["commercial_status"], "review_required")
+        self.assertEqual(info["engines"][0]["adapter_api_version"], 1)
         with urlopen(self.base+"/v1/voices",timeout=3) as r:
             voices=json.load(r)
         self.assertEqual(voices["voices"][0]["id"], "thai_som")
@@ -155,3 +161,6 @@ class ServerTests(unittest.TestCase):
         self.assertIn('id="rule"', content)
         self.assertIn('id="engineSelect"', content)
         self.assertIn('id="slider-pitch_semitones"', content)
+        self.assertIn('id="queueSubmit"', content)
+        self.assertIn('id="queueRefresh"', content)
+        self.assertIn('id="queueCancel"', content)

@@ -12,6 +12,10 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Engine-neutral Core v1 (implemented)
+
+The model-independent code is now in `src/voxweavetts/engine_contract.py` (Adapter Version 1, explicit Engine Registry, commercial review status) and `src/voxweavetts/speech_coordinator.py` (bounded in-memory sequential preparation queue, deduplication, cancellation, versioned events). Both depend only on the Python standard library; the current Thai model adapters remain behind a factory in `speech.py`. The HTTP `/v1/jobs` endpoints share the Text Plan and Voice Studio controls with `/v1/speech`. State `ready` means **WAV generation completed**, not that audio was played. See [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md).
+
 ## Core separation
 
 - The original message and the display text are different concepts.
@@ -37,7 +41,7 @@ The stdlib text pipeline (`src/voxweavetts/processing.py`) performs literal long
 
 - `VoiceEngine`: pluggable, local-first; optional backends for Thai voice cloning and installed system voices.
 - `VoiceStudio`: the current UI includes Engine selection, numeric/sliders, and local presets; voice profile authoring, native expressive controls and A/B comparison remain planned.
-- `SpeechCoordinator`: queue, cancellation, accurate segments, backpressure.
+- `SpeechCoordinator`: current core handles FIFO audio preparation, dedup, cancellation and bounded RAM; future playback clock, persistent jobs, priority and streaming remain planned.
 - `Events`: versioned WebSocket event stream and reconnect snapshots.
 - `LiveConnectors`: separately configured Discord and YouTube adapters with OAuth/bot tokens never in public repo.
 - `PortableBuilder`: deterministic Windows build that bundles runtime; model packs kept separate subject to licensing.

@@ -2,7 +2,15 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Voice Studio Preview v0.2.0.dev5** — มี Local API ข้อความ และ **สร้างเสียง WAV ภาษาไทยจริงผ่าน FastThaiG2P CPU ONNX ได้แล้ว** บนเครื่องที่ติดตั้งโมเดลกับ Runtime แต่ยัง **ไม่มี** การโคลนเสียงของผู้ใช้, ปรับ Pitch/Formant/Emotion, Audio Streaming, ตัวเชื่อม Discord/YouTube, Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Core Preview v0.3.0.dev0** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Playback Clock, Discord/YouTube, OBS Subtitle Sync หรือ Portable EXE
+
+## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
+
+เพิ่ม **Engine Registry v1** และ **Speech Coordinator** ที่ไม่ผูกกับโมเดล: มีคิวเรียงลำดับ, ID, การป้องกันข้อความซ้ำ, การยกเลิกงาน, เหตุการณ์แบบเวอร์ชัน, WAV ที่ดาวน์โหลดหลังเตรียมเสียงสำเร็จ และหน้าเว็บทดลองคิว โมเดลใหม่ที่ฝึกเองสามารถสร้าง Adapter มาลงทะเบียนด้วย Interface เดียวกัน ไม่ต้องเปลี่ยน Text Processor หรือ API หลัก
+
+ระบบปัจจุบันยัง **ไม่ใช่ Playback Clock, OBS Subtitle Sync, Discord/YouTube Input หรือ Training Engine** และไม่มีการรับรอง License ของโมเดลทุกตัวว่าใช้เชิงพาณิชย์แล้ว
+
+อ่าน [โครง Engine-Neutral Core (ภาษาไทย)](docs/ENGINE_NEUTRAL_CORE_TH.md)
 
 ## ข้อกำหนดที่ต้องรักษา
 1. ปรับเสียงได้: ความเร็ว, ระดับเสียง, Formant, ความกังวาน, อารมณ์, เว้นจังหวะ (ขึ้นกับความสามารถของ TTS รุ่นนั้น)
@@ -24,6 +32,7 @@
 4. สามารถตั้งชื่อและบันทึก **Voice Preset** แล้วโหลดกลับมาใช้งานได้ เก็บไว้ใน `data/presets/voice-presets.json` ภายในโปรเจกต์
 5. ใช้ `scripts/Generate-ThaiSample.ps1` เพื่อสร้าง WAV จาก API หรือใช้ `scripts/Smoke-VoiceStudio.ps1` เพื่อทดสอบ Engine ทั้งสอง
 6. ใช้ `Test-Dev.cmd` ทดสอบ
+7. ลองส่วน **คิวเตรียมเสียง (Engine-independent)** บนหน้าเว็บ เพื่อเข้าคิว, ดูสถานะ, ยกเลิก และดาวน์โหลด WAV เมื่อ Ready โดยไม่ผูกกับ Engine ตัวใดตัวหนึ่ง
 
 กฎตัวอย่าง `match_mode: "five_run"` รองรับเลข 5 ตั้งแต่ 3 ตัวขึ้นไปในแชท เช่น `555`, `55555`, `55555555` โดยอ่านเป็น `ฮ่า ฮ่า ฮ่า` แต่แสดงเลขเดิมบน Subtitle และไม่นำรูปแบบตัวเลขอย่าง `5,55555` หรือ `55555.50` มาอ่านเป็นเสียงหัวเราะ
 
@@ -41,6 +50,7 @@
 - [Roadmap (checklist)](docs/ROADMAP.md) · [Security](docs/SECURITY.md)
 - [M1 — การเชื่อม TTS Engine ไทยและผลทดลองเสียงจริง](docs/M1_AUDIO_TH.md)
 - [Voice Studio — การเลือก Engine และค่าปรับเสียงละเอียด](docs/VOICE_STUDIO_TH.md)
+- [โครงระบบ Engine-Neutral Core, Registry, Queue และ Adapter v1](docs/ENGINE_NEUTRAL_CORE_TH.md)
 - [แผนการสร้างเสียงส่วนตัวและ Fine-tuning](docs/VOICE_TRAINING_TH.md)
 
 ## Commercial-First License Policy

@@ -72,15 +72,16 @@ class SpeechTests(unittest.TestCase):
                 render_wav(plan, engine=ConstantEngine(), seed=value)
 
     def test_render_instantiates_fresh_engine_per_request(self):
-        from unittest.mock import patch
-        from voxweavetts.speech import FastThaiG2PEngine
+        from unittest.mock import patch, call
         plan = process_text("ฮ่า ฮ่า ฮ่า")
-        with patch("voxweavetts.speech.FastThaiG2PEngine") as cls:
-            cls.return_value = ConstantEngine()
+        # Mock the generic registry-backed factory rather than one built-in
+        # class: tests must not assume any particular model implementation.
+        with patch("voxweavetts.speech.create_voice_engine", return_value=ConstantEngine()) as factory:
             render_wav(plan, seed=100)
             render_wav(plan, seed=100)
-            self.assertEqual(cls.call_count, 2)
-            cls.assert_called_with(seed=100)
+            self.assertEqual(factory.call_args_list, [
+                call(ENGINE_ID, seed=100), call(ENGINE_ID, seed=100),
+            ])
 
     def test_chunk_splits_do_not_discard_characters(self):
         for text in ["a"*345, "สวัสดีครับ "*50, "one, two. three! "+("four "*20)]:
