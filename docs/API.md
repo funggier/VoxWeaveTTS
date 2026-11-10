@@ -1,4 +1,4 @@
-# API Contract — M1 Thai WAV preview (v0.2.0.dev1)
+# API Contract — M1 Thai WAV preview (v0.2.0.dev4)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -31,11 +31,11 @@ Rules:
 
 ## Real audio endpoint (M1 preview)
 
-`GET /v1/engines` — one Thai backend with available assets, installed runtime and supported capability flags.
+`GET /v1/engines` — two Thai CPU ONNX adapters (`fastthaig2p-cpu`, `makham-paradee-cpu`) with model readiness, voice IDs, supported flags, and a `control_schema` object including slider/min/max/step defaults and `ffmpeg_ready`.
 
-`GET /v1/voices` — only fixed `thai_som`; `voice_cloning=false`.
+`GET /v1/voices` — fixed `thai_som` and `paradee_thai` with `engine_id`, `ready` and `voice_cloning=false`.
 
-`POST /v1/speech` — uses the **same** text, rules, pronunciations and source fields as `POST /v1/text/process`, plus `engine_id: "fastthaig2p-cpu"`, `voice_id: "thai_som"`, `speed: 1.0` (range 0.6–1.5), and optional `seed` (integer 0–2147483647). Returns `audio/wav` (24 kHz mono PCM16), `X-VoxWeaveTTS-Duration-Ms` and `X-VoxWeaveTTS-Seed` headers. Text input may be at most 8000 chars for text processing but total spoken segments are limited to **500 spoken characters and 50 segments** per audio request. CPU TTS assets are optional: if unavailable, the endpoint responds `503`. Unsupported control/engine/voice returns `400`.
+`POST /v1/speech` — uses the **same** text, rules, pronunciations and source fields as `POST /v1/text/process`, plus `engine_id: "fastthaig2p-cpu"` / `"makham-paradee-cpu"`, corresponding `voice_id` (`"thai_som"` / `"paradee_thai"`), `speed: 1.0` (range 0.6–1.5), optional `voice_controls` and `seed` (integer 0–2147483647). Returns `audio/wav` (24 kHz mono PCM16), `X-VoxWeaveTTS-Duration-Ms` and `X-VoxWeaveTTS-Seed` headers. Text input may be at most 8000 chars for text processing but total spoken segments are limited to **500 spoken characters and 50 segments** per audio request. CPU TTS assets are optional: if unavailable, the endpoint responds `503`. Unsupported control/engine/voice returns `400`.
 
 This endpoint **generates audio, not timed playback events**; its segment duration metadata is not a live subtitle timeline. See [M1_AUDIO_TH.md](M1_AUDIO_TH.md).
 
@@ -45,7 +45,13 @@ This endpoint **generates audio, not timed playback events**; its segment durati
 
 `POST /v1/settings/synthesis` requires `Content-Type: application/json`, `X-VoxWeaveTTS-Intent: save-synthesis-settings`, and JSON body `{"seed":123}`. Stores only this validated integer under the portable project root. `POST /v1/speech` uses the saved seed when not supplied in the request, and a request-specific seed takes precedence.
 
-FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces byte-identical WAV on the tested CPU runtime, `render_wav` seeds ONNX **before creating a new model session for each speech job**. Reusing a model session while merely reseeding the global runtime is not reproducible. This incurs extra model-initialization overhead; M1 prioritizes correctness over streaming latency. It **does not guarantee correct pronunciation**, only reproducibility for the same model/runtime/input.
+FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces byte-identical WAV on the tested CPU runtime, `render_wav` seeds ONNX **before creating a new model session for each speech job**. Reusing a model session while merely reseeding the global runtime is not reproducible. This incurs extra model-initialization overhead; M1 prioritizes correctness over streaming latency. It **does not guarantee correct pronunciation**, only reproducibility for the same model/runtime/input. Waveform correlation between Seed 100/101 was measured at about 0.986 for `ฮ่า ฮ่า ฮ่า` and 0.997 for a longer Thai sentence; Seed does not select a different voice or provide useful timbre control.
+
+## Voice Studio controls and presets (implemented in preview)
+
+`POST /v1/speech` accepts `voice_controls`: `gain_db` (-18..+12 dB), `pitch_semitones` (-4..+4), `bass_db`/ `treble_db` (-12..+12 dB) and `formant_preserve` (boolean). Defaults are zero and `true` for formant preservation. Gain is handled by Python DSP, Pitch/EQ use **optional external FFmpeg with Rubber Band**. The Engine does not natively support Pitch/Formant/Emotion; independent formant shifting is unsupported. Silent segments remain exact PCM zeros.
+
+`GET /v1/presets` lists local JSON presets. `POST /v1/presets` requires `X-VoxWeaveTTS-Intent: save-voice-preset` with JSON body containing `name`, `engine_id`, `voice_id`, `speed`, `seed`, and `voice_controls`. Up to 32 validated presets are saved locally in `data/presets/voice-presets.json`, which is Git-ignored. See [VOICE_STUDIO_TH.md](VOICE_STUDIO_TH.md).
 
 ## Planned; not yet callable
 

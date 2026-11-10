@@ -2,6 +2,23 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.2.0.dev4 — Two Thai Engines and detailed Voice Studio (2026-11-10)
+
+- Added MakHam Paradee 8.46 MB INT8 CPU ONNX as a second working Thai TTS Engine, alongside FastThaiG2P.
+- Introduced explicit Engine/Voice discovery and an Engine selector in Web UI and API; unavailable models are not presented as ready.
+- Added paired Slider + Numeric controls for Native Speed and real post-DSP Gain, Pitch, Bass and Treble; optional formant preservation during Pitch shifts (no arbitrary formant shift).
+- Added private save/load Voice Presets with validated settings in portable `data/presets/`.
+- Added optional FFmpeg/Rubber Band DSP with safe bounded parameters, plus a project-local MakHam asset preparation step.
+- Tested CPU WAV synthesis through both Engines and HTTP API with non-default voice controls; no audio assets or voice samples added to public Git.
+- Documented Voice Cloning and Fine-tuning as future work, not completed functionality.
+
+## 0.2.0.dev3 — Clarify Seed and add TTS pronunciation audition (2026-11-10)
+
+- Verified via CPU waveform analysis that changing ONNX Seed produces highly correlated PCM audio; different hashes alone do not imply perceptibly different voice or corrected pronunciation.
+- Moved Seed controls to Advanced and clarified that Seed is for reproducibility, not speaker timbre, pitch, or pronunciation tuning.
+- Added a laughter TTS spelling selector and an audition action that updates only the `five_run` replacement's spoken side; the original `55555` display remains unchanged.
+- No prerecorded laughter clips or new voice models. Thai phonetic accuracy still needs user listening evaluation.
+
 ## 0.2.0.dev2 — Repeated-5 chat pronunciation pattern (2026-11-10)
 
 - Added `match_mode=five_run` for rules that convert any run of 3+ ASCII 5s (e.g. `555`, `55555`, `5555555`) to user-defined spoken text while keeping the exact original subtitle and source span.

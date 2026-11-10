@@ -17,10 +17,15 @@ from .speech import (
     EngineUnavailable,
     SpeechFailure,
     engine_info,
+    list_engine_info,
+    get_engine_info,
     DEFAULT_SEED,
     render_wav,
     validate_seed,
+    validate_speech_request,
 )
+from .voice_controls import control_schema
+from .presets import load_presets, save_preset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAX_REQUEST_BYTES = 65_536
@@ -113,7 +118,7 @@ class Handler(BaseHTTPRequestHandler):
                     "capabilities": {
                         "text_filter": True,
                         "pronunciation_hints": True,
-                        "tts_audio": info.assets_ready and info.runtime_ready,
+                        "tts_audio": any(e.assets_ready and e.runtime_ready for e in list_engine_info()),
                         "reproducible_seed": info.assets_ready and info.runtime_ready,
                         "voice_cloning": False,
                         "websocket_streaming": False,
@@ -125,16 +130,21 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/v1/settings/synthesis":
                 self.send_json(200, {"seed": _read_seed()})
             elif route == "/v1/engines":
-                self.send_json(200, {"engines": [engine_info().as_dict()]})
+                self.send_json(200, {
+                    "engines": [item.as_dict() for item in list_engine_info()],
+                    "control_schema": control_schema(),
+                })
             elif route == "/v1/voices":
                 self.send_json(200, {
-                    "voices": [{
-                        "id": "thai_som",
-                        "engine_id": ENGINE_ID,
-                        "language": "th",
-                        "voice_cloning": False,
-                    }]
+                    "voices": [
+                        {"id": item.voice_id, "engine_id": item.id,
+                         "language": item.language, "voice_cloning": False,
+                         "ready": item.assets_ready and item.runtime_ready}
+                        for item in list_engine_info()
+                    ]
                 })
+            elif route == "/v1/presets":
+                self.send_json(200, {"presets": load_presets()})
             elif route == "/v1/rules":
                 data = _load_json("data/filters/rules.json", [])
                 self.send_json(
@@ -191,6 +201,19 @@ class Handler(BaseHTTPRequestHandler):
             except (InputError, UnicodeDecodeError, json.JSONDecodeError, OSError) as exc:
                 self.send_json(400, {"error": str(exc)})
             return
+        if route == "/v1/presets":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-voice-preset":
+                self.send_json(403, {"error": "missing preset update intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.send_json(415, {"error": "preset must be application/json"})
+                return
+            try:
+                result = save_preset(self._read_json())
+                self.send_json(200, {"preset": result})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError, OSError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
         if route not in {"/v1/text/process", "/v1/speech"}:
             self.send_json(404, {"error": "not found"})
             return
@@ -200,22 +223,30 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/v1/text/process":
                 self.send_json(200, plan)
                 return
-            if data.get("engine_id", ENGINE_ID) != ENGINE_ID:
-                raise InputError(f"unknown engine_id; available: {ENGINE_ID}")
+            selected_engine = data.get("engine_id", ENGINE_ID)
+            selected_info = get_engine_info(selected_engine)
+            # Validate caller controls before reporting missing runtime or models.
+            validate_speech_request(
+                plan, data.get("speed", 1.0),
+                data.get("voice_id", selected_info.voice_id), selected_engine,
+            )
+            if not (selected_info.assets_ready and selected_info.runtime_ready):
+                raise EngineUnavailable("selected Thai voice model is not installed or runtime is missing")
             wav, info = render_wav(
                 plan,
                 speed=data.get("speed", 1.0),
-                voice_id=data.get("voice_id", "thai_som"),
+                voice_id=data.get("voice_id", selected_info.voice_id),
+                engine_id=selected_engine,
+                voice_controls=data.get("voice_controls"),
                 seed=validate_seed(data.get("seed", _read_seed())),
             )
-            self._headers(
-                200, "audio/wav", len(wav),
-                {
-                    "X-VoxWeaveTTS-Engine": info["engine_id"],
-                    "X-VoxWeaveTTS-Duration-Ms": str(info["duration_ms"]),
-                    "X-VoxWeaveTTS-Seed": str(info["seed"]),
-                },
-            )
+            headers = {
+                "X-VoxWeaveTTS-Engine": info["engine_id"],
+                "X-VoxWeaveTTS-Duration-Ms": str(info["duration_ms"]),
+            }
+            if info["seed"] is not None:
+                headers["X-VoxWeaveTTS-Seed"] = str(info["seed"])
+            self._headers(200, "audio/wav", len(wav), headers)
             self.wfile.write(wav)
         except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             self.send_json(400, {"error": str(exc)})

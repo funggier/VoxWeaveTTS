@@ -13,12 +13,15 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .processing import InputError
+from .voice_controls import apply_voice_controls, control_schema, ffmpeg_path, validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT / "models" / "fastthaig2p"
 ASSETS = {"model": "kokoro_thai.onnx", "voicepack": "thai_som.npy", "config": "config.json"}
 MIN_SIZES = {"model": 320_000_000, "voicepack": 500_000, "config": 100}
 ENGINE_ID = "fastthaig2p-cpu"
+PARADEE_ENGINE_ID = "makham-paradee-cpu"
+PARADEE_DIR = ROOT / "models" / "makham-paradee"
 SAMPLE_RATE = 24_000
 MAX_SPEECH_CHARS = 500
 MAX_PLAN_SEGMENTS = 50
@@ -76,6 +79,60 @@ def assets_ready() -> bool:
         )
     except OSError:
         return False
+
+
+def paradee_assets_ready() -> bool:
+    try:
+        return (
+            (PARADEE_DIR / "paradee_thai_int8.onnx").is_file()
+            and (PARADEE_DIR / "paradee_thai_int8.onnx").stat().st_size > 8_000_000
+            and (PARADEE_DIR / "config.json").is_file()
+        )
+    except OSError:
+        return False
+
+
+def list_engine_info() -> list[EngineInfo]:
+    primary = engine_info()
+    postprocessing = bool(ffmpeg_path())
+    # Report both supported built-in engine adapters, even when a model has
+    # not yet been installed. Never list a voice cloning backend as functional.
+    for item in (primary,):
+        item.capabilities.update({
+            "gain": True, "pitch_post_dsp": postprocessing,
+            "bass_post_dsp": postprocessing,
+            "treble_post_dsp": postprocessing,
+            "formant_preserve_on_pitch": postprocessing,
+            "independent_formant_shift": False,
+        })
+    paradee = EngineInfo(
+        id=PARADEE_ENGINE_ID,
+        label="MakHam Paradee Thai INT8 (CPU ONNX)",
+        language="th",
+        voice_id="paradee_thai",
+        sample_rate=SAMPLE_RATE,
+        assets_ready=paradee_assets_ready(),
+        runtime_ready=runtime_ready(),
+        capabilities={
+            "speech": True, "speed": True, "seed_control": False,
+            "voice_cloning": False, "pitch": False, "formant": False,
+            "expressiveness": False, "streaming": False,
+            "phoneme_dictionary": False,
+            "gain": True, "pitch_post_dsp": postprocessing,
+            "bass_post_dsp": postprocessing,
+            "treble_post_dsp": postprocessing,
+            "formant_preserve_on_pitch": postprocessing,
+            "independent_formant_shift": False,
+        },
+    )
+    return [primary, paradee]
+
+
+def get_engine_info(engine_id: str) -> EngineInfo:
+    for item in list_engine_info():
+        if item.id == engine_id:
+            return item
+    raise InputError("unknown engine_id")
 
 
 def runtime_ready() -> bool:
@@ -175,6 +232,45 @@ class FastThaiG2PEngine:
             return _float32_to_pcm(native.generate(text))
 
 
+class MakHamParadeeEngine:
+    """Local, single-voice CPU ONNX adapter (model is bundled with PyThaiTTS)."""
+
+    id = PARADEE_ENGINE_ID
+    sample_rate = SAMPLE_RATE
+    _lock = threading.Lock()
+
+    def __init__(self) -> None:
+        self._native: Any = None
+
+    def generate(self, text: str, speed: float) -> bytes:
+        if not isinstance(text, str) or not text.strip():
+            return b""
+        with type(self)._lock:
+            if self._native is None:
+                if not paradee_assets_ready():
+                    raise EngineUnavailable(
+                        "MakHam Paradee assets missing in models/makham-paradee"
+                    )
+                if not runtime_ready():
+                    raise EngineUnavailable("PyThaiTTS ONNX dependencies unavailable")
+                from pythaitts.pretrained.makham.paradee_tts import MakHamTTSParadee
+                self._native = MakHamTTSParadee(
+                    model_path=PARADEE_DIR / "paradee_thai_int8.onnx",
+                    config_path=PARADEE_DIR / "config.json",
+                    intra_op_threads=4, speed=1.0,
+                )
+            self._native.speed = speed
+            return _float32_to_pcm(self._native.generate(text))
+
+
+def create_voice_engine(engine_id: str, seed: int) -> VoiceEngine:
+    if engine_id == ENGINE_ID:
+        return FastThaiG2PEngine(seed=seed)
+    if engine_id == PARADEE_ENGINE_ID:
+        return MakHamParadeeEngine()
+    raise InputError("unknown engine_id")
+
+
 def _chunks(text: str, limit: int = 110) -> list[str]:
     """Bound TTS text spans without silently dropping characters."""
     if not text:
@@ -196,11 +292,13 @@ def _chunks(text: str, limit: int = 110) -> list[str]:
     return out
 
 
-def validate_speech_request(plan: dict[str, Any], speed: float, voice_id: str) -> None:
+def validate_speech_request(plan: dict[str, Any], speed: float, voice_id: str,
+                            engine_id: str = ENGINE_ID) -> None:
     if type(speed) not in (int, float) or not 0.6 <= speed <= 1.5:
         raise InputError("speed must be a number from 0.6 to 1.5")
-    if voice_id != "thai_som":
-        raise InputError("this engine supports only voice_id=thai_som (not voice cloning)")
+    info = get_engine_info(engine_id)
+    if voice_id != info.voice_id:
+        raise InputError(f"engine {engine_id} supports only voice_id={info.voice_id}; voice cloning not supported")
     segments = plan.get("segments")
     if not isinstance(segments, list) or len(segments) > MAX_PLAN_SEGMENTS:
         raise InputError(f"speech plan must have at most {MAX_PLAN_SEGMENTS} segments")
@@ -214,6 +312,8 @@ def render_wav(
     speed: float = 1.0,
     voice_id: str = "thai_som",
     seed: int = DEFAULT_SEED,
+    engine_id: str = ENGINE_ID,
+    voice_controls: dict[str, Any] | None = None,
     engine: VoiceEngine | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Synthesize segments as a single WAV, retaining precise segment offsets.
@@ -221,11 +321,12 @@ def render_wav(
     The segment timeline is based on generated samples, not playback events.
     An external playback coordinator must still provide real-time subtitle sync.
     """
-    validate_speech_request(plan, speed, voice_id)
+    validate_speech_request(plan, speed, voice_id, engine_id)
     seed = validate_seed(seed)
+    controls = validate_controls(voice_controls)
     # A fresh model instance per speech job prevents its random state from
     # drifting between otherwise identical utterances.
-    engine = engine if engine is not None else FastThaiG2PEngine(seed=seed)
+    engine = engine if engine is not None else create_voice_engine(engine_id, seed=seed)
     rate = engine.sample_rate
     if rate < 8_000 or rate > 96_000:
         raise SpeechFailure("unsupported engine sample rate")
@@ -241,6 +342,8 @@ def render_wav(
                     audio = engine.generate(chunk, float(speed))
                     if len(audio) % 2:
                         raise SpeechFailure("engine emitted partial PCM sample")
+                    if any((controls[k] != 0 for k in ("gain_db", "pitch_semitones", "bass_db", "treble_db"))):
+                        audio = apply_voice_controls(audio, rate, controls)
                     frames += len(audio) // 2
                     pieces.append(audio)
         elif kind == "silence":
@@ -273,7 +376,8 @@ def render_wav(
     return audio_buffer.getvalue(), {
         "engine_id": engine.id,
         "voice_id": voice_id,
-        "seed": seed,
+        "seed": seed if engine_id == ENGINE_ID else None,
+        "voice_controls": controls,
         "sample_rate": rate,
         "duration_ms": round(frames * 1000 / rate),
         "segments": timeline,

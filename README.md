@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.2.0.dev2 M1 preview):** local text processing and **real Thai WAV generation** using PyThaiTTS/FastThaiG2P CPU ONNX, when the optional model/runtime are installed. **Voice cloning, voice-specific tuning beyond speed, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.**
+> **Current status (v0.2.0.dev4 Voice Studio preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
 
 ## Goals
 
@@ -17,7 +17,7 @@
 
 1. Install `uv` and GitHub CLI (`gh`) for development setup. Run `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` in the project directory. The optional CPU engine and ~326 MB voice model are stored under the project root.
 2. Run `Start-Dev.cmd` (picks the local `.venv` Python first).
-3. Open <http://127.0.0.1:8765/> and click **สร้างเสียง WAV** to synthesize and audition Thai speech; no voice cloning in this engine. For words such as `ฮ่า ฮ่า ฮ่า` that vary across stochastic runs, change the **Seed** and save a preferred value. The engine now uses a fresh ONNX session per speech request to reproduce the same audio for a fixed text/speed/seed on the tested runtime.
+3. Open <http://127.0.0.1:8765/> and click **สร้างเสียง WAV** to synthesize and audition Thai speech; no voice cloning in this engine. Select one of two locally installed Thai Engines, use paired Slider/Numeric controls for Speed, Gain, Pitch, Bass and Treble, audition the **laughter pronunciation** selector, and save/load Voice Presets. **Seed** remains an advanced reproducibility option, not voice timbre. FFmpeg with Rubber Band is an optional developer dependency for Pitch/EQ; volume and speed work independently. A fresh ONNX session still reproduces audio for fixed text/speed/seed on the tested runtime.
 4. Use `scripts/Generate-ThaiSample.ps1` while the local server is running to save `output/api_demo.wav`.
 5. Run `Test-Dev.cmd` for unit tests.
 
@@ -29,9 +29,10 @@ The Python `.venv` is a developer environment, **not the final portable executab
 - `GET /v1/rules` — locally stored replacement rules, if configured.
 - `GET /v1/pronunciations` — locally stored pronunciation overrides, if configured.
 - `POST /v1/text/process` — deterministic filter, replacement, silence and pronunciation processing; optional `match_mode: five_run` safely maps repeated chat 5s to speech while retaining the original subtitle.
-- `GET /v1/engines` and `GET /v1/voices` — available backend/capabilities and fixed voice.
+- `GET /v1/engines` and `GET /v1/voices` — two Thai CPU engine adapters, their readiness, voice IDs and detailed DSP control schema.
 - `POST /v1/speech` — generate Thai PCM16/WAV through the optional FastThaiG2P CPU backend (500 spoken characters max per request), with optional reproducible `seed`.
 - `GET/POST /v1/settings/synthesis` — view/store a preferred seed in local portable settings (POST requires an explicit intent header).
+- `GET/POST /v1/presets` — list/save local private Voice Studio Presets (POST requires explicit intent header).
 - `GET /` — local text and WAV preview.
 
 Example (PowerShell):
@@ -63,3 +64,5 @@ The MIT license applies to **our code only**. Models, voice samples, dictionarie
 - [Roadmap](docs/ROADMAP.md)
 - [Licensing and privacy](docs/SECURITY.md)
 - [M1 real Thai audio setup and verification (Thai)](docs/M1_AUDIO_TH.md)
+- [Voice Studio engines and control ranges (Thai)](docs/VOICE_STUDIO_TH.md)
+- [Voice cloning and fine-tuning plan (Thai)](docs/VOICE_TRAINING_TH.md)

@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Push-Location $root
 try {
-  foreach ($dir in @("cache\uv","cache\pip","cache\huggingface","cache\temp","models\fastthaig2p")) {
+  foreach ($dir in @("cache\uv","cache\pip","cache\huggingface","cache\temp","models\fastthaig2p","models\makham-paradee")) {
     New-Item -Path $dir -ItemType Directory -Force | Out-Null
   }
   $env:UV_CACHE_DIR = Join-Path $root "cache\uv"
@@ -30,6 +30,19 @@ try {
   }
   & uv pip install --python $python --link-mode copy "pythaitts==1.0.0"
   if ($LASTEXITCODE -ne 0) { throw "uv pip install failed" }
+
+  # PyThaiTTS includes a compact (~8.5 MB) MakHam Paradee ONNX file.
+  # Copy it into our portable project model directory, without network calls.
+  $packageSource = & $python -c "import pathlib,pythaitts.pretrained.makham.paradee_tts as m; print(pathlib.Path(m.__file__).parent / 'data')"
+  if ($LASTEXITCODE -ne 0) { throw "Unable to find MakHam Paradee packaged assets" }
+  $paradeeSource = $packageSource.Trim()
+  $paradeeTarget = Join-Path $root "models\makham-paradee"
+  foreach ($name in @("paradee_thai_int8.onnx", "config.json")) {
+    $origin = Join-Path $paradeeSource $name
+    if (-not (Test-Path -LiteralPath $origin)) { throw "Missing packaged Paradee asset $name" }
+    Copy-Item -LiteralPath $origin -Destination (Join-Path $paradeeTarget $name) -Force
+  }
+  Write-Output "Prepared MakHam Paradee local CPU Engine from the installed package."
 
   if (-not $SkipModel) {
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -57,7 +70,7 @@ try {
     }
   }
   $env:PYTHONPATH = Join-Path $root "src"
-  & $python -c "from voxweavetts.speech import engine_info; print(engine_info().as_dict())"
+  & $python -c "from voxweavetts.speech import list_engine_info; [print(e.as_dict()) for e in list_engine_info()]"
   if ($LASTEXITCODE -ne 0) { throw "Engine self-check failed" }
   Write-Output "Thai engine development setup completed."
 }

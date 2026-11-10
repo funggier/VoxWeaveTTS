@@ -24,8 +24,10 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [ ] Listening-based Thai pronunciation regression testing and native phoneme overrides
 - [ ] Further engine quality/speed benchmarks and longer text stress tests
 
-## Milestone 2 — Voice Studio
-- [ ] Speed, pitch, formant, EQ/brightness, expressivity and pause adjustment
+## Milestone 2 — Voice Studio (partial)
+- [x] Select 2 real Thai CPU Engines and save/load local Voice Presets
+- [x] Paired Slider/Numeric inputs for Native Speed and post-DSP Gain/Pitch/Bass/Treble, formant-preserve mode
+- [ ] Native Formant shift, expressive style models and pause adjustment
 - [ ] Distinguish model-native controls from post-processing DSP
 - [ ] A/B audition, saved presets, non-destructive audio cache
 - [ ] Novel/TXT/Markdown multi-chapter pipeline

@@ -2,7 +2,7 @@
 
 > จัดทำ: 10 พฤศจิกายน 2026 · เป้าหมาย: โปรแกรม Windows Portable ที่อ่านไทยได้ดี ปรับเสียงได้ รับข้อความสด และส่ง Subtitle ที่ตรงกับเสียงจริง  
 > เอกสารนี้เป็น **แผน/เกณฑ์ยอมรับ** ไม่ใช่รายการความสามารถที่ส่งมอบแล้ว  
-> สถานะล่าสุดที่ตรวจสอบก่อนแก้เอกสาร: Foundation v0.1.0, main `9a7f4e1` (ก่อน commit เอกสารชุดนี้); การเปลี่ยนแปลงหลังจากนี้ดู Git log เป็นหลัก
+> อัปเดตงาน: v0.2.0.dev4 (ก่อน Commit ของงานรอบนี้) — ดู Git Log/CI ล่าสุดเพื่อยืนยันสถานะ
 
 ## 0. แหล่งที่มาของข้อกำหนดและหลักการวางแผน
 
@@ -17,7 +17,8 @@
 เพื่อไม่ให้สร้าง UI สวยก่อนแต่ระบบหลักยังใช้งานไม่ได้ จะพัฒนาแบบ **Vertical Slice**: ข้อความ → กฎ → เสียงจริง → Playback → Event/Subtitle → Portable; แต่ละระยะมี Demo และ Tests สั้น ๆ ที่ทำซ้ำได้
 
 **สิ่งที่มีแล้ว:** ตัวกรอง/คำอ่าน/แผนข้อความ/HTTP Preview/เว็บทดลอง/Unit Tests และเพิ่มเติม **FastThaiG2P CPU ONNX สร้าง WAV ภาษาไทยจริงได้แล้วใน M1 Preview**
-**สิ่งที่ยังไม่มี:** Voice Cloning/Voice Studio ที่ปรับเสียงละเอียด/Live Events/Connectors/Portable Binary; ไม่ควรติ๊กผ่านจนกว่าจะทดสอบจริง
+**สิ่งที่มีเพิ่มใน v0.2.0.dev4:** MakHam Paradee เป็น Engine ที่สอง, เลือก Engine ได้, Slider/Numeric สำหรับ Speed/Gain/Pitch/Bass/Treble, บันทึก Preset แบบ Local; Pitch และ EQ ใช้ FFmpeg DSP ไม่ใช่ความสามารถ Native ของโมเดล
+**สิ่งที่ยังไม่มี:** Voice Cloning/Fine-tuning, Native Emotion/Formant, Live Events, Connectors, Portable Binary; ไม่ควรติ๊กผ่านจนกว่าจะทดสอบจริง
 
 ## 1. ข้อกำหนดข้ามทุกระยะ (Definition of Done)
 
@@ -66,7 +67,7 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 4. M1 — Thai TTS Engine และไฟล์เสียงจริง
 
-**สถานะปัจจุบัน: M1 Partial** — เพิ่ม VoiceEngine Protocol, FastThaiG2P CPU ONNX Adapter, WAV 24 kHz Mono, Silence PCM, API `/v1/speech` และปุ่มเล่นเสียงใน Web UI แล้ว ทดสอบจริงสร้างไฟล์ WAV สำเร็จแต่ยัง **ไม่ยืนยันการออกเสียงภาษาไทยด้วยการตรวจฟัง** ดู [M1_AUDIO_TH.md](M1_AUDIO_TH.md)
+**สถานะปัจจุบัน: M1 Partial** — เพิ่ม VoiceEngine Protocol, FastThaiG2P และ MakHam Paradee CPU ONNX Adapter, WAV 24 kHz Mono, Silence PCM, API `/v1/speech` และปุ่มเล่นเสียงใน Web UI แล้ว ทดสอบจริงสร้างไฟล์ WAV สำเร็จแต่ยัง **ไม่ยืนยันการออกเสียงภาษาไทยด้วยการตรวจฟัง** ดู [M1_AUDIO_TH.md](M1_AUDIO_TH.md)
 
 **เป้าหมาย:** กดปุ่มแล้วได้ไฟล์ WAV จากข้อความไทย พร้อมประเมินว่าเสียงจริงออกถูกต้องหรือไม่
 
@@ -103,10 +104,13 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 **เป้าหมาย:** ปรับเสียงให้ถูกใจด้วยการลองฟังจริง รวมทั้งใช้กับนิยายได้เป็นตอน
 
 งาน:
-- [ ] หน้า Voice Studio: เลือก Engine, Voice Profile, Preview Text, Play/Stop และ A/B Comparison
+- [x] หน้า Voice Studio: เลือก Engine ได้ 2 ตัว, Preview Text, Play/Stop พร้อม Slider/Numeric
+- [ ] เพิ่ม Voice Profile จากเสียงเจ้าของโปรเจกต์ และ A/B Comparison
 - [ ] โปรไฟล์เสียงอ้างอิง (ใช้เฉพาะเสียงที่มีสิทธิ์) เก็บใต้ `voices/` ไม่อัปโหลด
-- [ ] Preset ต่อ Engine/Voice พร้อม Versioning/Export/Import และ Reset
-- [ ] Speed, Pitch, Formant, Brightness/EQ, Expressiveness, Pause; แยก **ก่อนสร้างเสียง** กับ **DSP หลังสร้างเสียง** และแสดง Supported/Unsupported
+- [x] Preset ต่อ Engine/Voice เก็บใน Portable `data/presets`, มี Save/Load/Reset
+- [ ] Preset Export/Import และ Versioning ขั้นสูง
+- [x] Speed แบบ Engine-native และ Gain/Pitch/Bass/Treble แบบ DSP แสดง Supported/Unsupported พร้อมค่าช่วงปลอดภัย
+- [ ] Native Formant, Expressiveness, Pause control และปรับ Emotion ตามโมเดลที่รองรับ
 - [ ] กำหนดขอบเขต Pitch เพื่อไม่ทำลายรูปวรรณยุกต์ไทย และมีคำทดสอบมาตรฐาน
 - [ ] คลังพจนานุกรมคำอ่านและกฎแทนคำ: เพิ่ม แก้ ลบ Import/Export และ Scope Global / Per-Book / Per-Source
 - [ ] รองรับ TXT/MD และการแบ่งบท; สำหรับ Markdown ให้ไม่อ่าน Syntax/Code Block โดยไม่จำเป็น
@@ -115,6 +119,8 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 - [ ] ไม่เปิดเผยข้อมูลอ้างอิงเสียงใน Logs, API response หรือ Repository
 
 **Acceptance test:** สร้างเสียงประโยคเดียวกัน 2 Presets และฟังเปรียบเทียบได้; เก็บ/รีโหลด Preset ได้; แก้คำอ่านหนึ่งช่วงของบทแล้วสร้างใหม่เฉพาะช่วงนั้น; ปรับค่าที่โมเดลไม่รองรับต้องมีข้อความแจ้ง ไม่เงียบหายหรือหลอกผู้ใช้
+
+ดู [VOICE_STUDIO_TH.md](VOICE_STUDIO_TH.md) และ [VOICE_TRAINING_TH.md](VOICE_TRAINING_TH.md) สำหรับรายละเอียด Engine / Preset / แผนการฝึกเสียงด้วยการจัดคำอ่านภาษาไทยแยกจากเอกลักษณ์ของเสียง
 
 ## 6. M3 — Speech Coordinator, Queue และ Event Contract
 
@@ -230,11 +236,11 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 ## 13. ลำดับเริ่มทำงานครั้งถัดไป (Next session checklist)
 
 1. ยืนยัน Git state, HEAD, uncommitted changes และผล CI ก่อนแก้
-2. เริ่มที่ **M1**: สร้าง Engine Interface และ Capability Contract พร้อม Mock Engine
+2. ต่อจาก **M1/M2 Partial**: สร้างชุดคำอ่านไทยพร้อมฟังตรวจจริงระหว่าง FastThaiG2P และ MakHam Paradee
 3. ทำชุดข้อความไทยทดสอบคำอ่าน/เสียงให้เป็น fixture, ไม่ใช้ไฟล์เสียงส่วนตัวใน Repo
-4. ประเมิน Backend TTS ที่รองรับภาษาไทยจริง (Hardware + License + Audio Quality)
-5. เชื่อม Engine 1 ตัวเพื่อให้ `POST /v1/speech` สร้าง WAV ได้ พร้อม Silence จริง
-6. ทดสอบ Audio และอัปเดตเอกสารตามผลจริง; **อย่าข้ามไปพัฒนา OBS/Discord ก่อนรู้ว่าเสียงออกได้**
+4. ประเมิน Backend ที่รองรับ Reference Voice/Voice Cloning ภาษาไทยตาม License/Hardware และทำ Plan การเก็บเสียงของผู้ใช้
+5. ทดลองอ่านภาษาไทยผ่าน 2 Engines กับคำว่า `ฮ่า`, `เซียน`, `อมตะ`; เก็บผลผิดพลาดและ Preset ที่ฟังดี
+6. เพิ่ม Pronunciation QA, Audio Queue และ Playback Clock ก่อนต่อ Discord/OBS
 
 ## 14. เอกสารที่เกี่ยวข้อง
 
@@ -242,3 +248,4 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 - [ข้อกำหนดและความสามารถตามสถานะ](REQUIREMENTS_TH.md)
 - [Roadmap checklist](ROADMAP.md)
 - [Architecture](ARCHITECTURE.md), [API](API.md), [Portable](PORTABLE.md), [Security](SECURITY.md)
+- [Voice Studio](VOICE_STUDIO_TH.md), [Voice Cloning/Fine-tuning Plan](VOICE_TRAINING_TH.md)

@@ -14,7 +14,7 @@
 | R-001 | อ่านภาษาไทยเป็นเสียงจริง | VoiceEngine | M1 | Partial: สร้าง WAV ไทย CPU ได้แล้ว ยังไม่ตรวจฟังคำอ่าน | สร้าง WAV ได้และตรวจฟังจริง |
 | R-002 | ใช้เสียงตัวอย่างของผู้ใช้ | VoiceProfiles + Engine | M1–M2 | Planned | เพิ่ม/เลือกโปรไฟล์และฟังได้ โดยไม่เผยแพร่เสียง |
 | R-003 | แก้คำอ่าน เช่น อมตะ/เซียน | Thai Text Processor / Pronunciation | M0–M2 | Partial: Dictionary Hint เท่านั้น | ตรวจฟังแล้วออกเสียงถูกจริง |
-| R-004 | ปรับ Speed, Pitch, Formant, EQ, Emotion, Pause | VoiceStudio + DSP | M2 | Planned | ทดลอง A/B และบันทึก Preset; Engine แจ้ง Capability |
+| R-004 | ปรับ Speed, Pitch, Formant, EQ, Emotion, Pause | VoiceStudio + DSP | M2 | Partial: Speed/Gain/Pitch/Bass/Treble + Formant Preserve ใช้ได้; Native Emotion/Formant ยังไม่รองรับ | ทดลอง A/B และบันทึก Preset; Engine แจ้ง Capability |
 | R-005 | กรองคำ ไม่ให้อ่าน | ContentFilter | M0–M1 | Partial: Text Plan | เสียงจริงไม่มีคำที่ซ่อน |
 | R-006 | Mask คำใน Subtitle เป็น *** | ContentFilter + Subtitle | M0–M5 | Partial: Display Text เท่านั้น | Overlay ไม่แสดงคำต้นฉบับ |
 | R-007 | เว้นเงียบก่อนอ่านต่อ | SpeechPlan + Audio Timeline | M0–M1 | Done: มี Silence เป็น PCM จริงใน WAV ทดสอบ 400ms | Audio มี Silence ตามเวลา |
@@ -35,7 +35,7 @@
 | R-022 | ย้ายโฟลเดอร์/ไดรฟ์ไม่เสียค่า | Portable Paths | ทุกระยะ / M6 | Planned | Rename/Move Test, เก็บค่าเดิม |
 | R-023 | License โค้ด MIT + ตรวจสิทธิ์โมเดล | Legal/Release | M0/M6 | Partial: Code MIT | Model License Manifest ก่อน Release |
 | R-024 | หน้าตาโปรแกรมใช้งานบนจอปกติ ปรับขนาดได้ | Web UI | M0–M2 | Partial: Preview Responsive | ทดสอบ Resolution/Scaling |
-| R-025 | Profile เสียงและเครื่องมือจูนใช้ได้กับหลาย Engine | Engine Adapter + VoiceStudio | M1–M2 | Planned | Swap Backend โดยไม่แก้ Dictionary/Queue |
+| R-025 | Profile เสียงและเครื่องมือจูนใช้ได้กับหลาย Engine | Engine Adapter + VoiceStudio | M1–M2 | Partial: เลือก 2 CPU Engines และใช้ Preset/DSP ชุดเดียวกันได้ แต่ยังไม่มี Voice Cloning | Swap Backend โดยไม่แก้ Dictionary/Queue |
 | R-026 | ปิดเฉพาะ API Server โดยไม่ต้องเปิดหน้าจอ | Server Launcher | M6 | Partial: CLI Dev Server | เปิด API ได้จาก Portable Launcher |
 | R-027 | ระบบอัปเดตโดยไม่ทับข้อมูลผู้ใช้ | Upgrade/Migration | M6 | Planned | Backup, Upgrade, Rollback/Recovery Test |
 
@@ -49,4 +49,4 @@
 
 ## งานที่จะเริ่มก่อน
 
-Next priority: **R-003 + R-002 + R-004 + R-025** — ตรวจฟังและแก้การออกเสียงด้วย G2P จริง, ประเมิน Engine เสียงส่วนตัว, ปรับเสียงและทำ Voice Studio; R-001/R-007 มีฐานสร้าง WAV และ Silence จริงแล้ว
+Next priority: **R-003 + R-002 + R-015/016** — ตรวจฟังและแก้การออกเสียงด้วย G2P จริง, ประเมิน Engine ที่ใช้เสียงเจ้าของได้, แล้วเพิ่ม Queue/Event Timing; R-004/R-025 มีฐาน Voice Studio และ 2 Engines แล้ว

@@ -17,6 +17,12 @@ h1{font-size:clamp(27px,4vw,38px);letter-spacing:-.04em;margin:0}h2{font-size:18
 label{display:block;color:#bfd1e9;font-size:13px;margin:13px 0 7px}
 textarea{width:100%;border:1px solid #40516d;background:#0e1929;color:#eaf0f9;border-radius:9px;padding:12px;font:inherit;outline-offset:3px;min-height:115px;resize:vertical;line-height:1.7}
 textarea.json{min-height:135px;font:13px/1.6 Consolas,monospace}
+select,input[type=number],input[type=text]{background:#0e1929;color:#eaf0f9;border:1px solid #40516d;border-radius:9px;padding:9px;font:inherit}
+input[type=range]{accent-color:#8cc8ff;width:100%;min-width:145px}
+.voice-row{display:grid;grid-template-columns:155px minmax(130px,1fr) 125px 72px;gap:12px;align-items:center;margin:12px 0}
+.voice-grid{display:flex;gap:14px;flex-wrap:wrap;align-items:end}
+@media(max-width:720px){.voice-row{grid-template-columns:1fr 80px 55px}.voice-row label{grid-column:1/-1}}
+
 button{border:0;border-radius:9px;padding:12px 18px;color:#071627;background:#8cc8ff;cursor:pointer;font-weight:700;margin-top:17px}
 button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-break:break-word;font:13px/1.7 Consolas,monospace}
 .output{min-height:100px;background:#0c1727;padding:14px;border-radius:9px;line-height:1.9}
@@ -54,15 +60,61 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <section class="panel" style="margin-top:18px">
 <h2>สร้างเสียงภาษาไทย (M1 · CPU)</h2>
 <p class="small">สร้าง WAV ภาษาไทยจริงจากข้อความด้านบน โดยใช้กฎคำอ่านและการกรองที่กำหนดไว้ · เสียงปัจจุบัน: <strong>thai_som</strong> ของ FastThaiG2P (ยังไม่รองรับเสียงของผู้ใช้, Pitch หรือ Formant)</p>
-<p class="small">โมเดลอาจอ่าน “ฮ่า” ผิดในบาง Seed ถ้าฟังแล้วเป็น “พาน/พ่าน” ให้ลอง Seed ถัดไปจนได้เสียงที่ถูกใจ แล้วกดบันทึก ไม่มีการแทนด้วยไฟล์คลิปเสียง</p>
+<p class="small">โมเดลใช้เสียงผู้พูดแบบคงที่ <strong>thai_som</strong> การเปลี่ยน Seed แทบไม่ทำให้เนื้อเสียงเปลี่ยน และไม่รับประกันการแก้คำอ่านผิด หากคำว่า “ฮ่า” ฟังคล้าย “พาน/พ่าน” ให้ทดลองเปลี่ยนรูปข้อความที่ใช้สังเคราะห์เสียงด้านล่าง</p>
+<div style="border:1px solid #40516d;border-radius:10px;padding:14px;margin:14px 0">
+<h2>ทดลองคำอ่านเสียงหัวเราะจาก 55555</h2>
+<p class="small">เปลี่ยนเฉพาะข้อความสำหรับ TTS ในกฎ `five_run` และแสดงเลข 5 เดิมบน Subtitle (ไม่ใช้ไฟล์เสียงแทรก)</p>
+<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+<div><label for="laughSpoken">รูปคำอ่านที่ส่งเข้าโมเดล</label><select id="laughSpoken" style="min-width:190px">
+<option value="ฮ่า ฮ่า ฮ่า">ฮ่า ฮ่า ฮ่า (แยกคำ)</option>
+<option value="ฮ่าฮ่าฮ่า">ฮ่าฮ่าฮ่า (คำติดกัน)</option>
+<option value="ฮ่าๆๆ">ฮ่าๆๆ (ไม้ยมก)</option>
+<option value="ฮะ ฮะ ฮะ">ฮะ ฮะ ฮะ (เสียงสั้น)</option>
+<option value="ฮ่า! ฮ่า! ฮ่า!">ฮ่า! ฮ่า! ฮ่า! (มีเครื่องหมายอัศเจรีย์)</option>
+</select></div>
+<button id="testLaughSpoken" type="button">ใช้คำอ่านนี้และทดลองเสียง</button>
+</div>
+<p class="small" role="status" id="laughSpokenStatus">ตัวเลือกคำอ่านเป็นการทดลอง ไม่รับประกันว่าโมเดลจะออกเสียงถูกทุกแบบ</p>
+</div>
 <div style="display:flex;gap:14px;align-items:end;flex-wrap:wrap">
-<div><label for="speed">ความเร็วเสียง</label><input style="max-width:135px" id="speed" type="number" min="0.6" max="1.5" step="0.1" value="1.0"></div>
-<div><label for="seed">Seed ของโมเดล (เลือกน้ำเสียง)</label><input style="max-width:180px" id="seed" type="number" min="0" max="2147483647" step="1" value="100"></div>
-<button id="nextSeed" type="button">ลอง Seed ถัดไป</button>
-<button id="saveSeed" type="button">บันทึก Seed ที่ชอบ</button>
+<div class="voice-grid">
+<div><label for="engineSelect">TTS Engine</label><select id="engineSelect"><option value="fastthaig2p-cpu">กำลังโหลด Engine…</option></select></div>
+<div><label for="voiceSelect">เสียงผู้พูด</label><select id="voiceSelect"><option value="thai_som">thai_som</option></select></div>
+</div>
+<div style="width:100%;margin:12px 0"><p id="engineStatus" class="small">กำลังตรวจสอบ Engine และอุปกรณ์...</p><p id="dspStatus" class="small">ตรวจสอบตัวปรับเสียง...</p></div>
+<div style="width:100%;border:1px solid #32425b;border-radius:10px;padding:14px">
+<h2>Voice Studio — ปรับเสียงละเอียด</h2>
+<p class="small">ใช้ Slider หรือตัวเลขเพื่อปรับค่าเดียวกันได้ · Speed เป็นความสามารถของ Engine ส่วนระดับเสียง, EQ และ Pitch เป็นการปรับไฟล์เสียงภายหลัง</p>
+<div class="voice-row"><label for="speed">ความเร็วพูด</label><input type="range" id="slider-speed" min="0.6" max="1.5" step="0.05" value="1"><input type="number" id="speed" min="0.6" max="1.5" step="0.05" value="1"><span class="small">×</span></div>
+<div class="voice-row"><label for="gain_db">ความดัง</label><input type="range" id="slider-gain_db" min="-18" max="12" step="0.5" value="0"><input type="number" id="gain_db" min="-18" max="12" step="0.5" value="0"><span class="small">dB</span></div>
+<div class="voice-row"><label for="pitch_semitones">เสียงสูงต่ำ</label><input type="range" id="slider-pitch_semitones" min="-4" max="4" step="0.25" value="0"><input type="number" id="pitch_semitones" min="-4" max="4" step="0.25" value="0"><span class="small">st</span></div>
+<div class="voice-row"><label for="bass_db">ความทุ้ม (Bass)</label><input type="range" id="slider-bass_db" min="-12" max="12" step="0.5" value="0"><input type="number" id="bass_db" min="-12" max="12" step="0.5" value="0"><span class="small">dB</span></div>
+<div class="voice-row"><label for="treble_db">ความใส (Treble)</label><input type="range" id="slider-treble_db" min="-12" max="12" step="0.5" value="0"><input type="number" id="treble_db" min="-12" max="12" step="0.5" value="0"><span class="small">dB</span></div>
+<label><input id="formant_preserve" type="checkbox" checked> รักษา Formant ขณะปรับ Pitch (ไม่ใช่ปรับ Formant โดยอิสระ)</label>
+<button id="resetControls" type="button">รีเซ็ตค่าปรับเสียง</button>
+</div>
+<div style="width:100%;border:1px solid #32425b;border-radius:10px;padding:14px">
+<h2>บันทึก Voice Preset</h2>
+<div class="voice-grid">
+<div><label for="presetName">ชื่อ Preset</label><input id="presetName" type="text" maxlength="50" placeholder="เช่น นิยายเสียงนุ่ม"></div>
+<button id="savePreset" type="button">บันทึก Preset</button>
+<div><label for="presetSelect">เลือก Preset ที่เก็บไว้</label><select id="presetSelect"><option value="">เลือก Preset</option></select></div>
+<button id="applyPreset" type="button">โหลด Preset</button>
+</div>
+<p class="small" id="presetStatus" role="status">Preset ถูกเก็บภายในโฟลเดอร์โปรแกรมและไม่เผยแพร่ไป GitHub</p>
+</div>
+<details style="width:100%;border:1px solid #32425b;border-radius:9px;padding:10px">
+<summary style="cursor:pointer;color:#bfd1e9">ตั้งค่าขั้นสูง: Seed สำหรับสร้างเสียงให้คงที่ (ไม่ใช่ตัวปรับเนื้อเสียง)</summary>
+<p class="small">Seed ใช้กำหนดการสุ่มภายในโมเดล ค่าแตกต่างอาจแทบฟังไม่ออก และไม่ใช่เครื่องมือแก้คำอ่านหรือปรับความสูงต่ำของเสียง</p>
+<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+<div><label for="seed">Seed (จำนวนเต็ม)</label><input style="max-width:180px" id="seed" type="number" min="0" max="2147483647" step="1" value="100"></div>
+<button id="nextSeed" type="button">ทดลอง Seed ถัดไป</button>
+<button id="saveSeed" type="button">บันทึก Seed</button>
+</div>
+</details>
 <button id="synthesize">สร้างเสียง WAV</button>
 <span class="small" id="audioStatus" role="status">กำลังตรวจสอบ Engine…</span>
-<span class="small" id="seedStatus" role="status">Seed เดียวกันจะได้เสียงซ้ำเดิม (ในโมเดลเวอร์ชันเดียวกัน)</span>
+<span class="small" id="seedStatus" role="status">Seed ใช้สำหรับทำซ้ำผล ไม่ได้ใช้เปลี่ยนเสียงผู้พูด</span>
 </div>
 <audio id="audioPreview" controls style="width:100%;margin-top:16px;display:none"></audio>
 <a id="downloadAudio" style="display:none;color:#9bd2ff;margin-top:10px" download="VoxWeaveTTS-thai.wav">บันทึกไฟล์ WAV</a>
@@ -93,6 +145,145 @@ el("run").addEventListener("click", async () => {
     el("error").textContent = String(err.message || err);
   }
 });
+const controlKeys = ["speed","gain_db","pitch_semitones","bass_db","treble_db"];
+const postControlKeys = ["gain_db","pitch_semitones","bass_db","treble_db"];
+const defaults = {speed:1,gain_db:0,pitch_semitones:0,bass_db:0,treble_db:0};
+let engines = [];
+let presets = [];
+let ffmpegReady = false;
+let controlSchema = null;
+const syncControls = () => {
+  for (const key of controlKeys) {
+    const number = el(key), slider = el("slider-"+key);
+    slider.addEventListener("input",()=>{number.value=slider.value;});
+    number.addEventListener("input",()=>{if(number.value.trim()!=="")slider.value=number.value;});
+  }
+};
+syncControls();
+const readNumber = key => {
+  const input = el(key), numeric = Number(input.value);
+  if (input.value.trim()==="" || !Number.isFinite(numeric)
+      || numeric < Number(input.min) || numeric > Number(input.max)) {
+    throw new Error("ค่าของ " + key + " ต้องอยู่ในช่วง " + input.min + " ถึง " + input.max);
+  }
+  return numeric;
+};
+const readVoiceControls = () => ({
+  gain_db:readNumber("gain_db"),
+  pitch_semitones:readNumber("pitch_semitones"),
+  bass_db:readNumber("bass_db"),
+  treble_db:readNumber("treble_db"),
+  formant_preserve:el("formant_preserve").checked
+});
+const setControl = (name,value) => {
+  el(name).value=String(value);
+  el("slider-"+name).value=String(value);
+};
+const selectedEngineInfo = () => engines.find(x=>x.id===el("engineSelect").value);
+const refreshSelectedEngine = () => {
+  const info = selectedEngineInfo();
+  el("voiceSelect").replaceChildren();
+  if (!info) return;
+  const option = document.createElement("option");
+  option.value=info.voice_id;option.textContent=info.voice_id;el("voiceSelect").append(option);
+  const ready=info.assets_ready && info.runtime_ready;
+  el("synthesize").disabled=!ready;
+  el("engineStatus").textContent=ready
+    ? "พร้อมใช้: "+info.label+" · เสียง "+info.voice_id
+    : "ยังใช้ไม่ได้: "+info.label+" (ไม่มีโมเดลหรือ Runtime)";
+  const allowSeed = Boolean(info.capabilities.seed_control);
+  el("nextSeed").disabled=!ready || !allowSeed;
+  el("seed").disabled=!allowSeed;
+  el("saveSeed").disabled=!allowSeed;
+  el("dspStatus").textContent=ffmpegReady
+    ? "DSP พร้อมใช้งาน: Volume, Pitch, Bass, Treble · Pitch ใช้ Rubber Band (อาจกระทบวรรณยุกต์ไทย)"
+    : "มี Volume เท่านั้น; Pitch/Bass/Treble ต้องติดตั้ง FFmpeg พร้อม Rubber Band";
+};
+async function loadEngines(){
+  const response=await fetch("/v1/engines");
+  const body=await response.json();
+  if(!response.ok) throw Error(body.error||"Engine discovery failed");
+  engines=body.engines||[];controlSchema=body.control_schema||{};
+  ffmpegReady=Boolean(controlSchema.ffmpeg_ready);
+  const selector=el("engineSelect");
+  selector.replaceChildren();
+  for (const info of engines){
+    const option=document.createElement("option");
+    option.value=info.id;option.disabled=!(info.assets_ready&&info.runtime_ready);
+    option.textContent=info.label+(option.disabled?" (ยังไม่พร้อม)":"");
+    selector.append(option);
+  }
+  if (!selectedEngineInfo() || !selectedEngineInfo().assets_ready) {
+    const first=engines.find(x=>x.assets_ready&&x.runtime_ready);
+    if(first) selector.value=first.id;
+  }
+  for(const key of ["pitch_semitones","bass_db","treble_db"]){
+    el(key).disabled=!ffmpegReady;el("slider-"+key).disabled=!ffmpegReady;
+  }
+  el("formant_preserve").disabled=!ffmpegReady;
+  refreshSelectedEngine();
+}
+el("engineSelect").addEventListener("change",refreshSelectedEngine);
+el("resetControls").addEventListener("click",()=>{
+  for(const [key,val] of Object.entries(defaults))setControl(key,val);
+  el("formant_preserve").checked=true;
+});
+async function loadPresets(){
+  const response=await fetch("/v1/presets");
+  const body=await response.json();
+  if(!response.ok) throw Error(body.error||"Cannot load presets");
+  presets=body.presets||[];
+  const selector=el("presetSelect");selector.replaceChildren();
+  const placeholder=document.createElement("option");
+  placeholder.value="";placeholder.textContent="เลือก Preset";selector.append(placeholder);
+  for(const preset of presets){
+    const option=document.createElement("option");
+    option.value=preset.name;option.textContent=preset.name;selector.append(option);
+  }
+}
+el("savePreset").addEventListener("click",async()=>{
+  el("presetStatus").textContent="กำลังบันทึก Preset...";
+  try{
+    const info=selectedEngineInfo();if(!info)throw Error("กรุณาเลือก Engine");
+    const body={
+      name:el("presetName").value,
+      engine_id:info.id,voice_id:info.voice_id,
+      speed:readNumber("speed"),
+      seed:seedValue(),
+      voice_controls:readVoiceControls()
+    };
+    const response=await fetch("/v1/presets",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"save-voice-preset"},
+      body:JSON.stringify(body)
+    });
+    const result=await response.json();
+    if(!response.ok)throw Error(result.error||"Save failed");
+    await loadPresets();
+    el("presetSelect").value=result.preset.name;
+    el("presetStatus").textContent="บันทึก Preset "+result.preset.name+" แล้ว";
+  }catch(error){el("presetStatus").textContent=String(error.message||error);}
+});
+el("applyPreset").addEventListener("click",()=>{
+  const preset=presets.find(x=>x.name===el("presetSelect").value);
+  if(!preset){el("presetStatus").textContent="เลือก Preset ก่อน";return;}
+  const target=engines.find(x=>x.id===preset.engine_id);
+  if(!target || !(target.assets_ready&&target.runtime_ready)){
+    el("presetStatus").textContent="Engine ของ Preset นี้ยังไม่พร้อมใช้งาน";return;
+  }
+  el("engineSelect").value=preset.engine_id;
+  refreshSelectedEngine();
+  el("presetName").value=preset.name;
+  for(const [key,val] of Object.entries({...preset.voice_controls,speed:preset.speed})){
+    if(controlKeys.includes(key))setControl(key,val);
+  }
+  el("formant_preserve").checked=preset.voice_controls.formant_preserve;
+  el("seed").value=preset.seed;
+  el("presetStatus").textContent="โหลด Preset "+preset.name+" แล้ว (กดสร้างเสียงเพื่อฟัง)";
+});
+loadEngines().catch(e=>{el("engineStatus").textContent=String(e.message||e)});
+loadPresets().catch(e=>{el("presetStatus").textContent=String(e.message||e)});
+
 const seedValue = () => {
   if (el("seed").value.trim() === "") throw new Error("กรุณาระบุ Seed");
   const seed = Number(el("seed").value);
@@ -108,6 +299,26 @@ fetch("/v1/settings/synthesis").then(async r => {
   el("seedStatus").textContent = "Seed ที่บันทึกไว้: " + result.seed;
 }).catch(err => {
   el("seedStatus").textContent = String(err.message || err);
+});
+el("testLaughSpoken").addEventListener("click", () => {
+  try {
+    const requested = el("laughSpoken").value;
+    const rules = JSON.parse(el("rule").value);
+    if (!Array.isArray(rules)) throw new Error("Rules ต้องเป็น JSON array");
+    const target = rules.find(rule => rule.match_mode === "five_run" && rule.mode === "replace");
+    if (!target) throw new Error("ไม่พบกฎ five_run แบบ replace โปรดเพิ่มกฎเลข 5 ก่อน");
+    target.spoken = requested;
+    el("rule").value = JSON.stringify(rules, null, 2);
+    el("laughSpokenStatus").textContent = "ใช้คำอ่าน \"" + requested +
+      "\" สำหรับเลข 5 ที่ซ้ำกันแล้ว (ค่าอยู่ในช่อง Rules)";
+    el("run").click();
+    if (!el("synthesize").disabled) {
+      autoPlayNextSeed = true;
+      el("synthesize").click();
+    }
+  } catch (error) {
+    el("laughSpokenStatus").textContent = String(error.message || error);
+  }
 });
 let autoPlayNextSeed = false;
 el("nextSeed").addEventListener("click", () => {
@@ -163,9 +374,10 @@ el("synthesize").addEventListener("click", async () => {
       text: el("message").value,
       rules: JSON.parse(el("rule").value),
       pronunciations: JSON.parse(el("pron").value),
-      engine_id: "fastthaig2p-cpu",
-      voice_id: "thai_som",
-      speed: Number(el("speed").value),
+      engine_id: el("engineSelect").value,
+      voice_id: el("voiceSelect").value,
+      speed: readNumber("speed"),
+      voice_controls: readVoiceControls(),
       seed: requestedSeed
     };
     const response = await fetch("/v1/speech", {

@@ -27,19 +27,19 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 - Real-time stream connectors and TTS engines must never share authentication secrets.
 - Local user data/models/reference audio are outside Git and package outputs.
 
-## Current implemented slice (M1 preview)
+## Current implemented slice (M1 / Voice Studio preview)
 
-The stdlib text pipeline (`src/voxweavetts/processing.py`) performs literal longest-match replacement and explicit silence segmentation, then applies pronunciation hints on the spoken side only. **Optional** `src/voxweavetts/speech.py` uses PyThaiTTS/FastThaiG2P CPU ONNX to render real 24kHz PCM16 WAV with explicit silence samples. The localhost HTTP API offers `POST /v1/speech`, `GET /v1/engines` and `GET /v1/voices`, and the web tester can play the WAV. The engine has only fixed `thai_som` voice and adjustable speed. The Speech Coordinator, playback-clock events, voice cloning, streaming and overlay are not yet implemented.
+The stdlib text pipeline (`src/voxweavetts/processing.py`) performs literal longest-match replacement and explicit silence segmentation, then applies pronunciation hints on the spoken side only. **Optional** `src/voxweavetts/speech.py` supports two CPU ONNX engines (FastThaiG2P/Kokoro Thai and MakHam Paradee) to render real 24kHz PCM16 WAV with explicit silence samples. The localhost HTTP API offers `POST /v1/speech`, `GET /v1/engines` and `GET /v1/voices`, and the web tester can play the WAV. Each engine uses its own fixed voice (`thai_som` or `paradee_thai`) and native speed. The Voice Studio includes paired Slider/Numeric controls, optional post-DSP Pitch/Balance/EQ via FFmpeg, pure Python Gain and local private presets. No voice cloning or training is implemented. The Speech Coordinator, playback-clock events, voice cloning, streaming and overlay are not yet implemented.
 
 **Known limitation:** literal substring matching is not full Thai morphological segmentation. Future matching strategies should use tokenization/phrase boundaries and optional safe patterns, with robust tests against substrings and Unicode edge cases.
 
 ## Planned implementation boundaries
 
 - `VoiceEngine`: pluggable, local-first; optional backends for Thai voice cloning and installed system voices.
-- `VoiceStudio`: voice profile authoring, A/B playback, versioned presets.
+- `VoiceStudio`: the current UI includes Engine selection, numeric/sliders, and local presets; voice profile authoring, native expressive controls and A/B comparison remain planned.
 - `SpeechCoordinator`: queue, cancellation, accurate segments, backpressure.
 - `Events`: versioned WebSocket event stream and reconnect snapshots.
 - `LiveConnectors`: separately configured Discord and YouTube adapters with OAuth/bot tokens never in public repo.
 - `PortableBuilder`: deterministic Windows build that bundles runtime; model packs kept separate subject to licensing.
 
-No adapters or playback timing are claimed implemented at v0.1.0.
+The live Input Adapters and actual playback-clock timing are not yet implemented. See [VOICE_STUDIO_TH.md](VOICE_STUDIO_TH.md) and [VOICE_TRAINING_TH.md](VOICE_TRAINING_TH.md).

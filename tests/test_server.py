@@ -55,7 +55,10 @@ class ServerTests(unittest.TestCase):
         sample,meta=render_wav(plan,engine=ConstantEngine())
         payload=json.dumps({"text":"ทดสอบ"}).encode("utf-8")
         req=Request(self.base+"/v1/speech",data=payload,headers={"Content-Type":"application/json"},method="POST")
-        with patch("voxweavetts.server.render_wav",return_value=(sample,{"engine_id":"fastthaig2p-cpu","duration_ms":meta["duration_ms"],"seed":100})):
+        from dataclasses import replace
+        from voxweavetts.speech import get_engine_info
+        ready = replace(get_engine_info("fastthaig2p-cpu"), assets_ready=True, runtime_ready=True)
+        with patch("voxweavetts.server.get_engine_info", return_value=ready), patch("voxweavetts.server.render_wav",return_value=(sample,{"engine_id":"fastthaig2p-cpu","duration_ms":meta["duration_ms"],"seed":100})):
             with urlopen(req,timeout=3) as response:
                 self.assertEqual(response.status,200)
                 self.assertEqual(response.headers["Content-Type"],"audio/wav")
@@ -109,7 +112,10 @@ class ServerTests(unittest.TestCase):
                 data=json.dumps({"text":"ทดสอบ"}).encode("utf-8"),
                 headers={"Content-Type":"application/json"}, method="POST",
             )
-            with patch("voxweavetts.server.render_wav", side_effect=mock_audio):
+            from dataclasses import replace
+            from voxweavetts.speech import get_engine_info
+            ready = replace(get_engine_info("fastthaig2p-cpu"), assets_ready=True, runtime_ready=True)
+            with patch("voxweavetts.server.get_engine_info", return_value=ready), patch("voxweavetts.server.render_wav", side_effect=mock_audio):
                 with urlopen(speech_request, timeout=3) as response:
                     self.assertEqual(response.headers["X-VoxWeaveTTS-Seed"], "123")
             self.assertEqual(seen["seed"], 123)
