@@ -125,6 +125,7 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 </div>
 <label for="readerChunkPreview">ตัวอย่างข้อความในช่วงที่เลือก (แก้ต้นฉบับได้หลังนำไปใส่ช่องข้อความหลัก)</label>
 <textarea id="readerChunkPreview" readonly style="min-height:130px" placeholder="เลือกไฟล์และบทก่อน"></textarea>
+<p class="small" id="readerBoundaryWarning" role="status"></p>
 <div class="voice-grid">
 <button id="readerUseChunk" type="button" disabled>นำช่วงนี้ไปแก้ไขในช่องข้อความ</button>
 <button id="readerQueueChunk" type="button" disabled>ส่งช่วงนี้เข้าคิวเสียง</button>
@@ -914,6 +915,14 @@ function currentReaderChunk() {
   if (!readerPage) return null;
   return readerPage.chunks.find(item => item.index === selectedChunkIndex) || null;
 }
+function updateReaderBoundaryWarning(chunk) {
+  const uncertain=new Set(["unicode_only_fallback","thai_preposed_vowel_hint"]);
+  const quality=chunk?.boundary_quality;
+  const startQuality=chunk?.start_boundary_quality;
+  el("readerBoundaryWarning").textContent=(uncertain.has(quality)||uncertain.has(startQuality))
+    ? "หมายเหตุ: ช่วงนี้จบด้วยการแบ่งข้อความไทยแบบประมาณ เพราะไม่มีช่องว่างหรือจุดจบประโยคภายในขนาดที่กำหนด หากคำถูกแยกกลางคำ แนะนำปรับข้อความต้นทางให้มีช่องว่าง/จุดคั่นก่อนนำมาอ่าน"
+    : "";
+}
 function renderReaderPage(preferredIndex) {
   const data = readerPage;
   el("readerChapter").replaceChildren();
@@ -937,6 +946,7 @@ function renderReaderPage(preferredIndex) {
   const chosen = currentReaderChunk();
   el("readerChapter").value = String(chosen.chapter_index);
   el("readerChunkPreview").value = chosen.text;
+  updateReaderBoundaryWarning(chosen);
   el("readerStatus").textContent = readerTitle + " · " + data.chapter_total +
     " บท · " + data.chunk_total + " ช่วง · หน้าที่ " +
     (data.page_index + 1) + " / " + Math.ceil(data.chunk_total / data.page_size);

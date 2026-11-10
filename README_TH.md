@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev8** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev9** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -21,6 +21,14 @@
 เพิ่ม Browser Playback Clock ที่ใช้ audio.currentTime ของเสียงซึ่งกำลังเล่นจาก Document Reader หรือ Speech Queue และหน้า http://127.0.0.1:8765/overlay สำหรับ OBS Browser Source แบบพื้นหลังโปร่งใส ใช้ร่วมกับทุก Engine และไม่เริ่มแสดง Subtitle เพียงเพราะสร้าง WAV เสร็จ เมื่อ Pause/Stop/Ended หรือ Browser หยุดรายงานเวลานาน ระบบจะซ่อน Subtitle
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
+
+## ปรับปรุงการตัด Subtitle และช่วงอ่านภาษาไทย
+
+แก้อาการที่สระนำ เช่น เ แ โ ใ ไ หรือตัวสะกดถูกตัดไปอยู่คนละ Subtitle: **Estimated Mode** จะเลือกแบ่งเฉพาะช่องว่าง/เครื่องหมายคั่นที่เห็นได้ชัด หากประโยคไทยยาวโดยไม่มีจุดแบ่ง จะใช้ข้อความทั้ง Segment เดิมแทนการเดาคำ; Overlay ใช้การขึ้นบรรทัดตามภาษาใน Browser ไม่บังคับตัดกลางคำด้วย CSS
+
+Document Reader ก็ให้ความสำคัญกับจุดคั่นตามธรรมชาติมากขึ้น หากจำเป็นต้องตัดข้อความไทยติดกันให้สั้นตามขนาด Chunk จะมีคำเตือนว่าตำแหน่งนั้นเป็นเพียงการแบ่งแบบประมาณ ไม่รับรองว่าเป็นขอบเขตคำจริง
+
+**หมายเหตุ:** เปลี่ยนอัลกอริทึมแบ่ง Chunk จึงปรับ Version ของ Document ID เพื่อป้องกันการอ่านต่อผิดตำแหน่ง Bookmark ของเอกสารเก่าจะต้องเลือกตำแหน่งและบันทึกใหม่อีกครั้ง (ข้อมูลเดิมไม่ถูกลบ) ดู [คู่มือ Document Reader](docs/DOCUMENT_READER_TH.md) และ [Subtitle Overlay](docs/PLAYBACK_OVERLAY_TH.md)
 
 ## Waveform Editor — มองเห็นคลื่นเสียงและกำหนดช่วงเวลาได้ละเอียดขึ้น
 

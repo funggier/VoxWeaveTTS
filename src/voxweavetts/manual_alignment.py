@@ -7,37 +7,18 @@ speech timeline. Cues remain in-memory with their speech job by default.
 """
 from __future__ import annotations
 
-import unicodedata
 from typing import Any
 
 from .processing import InputError
+from .text_boundaries import unsafe_unicode_boundary
 
 MAX_CUES = 128
 
 
 def _valid_boundary(text: str, offset: int) -> bool:
-    if offset in (0, len(text)):
-        return True
-    right = text[offset]
-    left = text[offset - 1]
-    code = ord(right)
-    if (unicodedata.combining(right)
-            or unicodedata.category(right) in ("Mn", "Mc", "Me")
-            or right == "\u200d" or left == "\u200d"
-            or 0xFE00 <= code <= 0xFE0F
-            or 0xE0100 <= code <= 0xE01EF
-            or 0x1F3FB <= code <= 0x1F3FF):
+    if not 0 <= offset <= len(text):
         return False
-    # Keep both regional indicators forming a flag together.
-    if 0x1F1E6 <= ord(left) <= 0x1F1FF and 0x1F1E6 <= code <= 0x1F1FF:
-        preceding = 0
-        k = offset - 1
-        while k >= 0 and 0x1F1E6 <= ord(text[k]) <= 0x1F1FF:
-            preceding += 1
-            k -= 1
-        return preceding % 2 == 0
-    return True
-
+    return not unsafe_unicode_boundary(text, offset)
 
 def validate_manual_cues(
     segments: list[dict[str, Any]], cues: Any,

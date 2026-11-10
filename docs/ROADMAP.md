@@ -32,6 +32,9 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Import .txt/.md via browser and engine-neutral API, basic Markdown narration cleanup, TXT/Markdown chapter detection and paged text chunks
 - [x] Rules/Pronunciations JSON editor: pretty-format, validation, import/export, quick Unicode-safe entry, persistent local save/reload and stale-tab revision conflict checks
 - [x] Preserve common Thai/Emoji Unicode sequences when cutting document chunks
+- [x] Prevent arbitrary splitting of Thai continuous words in Estimated Subtitle; use explicit separators or keep full generated Segment
+- [x] Improve Document Reader fallback boundaries and expose uncertainty; version document IDs to avoid misapplied reading bookmarks
+- [ ] Integrate a commercially-cleared Thai word tokenizer/linguistic segmenter for exceptionally long unspaced book paragraphs
 - [x] Send selected chapter chunk through existing Rules/Pronunciations and Engine-independent Speech Queue
 - [x] Private hash-keyed reading position and explicit resume/clear after reopening the document
 - [x] Browser-managed per-chunk audio playback with pause/stop and optional next chunk after ended event (one synthesis at a time)

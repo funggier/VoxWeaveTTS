@@ -40,6 +40,8 @@ async function run(){
     chunks:contents.map((text,index)=>({
       index,chapter_index:index<2?0:1,chapter_title:index<2?'บทที่ 1':'บทที่ 2',
       start:index*20,end:index*20+text.length,text,
+      boundary_quality:index===1?"unicode_only_fallback":"whitespace",
+      start_boundary_quality:index===1?"thai_preposed_vowel_hint":"whitespace",
     })),
   };
   let blockAutoPlay=false;
@@ -111,6 +113,7 @@ async function run(){
   assert.equal(el('readerResume').disabled,false);
   assert.match(el('readerProgressStatus').textContent,/2/);
   await el('readerResume').listeners.click();
+  assert.match(el('readerBoundaryWarning').textContent,/หมายเหตุ/);
   assert.equal(el('readerChunk').value,'1');
   assert.equal(el('readerChunkPreview').value,contents[1]);
   // Resume at second chunk and complete playback.

@@ -2,6 +2,15 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev9 — Conservative Thai caption boundaries and narration chunking (2026-11-10)
+
+- Fixed Estimated subtitles that cut Thai leading vowels, coda consonants and syllables into separate caption windows. The original roughly every-22-grapheme splitter now chooses only explicit punctuation/whitespace separators; if no natural separator exists, it retains the entire generated speech segment instead of claiming word boundaries.
+- Changed the OBS overlay CSS to use native Thai line wrapping instead of forced overflow-wrap:anywhere; all text continues to use textContent (no HTML injection).
+- Updated engine-neutral TXT/Markdown chunking to prefer natural separators and, only when a hard length limit has no separator, to try cutting before a Thai preposed vowel. Unavoidable Unicode-only fallback is disclosed by boundary_quality/start_boundary_quality in document chunk metadata and the Reader UI; dictionary-free chunking cannot guarantee Thai word boundaries in long unspaced prose.
+- Shared the Unicode/Thai boundary checks with the Manual Alignment validator so user-created cues cannot isolate Thai preposed vowel marks.
+- Incremented the document chunker revision used in the document_id hash to prevent old ordinal reading bookmarks from resuming at a wrong chunk after boundary changes. Previous document bookmarks must be re-selected/re-saved, but are not deleted.
+- Added regression tests for Thai vowels, final consonants, punctuation/decimal numbers, emoji and deterministic chunk offsets. No language model, new dictionary, package or commercial asset was added.
+
 ## 0.3.0.dev8 — Browser PCM16 Waveform Editor for Manual Alignment (2026-11-10)
 
 - Added independent web/waveform_editor.js: parses generated PCM16 RIFF/WAVE (mono/stereo 8–96kHz), builds a bounded 256-frame peak envelope and draws a HiDPI-aware waveform with speech/silence regions, local manual cue spans, selection marks and player position. No extra model, library, cloud calls or disk persistence.

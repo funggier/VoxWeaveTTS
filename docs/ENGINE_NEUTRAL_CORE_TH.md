@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Core v1
 
-> Implementation preview v0.3.0.dev8 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
+> Implementation preview v0.3.0.dev9 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
 
 ## เป้าหมาย
 
@@ -74,6 +74,10 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 ## Subtitle Relay ส่วนกลางสำหรับทุก Engine
 
 เมื่อ Browser เล่น WAV จริง จะรายงาน HTMLMediaElement.currentTime ไปยัง playback_state.py เพื่อเลือก Subtitle จาก Segment ที่ผ่านกฎกรองและให้ OBS Browser Source ดึงได้ที่ /overlay โดยไม่ต้องโหลดโมเดลในระบบเล่นเสียงและไม่ถือว่า Speech Job ready คือเริ่มเล่นแล้ว ดู [คู่มือ Playback/OBS](PLAYBACK_OVERLAY_TH.md)
+
+## ขอบเขตข้อความภาษาไทย
+
+เพิ่ม `text_boundaries.py` ซึ่งเป็นโมดูล Standard Library แบบ Engine-neutral: Estimated Subtitle จะเลือกจุดตัดเฉพาะช่องว่าง/เครื่องหมายคั่น ไม่ตัดกลาง Thai Run โดยประมาณจากจำนวนอักขระอีก; Document Reader ยังมีขนาด Chunk จำกัด แต่แสดงประเภทจุดตัดให้เห็นและลองตัดก่อนสระนำเมื่อไม่มีจุดคั่นธรรมชาติ. Manual Alignment ใช้กฎ Unicode เดียวกันป้องกันสระนำตกอยู่ลำพัง. อ่าน [Document Reader](DOCUMENT_READER_TH.md) และ [Overlay](PLAYBACK_OVERLAY_TH.md)
 
 ## Waveform Editor สำหรับการทำ Manual Cues
 

@@ -124,6 +124,8 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 6. M3 — Speech Coordinator, Queue และ Event Contract
 
+**แก้ใน v0.3.0.dev9:** ปรับ Estimated Subtitle เลือกเฉพาะ Natural Boundaries และให้ Browser Wrap ภาษาไทยตามกฎภาษา, เพิ่ม Thai Leading-Vowel Hint กับคำเตือนเมื่อ Document Reader จำเป็นต้องตัดภายใน Thai Run และเปลี่ยน Document ID Revision เพื่อป้องกัน Bookmark เก่ากลับไปอ่านผิด Chunk (ดู [DOCUMENT_READER_TH.md](DOCUMENT_READER_TH.md) และ [PLAYBACK_OVERLAY_TH.md](PLAYBACK_OVERLAY_TH.md))
+
 **เพิ่มใน v0.3.0.dev8:** Waveform Editor ที่วาด Peak Envelope ของ WAV จริงบน Browser (รองรับ HiDPI, ซูม/เลื่อน/คลิก Seek/ลาก Mark ช่วงเวลาพร้อม Keyboard Nudge) แยกจาก Engine และไม่ต้องใช้โมเดล (ดู [WAVEFORM_EDITOR_TH.md](WAVEFORM_EDITOR_TH.md)). งานถัดไปคือ Reference Corpus ภาษาไทยและการผูกเวลาที่ตรวจเองกับ Audio Hash ก่อนเปรียบ Forced Aligner จริง
 
 **เพิ่มใน v0.3.0.dev7:** Manual Alignment Workbench ใน Speech Queue ใช้ WAV จริงจับเวลา Cue รายคำ/วลีโดยผู้ใช้, ตรวจ Unicode Display Offset, Export/Import JSON และวัด Error เทียบ Reference Timecodes โดยไม่ใช้โมเดลภายนอก (ดู [MANUAL_ALIGNMENT_TH.md](MANUAL_ALIGNMENT_TH.md)). Automatic Forced Alignment ยังไม่ได้ทำ

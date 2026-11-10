@@ -159,6 +159,8 @@ class PlaybackHTTPTests(unittest.TestCase):
             body=response.read().decode("utf-8")
             self.assertEqual(response.status,200)
             self.assertIn("background:transparent",body)
+            self.assertIn("overflow-wrap:normal",body)
+            self.assertNotIn("overflow-wrap:anywhere",body)
             self.assertIn('subtitle.textContent=caption',body)
             self.assertIn('EventSource("/v1/playback/stream"',body)
             self.assertIn("/v1/playback/state",body)

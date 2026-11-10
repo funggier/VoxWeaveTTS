@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import hashlib
 import re
-import unicodedata
 from typing import Any
 
 from .processing import InputError
+from .text_boundaries import natural_break_positions, thai_leading_vowel_fallbacks, unsafe_unicode_boundary, SENTENCE_ENDS, SOFT_PUNCTUATION
 
 MAX_DOCUMENT_CHARS = 300_000
 MAX_DOCUMENT_REQUEST_BYTES = 1_250_000
@@ -21,6 +21,7 @@ MIN_CHUNK_CHARS = 100
 MAX_CHUNK_CHARS = 450
 DEFAULT_PAGE_SIZE = 15
 MAX_PAGE_SIZE = 30
+CHUNKER_REVISION = "thai_boundary_v2"
 
 _MD_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
 _TXT_HEADING = re.compile(
@@ -36,7 +37,6 @@ _HTML_COMMENT = re.compile(r"<!--.*?-->")
 _AUTO_LINK = re.compile(r"<(?:https?://|mailto:)[^>]+>")
 _MD_RULE = re.compile(r"^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$")
 _MD_TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
-_BREAKS = set("\n.!?。！？;；ฯ")
 
 
 def _clean_line(line: str, fmt: str) -> str:
@@ -128,56 +128,57 @@ def _chapters(raw: str, fmt: str) -> list[tuple[str, str]]:
     return result
 
 
-def _unsafe_unicode_boundary(text: str, index: int) -> bool:
-    """Avoid splitting common Thai combining and emoji composition sequences."""
-    if index <= 0 or index >= len(text):
-        return False
-    previous, following = text[index-1], text[index]
-    code = ord(following)
-    if (unicodedata.combining(following)
-        or unicodedata.category(following) in ("Mn", "Mc", "Me")
-        or following == "\u200d" or previous == "\u200d"
-        or 0xFE00 <= code <= 0xFE0F
-        or 0xE0100 <= code <= 0xE01EF
-        or 0x1F3FB <= code <= 0x1F3FF):
-        return True
-    # Don't split the two regional-indicator codepoints of a country flag.
-    if 0x1F1E6 <= ord(previous) <= 0x1F1FF and 0x1F1E6 <= code <= 0x1F1FF:
-        run = 0
-        cursor = index-1
-        while cursor >= 0 and 0x1F1E6 <= ord(text[cursor]) <= 0x1F1FF:
-            run += 1
-            cursor -= 1
-        return run % 2 == 1
-    return False
+_unsafe_unicode_boundary = unsafe_unicode_boundary
 
+def _split_text(text: str, limit: int) -> list[tuple[int, int, str]]:
+    """Use natural punctuation/whitespace, then a documented best-effort fallback.
 
-def _split_text(text: str, limit: int) -> list[tuple[int, int]]:
-    """Partition a cleaned chapter while preserving Unicode sequence boundaries."""
-    ranges = []
+    Hard-limit chunking of long unspaced Thai cannot promise word boundaries
+    without a dictionary. Such cases are labelled in the output.
+    """
+    ranges: list[tuple[int, int, str]] = []
     pos = 0
-    while pos < len(text):
-        end = min(len(text), pos + limit)
-        if end < len(text):
-            sentence = max(
-                (i + 1 for i in range(pos, end) if text[i] in _BREAKS), default=0
-            )
-            if sentence > pos + limit // 3:
-                end = sentence
+    length = len(text)
+    while pos < length:
+        end = min(length, pos + limit)
+        quality = "end_of_chapter"
+        if end < length:
+            local = text[pos:min(length, end + 1)]
+            options = [pos + i for i in natural_break_positions(local)]
+            punctuation = [i for i in options
+                           if text[i-1] in SENTENCE_ENDS
+                           or text[i-1] in SOFT_PUNCTUATION]
+            spaces = [i for i in options if text[i-1].isspace()]
+            preferred_punctuation = [i for i in punctuation
+                                     if i >= pos + max(1, limit // 3)]
+            preferred_space = [i for i in spaces
+                               if i >= pos + max(1, limit // 2)]
+            if preferred_punctuation:
+                end = preferred_punctuation[-1]
+                quality = "punctuation"
+            elif preferred_space:
+                end = preferred_space[-1]
+                quality = "whitespace"
+            elif options:
+                # A short natural chunk is safer than splitting a Thai word.
+                end = options[-1]
+                quality = "whitespace" if text[end-1].isspace() else "punctuation"
             else:
-                whitespace = max(
-                    (i + 1 for i in range(pos, end) if text[i].isspace()), default=0
+                hints = thai_leading_vowel_fallbacks(
+                    text, pos + max(1, (2*limit)//3), end
                 )
-                if whitespace > pos + limit // 2:
-                    end = whitespace
-            while end > pos + 1 and _unsafe_unicode_boundary(text, end):
-                end -= 1
+                if hints:
+                    end = hints[-1]
+                    quality = "thai_preposed_vowel_hint"
+                else:
+                    while end > pos + 1 and unsafe_unicode_boundary(text, end):
+                        end -= 1
+                    quality = "unicode_only_fallback"
         if end <= pos:
             raise InputError("unable to split document")
-        ranges.append((pos, end))
+        ranges.append((pos, end, quality))
         pos = end
     return ranges
-
 
 def prepare_document(
     text: Any, fmt: Any, *, title: Any = "",
@@ -215,7 +216,8 @@ def prepare_document(
         start = offset
         normalized_parts.append(chapter_text)
         chunk_begin = len(chunks)
-        for relative_start, relative_end in _split_text(chapter_text, chunk_chars):
+        start_boundary_quality = "chapter_start"
+        for relative_start, relative_end, boundary_quality in _split_text(chapter_text, chunk_chars):
             chunks.append({
                 "index": len(chunks),
                 "chapter_index": chapter_index,
@@ -223,7 +225,10 @@ def prepare_document(
                 "start": start + relative_start,
                 "end": start + relative_end,
                 "text": chapter_text[relative_start:relative_end],
+                "boundary_quality": boundary_quality,
+                "start_boundary_quality": start_boundary_quality,
             })
+            start_boundary_quality = boundary_quality
             if len(chunks) > MAX_CHUNKS:
                 raise InputError(f"document exceeds {MAX_CHUNKS} narration chunks")
         offset += len(chapter_text)
@@ -236,13 +241,14 @@ def prepare_document(
             "chunk_end": len(chunks),
         })
     normalized = "".join(normalized_parts)
-    identifier = hashlib.sha256((fmt + "\0" + normalized).encode("utf-8")).hexdigest()
+    identifier = hashlib.sha256((CHUNKER_REVISION + "\0" + fmt + "\0" + normalized).encode("utf-8")).hexdigest()
     begin = page_index * page_size
     if begin >= len(chunks):
         raise InputError("page_index is beyond document end")
     end = min(begin + page_size, len(chunks))
     return {
         "schema_version": 1,
+        "chunker_revision": CHUNKER_REVISION,
         "document_id": identifier,
         "title": title,
         "format": fmt,

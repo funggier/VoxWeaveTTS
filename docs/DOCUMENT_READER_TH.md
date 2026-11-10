@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Document Reader (TXT / Markdown)
 
-> Implementation preview v0.3.0.dev7 — ข้อความ/เอกสารใช้ Core ได้โดยไม่ต้องติดตั้ง TTS Engine; การสร้าง WAV ยังต้องมี Engine
+> Implementation preview v0.3.0.dev9 — ข้อความ/เอกสารใช้ Core ได้โดยไม่ต้องติดตั้ง TTS Engine; การสร้าง WAV ยังต้องมี Engine
 
 ## เป้าหมาย
 
@@ -91,6 +91,20 @@ Progress เก็บใน `data/reading/positions.json` ซึ่งอยู�
 API: GET /v1/reading/progress?document_id=<SHA256>, POST /v1/reading/progress (Intent: save-reading-progress), POST /v1/reading/progress/clear (Intent: clear-reading-progress). ใช้ revision แบบ Optimistic Concurrency ป้องกันการบันทึกทับกันจากสองแท็บ และ Atomic Write ป้องกันไฟล์ค้างจากการเขียนไม่ครบ
 
 **ข้อจำกัด:** ถ้าเปลี่ยนขนาด Chunk หรือแก้ข้อความนิยาย Hash/Chunk Mapping อาจเปลี่ยน ทำให้ต้องเลือกตำแหน่งอีกครั้ง; ยังไม่รองรับข้ามเครื่อง ข้าม Browser ในการเล่นเสียงจริง และไม่มี Playback Clock/OBS Subtitle Sync. การกดหยุดระหว่างสร้างเสียงไม่หยุด Model Inference กลางคัน แต่ยกเลิกผลลัพธ์ที่มาภายหลังได้
+
+## จุดแบ่งข้อความภาษาไทยที่ปลอดภัยขึ้น (v0.3.0.dev9)
+
+ปัญหา: การแบ่ง Chunk แบบนับอักขระอย่างเดียวอาจแยก **สระนำ** หรือ **ตัวสะกด** ไปอยู่คนละช่วงอ่าน โดยเฉพาะนิยายภาษาไทยที่เขียนติดกันยาว
+
+ขั้นตอนใหม่เลือก **เครื่องหมายจบประโยค/เครื่องหมายคั่น** หรือ **ช่องว่าง** ก่อน หากไม่มีจุดคั่นในขนาด Chunk ที่กำหนด ระบบจะลองเลือกจุด **ก่อนสระนำ เ แ โ ใ ไ** เป็นตัวช่วยระดับพยางค์; หากยังหาไม่ได้ ต้องแบ่งแบบ Unicode-safe ตามขนาดสูงสุดอยู่ดี เพราะยังไม่มีพจนานุกรมตัดคำภาษาไทย ระบบจะระบุคุณภาพของจุดตัดใน JSON ด้วย `boundary_quality` (ด้านท้าย) และ `start_boundary_quality` (ด้านหน้า):
+
+- `punctuation`, `whitespace`, `end_of_chapter` — เป็นขอบเขตที่ชัดเจน
+- `thai_preposed_vowel_hint` — จุดเริ่มพยางค์ที่ประมาณจากสระนำ ไม่รับประกันคำ
+- `unicode_only_fallback` — ตัดเพราะติดเพดานความยาว ไม่มีหลักฐานขอบเขตคำ
+
+ในหน้า Document Reader จะขึ้นคำเตือนเมื่อเลือก Chunk ที่มีขอบเขตด้านใดด้านหนึ่งเป็นการประมาณ โดยจะไม่เพิ่ม/ลบเนื้อหาเพื่อแก้คำผิดโดยอัตโนมัติ
+
+**ความเข้ากันได้ของ Bookmark:** อัลกอริทึมแบ่ง Chunk มี `chunker_revision=thai_boundary_v2` และนำค่า Revision เข้าไปใน Hash ของ `document_id`. Bookmark เดิมจะไม่จับคู่กับ Document ID ใหม่เพื่อป้องกันอ่านข้ามตำแหน่งโดยไม่ตั้งใจ กรุณาเลือกตำแหน่งที่อ่านค้างอีกครั้งและบันทึกใหม่ ส่วนไฟล์ Bookmark เดิมไม่ถูกลบ
 
 ## Subtitle จากเวลาเล่นจริงใน Browser
 

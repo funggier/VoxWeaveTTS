@@ -17,7 +17,10 @@ body{display:flex;align-items:flex-end;justify-content:center;font-family:"Noto 
   font-weight:700;
   line-height:1.45;
   white-space:pre-line;
-  overflow-wrap:anywhere;
+  /* Native Thai line breaking, rather than arbitrarily splitting vowels or codas. */
+  overflow-wrap:normal;
+  word-break:normal;
+  line-break:auto;
   text-shadow:0 2px 5px rgba(0,0,0,.98),0 0 15px rgba(0,0,0,.88);
 }
 #subtitle:empty{display:none}

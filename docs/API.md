@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev8)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev9)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -64,6 +64,12 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 ## Rules and Pronunciations JSON editor
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
+
+## Thai-safe Caption/Document Boundaries (v0.3.0.dev9)
+
+Estimated subtitle timing no longer cuts every ~22 Unicode graphemes: it selects explicit whitespace/punctuation separators in the filtered speech display text. Where the Thai text is continuous with no reliable break, the generated Speech Segment remains a single caption. No new API or external tokenizer is required.
+
+POST /v1/documents/preview now includes `chunker_revision=thai_boundary_v2` and adds `boundary_quality` / `start_boundary_quality` for each Chunk. Possible values are `whitespace`, `punctuation`, `end_of_chapter`, `thai_preposed_vowel_hint`, `unicode_only_fallback` (plus `chapter_start` for the first Chunk start). The last two are heuristic/unavoidable hard-limit fallbacks, not dictionary word segmentation. `document_id` includes the new chunker revision in its SHA-256 input, invalidating old positional reading bookmarks safely; old records remain on disk and must be saved again at the correct Chunk.
 
 ## Browser Waveform Asset (implemented preview)
 

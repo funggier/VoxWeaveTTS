@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.3.0.dev8 Waveform Manual Alignment preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, word/phoneme subtitle alignment, a native hardware Playback Clock, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
+> **Current status (v0.3.0.dev9 Thai-safe Subtitle Boundary preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, word/phoneme subtitle alignment, a native hardware Playback Clock, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
 
 ## Goals
 
@@ -41,6 +41,12 @@ The existing **Rules JSON array** and **Pronunciations JSON object** now provide
 ## Browser media-clock subtitle overlay (implemented preview)
 
 When a generated WAV actually plays in the document reader or job queue player, a shared browser media-clock adapter reports currentTime, seek, pause, resume, end and stop to the local Playback API. A read-only transparent OBS overlay can open http://127.0.0.1:8765/overlay. The overlay follows Browser-reported time, hides silenced segments, and automatically hides stale captions. It does NOT play audio itself; capture audio from the original player separately in OBS. This is SEGMENT-level timing, not word/phoneme alignment or hardware-output-accurate synchronization. See [Playback and OBS guide (Thai)](docs/PLAYBACK_OVERLAY_TH.md).
+
+## Safer Thai caption boundaries (fixed in v0.3.0.dev9)
+
+Estimated captions now break only at explicit whitespace or punctuation. Arbitrary grapheme-count cuts could previously strand Thai preposed vowels or final consonants across caption windows. If a continuous Thai text run has no reliable separator, the whole generated speech segment remains one caption rather than inventing Thai word boundaries. The OBS overlay also no longer forces arbitrary CSS word wrapping.
+
+The engine-neutral Document Reader prefers punctuation/whitespace and marks any hard-limit Thai fallback in the returned chunk metadata and the UI. Chunker revision is part of the document ID hash to avoid resuming old ordinal bookmarks at the wrong text after changed boundaries; reopen your document, select the correct chunk and save the bookmark again. This is **not** a Thai dictionary tokenizer or word-level forced aligner. See [Document Reader](docs/DOCUMENT_READER_TH.md).
 
 ## Browser Waveform Editor (implemented preview)
 
