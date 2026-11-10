@@ -55,7 +55,7 @@ class ServerTests(unittest.TestCase):
         sample,meta=render_wav(plan,engine=ConstantEngine())
         payload=json.dumps({"text":"ทดสอบ"}).encode("utf-8")
         req=Request(self.base+"/v1/speech",data=payload,headers={"Content-Type":"application/json"},method="POST")
-        with patch("voxweavetts.server.render_wav",return_value=(sample,{"engine_id":"fastthaig2p-cpu","duration_ms":meta["duration_ms"]})):
+        with patch("voxweavetts.server.render_wav",return_value=(sample,{"engine_id":"fastthaig2p-cpu","duration_ms":meta["duration_ms"],"seed":100})):
             with urlopen(req,timeout=3) as response:
                 self.assertEqual(response.status,200)
                 self.assertEqual(response.headers["Content-Type"],"audio/wav")
@@ -69,6 +69,73 @@ class ServerTests(unittest.TestCase):
             urlopen(req,timeout=3)
         self.assertEqual(err.exception.code,400)
         err.exception.close()
+
+    def test_seed_settings_are_saved_in_portable_data_and_used_by_speech(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from voxweavetts import server
+        from voxweavetts.processing import process_text
+        from voxweavetts.speech import render_wav
+        from test_speech import ConstantEngine
+        from urllib.error import HTTPError
+
+        with TemporaryDirectory() as path, patch.object(
+            server, "SYNTHESIS_SETTINGS", Path(path) / "data" / "settings" / "synthesis.json"
+        ):
+            with urlopen(self.base + "/v1/settings/synthesis", timeout=3) as response:
+                self.assertEqual(json.load(response), {"seed": 100})
+
+            payload = json.dumps({"seed": 123}).encode("utf-8")
+            request = Request(
+                self.base + "/v1/settings/synthesis", data=payload,
+                headers={"Content-Type":"application/json",
+                         "X-VoxWeaveTTS-Intent":"save-synthesis-settings"},
+                method="POST"
+            )
+            with urlopen(request, timeout=3) as response:
+                self.assertEqual(json.load(response)["seed"], 123)
+            with urlopen(self.base + "/v1/settings/synthesis", timeout=3) as response:
+                self.assertEqual(json.load(response)["seed"], 123)
+
+            wav, details = render_wav(process_text("ทดสอบ"), engine=ConstantEngine(), seed=123)
+            seen = {}
+            def mock_audio(*args, **kwargs):
+                seen["seed"] = kwargs.get("seed")
+                return wav, {"engine_id": "fastthaig2p-cpu",
+                             "duration_ms": details["duration_ms"], "seed":kwargs["seed"]}
+            speech_request = Request(
+                self.base + "/v1/speech",
+                data=json.dumps({"text":"ทดสอบ"}).encode("utf-8"),
+                headers={"Content-Type":"application/json"}, method="POST",
+            )
+            with patch("voxweavetts.server.render_wav", side_effect=mock_audio):
+                with urlopen(speech_request, timeout=3) as response:
+                    self.assertEqual(response.headers["X-VoxWeaveTTS-Seed"], "123")
+            self.assertEqual(seen["seed"], 123)
+            self.assertTrue((Path(path) / "data/settings/synthesis.json").exists())
+
+            missing_intent = Request(
+                self.base + "/v1/settings/synthesis", data=payload,
+                headers={"Content-Type":"application/json"}, method="POST"
+            )
+            with self.assertRaises(HTTPError) as error:
+                urlopen(missing_intent, timeout=3)
+            self.assertEqual(error.exception.code, 403)
+            error.exception.close()
+
+            for seed in [-1, 2147483648, "3", True, 3.5]:
+                bad = Request(
+                    self.base + "/v1/settings/synthesis",
+                    data=json.dumps({"seed":seed}).encode("utf-8"),
+                    headers={"Content-Type":"application/json",
+                             "X-VoxWeaveTTS-Intent":"save-synthesis-settings"},
+                    method="POST",
+                )
+                with self.assertRaises(HTTPError) as err:
+                    urlopen(bad, timeout=3)
+                self.assertEqual(err.exception.code, 400)
+                err.exception.close()
 
     def test_ui(self):
         with urlopen(self.base,timeout=3) as r:

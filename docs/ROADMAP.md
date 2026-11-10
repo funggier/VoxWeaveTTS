@@ -19,6 +19,7 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Web preview of synthesized WAV, basic speed control, private test samples on T:
 - [ ] Streaming playback, explicit cancellation and queue policy
 - [ ] Voice cloning / reference voice storage
+- [x] Fixed ONNX per-job seed control and verified byte-identical repeats for the same Thai text/seed in CPU smoke tests
 - [ ] Listening-based Thai pronunciation regression testing and native phoneme overrides
 - [ ] Further engine quality/speed benchmarks and longer text stress tests
 

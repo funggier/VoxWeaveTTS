@@ -61,6 +61,27 @@ class SpeechTests(unittest.TestCase):
         with self.assertRaises(InputError):
             render_wav(process_text("x"*501), engine=ConstantEngine())
 
+    def test_stable_seed_metadata_and_validation(self):
+        from voxweavetts.speech import DEFAULT_SEED, validate_seed
+        plan = process_text("ฮ่า ฮ่า ฮ่า")
+        _wav, details = render_wav(plan, engine=ConstantEngine(), seed=17)
+        self.assertEqual(details["seed"], 17)
+        self.assertEqual(validate_seed(DEFAULT_SEED), DEFAULT_SEED)
+        for value in (-1, 2147483648, 2.3, True, "100", None):
+            with self.assertRaises(InputError):
+                render_wav(plan, engine=ConstantEngine(), seed=value)
+
+    def test_render_instantiates_fresh_engine_per_request(self):
+        from unittest.mock import patch
+        from voxweavetts.speech import FastThaiG2PEngine
+        plan = process_text("ฮ่า ฮ่า ฮ่า")
+        with patch("voxweavetts.speech.FastThaiG2PEngine") as cls:
+            cls.return_value = ConstantEngine()
+            render_wav(plan, seed=100)
+            render_wav(plan, seed=100)
+            self.assertEqual(cls.call_count, 2)
+            cls.assert_called_with(seed=100)
+
     def test_chunk_splits_do_not_discard_characters(self):
         for text in ["a"*345, "สวัสดีครับ "*50, "one, two. three! "+("four "*20)]:
             self.assertEqual("".join(_chunks(text)), text)

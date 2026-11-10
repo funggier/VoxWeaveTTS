@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -15,11 +17,15 @@ from .speech import (
     EngineUnavailable,
     SpeechFailure,
     engine_info,
+    DEFAULT_SEED,
     render_wav,
+    validate_seed,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAX_REQUEST_BYTES = 65_536
+SYNTHESIS_SETTINGS = PROJECT_ROOT / "data" / "settings" / "synthesis.json"
+_SETTINGS_LOCK = threading.RLock()
 
 
 def _load_json(relative: str, default: Any) -> Any:
@@ -32,6 +38,43 @@ def _load_json(relative: str, default: Any) -> Any:
         return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         raise InputError(f"invalid local {relative} JSON: {exc}") from exc
+
+
+def _read_seed() -> int:
+    with _SETTINGS_LOCK:
+        path = SYNTHESIS_SETTINGS
+        if not path.exists():
+            return DEFAULT_SEED
+        if path.stat().st_size > 4096:
+            raise InputError("synthesis settings file is too large")
+        try:
+            document = json.loads(path.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise InputError("invalid synthesis settings file") from exc
+        if not isinstance(document, dict):
+            raise InputError("synthesis settings must be an object")
+        return validate_seed(document.get("seed", DEFAULT_SEED))
+
+
+def _save_seed(seed: int) -> None:
+    """Keep seed preferences with the portable project, not browser storage."""
+    seed = validate_seed(seed)
+    with _SETTINGS_LOCK:
+        path = SYNTHESIS_SETTINGS
+        path.parent.mkdir(exist_ok=True, parents=True)
+        temporary: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=path.parent, prefix=".synthesis-",
+                suffix=".tmp", delete=False,
+            ) as stream:
+                temporary = Path(stream.name)
+                json.dump({"seed": seed}, stream)
+                stream.write("\n")
+            os.replace(temporary, path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -71,6 +114,7 @@ class Handler(BaseHTTPRequestHandler):
                         "text_filter": True,
                         "pronunciation_hints": True,
                         "tts_audio": info.assets_ready and info.runtime_ready,
+                        "reproducible_seed": info.assets_ready and info.runtime_ready,
                         "voice_cloning": False,
                         "websocket_streaming": False,
                         "live_connectors": False,
@@ -78,6 +122,8 @@ class Handler(BaseHTTPRequestHandler):
                         "portable_executable": False,
                     },
                 })
+            elif route == "/v1/settings/synthesis":
+                self.send_json(200, {"seed": _read_seed()})
             elif route == "/v1/engines":
                 self.send_json(200, {"engines": [engine_info().as_dict()]})
             elif route == "/v1/voices":
@@ -130,6 +176,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         route = urlsplit(self.path).path
+        if route == "/v1/settings/synthesis":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-synthesis-settings":
+                self.send_json(403, {"error": "missing settings update intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.send_json(415, {"error": "settings must be application/json"})
+                return
+            try:
+                data = self._read_json()
+                seed = validate_seed(data.get("seed"))
+                _save_seed(seed)
+                self.send_json(200, {"seed": seed})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError, OSError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
         if route not in {"/v1/text/process", "/v1/speech"}:
             self.send_json(404, {"error": "not found"})
             return
@@ -145,12 +206,14 @@ class Handler(BaseHTTPRequestHandler):
                 plan,
                 speed=data.get("speed", 1.0),
                 voice_id=data.get("voice_id", "thai_som"),
+                seed=validate_seed(data.get("seed", _read_seed())),
             )
             self._headers(
                 200, "audio/wav", len(wav),
                 {
                     "X-VoxWeaveTTS-Engine": info["engine_id"],
                     "X-VoxWeaveTTS-Duration-Ms": str(info["duration_ms"]),
+                    "X-VoxWeaveTTS-Seed": str(info["seed"]),
                 },
             )
             self.wfile.write(wav)

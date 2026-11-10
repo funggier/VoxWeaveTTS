@@ -6,7 +6,6 @@ voice (not a voice clone). External assets live outside Git in models/.
 from __future__ import annotations
 
 import io
-import re
 import threading
 import wave
 from dataclasses import dataclass
@@ -24,6 +23,8 @@ SAMPLE_RATE = 24_000
 MAX_SPEECH_CHARS = 500
 MAX_PLAN_SEGMENTS = 50
 MAX_WAV_BYTES = 32_000_000
+DEFAULT_SEED = 100
+MAX_SEED = 2_147_483_647
 
 
 class EngineUnavailable(Exception):
@@ -96,7 +97,7 @@ def engine_info() -> EngineInfo:
         assets_ready=assets_ready(),
         runtime_ready=runtime_ready(),
         capabilities={
-            "speech": True, "speed": True, "voice_cloning": False,
+            "speech": True, "speed": True, "seed_control": True, "voice_cloning": False,
             "pitch": False, "formant": False, "expressiveness": False,
             "streaming": False, "phoneme_dictionary": False,
         },
@@ -115,15 +116,32 @@ def _float32_to_pcm(raw: Any) -> bytes:
     return (np.clip(values, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
 
 
+def validate_seed(seed: Any) -> int:
+    """Keep user-chosen ONNX random seeds within a reproducible integer range."""
+    if type(seed) is not int or not (0 <= seed <= MAX_SEED):
+        raise InputError(f"seed must be an integer from 0 to {MAX_SEED}")
+    return seed
+
+
 class FastThaiG2PEngine:
+    """A new ONNX session is created per speech job for reproducible inference.
+
+    ONNX random operators advance their generator state on each session.run().
+    Merely calling onnxruntime.set_seed() before each generate() on a reused
+    session does NOT rewind that state. Seed before *session construction*.
+    The session and its seed are scoped to this one render_wav invocation.
+    """
+
     id = ENGINE_ID
     sample_rate = SAMPLE_RATE
     _lock = threading.Lock()
-    _native: Any = None
 
-    @classmethod
-    def _get_native(cls) -> Any:
-        if cls._native is None:
+    def __init__(self, seed: int = DEFAULT_SEED):
+        self.seed = validate_seed(seed)
+        self._native: Any = None
+
+    def _get_native(self) -> Any:
+        if self._native is None:
             if not assets_ready():
                 raise EngineUnavailable(
                     "FastThaiG2P model files are missing; run scripts/Install-ThaiEngine.ps1"
@@ -132,8 +150,11 @@ class FastThaiG2PEngine:
                 raise EngineUnavailable(
                     "PyThaiTTS ONNX dependencies are not installed in the selected Python runtime"
                 )
+            import onnxruntime as ort
             from pythaitts.pretrained.fastthaig2p.tts import TTS
-            cls._native = TTS(
+            # IMPORTANT: seed the runtime BEFORE creating the ONNX session.
+            ort.set_seed(self.seed)
+            self._native = TTS(
                 model_path=MODEL_DIR / ASSETS["model"],
                 voicepack_path=MODEL_DIR / ASSETS["voicepack"],
                 config_path=MODEL_DIR / ASSETS["config"],
@@ -141,14 +162,15 @@ class FastThaiG2PEngine:
                 intra_op_threads=4,
                 speed=1.0,
             )
-        return cls._native
+        return self._native
 
     def generate(self, text: str, speed: float) -> bytes:
         if not isinstance(text, str) or not text.strip():
             return b""
-        # One shared model instance; don't mutate its speed concurrently.
+        # ORT's session seed initialization is process-wide. Serialize both
+        # session creation and model execution for the M1 CPU preview.
         with type(self)._lock:
-            native = type(self)._get_native()
+            native = self._get_native()
             native.speed = speed
             return _float32_to_pcm(native.generate(text))
 
@@ -191,6 +213,7 @@ def render_wav(
     *,
     speed: float = 1.0,
     voice_id: str = "thai_som",
+    seed: int = DEFAULT_SEED,
     engine: VoiceEngine | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Synthesize segments as a single WAV, retaining precise segment offsets.
@@ -199,7 +222,10 @@ def render_wav(
     An external playback coordinator must still provide real-time subtitle sync.
     """
     validate_speech_request(plan, speed, voice_id)
-    engine = engine if engine is not None else FastThaiG2PEngine()
+    seed = validate_seed(seed)
+    # A fresh model instance per speech job prevents its random state from
+    # drifting between otherwise identical utterances.
+    engine = engine if engine is not None else FastThaiG2PEngine(seed=seed)
     rate = engine.sample_rate
     if rate < 8_000 or rate > 96_000:
         raise SpeechFailure("unsupported engine sample rate")
@@ -247,6 +273,7 @@ def render_wav(
     return audio_buffer.getvalue(), {
         "engine_id": engine.id,
         "voice_id": voice_id,
+        "seed": seed,
         "sample_rate": rate,
         "duration_ms": round(frames * 1000 / rate),
         "segments": timeline,

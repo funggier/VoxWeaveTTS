@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: M1 Preview v0.2.0.dev0** — มี Local API ข้อความ และ **สร้างเสียง WAV ภาษาไทยจริงผ่าน FastThaiG2P CPU ONNX ได้แล้ว** บนเครื่องที่ติดตั้งโมเดลกับ Runtime แต่ยัง **ไม่มี** การโคลนเสียงของผู้ใช้, ปรับ Pitch/Formant/Emotion, Audio Streaming, ตัวเชื่อม Discord/YouTube, Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: M1 Preview v0.2.0.dev1** — มี Local API ข้อความ และ **สร้างเสียง WAV ภาษาไทยจริงผ่าน FastThaiG2P CPU ONNX ได้แล้ว** บนเครื่องที่ติดตั้งโมเดลกับ Runtime แต่ยัง **ไม่มี** การโคลนเสียงของผู้ใช้, ปรับ Pitch/Formant/Emotion, Audio Streaming, ตัวเชื่อม Discord/YouTube, Subtitle Sync หรือ Portable EXE
 
 ## ข้อกำหนดที่ต้องรักษา
 1. ปรับเสียงได้: ความเร็ว, ระดับเสียง, Formant, ความกังวาน, อารมณ์, เว้นจังหวะ (ขึ้นกับความสามารถของ TTS รุ่นนั้น)
@@ -20,7 +20,7 @@
 
 1. รัน `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` เพื่อสร้าง `.venv` และติดตั้งโมเดลไทยไว้ในโฟลเดอร์โปรเจกต์ (ต้องมี `uv`, `gh` และอินเทอร์เน็ตในครั้งแรก)
 2. ดับเบิลคลิก `Start-Dev.cmd` และเปิด http://127.0.0.1:8765
-3. ปรับกฎกรอง/คำอ่าน กด **สร้างเสียง WAV** และฟังเสียงที่สร้างขึ้นจริง
+3. ปรับกฎกรอง/คำอ่าน กด **สร้างเสียง WAV** และฟังเสียงที่สร้างขึ้นจริง; เพิ่มช่อง **Seed** สำหรับล็อกความสุ่มของ TTS เมื่อคำอย่าง `ฮ่า ฮ่า ฮ่า` ออกเสียงเพี้ยน ให้ลอง Seed ถัดไป ฟัง และบันทึกค่าที่ชอบไว้ใน `data/settings/synthesis.json`
 4. ใช้ `scripts/Generate-ThaiSample.ps1` เพื่อสร้าง `output/api_demo.wav` จาก API
 5. ใช้ `Test-Dev.cmd` ทดสอบ
 

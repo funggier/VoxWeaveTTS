@@ -1,4 +1,4 @@
-# API Contract — M1 Thai WAV preview (v0.2.0.dev0)
+# API Contract — M1 Thai WAV preview (v0.2.0.dev1)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -34,9 +34,17 @@ Rules:
 
 `GET /v1/voices` — only fixed `thai_som`; `voice_cloning=false`.
 
-`POST /v1/speech` — uses the **same** text, rules, pronunciations and source fields as `POST /v1/text/process`, plus `engine_id: "fastthaig2p-cpu"`, `voice_id: "thai_som"`, and `speed: 1.0` (range 0.6–1.5). Returns `audio/wav` (24 kHz mono PCM16), `X-VoxWeaveTTS-Duration-Ms` header. Text input may be at most 8000 chars for text processing but total spoken segments are limited to **500 spoken characters and 50 segments** per audio request. CPU TTS assets are optional: if unavailable, the endpoint responds `503`. Unsupported control/engine/voice returns `400`.
+`POST /v1/speech` — uses the **same** text, rules, pronunciations and source fields as `POST /v1/text/process`, plus `engine_id: "fastthaig2p-cpu"`, `voice_id: "thai_som"`, `speed: 1.0` (range 0.6–1.5), and optional `seed` (integer 0–2147483647). Returns `audio/wav` (24 kHz mono PCM16), `X-VoxWeaveTTS-Duration-Ms` and `X-VoxWeaveTTS-Seed` headers. Text input may be at most 8000 chars for text processing but total spoken segments are limited to **500 spoken characters and 50 segments** per audio request. CPU TTS assets are optional: if unavailable, the endpoint responds `503`. Unsupported control/engine/voice returns `400`.
 
 This endpoint **generates audio, not timed playback events**; its segment duration metadata is not a live subtitle timeline. See [M1_AUDIO_TH.md](M1_AUDIO_TH.md).
+
+## Synthesis settings and reproducibility (implemented)
+
+`GET /v1/settings/synthesis` returns `{"seed":100}` by default or the saved seed in `data/settings/synthesis.json`.
+
+`POST /v1/settings/synthesis` requires `Content-Type: application/json`, `X-VoxWeaveTTS-Intent: save-synthesis-settings`, and JSON body `{"seed":123}`. Stores only this validated integer under the portable project root. `POST /v1/speech` uses the saved seed when not supplied in the request, and a request-specific seed takes precedence.
+
+FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces byte-identical WAV on the tested CPU runtime, `render_wav` seeds ONNX **before creating a new model session for each speech job**. Reusing a model session while merely reseeding the global runtime is not reproducible. This incurs extra model-initialization overhead; M1 prioritizes correctness over streaming latency. It **does not guarantee correct pronunciation**, only reproducibility for the same model/runtime/input.
 
 ## Planned; not yet callable
 
