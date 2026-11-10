@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev2 — Persistent Rules/Pronunciations editor (2026-11-10)
+
+- Added atomic, validated on-disk Rules and Pronunciations storage in the existing ignored portable data paths, with section-specific SHA-256 optimistic revision checks to avoid overwriting edits made in another tab.
+- Added GET/POST /v1/settings/text for safe configuration loading and saving, while retaining existing GET /v1/rules, GET /v1/pronunciations and request-specific overrides for all Engines.
+- Added browser actions to save in program, load saved settings, import exported JSON files, and restore saved settings at startup without overwriting unsaved edits or installing any model.
+- Added Python HTTP/persistence/conflict/legacy migration tests plus dependency-free Node browser editor interaction smoke test.
+- Preserved Commercial-First distribution policy; local user rules and files remain outside GitHub.
+
 ## 0.3.0.dev1 — Engine-neutral TXT/Markdown narrator input (2026-11-10)
 
 - Added Python standard-library Document Reader with Thai TXT chapter detection, Markdown heading parsing, narrated-text cleanup and safe text chunking (100–450 characters, paging and normalized offsets).

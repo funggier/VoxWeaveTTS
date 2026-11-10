@@ -27,6 +27,7 @@ from .speech import (
 )
 from .voice_controls import control_schema
 from .presets import load_presets, save_preset
+from .text_settings import load_all as load_text_settings, load_section as load_text_section, save_section as save_text_section, SettingsConflict
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
 from .speech_coordinator import (
@@ -172,6 +173,7 @@ class Handler(BaseHTTPRequestHandler):
                         "queue_events": True,
                         "audio_playback_clock": False,
                         "pronunciation_hints": True,
+                        "persistent_text_settings": True,
                         "tts_audio": any(e.assets_ready and e.runtime_ready for e in list_engine_info()),
                         "reproducible_seed": info.assets_ready and info.runtime_ready,
                         "voice_cloning": False,
@@ -225,15 +227,12 @@ class Handler(BaseHTTPRequestHandler):
                 })
             elif route == "/v1/presets":
                 self.send_json(200, {"presets": load_presets()})
+            elif route == "/v1/settings/text":
+                self.send_json(200, load_text_settings())
             elif route == "/v1/rules":
-                data = _load_json("data/filters/rules.json", [])
-                self.send_json(
-                    200, data.get("rules", []) if isinstance(data, dict) else data
-                )
+                self.send_json(200, load_text_section("rules")["value"])
             elif route == "/v1/pronunciations":
-                self.send_json(
-                    200, _load_json("data/dictionaries/pronunciations.json", {})
-                )
+                self.send_json(200, load_text_section("pronunciations")["value"])
             else:
                 self.send_json(404, {"error": "not found"})
         except (OSError, InputError) as exc:
@@ -251,12 +250,10 @@ class Handler(BaseHTTPRequestHandler):
     def _text_plan(self, data: dict[str, Any]) -> dict[str, Any]:
         rules = data.get("rules")
         if rules is None:
-            rules = _load_json("data/filters/rules.json", [])
-            if isinstance(rules, dict):
-                rules = rules.get("rules", [])
+            rules = load_text_section("rules")["value"]
         dictionary = data.get("pronunciations")
         if dictionary is None:
-            dictionary = _load_json("data/dictionaries/pronunciations.json", {})
+            dictionary = load_text_section("pronunciations")["value"]
         return process_text(
             text=data.get("text"),
             rules=rules,
@@ -315,6 +312,25 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(503, {"error": str(exc)})
             except QueueFull:
                 self.send_json(429, {"error": "speech queue is full"})
+            return
+        if route == "/v1/settings/text":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-text-settings":
+                self.send_json(403, {"error": "missing text settings update intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.send_json(415, {"error": "text settings must be application/json"})
+                return
+            try:
+                data = self._read_json()
+                value = save_text_section(
+                    data.get("section"), data.get("value"),
+                    data.get("expected_revision"),
+                )
+                self.send_json(200, {"section": data["section"], **value})
+            except SettingsConflict as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError, OSError, ValueError) as exc:
+                self.send_json(400, {"error": str(exc)})
             return
         if route == "/v1/settings/synthesis":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-synthesis-settings":

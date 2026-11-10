@@ -12,6 +12,10 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Engine-neutral persistent text settings (implemented)
+
+`text_settings.py` owns validated portable Rules/Pronunciations state with atomic file replacement and per-section revision hashes; its HTTP API and browser editing controls do not depend on TTS models. These settings are used as defaults for any Engine through the existing shared text-processing layer, while explicit request overrides remain supported. File paths are fixed inside Git-ignored data directories. See [JSON Settings](PRONUNCIATION_JSON_TH.md).
+
 ## Engine-neutral TXT/Markdown Input (implemented)
 
 The engine-independent Document Reader in src/voxweavetts/document_reader.py parses TXT/Markdown into chapter-indexed text chunks with normalized offsets and deterministic paging; the browser reads files locally, sends UTF-8 text through POST /v1/documents/preview, and lets the user push **only a selected chunk** through the existing Text Processor and Speech Queue. It never imports model modules or stores novel text on the server. See [Document Reader](DOCUMENT_READER_TH.md).

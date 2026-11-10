@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev1)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev2)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -53,9 +53,17 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 
 `GET /v1/presets` lists local JSON presets. `POST /v1/presets` requires `X-VoxWeaveTTS-Intent: save-voice-preset` with JSON body containing `name`, `engine_id`, `voice_id`, `speed`, `seed`, and `voice_controls`. Up to 32 validated presets are saved locally in `data/presets/voice-presets.json`, which is Git-ignored. See [VOICE_STUDIO_TH.md](VOICE_STUDIO_TH.md).
 
+## Persistent Rules and Pronunciations settings (implemented)
+
+`GET /v1/settings/text` returns `{schema_version:1, rules:[], pronunciations:{}, revisions:{rules:<SHA256>, pronunciations:<SHA256>}, saved:{rules:boolean, pronunciations:boolean}}`. Old wrapped `data/filters/rules.json` (`{rules:[...]}`) is recognized for compatibility.
+
+`POST /v1/settings/text` requires `Content-Type: application/json` and `X-VoxWeaveTTS-Intent: save-text-settings`. Body: `{section:"rules"|"pronunciations", value:[], expected_revision:"64-lowercase-hex"}`; the `value` must match the selected section type. Saving is atomic, validates all rule constraints and bounded file size, and rejects a stale revision with HTTP `409` without overwriting the file. Successful response includes updated revision. Rules are stored privately in `data/filters/rules.json`; pronunciation map in `data/dictionaries/pronunciations.json` (both Git-ignored). Corrupt existing files are NOT silently overwritten. No user-defined file paths or arbitrary Regex/Code execution are accepted.
+
+`GET /v1/rules` and `GET /v1/pronunciations` remain supported, and `POST /v1/text/process`, `/v1/speech` and `/v1/jobs` use these saved settings when their request omits the corresponding field. A request-specific field still overrides saved values (including an explicit empty list or map).
+
 ## Rules and Pronunciations JSON editor
 
-The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, and local file download. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
+The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
 
 ## Engine-neutral TXT / Markdown preview (implemented)
 

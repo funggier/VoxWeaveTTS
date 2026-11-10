@@ -21,3 +21,13 @@ jobs:
         run: |
           $env:PYTHONPATH = Join-Path (Get-Location) 'src'
           python -m unittest discover -s tests -v
+  json-editor:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JSON Editor browser smoke (no dependencies)
+        shell: pwsh
+        run: node tests/json_settings_ui_smoke.cjs

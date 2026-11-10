@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev1** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Playback Clock, Discord/YouTube, OBS Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev2** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Playback Clock, Discord/YouTube, OBS Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -14,7 +14,7 @@
 
 ## ตัวแก้กฎคำอ่าน JSON ที่ปรับปรุงแล้ว
 
-ช่อง **Rules** และ **Pronunciations** ที่มีอยู่เดิมมีปุ่ม **จัดรูปแบบ / ตรวจ JSON / บันทึกไฟล์** และช่อง **เพิ่มรายการเร็ว** เพื่อเพิ่มข้อความที่มีเครื่องหมายคำพูด แบ็กสแลช อักขระไทยหรือ Emoji โดยไม่ต้อง Escape เอง การทดลองอ่านจะใช้กฎเดียวกับ API; ส่วนการบันทึกไฟล์เป็นการดาวน์โหลดลงเครื่อง ไม่บันทึกทับ Config Server โดยอัตโนมัติ อ่าน [คู่มือการตั้งค่าคำอ่าน JSON](docs/PRONUNCIATION_JSON_TH.md)
+ช่อง **Rules** และ **Pronunciations** ที่มีอยู่เดิมมีปุ่ม **จัดรูปแบบ / ตรวจ JSON / บันทึกไฟล์ / นำเข้าไฟล์ / บันทึกในโปรแกรม / โหลดค่าที่บันทึก** และช่อง **เพิ่มรายการเร็ว** เพื่อเพิ่มข้อความที่มีเครื่องหมายคำพูด แบ็กสแลช อักขระไทยหรือ Emoji โดยไม่ต้อง Escape เอง การทดลองอ่านจะใช้กฎเดียวกับ API; เพิ่มการบันทึกถาวรลงโฟลเดอร์ data/filters และ data/dictionaries การโหลดค่าที่เคยบันทึก การนำเข้าไฟล์ JSON และการป้องกันเขียนทับจากอีกแท็บ ส่วนปุ่มบันทึกไฟล์ยังเป็นการดาวน์โหลดแยกกัน อ่าน [คู่มือการตั้งค่าคำอ่าน JSON](docs/PRONUNCIATION_JSON_TH.md)
 
 ## ระบบนำเข้า TXT / Markdown ที่เพิ่มแล้ว
 

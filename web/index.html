@@ -54,6 +54,10 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <button id="ruleFormat" class="small-button" type="button">จัดรูปแบบ</button>
 <button id="ruleCheck" class="small-button" type="button">ตรวจ JSON</button>
 <button id="ruleDownload" class="small-button" type="button">บันทึกไฟล์</button>
+<button id="ruleImport" class="small-button" type="button">นำเข้าไฟล์</button>
+<input id="ruleImportFile" type="file" accept=".json,application/json" style="display:none">
+<button id="ruleSave" class="small-button" type="button" disabled>บันทึกในโปรแกรม</button>
+<button id="ruleReload" class="small-button" type="button">โหลดค่าที่บันทึก</button>
 </div>
 </div>
 <textarea class="json" id="rule" spellcheck="false" aria-describedby="ruleJsonStatus">[
@@ -75,6 +79,10 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <button id="pronFormat" class="small-button" type="button">จัดรูปแบบ</button>
 <button id="pronCheck" class="small-button" type="button">ตรวจ JSON</button>
 <button id="pronDownload" class="small-button" type="button">บันทึกไฟล์</button>
+<button id="pronImport" class="small-button" type="button">นำเข้าไฟล์</button>
+<input id="pronImportFile" type="file" accept=".json,application/json" style="display:none">
+<button id="pronSave" class="small-button" type="button" disabled>บันทึกในโปรแกรม</button>
+<button id="pronReload" class="small-button" type="button">โหลดค่าที่บันทึก</button>
 </div>
 </div>
 <textarea class="json" id="pron" spellcheck="false" aria-describedby="pronJsonStatus">{
@@ -190,6 +198,72 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 "use strict";
 const el = id => document.getElementById(id);
 const jsonLabels = {rule:"Rules",pron:"Pronunciations"};
+const sectionNames = {rule:"rules",pron:"pronunciations"};
+const configRevisions = {rule:null,pron:null};
+const configLoadedText = {rule:el("rule").value,pron:el("pron").value};
+let settingsFetched = false;
+async function getSavedTextSettings() {
+  const response = await fetch("/v1/settings/text",{cache:"no-store"});
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || "Cannot load saved text settings");
+  return body;
+}
+function installSavedTextSettings(payload, onlyId=null, force=false) {
+  for(const id of (onlyId ? [onlyId] : ["rule","pron"])) {
+    const section = sectionNames[id];
+    const saved = Boolean(payload.saved[section]);
+    const original = configLoadedText[id];
+    const mayReplace = force || el(id).value === original;
+    if(saved && mayReplace) {
+      el(id).value = JSON.stringify(payload[section],null,2);
+      configLoadedText[id] = el(id).value;
+      configFeedback(id,"โหลดกฎที่บันทึกไว้ในโปรแกรมแล้ว",true);
+    } else if(!saved && force) {
+      // No saved config: show empty settings rather than silently creating a file.
+      el(id).value = JSON.stringify(payload[section],null,2);
+      configLoadedText[id] = el(id).value;
+      configFeedback(id,"ยังไม่เคยบันทึกส่วนนี้ในโปรแกรม",true);
+    } else if (!mayReplace) {
+      configFeedback(id,"มีข้อความที่แก้ไขค้างอยู่ จึงไม่โหลดทับให้อัตโนมัติ",false);
+    } else {
+      configFeedback(id,"ยังไม่บันทึกในโปรแกรม · ใช้ตัวอย่างแก้ไขแล้วกดบันทึกได้",true);
+    }
+    configRevisions[id] = payload.revisions[section];
+    el(id+"Save").disabled = false;
+  }
+  settingsFetched = true;
+}
+async function reloadTextSetting(id, force=false) {
+  if(force && el(id).value !== configLoadedText[id] &&
+     !window.confirm("แทนที่ข้อความใน "+jsonLabels[id]+" ด้วยค่าที่บันทึกไว้หรือไม่?")) return;
+  const response = await getSavedTextSettings();
+  installSavedTextSettings(response,id,force);
+}
+async function saveTextSetting(id) {
+  if(!settingsFetched || configRevisions[id] === null)
+    throw new Error("ยังโหลดสถานะไฟล์ตั้งค่าไม่เสร็จ");
+  const value = parseConfigJson(id);
+  const response = await fetch("/v1/settings/text",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"save-text-settings"},
+    body:JSON.stringify({
+      section:sectionNames[id],value,expected_revision:configRevisions[id]
+    })
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    if (response.status === 409)
+      throw new Error("ไฟล์เปลี่ยนจากแท็บอื่นแล้ว: เก็บข้อความที่แก้ค้างไว้ก่อน แล้วเลือกโหลดค่าที่บันทึก/เปรียบเทียบ");
+    throw new Error(body.error || "บันทึกการตั้งค่าไม่สำเร็จ");
+  }
+  configRevisions[id] = body.revision;
+  configLoadedText[id] = el(id).value;
+  configFeedback(id,"บันทึกในโปรแกรมสำเร็จ · ใช้ได้กับทุก Engine และคงอยู่หลังปิดโปรแกรม",true);
+}
+getSavedTextSettings().then(snapshot=>installSavedTextSettings(snapshot))
+  .catch(error=>{
+    for(const id of ["rule","pron"])configFeedback(id,"โหลดค่าที่บันทึกไม่ได้: "+String(error.message||error),false);
+  });
 function parseConfigJson(id) {
   const source = el(id).value;
   const parsed = JSON.parse(source);
@@ -238,6 +312,34 @@ for (const id of ["rule", "pron"]) {
   el(prefix+"Format").addEventListener("click", () => configOperation(id, "format"));
   el(prefix+"Check").addEventListener("click", () => configOperation(id, "check"));
   el(prefix+"Download").addEventListener("click", () => configOperation(id, "download"));
+  el(prefix+"Reload").addEventListener("click",()=>{
+    reloadTextSetting(id,true).catch(error=>configFeedback(id,String(error.message||error),false));
+  });
+  el(prefix+"Save").addEventListener("click",async()=>{
+    el(prefix+"Save").disabled=true;
+    try { await saveTextSetting(id); }
+    catch(error){configFeedback(id,"บันทึกไม่ได้: "+String(error.message||error),false);}
+    finally{el(prefix+"Save").disabled=false;}
+  });
+  el(prefix+"Import").addEventListener("click",()=>el(prefix+"ImportFile").click());
+  el(prefix+"ImportFile").addEventListener("change",async()=>{
+    const picker=el(prefix+"ImportFile");
+    try {
+      const file=picker.files?.[0];
+      if(!file)return;
+      if(file.size>65536)throw new Error("ไฟล์ JSON ใหญ่เกิน 64 KiB");
+      const decoded=new TextDecoder("utf-8",{fatal:true})
+        .decode(await file.arrayBuffer()).replace(/^\uFEFF/,"");
+      const candidate=JSON.parse(decoded);
+      const proper=id==="rule" ? Array.isArray(candidate)
+        : candidate!==null&&typeof candidate==="object"&&!Array.isArray(candidate);
+      if(!proper)throw new Error("ชนิด JSON ไม่ตรงกับช่อง "+jsonLabels[id]);
+      el(id).value=JSON.stringify(candidate,null,2);
+      configFeedback(id,"นำเข้าไฟล์สำเร็จ (ยังไม่บันทึกถาวร) · ตรวจและกดบันทึกในโปรแกรม",true);
+    }catch(error){
+      configFeedback(id,"นำเข้าไฟล์ไม่ได้: "+String(error.message||error),false);
+    }finally{picker.value="";}
+  });
   el(id).addEventListener("input", () => {
     // Do not reformat uncommitted user input or erase an in-progress edit.
     configFeedback(id, "มีการแก้ไข · กดตรวจ JSON หรือจัดรูปแบบเมื่อต้องการ", true);
@@ -256,7 +358,9 @@ function addConfigValue(id, keyId, valueId) {
       if (Object.prototype.hasOwnProperty.call(config, key))
         throw new Error("มีคำนี้ใน Pronunciations แล้ว กรุณาแก้ค่าเดิมใน JSON");
       if (Object.keys(config).length >= 512) throw new Error("Pronunciations ได้ไม่เกิน 512 รายการ");
-      config[key] = value;
+      Object.defineProperty(config,key,{
+        value, enumerable:true, configurable:true, writable:true
+      });
     }
     // JSON.stringify safely escapes quotes, backslashes and control characters.
     el(id).value = JSON.stringify(config, null, 2);

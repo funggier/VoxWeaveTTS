@@ -30,7 +30,7 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 
 ## Milestone 2 — Voice Studio / Long Text (partial)
 - [x] Import .txt/.md via browser and engine-neutral API, basic Markdown narration cleanup, TXT/Markdown chapter detection and paged text chunks
-- [x] Rules/Pronunciations JSON editor: pretty-format, validation, download, quick Unicode-safe entry
+- [x] Rules/Pronunciations JSON editor: pretty-format, validation, import/export, quick Unicode-safe entry, persistent local save/reload and stale-tab revision conflict checks
 - [x] Preserve common Thai/Emoji Unicode sequences when cutting document chunks
 - [x] Send selected chapter chunk through existing Rules/Pronunciations and Engine-independent Speech Queue
 - [ ] Persistent reading position, auto-progress across chunks with backpressure and safe long-form playback
