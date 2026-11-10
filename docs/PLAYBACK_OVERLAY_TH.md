@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Browser Playback Clock และ OBS Subtitle Overlay
 
-> สถานะ: v0.3.0.dev6 · ระบบกลางที่ **ไม่ผูก TTS Engine** · เฉพาะเครื่อง Local
+> สถานะ: v0.3.0.dev7 · ระบบกลางที่ **ไม่ผูก TTS Engine** · เฉพาะเครื่อง Local
 
 ## หลักการสำคัญ
 
@@ -26,6 +26,10 @@ HTTP Polling ที่ `GET /v1/playback/state` ยังรองรับแ�
 - `http://127.0.0.1:8765/overlay?mode=estimated` — **Estimated Mode (ทดลอง)** แบ่งข้อความยาวเป็นช่วงย่อยบนขอบเขตกลุ่มอักขระ Unicode (ไม่แยกวรรณยุกต์ไทยหรือ Emoji ที่อยู่ด้วยกัน) แล้วประมาณเวลาแสดงจากสัดส่วนจำนวนอักขระภายใน Segment นั้น
 
 **โหมด Estimated ไม่ได้วิเคราะห์สัญญาณเสียง** จึงอาจเปลี่ยน Subtitle ก่อนหรือหลังคำที่พูดจริง โดยเฉพาะเมื่อ Engine อ่านคำภาษาไทยช้าหรือเร็วไม่เท่ากัน ห้ามถือว่าเป็น Word/Syllable Forced Alignment จริง หากต้องการความแม่นยำรายคำจะต้องเพิ่ม Aligner ที่ตรวจสอบเชิงพาณิชย์ได้หรือ Engine ที่ส่งเวลา Alignment มาโดยตรง
+
+## Manual Alignment (เพิ่มใน v0.3.0.dev7)
+
+เลือกช่วงข้อความและ Mark เวลาจากไฟล์ WAV ที่ฟังจริงใน Speech Queue จากนั้นบันทึกเป็น Manual Cues ใน Job (ชั่วคราว) แล้วเริ่มเล่นเสียงใหม่ เปิด /overlay?mode=manual ใน OBS เพื่อแสดงเฉพาะช่วงเวลาที่ผู้ใช้ตรวจแก้แล้ว เวลาที่ไม่ได้ระบุ Cue จะไม่แสดงข้อความ ไม่ใช่ Auto Forced Alignment และยังไม่มี Word Recognition อัตโนมัติ ดู [Manual Alignment](MANUAL_ALIGNMENT_TH.md)
 
 ## Audio Activity Mode จากสัญญาณเสียง (เพิ่มใน v0.3.0.dev6)
 

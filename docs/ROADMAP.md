@@ -70,7 +70,9 @@ Read [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md) for contract and current l
 - [x] Local bounded SSE snapshot push + reconnect; OBS HTTP Polling fallback
 - [x] Optional Unicode-grapheme caption windows with **estimated** internal segment timing
 - [x] Lightweight PCM16 audio activity detection independent of TTS Engine, with silent-gap cue masking and pluggable AlignmentProvider
-- [ ] True word/syllable alignment from speech audio, and authenticated multi-client playback ownership
+- [x] User-reviewed word/phrase timing editor, validated public-text offsets, local JSON export/import and in-memory cue revisions
+- [x] Reference timing evaluation metrics: coverage, mean/max boundary error, within-100ms
+- [ ] True automatic word/syllable alignment from speech audio, and authenticated multi-client playback ownership
 - [ ] Sentence/subsentence segments, optional word alignment
 - [ ] Stream offset calibration, cancellation and multi-consumer validation
 

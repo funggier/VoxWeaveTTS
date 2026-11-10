@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Core v1
 
-> Implementation preview v0.3.0.dev6 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
+> Implementation preview v0.3.0.dev7 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
 
 ## เป้าหมาย
 
@@ -74,6 +74,10 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 ## Subtitle Relay ส่วนกลางสำหรับทุก Engine
 
 เมื่อ Browser เล่น WAV จริง จะรายงาน HTMLMediaElement.currentTime ไปยัง playback_state.py เพื่อเลือก Subtitle จาก Segment ที่ผ่านกฎกรองและให้ OBS Browser Source ดึงได้ที่ /overlay โดยไม่ต้องโหลดโมเดลในระบบเล่นเสียงและไม่ถือว่า Speech Job ready คือเริ่มเล่นแล้ว ดู [คู่มือ Playback/OBS](PLAYBACK_OVERLAY_TH.md)
+
+## Manual Subtitle Cues จากการฟังจริง
+
+SpeechCoordinator เก็บ Cue ที่ผู้ใช้ Mark เองไว้ในหน่วยความจำพร้อม Job (ไม่ลง Disk) โดยตรวจ Offset ว่าตรงกับ Display Text ที่ผ่าน Mask/Filter, ไม่ตัด Unicode และไม่ทับ Segment ที่ไม่ใช่ Speech; OBS Mode manual แสดงเฉพาะ Cue เหล่านี้ (ดู [Manual Alignment](MANUAL_ALIGNMENT_TH.md)). ยังคงไม่มี Automatic Forced Word Alignment
 
 ## ระบบวิเคราะห์ช่วงเสียง (Audio Activity)
 

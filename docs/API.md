@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev6)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev7)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -64,6 +64,15 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 ## Rules and Pronunciations JSON editor
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
+
+## User-reviewed Manual Timecode Cues (implemented preview)
+
+- POST /v1/jobs/{speech_id}/alignment: requires Content-Type application/json, X-VoxWeaveTTS-Intent: save-manual-alignment. Body {cues:[{segment_index,start_offset,end_offset,start_ms,end_ms}],expected_revision:integer}. Job must be Ready; cues only reference already-filtered Speech display text, use Unicode codepoint offsets and ordered non-overlapping integer milliseconds. At most 128 cues. Returns current Job snapshot and new alignment_revision. Invalid input 400, stale revision/not-ready 409, missing Job 404. No automatic disk storage.
+- GET /v1/jobs/{speech_id}: ready Job includes alignment_revision and audio.manual_cues (if submitted), each with derived display_text. Never accept arbitrary text from client Cue.
+- GET /v1/playback/state?mode=manual and GET /v1/playback/stream?mode=manual: show only user-reviewed Cue time ranges (blank outside them); subtitle_precision=manual_user_timed or manual_no_cues.
+- POST /v1/alignment/evaluate: requires X-VoxWeaveTTS-Intent: evaluate-manual-alignment with JSON candidate/reference Cue arrays. Returns exact span coverage and timing boundary MAE/max/within-100ms, null when not measurable. No waveform or original text is transferred in the evaluation request.
+
+Manual editing is not forced recognition or automatic Thai word alignment. See [Manual Alignment Guide](MANUAL_ALIGNMENT_TH.md).
 
 ## Audio Activity Metadata and Caption Mode (experimental)
 

@@ -16,6 +16,7 @@ from typing import Any, Callable
 from uuid import uuid4
 
 from .processing import InputError
+from .manual_alignment import validate_manual_cues
 from .audio_alignment import AudioAlignmentProvider, PCMActivityProvider, BASIS as ACTIVITY_BASIS
 
 EVENT_SCHEMA_VERSION = 1
@@ -32,6 +33,10 @@ class QueueFull(Exception):
 
 class JobMissing(Exception):
     """The job ID is unknown or expired."""
+
+
+class AlignmentConflict(Exception):
+    """A different editor has updated this job's manual timecodes."""
 
 
 class JobNotReady(Exception):
@@ -60,6 +65,7 @@ class _Job:
     events: list[dict[str, Any]] = field(default_factory=list)
     audio: bytes | None = None
     timeline: dict[str, Any] | None = None
+    alignment_revision: int = 0
     error: str | None = None
 
     def snapshot(self) -> dict[str, Any]:
@@ -80,6 +86,7 @@ class _Job:
         }
         if self.state == "ready" and self.timeline:
             data["audio"] = self.timeline
+            data["alignment_revision"] = self.alignment_revision
         if self.error is not None:
             data["error"] = self.error
         return data
@@ -299,6 +306,33 @@ class SpeechCoordinator:
             job = self._jobs.get(job_id)
             if job is None:
                 raise JobMissing("unknown speech_id")
+            return job.snapshot()
+
+    def set_manual_alignment(
+        self, job_id: str, cues: Any, expected_revision: Any,
+    ) -> dict[str, Any]:
+        """Install user-marked text/audio ranges for a ready WAV, in memory.
+
+        No new audio synthesis or disk write is performed; client must
+        explicitly export the cues if long-term retention is needed.
+        """
+        with self._cv:
+            self._prune()
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise JobMissing("unknown speech_id")
+            if job.state != "ready" or job.timeline is None:
+                raise JobNotReady("manual alignment requires generated audio")
+            if type(expected_revision) is not int or expected_revision < 0:
+                raise InputError("expected_revision must be a nonnegative integer")
+            if job.alignment_revision != expected_revision:
+                raise AlignmentConflict("manual cues were updated by another editor")
+            cleaned = validate_manual_cues(job.timeline["segments"], cues)
+            # Keep only segment-sliced display text and bounded integer offsets.
+            job.timeline["manual_cues"] = cleaned
+            job.timeline["manual_alignment_basis"] = "user_marked_browser_wav_timecodes"
+            job.alignment_revision += 1
+            job.updated_at = _now_utc()
             return job.snapshot()
 
     def list(self) -> list[dict[str, Any]]:

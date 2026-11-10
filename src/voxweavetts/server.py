@@ -31,10 +31,11 @@ from .presets import load_presets, save_preset
 from .text_settings import load_all as load_text_settings, load_section as load_text_section, save_section as save_text_section, SettingsConflict
 from .reading_progress import load_position, save_position, clear_position, ProgressConflict
 from .playback_state import PlaybackState, PlaybackConflict, StreamFull
+from .manual_alignment import timing_metrics
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
 from .speech_coordinator import (
-    SpeechCoordinator, QueueFull, JobMissing, JobNotReady, EVENT_SCHEMA_VERSION,
+    SpeechCoordinator, QueueFull, JobMissing, JobNotReady, AlignmentConflict, EVENT_SCHEMA_VERSION,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -121,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
             and len(parts[3]) == 32
             and all(ch in "0123456789abcdef" for ch in parts[3])):
             suffix = parts[4] if len(parts) == 5 else ""
-            if suffix in ("", "audio", "events", "cancel"):
+            if suffix in ("", "audio", "events", "cancel", "alignment"):
                 return parts[3], suffix
         return None
 
@@ -179,8 +180,8 @@ class Handler(BaseHTTPRequestHandler):
     def _subtitle_mode(self) -> str:
         parameters = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
         values = parameters.get("mode", ["segment"])
-        if len(values) != 1 or values[0] not in {"segment", "estimated", "activity"}:
-            raise InputError("subtitle mode must be segment, estimated or activity")
+        if len(values) != 1 or values[0] not in {"segment", "estimated", "activity", "manual"}:
+            raise InputError("subtitle mode must be segment, estimated, activity or manual")
         return values[0]
 
     def _stream_playback(self) -> None:
@@ -240,8 +241,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js"}:
-                name = ("playback_clock.js" if route == "/playback_clock.js"
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js"}:
+                name = ("manual_alignment.js" if route == "/manual_alignment.js" else
+                        "playback_clock.js" if route == "/playback_clock.js"
                         else "overlay.html" if route in {"/overlay", "/overlay.html"}
                         else "index.html")
                 payload = (PROJECT_ROOT / "web" / name).read_bytes()
@@ -282,6 +284,8 @@ class Handler(BaseHTTPRequestHandler):
                         "audio_activity_subtitles": True,
                         "audio_activity_provider": "builtin-pcm16-energy-v1",
                         "word_level_alignment": False,
+                        "manual_alignment": True,
+                        "manual_alignment_storage": "speech_job_memory_only",
                         "portable_executable": False,
                     },
                 })
@@ -295,7 +299,7 @@ class Handler(BaseHTTPRequestHandler):
             elif self._job_route(route):
                 job_id, action = self._job_route(route)
                 try:
-                    if action == "":
+                    if action in ("", "alignment"):
                         self.send_json(200, self._coordinator().get(job_id))
                     elif action == "events":
                         self.send_json(200, {
@@ -384,6 +388,40 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, self._coordinator().cancel(job_route[0]))
             except JobMissing:
                 self.send_json(404, {"error": "speech job not found"})
+            return
+        if route == "/v1/alignment/evaluate":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "evaluate-manual-alignment":
+                self.reject_unread_post(403, {"error": "missing alignment evaluation intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "evaluation requires application/json"})
+                return
+            try:
+                data = self._read_json()
+                self.send_json(200, timing_metrics(data.get("candidate"), data.get("reference")))
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
+        if job_route is not None and job_route[1] == "alignment":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-manual-alignment":
+                self.reject_unread_post(403, {"error": "missing manual alignment intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "alignment requires application/json"})
+                return
+            try:
+                data = self._read_json()
+                self.send_json(200, self._coordinator().set_manual_alignment(
+                    job_route[0], data.get("cues"), data.get("expected_revision")
+                ))
+            except JobMissing:
+                self.send_json(404, {"error": "speech job not found"})
+            except JobNotReady:
+                self.send_json(409, {"error": "speech job is not ready"})
+            except AlignmentConflict as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
             return
         if route == "/v1/playback/event":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "report-playback":

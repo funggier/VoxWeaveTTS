@@ -14,7 +14,8 @@ import time
 from typing import Any
 
 from .processing import InputError
-from .subtitle_cues import MODES, MODE_SEGMENT, MODE_ACTIVITY, caption_for
+from .subtitle_cues import MODES, MODE_SEGMENT, MODE_ACTIVITY, MODE_MANUAL, caption_for
+from .manual_alignment import validate_manual_cues
 
 SESSION_RE = re.compile(r"^[0-9a-f]{32}$")
 EVENTS = frozenset({"start", "progress", "paused", "resumed", "seeked", "ended", "stopped"})
@@ -28,6 +29,7 @@ class _Session:
     speech_id: str
     engine_id: str
     segments: list[dict[str, Any]]
+    manual_cues: list[dict[str, Any]]
     duration_ms: int
     sequence: int
     state: str
@@ -85,10 +87,10 @@ class PlaybackState:
     def _cue(session: _Session, mode: str = MODE_SEGMENT) -> str:
         if session.state != "playing":
             return ""
-        return caption_for(session.segments, session.position_ms, mode)
+        return caption_for(session.segments, session.position_ms, mode, session.manual_cues)
 
     @staticmethod
-    def _validated_job(job: Any, speech_id: str) -> tuple[list[dict[str, Any]], int, str]:
+    def _validated_job(job: Any, speech_id: str) -> tuple[list[dict[str, Any]], int, str, list[dict[str, Any]]]:
         if not isinstance(job, dict) or job.get("speech_id") != speech_id or job.get("state") != "ready":
             raise InputError("playback requires a ready speech job")
         audio = job.get("audio")
@@ -137,7 +139,8 @@ class PlaybackState:
         engine_id = job.get("engine_id")
         if not isinstance(engine_id, str) or not engine_id:
             raise InputError("invalid audio engine")
-        return clean, duration, engine_id
+        cues = validate_manual_cues(clean, audio.get("manual_cues", []))
+        return clean, duration, engine_id, cues
 
     def report(self, data: dict[str, Any], *, ready_job: dict[str, Any] | None = None) -> dict[str, Any]:
         session_id, speech_id, event, sequence, position = self._validate_event(data)
@@ -145,7 +148,7 @@ class PlaybackState:
             if event == "start":
                 if ready_job is None:
                     raise InputError("a ready speech job is required to start playback")
-                cues, duration, engine_id = self._validated_job(ready_job, speech_id)
+                cues, duration, engine_id, manual_cues = self._validated_job(ready_job, speech_id)
                 # A delayed start response must not rewind an active session.
                 if self._active and self._active.session_id == session_id:
                     if sequence <= self._active.sequence:
@@ -153,7 +156,7 @@ class PlaybackState:
                     raise PlaybackConflict("playback session has already started")
                 self._active = _Session(
                     session_id=session_id, speech_id=speech_id, engine_id=engine_id,
-                    segments=cues, duration_ms=duration, sequence=sequence,
+                    segments=cues, manual_cues=manual_cues, duration_ms=duration, sequence=sequence,
                     state="playing", position_ms=min(position, duration),
                     updated_mono=time.monotonic(),
                 )
@@ -184,7 +187,10 @@ class PlaybackState:
             return self._snapshot()
 
     @staticmethod
-    def _subtitle_precision(mode: str, segments: list[dict[str, Any]] | None) -> str:
+    def _subtitle_precision(mode: str, segments: list[dict[str, Any]] | None,
+                            manual_cues: list[dict[str, Any]] | None = None) -> str:
+        if mode == "manual":
+            return "manual_user_timed" if segments is not None and manual_cues else "manual_no_cues"
         if mode == "segment":
             return "generated_segment"
         if mode == "estimated":
@@ -198,7 +204,7 @@ class PlaybackState:
 
     def _snapshot(self, mode: str = MODE_SEGMENT) -> dict[str, Any]:
         if mode not in MODES:
-            raise InputError("subtitle mode must be segment, estimated or activity")
+            raise InputError("subtitle mode must be segment, estimated, activity or manual")
         session = self._active
         if session is None:
             return {
@@ -228,7 +234,7 @@ class PlaybackState:
             "sequence": session.sequence,
             "revision": self._revision,
             "subtitle_mode": mode,
-            "subtitle_precision": self._subtitle_precision(mode, session.segments),
+            "subtitle_precision": self._subtitle_precision(mode, session.segments, session.manual_cues),
             "subtitle": "" if stale else self._cue(session, mode),
             "stale": stale,
             "clock_basis": "browser_html_media_current_time_reported",

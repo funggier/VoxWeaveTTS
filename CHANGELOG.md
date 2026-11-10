@@ -2,6 +2,15 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev7 — User-reviewed manual subtitle alignment and timing evaluation (2026-11-10)
+
+- Added a model-neutral Manual Alignment Workbench: select a span of filtered display text, mark its start/end from the Browser's WAV currentTime, and edit/import/export bounded JSON timecodes. No external models, weights, or cloud services.
+- Added POST /v1/jobs/{speech_id}/alignment with strict segment, Unicode, non-overlap and privacy validation plus optimistic per-job revisions; cues remain in memory until job expiry and are not automatically persisted.
+- Added local OBS ?mode=manual and SSE support. Unannotated time ranges remain blank; the mode is labeled manual_user_timed, NOT machine word-aligned.
+- Added POST /v1/alignment/evaluate for exact-span reference coverage and boundary MAE/max/within-100ms metrics; absent matched references return null errors rather than fabricated accuracy.
+- Added Python API/model-neutral regression tests and Node UI smoke tests including surrogate-pair emoji offsets.
+- Real automatic Thai word/syllable Forced Alignment remains unimplemented, pending commercial-clear model and reference corpus evaluation.
+
 ## 0.3.0.dev6 — Model-free PCM Audio Activity Alignment (2026-11-10)
 
 - Added a pluggable engine-neutral AudioAlignmentProvider contract and built-in stdlib PCM16 energy activity analyzer (20ms RMS windows, thresholding, noise floor, short-gap merging); no pretrained weights or new dependencies.

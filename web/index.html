@@ -208,10 +208,42 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <div id="queueSubtitle" style="margin:10px 0;min-height:1.6em;font-weight:600;white-space:pre-line"></div>
 <p class="small" id="queueClockStatus">ยังไม่มีเสียงที่เล่น</p>
 <a id="queueDownload" style="display:none;color:#9bd2ff" download="VoxWeaveTTS-queued.wav">บันทึก WAV จากคิว</a>
+
+<details style="margin-top:18px">
+<summary style="cursor:pointer;font-weight:600">Manual Alignment — กำหนดเวลา Subtitle จากเสียง WAV ที่สร้างแล้ว (ทดลอง)</summary>
+<p class="small">เลือกงานที่สร้างเสียงเสร็จแล้ว ไฮไลต์ข้อความในช่อง Segment ตั้งตำแหน่งเริ่ม–จบจากแถบเสียงด้านบน และกดเพิ่ม Cue เพื่อกำหนดตำแหน่งข้อความตามเสียงจริงด้วยตนเอง ไม่ใช่การจับคำอัตโนมัติ</p>
+<div class="voice-grid"><button type="button" id="alignmentLoad">โหลดงานล่าสุดที่ Ready</button>
+<div><label for="alignmentSegment">Speech Segment</label><select id="alignmentSegment" style="min-width:180px"></select></div></div>
+<label for="alignmentText">ไฮไลต์ข้อความช่วงที่กำลังได้ยิน (อ่านอย่างเดียว)</label>
+<textarea id="alignmentText" readonly spellcheck="false" style="min-height:75px"></textarea>
+<div class="voice-grid">
+<div><label for="alignmentStart">เริ่ม (ms)</label><input id="alignmentStart" type="number" step="1" min="0" value="0"></div>
+<button id="alignmentMarkStart" type="button">จับเวลาเริ่มจากเสียง</button>
+<div><label for="alignmentEnd">จบ (ms)</label><input id="alignmentEnd" type="number" step="1" min="0" value="0"></div>
+<button id="alignmentMarkEnd" type="button">จับเวลาจบจากเสียง</button>
+<button id="alignmentAdd" type="button">เพิ่ม Cue จากข้อความที่ไฮไลต์</button>
+</div>
+<label for="alignmentJson">รายการ Cue (JSON แก้ไขได้; Offset เป็น Unicode Code Points)</label>
+<textarea class="json" id="alignmentJson" spellcheck="false" style="min-height:135px">[]</textarea>
+<div class="voice-grid">
+<button id="alignmentFormat" type="button">จัดรูปแบบ JSON</button>
+<button id="alignmentSave" type="button">ใช้เวลา Subtitle ในงานนี้</button>
+<button id="alignmentDownload" type="button">ส่งออก JSON</button>
+<button id="alignmentImport" type="button">นำเข้า JSON</button>
+<input id="alignmentImportFile" type="file" accept=".json,application/json" style="display:none">
+</div>
+<label for="alignmentReference">Reference Cues JSON (ใช้เทียบความคลาดเคลื่อน; ต้องมีช่วงข้อความตรงกัน)</label>
+<textarea class="json" id="alignmentReference" spellcheck="false" style="min-height:80px">[]</textarea>
+<button id="alignmentCompare" type="button">วัด Timing Error เทียบ Reference</button>
+<pre id="alignmentMetrics" class="output" style="min-height:60px">–</pre>
+<p class="small" id="alignmentStatus" role="status">ยังไม่โหลดงาน · ข้อมูลเวลาอยู่ในหน่วยความจำของ Speech Job; ส่งออก JSON ก่อนปิดโปรแกรมหากต้องการเก็บ</p>
+<p class="small">หลังบันทึกให้เริ่มเล่น WAV ใหม่และเปิด <a href="/overlay?mode=manual" target="_blank" rel="noopener noreferrer">OBS Manual Cues</a> · ช่วงที่ไม่ได้กำหนด Cue จะไม่แสดงข้อความ · ไม่เปลี่ยนผลสังเคราะห์เสียง</p>
+</details>
 </section>
 <p class="small">API: <code>GET /v1/status</code>, <code>GET /v1/engines</code>, <code>POST /v1/text/process</code>, <code>POST /v1/speech</code> · MIT applies to project code, not third-party voice models.</p>
 </main>
 <script src="/playback_clock.js"></script>
+<script src="/manual_alignment.js"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
@@ -1034,6 +1066,10 @@ const queueClock=VoxPlaybackClock.attach(
 );
 queueAudio.addEventListener("play",()=>{
   if(!readerAudio.paused)readerAudio.pause();
+});
+const manualEditor=VoxManualAlignment.attach({
+  el,player:queueAudio,getJobId:()=>latestQueuedId,
+  onSaved:(updatedJob)=>queueClock.setSpeech(updatedJob.speech_id,updatedJob.audio)
 });
 
 function stopJobPoll() {

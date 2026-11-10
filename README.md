@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.3.0.dev6 Audio-Activity Subtitle preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, word/phoneme subtitle alignment, a native hardware Playback Clock, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
+> **Current status (v0.3.0.dev7 Manual Subtitle Alignment preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, word/phoneme subtitle alignment, a native hardware Playback Clock, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
 
 ## Goals
 
@@ -41,6 +41,10 @@ The existing **Rules JSON array** and **Pronunciations JSON object** now provide
 ## Browser media-clock subtitle overlay (implemented preview)
 
 When a generated WAV actually plays in the document reader or job queue player, a shared browser media-clock adapter reports currentTime, seek, pause, resume, end and stop to the local Playback API. A read-only transparent OBS overlay can open http://127.0.0.1:8765/overlay. The overlay follows Browser-reported time, hides silenced segments, and automatically hides stale captions. It does NOT play audio itself; capture audio from the original player separately in OBS. This is SEGMENT-level timing, not word/phoneme alignment or hardware-output-accurate synchronization. See [Playback and OBS guide (Thai)](docs/PLAYBACK_OVERLAY_TH.md).
+
+## User-reviewed manual word/phrase subtitle timecodes (experimental)
+
+A model-independent Manual Alignment editor in the Speech Queue lets the user select a span of filtered display text, mark WAV playback start/end positions and apply explicit subtitle cues to a ready Job. Open /overlay?mode=manual to display only those user-marked text spans; unannotated regions remain blank. Timecodes are memory-only and exportable/importable as JSON; another tab cannot silently overwrite revisions. A reference timing evaluation API provides exact-span MAE and coverage metrics. This is **not automatic forced alignment**. See [Manual Alignment Guide (Thai)](docs/MANUAL_ALIGNMENT_TH.md).
 
 ## Audio-signal subtitle activity mode (experimental)
 

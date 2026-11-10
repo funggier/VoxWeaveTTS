@@ -12,6 +12,10 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## User-reviewed Manual Alignment (engine-neutral)
+
+manual_alignment.py validates selected filtered-display text offsets and user-marked audio timestamps and measures timing error against a user-verified reference; SpeechCoordinator stores cues as bounded in-memory Ready-Job metadata with optimistic revision checking. The Browser Workbench captures currentTime with text selections (UTF-16 browser positions converted to Python Unicode codepoint offsets), while PlaybackState publishes only reviewed cues through /overlay?mode=manual. No arbitrary user-supplied cue text or new model weights enter the system. See [Manual Alignment](MANUAL_ALIGNMENT_TH.md).
+
 ## Engine-neutral Audio Alignment Provider (implemented preview)
 
 After the Speech Renderer returns WAV, SpeechCoordinator invokes an optional AudioAlignmentProvider (default PCMActivityProvider in audio_alignment.py) to inspect PCM audio energy without loading or referencing any TTS Engine. Returned intervals are bounded and published as an allowlisted part of audio segment metadata. PlaybackState validates activity intervals before an audio-session start, and mode=activity hides text over detected silent gaps without changing the default Segment Mode. Unsupported formats safely fall back. This is NOT a transcript-to-audio forced word aligner. See [Audio Activity Alignment](AUDIO_ALIGNMENT_TH.md).

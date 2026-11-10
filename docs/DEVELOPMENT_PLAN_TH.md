@@ -124,6 +124,10 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 6. M3 — Speech Coordinator, Queue และ Event Contract
 
+**เพิ่มใน v0.3.0.dev7:** Manual Alignment Workbench ใน Speech Queue ใช้ WAV จริงจับเวลา Cue รายคำ/วลีโดยผู้ใช้, ตรวจ Unicode Display Offset, Export/Import JSON และวัด Error เทียบ Reference Timecodes โดยไม่ใช้โมเดลภายนอก (ดู [MANUAL_ALIGNMENT_TH.md](MANUAL_ALIGNMENT_TH.md)). Automatic Forced Alignment ยังไม่ได้ทำ
+
+
+
 **เพิ่มใน v0.3.0.dev6:** Built-in Audio Activity Provider วิเคราะห์ PCM จาก WAV ด้วย Python Standard Library เพื่อซ่อน Subtitle ในช่วงไม่มีพลังงานเสียงจริง การตรวจพลังงานไม่ใช่การระบุตำแหน่งคำหรือพยางค์ (ดู [AUDIO_ALIGNMENT_TH.md](AUDIO_ALIGNMENT_TH.md)). Word Forced Alignment ยังเป็นงานถัดไปและต้องตรวจสิทธิ์โมเดลก่อน
 
 

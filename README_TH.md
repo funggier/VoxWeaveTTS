@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev6** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev7** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -21,6 +21,12 @@
 เพิ่ม Browser Playback Clock ที่ใช้ audio.currentTime ของเสียงซึ่งกำลังเล่นจาก Document Reader หรือ Speech Queue และหน้า http://127.0.0.1:8765/overlay สำหรับ OBS Browser Source แบบพื้นหลังโปร่งใส ใช้ร่วมกับทุก Engine และไม่เริ่มแสดง Subtitle เพียงเพราะสร้าง WAV เสร็จ เมื่อ Pause/Stop/Ended หรือ Browser หยุดรายงานเวลานาน ระบบจะซ่อน Subtitle
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
+
+## Manual Alignment — จับเวลา Subtitle รายคำ/วลีจากเสียงที่ฟังเอง
+
+เพิ่มส่วน Manual Alignment ใต้ Speech Queue: เลือกข้อความจาก Segment, จับจุดเริ่ม–จบจากเวลาเล่น WAV จริง, แก้ JSON, บันทึก Cue แบบชั่วคราวใน Speech Job, นำเข้า/ส่งออกไฟล์ JSON และประเมินความคลาดเคลื่อนเทียบ Reference Timecodes ได้ จากนั้นเปิด http://127.0.0.1:8765/overlay?mode=manual ใน OBS
+
+ระบบนี้ใช้ข้อมูลจากเสียงที่คุณฟังและตรวจแก้ **ไม่ได้ตรวจจับคำอัตโนมัติ** ไม่มีโมเดล/ชุดข้อมูลภายนอกหรือสิทธิ์เชิงพาณิชย์เพิ่มเติม และไม่เก็บ Cue ถาวรลง Server โดยอัตโนมัติ ดู [คู่มือ Manual Alignment](docs/MANUAL_ALIGNMENT_TH.md)
 
 ## Audio Activity — Subtitle จากช่วงเสียงจริง (ทดลอง)
 

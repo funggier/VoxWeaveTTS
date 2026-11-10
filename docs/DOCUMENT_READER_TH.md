@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Document Reader (TXT / Markdown)
 
-> Implementation preview v0.3.0.dev5 — ข้อความ/เอกสารใช้ Core ได้โดยไม่ต้องติดตั้ง TTS Engine; การสร้าง WAV ยังต้องมี Engine
+> Implementation preview v0.3.0.dev7 — ข้อความ/เอกสารใช้ Core ได้โดยไม่ต้องติดตั้ง TTS Engine; การสร้าง WAV ยังต้องมี Engine
 
 ## เป้าหมาย
 

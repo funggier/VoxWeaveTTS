@@ -13,7 +13,8 @@ from typing import Any
 MODE_SEGMENT = "segment"
 MODE_ESTIMATED = "estimated"
 MODE_ACTIVITY = "activity"
-MODES = frozenset({MODE_SEGMENT, MODE_ESTIMATED, MODE_ACTIVITY})
+MODE_MANUAL = "manual"
+MODES = frozenset({MODE_SEGMENT, MODE_ESTIMATED, MODE_ACTIVITY, MODE_MANUAL})
 
 
 def _clusters(value: str) -> list[str]:
@@ -82,8 +83,15 @@ def estimated_cues(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def caption_for(
     segments: list[dict[str, Any]], position_ms: int, mode: str = MODE_SEGMENT,
+    manual_cues: list[dict[str, Any]] | None = None,
 ) -> str:
     if mode not in MODES or type(position_ms) is not int or position_ms < 0:
+        return ""
+    if mode == MODE_MANUAL:
+        for cue in manual_cues or []:
+            if cue["start_ms"] <= position_ms < cue["end_ms"]:
+                return cue["display_text"]
+        # No fabricated words/timing when a portion is unannotated.
         return ""
     cues = estimated_cues(segments) if mode == MODE_ESTIMATED else segments
     for cue in cues:
