@@ -31,6 +31,7 @@ from .presets import load_presets, save_preset
 from .text_settings import load_all as load_text_settings, load_section as load_text_section, save_section as save_text_section, SettingsConflict
 from .reading_progress import load_position, save_position, clear_position, ProgressConflict
 from .playback_state import PlaybackState, PlaybackConflict, StreamFull
+from .mode_state import ModeState, ModeConflict, MODES
 from .manual_alignment import timing_metrics
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
@@ -41,10 +42,12 @@ from .speech_coordinator import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAX_REQUEST_BYTES = 65_536
 SYNTHESIS_SETTINGS = PROJECT_ROOT / "data" / "settings" / "synthesis.json"
+GLOBAL_VOICE_SETTINGS = PROJECT_ROOT / "data" / "settings" / "global-voice.json"
 _SETTINGS_LOCK = threading.RLock()
 _COORDINATOR_LOCK = threading.Lock()
 _COORDINATOR: SpeechCoordinator | None = None
 _PLAYBACK_STATE = PlaybackState()
+_MODE_LOCK = threading.Lock()
 
 
 def _load_json(relative: str, default: Any) -> Any:
@@ -96,6 +99,61 @@ def _save_seed(seed: int) -> None:
                 temporary.unlink(missing_ok=True)
 
 
+def _read_global_voice() -> dict[str, Any]:
+    """Global default Engine/Voice/DSP shared by all workspaces."""
+    with _SETTINGS_LOCK:
+        if not GLOBAL_VOICE_SETTINGS.exists():
+            return {"revision": 0, "settings": None}
+        try:
+            if GLOBAL_VOICE_SETTINGS.stat().st_size > 4096:
+                raise InputError("global voice settings file is too large")
+            document = json.loads(GLOBAL_VOICE_SETTINGS.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            raise InputError("invalid global voice settings") from exc
+        if not isinstance(document, dict) or type(document.get("revision")) is not int:
+            raise InputError("invalid global voice settings structure")
+        return document
+
+
+def _save_global_voice(data: dict[str, Any]) -> dict[str, Any]:
+    expected = data.get("expected_revision")
+    if type(expected) is not int or expected < 0:
+        raise InputError("expected_revision must be a nonnegative integer")
+    engine_id = data.get("engine_id")
+    info = get_engine_info(engine_id)
+    voice_id = data.get("voice_id")
+    speed = data.get("speed")
+    # Validate model/voice compatibility and all shared DSP options; readiness
+    # is not required to keep a preset for a temporarily uninstalled engine.
+    validate_speech_request({"segments": []}, speed, voice_id, engine_id)
+    controls = validate_controls(data.get("voice_controls"))
+    settings = {
+        "engine_id": engine_id, "voice_id": voice_id,
+        "speed": float(speed), "voice_controls": controls,
+    }
+    with _SETTINGS_LOCK:
+        current = _read_global_voice()
+        if expected != current["revision"]:
+            raise SettingsConflict("global voice settings were updated in another tab")
+        result = {"revision": expected + 1, "settings": settings}
+        path = GLOBAL_VOICE_SETTINGS
+        path.parent.mkdir(exist_ok=True, parents=True)
+        temp: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=path.parent,
+                prefix=".global-voice-", suffix=".tmp", delete=False,
+            ) as stream:
+                temp = Path(stream.name)
+                json.dump(result, stream, ensure_ascii=False, indent=2)
+                stream.write("\n")
+            os.replace(temp, path)
+        finally:
+            if temp is not None:
+                temp.unlink(missing_ok=True)
+        return result
+
+
 def _coordinator_default() -> SpeechCoordinator:
     global _COORDINATOR
     with _COORDINATOR_LOCK:
@@ -115,6 +173,15 @@ class Handler(BaseHTTPRequestHandler):
         # Isolate the live overlay state when testing multiple HTTP servers.
         return getattr(self.server, "playback_state", None) or _PLAYBACK_STATE
 
+    def _mode_state(self) -> ModeState:
+        # A separate ownership state per local HTTP server, including tests.
+        with _MODE_LOCK:
+            mode = getattr(self.server, "mode_state", None)
+            if mode is None:
+                mode = ModeState()
+                self.server.mode_state = mode
+            return mode
+
     @staticmethod
     def _job_route(route: str) -> tuple[str, str] | None:
         parts = route.split("/")
@@ -127,12 +194,16 @@ class Handler(BaseHTTPRequestHandler):
         return None
 
     def _speech_params(self, data: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
-        engine_id = data.get("engine_id", ENGINE_ID)
+        central = _read_global_voice()["settings"] or {}
+        engine_id = data.get("engine_id", central.get("engine_id", ENGINE_ID))
         info = get_engine_info(engine_id)
-        voice_id = data.get("voice_id", info.voice_id)
-        speed = data.get("speed", 1.0)
+        default_voice = central.get("voice_id") if central.get("engine_id") == engine_id else info.voice_id
+        voice_id = data.get("voice_id", default_voice)
+        speed = data.get("speed", central.get("speed", 1.0))
         validate_speech_request(plan, speed, voice_id, engine_id)
-        controls = validate_controls(data.get("voice_controls"))
+        controls = validate_controls(
+            data.get("voice_controls", central.get("voice_controls"))
+        )
         seed = validate_seed(data.get("seed", _read_seed()))
         if not (info.assets_ready and info.runtime_ready):
             raise EngineUnavailable("selected Thai voice model is not installed or runtime is missing")
@@ -183,6 +254,53 @@ class Handler(BaseHTTPRequestHandler):
         if len(values) != 1 or values[0] not in {"segment", "estimated", "activity", "manual"}:
             raise InputError("subtitle mode must be segment, estimated, activity or manual")
         return values[0]
+
+    def _stream_modes(self) -> None:
+        """Push every active-workspace change without exposing owner tokens."""
+        state = self._mode_state()
+        try:
+            state.subscribe()
+        except ModeConflict:
+            self.send_json(429, {"error": "too many local mode watchers"})
+            return
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-transform")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+
+            def publish(snapshot: dict[str, Any]) -> None:
+                payload = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":"))
+                self.wfile.write((
+                    "id: " + str(snapshot["revision"]) + "\n"
+                    + "event: workspace\n"
+                    + "data: " + payload + "\n\n"
+                ).encode("utf-8"))
+                self.wfile.flush()
+
+            snap = state.snapshot()
+            publish(snap)
+            revision = snap["revision"]
+            deadline = time.monotonic() + 20.0
+            heartbeat = time.monotonic()
+            while time.monotonic() < deadline:
+                updated = state.watch(revision, timeout=0.5)
+                if updated is not None:
+                    publish(updated)
+                    revision = updated["revision"]
+                    heartbeat = time.monotonic()
+                elif time.monotonic() - heartbeat >= 6:
+                    self.wfile.write(b": keepalive\n\n")
+                    self.wfile.flush()
+                    heartbeat = time.monotonic()
+        except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
+            pass
+        finally:
+            state.unsubscribe()
 
     def _stream_playback(self) -> None:
         """Short-lived SSE snapshot stream; reconnect requires no replay log.
@@ -241,8 +359,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js"}:
-                name = ("waveform_editor.js" if route == "/waveform_editor.js" else
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js"}:
+                name = ("mode_inputs.js" if route == "/mode_inputs.js" else
+                        "mode_workspace.js" if route == "/mode_workspace.js" else
+                        "waveform_editor.js" if route == "/waveform_editor.js" else
                         "manual_alignment.js" if route == "/manual_alignment.js" else
                         "playback_clock.js" if route == "/playback_clock.js"
                         else "overlay.html" if route in {"/overlay", "/overlay.html"}
@@ -277,6 +397,11 @@ class Handler(BaseHTTPRequestHandler):
                         "voice_cloning": False,
                         "websocket_streaming": False,
                         "live_connectors": False,
+                        "exclusive_workspace_modes": True,
+                        "workspace_mode_sse": True,
+                        "shared_voice_settings": True,
+                        "persistent_global_voice_defaults": True,
+                        "live_discord_simulation": True,
                         "subtitle_overlay": True,
                         "browser_media_clock_reporting": True,
                         "overlay_poll_interval_ms": 1000,
@@ -290,6 +415,10 @@ class Handler(BaseHTTPRequestHandler):
                         "portable_executable": False,
                     },
                 })
+            elif route == "/v1/modes/state":
+                self.send_json(200, self._mode_state().snapshot())
+            elif route == "/v1/modes/stream":
+                self._stream_modes()
             elif route == "/v1/playback/state":
                 self.send_json(200, self._playback_state().snapshot(self._subtitle_mode()))
             elif route == "/v1/playback/stream":
@@ -320,6 +449,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(404, {"error": "speech job not found"})
                 except JobNotReady:
                     self.send_json(409, {"error": "speech audio is not ready"})
+            elif route == "/v1/settings/global-voice":
+                self.send_json(200, _read_global_voice())
             elif route == "/v1/settings/synthesis":
                 self.send_json(200, {"seed": _read_seed()})
             elif route == "/v1/engines":
@@ -424,6 +555,36 @@ class Handler(BaseHTTPRequestHandler):
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
             return
+        if route == "/v1/settings/global-voice":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-global-voice":
+                self.reject_unread_post(403, {"error": "missing global voice settings intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "global voice settings require JSON"})
+                return
+            try:
+                data = self._read_json()
+                self.send_json(200, _save_global_voice(data))
+            except SettingsConflict as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (InputError, KeyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
+        if route == "/v1/modes/activate":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "activate-mode":
+                self.reject_unread_post(403, {"error": "missing mode activation intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "mode activation requires application/json"})
+                return
+            try:
+                data = self._read_json()
+                self.send_json(200, self._mode_state().activate(
+                    data.get("mode"), self._playback_state()
+                ))
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
         if route == "/v1/playback/event":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "report-playback":
                 self.reject_unread_post(403, {"error": "missing playback intent"})
@@ -437,11 +598,11 @@ class Handler(BaseHTTPRequestHandler):
                 PlaybackState._validate_event(data)
                 if data.get("event") == "start":
                     ready_job = self._coordinator().get(data["speech_id"])
-                result = self._playback_state().report(data, ready_job=ready_job)
+                result = self._mode_state().report(data, ready_job, self._playback_state())
                 self.send_json(200, result)
             except JobMissing:
                 self.send_json(404, {"error": "speech job not found"})
-            except PlaybackConflict as exc:
+            except (PlaybackConflict, ModeConflict) as exc:
                 self.send_json(409, {"error": str(exc)})
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})

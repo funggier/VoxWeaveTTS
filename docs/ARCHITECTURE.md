@@ -12,6 +12,14 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Workspace Mode Ownership and Shared Configuration (v0.3.0.dev10)
+
+mode_state.py provides a per-HTTP-server exclusive workspace token and revision. POST /v1/modes/activate rotates the token and atomically clears playback_state.py before any new mode playback can be reported. The local SSE /v1/modes/stream pushes owner changes to other tabs; BroadcastChannel and periodic HTTP polling provide local browser fallbacks. Browser mode_workspace.js stops audio synchronously before activation and rejects play attempts from inactive views. Existing /overlay remains the one subtitle sink across all modes.
+
+Independent views are Studio, Document Reader, Live simulator, Discord simulator, Queue/Subtitle, Rules and Settings. They share one Engine Registry, one Speech Coordinator, persisted Pronunciation Rules, saved Seed/Presets and new global Engine/Voice/Speed/DSP defaults. Central settings use optimistic revision plus atomic local JSON replacement. Live/Discord mode_inputs.js is a LOCAL text-input scaffold; OAuth/Bot connectors do not exist yet.
+
+See [Workspace Modes](WORKSPACE_MODES_TH.md).
+
 ## Conservative Thai Text Boundaries (v0.3.0.dev9)
 
 `text_boundaries.py` centralizes Unicode-safe cuts, Thai preposed-vowel checks and explicit natural separators. The engine-neutral `subtitle_cues.py` selects natural separator boundaries in Estimated mode, never guesses a cut inside an unspaced Thai text run; such a run shows as one generated Segment. The Document Reader has strict chunk-size limits, so it first tries punctuation/space, then a Thai leading-vowel onset hint and finally a Unicode-only fallback. It exposes boundary-quality metadata so unsafe word segmentation isn't silently claimed. Manual Alignment shares Unicode boundary validation. OBS CSS retains natural Thai wrapping. Document IDs are versioned with the Chunker algorithm so previous bookmark offsets cannot be misapplied.

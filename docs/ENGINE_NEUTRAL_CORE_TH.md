@@ -75,6 +75,10 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 
 เมื่อ Browser เล่น WAV จริง จะรายงาน HTMLMediaElement.currentTime ไปยัง playback_state.py เพื่อเลือก Subtitle จาก Segment ที่ผ่านกฎกรองและให้ OBS Browser Source ดึงได้ที่ /overlay โดยไม่ต้องโหลดโมเดลในระบบเล่นเสียงและไม่ถือว่า Speech Job ready คือเริ่มเล่นแล้ว ดู [คู่มือ Playback/OBS](PLAYBACK_OVERLAY_TH.md)
 
+## Independent Workspaces
+
+เพิ่ม ModeState ส่วนกลางที่ให้สิทธิ์ Playback/OBS ได้เพียงโหมดเดียว; Browser Workspace UI แยกข้อความและตัวเล่นของแต่ละงาน ส่วน Engine Registry, Voice Controls, Seed, Presets และ Rules/Pronunciations ใช้ร่วมกันทั้งหมด สามารถบันทึก Engine/Voice/DSP ที่หน้า ตั้งค่ากลาง ได้ด้วย Local JSON. Live/Discord เป็น Source Simulator เท่านั้น (ยังไม่ใช่ Adapter แพลตฟอร์มจริง) ดู [Workspace Modes](WORKSPACE_MODES_TH.md).
+
 ## ขอบเขตข้อความภาษาไทย
 
 เพิ่ม `text_boundaries.py` ซึ่งเป็นโมดูล Standard Library แบบ Engine-neutral: Estimated Subtitle จะเลือกจุดตัดเฉพาะช่องว่าง/เครื่องหมายคั่น ไม่ตัดกลาง Thai Run โดยประมาณจากจำนวนอักขระอีก; Document Reader ยังมีขนาด Chunk จำกัด แต่แสดงประเภทจุดตัดให้เห็นและลองตัดก่อนสระนำเมื่อไม่มีจุดคั่นธรรมชาติ. Manual Alignment ใช้กฎ Unicode เดียวกันป้องกันสระนำตกอยู่ลำพัง. อ่าน [Document Reader](DOCUMENT_READER_TH.md) และ [Overlay](PLAYBACK_OVERLAY_TH.md)

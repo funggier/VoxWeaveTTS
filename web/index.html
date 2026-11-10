@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>VoxWeaveTTS · Engine-Agnostic Speech Studio</title>
+<title>VoxWeaveTTS · Speech Workspaces</title>
 <style>
 :root{font-family:Segoe UI,Tahoma,system-ui,sans-serif;color:#eaf0f9;background:#0d1422}
 *{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:36px auto;padding:0 20px 40px}
@@ -37,17 +37,203 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 .output{min-height:100px;background:#0c1727;padding:14px;border-radius:9px;line-height:1.9}
 .small{color:#9baac0;font-size:13px;line-height:1.6}.error{color:#f6a4a4}
 @media(max-width:780px){.layout{grid-template-columns:1fr}main{margin-top:22px}}
+
+/* Independent mode workspaces with central configuration. */
+main{max-width:1460px;margin:24px auto;padding:0 24px 45px}
+.app-workspace{display:grid;grid-template-columns:218px minmax(0,1fr);align-items:start;gap:18px}
+.mode-sidebar{position:sticky;top:18px;border:1px solid #32425b;background:#121e30;border-radius:13px;padding:13px}
+.side-heading{font-size:11px;letter-spacing:.13em;font-weight:700;color:#8cabc9;padding:8px}
+.mode-nav{display:grid;gap:4px}
+button.mode-nav-button{display:block;width:100%;margin:0;background:transparent;color:#cbd9ed;text-align:left;padding:12px 13px;border-radius:8px;font-weight:600;font-size:13px}
+button.mode-nav-button:hover{background:#243852;color:white}
+button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-shadow:inset 3px 0 #91cdff}
+.side-help{font-size:12px;line-height:1.7;color:#9baac0;padding:14px 8px 6px}
+.mode-content{min-width:0}
+.mode-topbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:9px 14px;margin-bottom:12px;background:#172538;border:1px solid #32425b;border-radius:10px}
+.mode-topbar #modeTitle{font-size:15px;font-weight:700;margin-right:auto}
+.mode-topbar button{margin:0;padding:8px 12px}
+.mode-topbar a{color:#98d2ff;font-size:13px}
+.mode-view[hidden]{display:none!important}
+.mode-view>.panel{margin-top:0!important}
+.mode-view .layout{align-items:start}
+.mode-view .layout>.panel{min-height:0}
+.mode-subtitle{margin:12px 0;min-height:28px;border-radius:9px;color:#cbe1ff;white-space:pre-wrap}
+.mode-footer{padding:15px 8px}
+@media(max-width:900px){.app-workspace{grid-template-columns:1fr}.mode-sidebar{position:static}.mode-nav{display:flex;overflow-x:auto;padding-bottom:4px}.mode-nav-button{flex:0 0 auto;width:auto!important;white-space:nowrap}.side-help{display:none}}
+@media(max-width:720px){main{padding:0 12px;margin-top:14px}.panel{padding:14px}.voice-row{gap:6px}.mode-topbar{padding:8px}}
 </style>
 </head>
 <body>
 <main>
-<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech pipeline · Engine adapters · Voice Studio · Speech Queue</div></div><div class="pill">M3 Core Queue Preview</div></header>
-<div class="notice"><strong>Development Preview:</strong> รองรับสอง Thai TTS Engines พร้อมการแก้คำอ่านและ Voice Studio (Speed, Gain, Pitch, Bass, Treble) · ยังไม่มีการโคลน/ฝึกเสียงผู้ใช้ การปรับ Formant อิสระ หรือการอ่านข้อความไลฟ์สด</div>
-<div class="layout">
-<section class="panel">
-<h2>ข้อความและกฎ</h2>
+<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Workspaces · Shared Engine & Rules</div></div><div class="pill">Workspace Mode Preview</div></header>
+<div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละโหมดมีข้อความและการเล่นเสียงของตัวเอง · Engine, ค่าปรับเสียง และ Rules/Pronunciations ใช้ค่ากลาง · Live/Discord ยังเป็นโหมดทดสอบข้อความจำลอง ไม่ใช่การเชื่อมบริการจริง</div>
+<div class="app-workspace">
+<aside class="mode-sidebar" aria-label="โหมดการทำงาน">
+<div class="side-heading">WORKSPACES</div>
+<nav id="modeNav" class="mode-nav"><button type="button" class="mode-nav-button" data-mode-target="studio" aria-pressed="true">สร้างเสียง</button>
+<button type="button" class="mode-nav-button" data-mode-target="reader" aria-pressed="false">อ่านเอกสาร</button>
+<button type="button" class="mode-nav-button" data-mode-target="live" aria-pressed="false">อ่านไลฟ์สด</button>
+<button type="button" class="mode-nav-button" data-mode-target="discord" aria-pressed="false">Discord</button>
+<button type="button" class="mode-nav-button" data-mode-target="queue" aria-pressed="false">คิวและ Subtitle</button>
+<button type="button" class="mode-nav-button" data-mode-target="rules" aria-pressed="false">คำอ่านและกฎ</button>
+<button type="button" class="mode-nav-button" data-mode-target="settings" aria-pressed="false">ตั้งค่ากลาง</button></nav>
+<div class="side-help">เปิดใช้ทีละโหมด · เปลี่ยนโหมดแล้วเสียงก่อนหน้าจะหยุด · ตั้งค่า Engine/Voice/Rules จากส่วนกลาง</div>
+</aside>
+<div class="mode-content">
+<div class="mode-topbar">
+  <span id="modeTitle">สร้างเสียง</span>
+  <span id="modeOwnerStatus" class="small" role="status">กำลังเชื่อมระบบโหมด...</span>
+  <button type="button" class="small-button" id="modeGlobalSettings">ตั้งค่ากลาง</button>
+  <a href="/overlay" target="_blank" rel="noopener noreferrer">OBS Overlay</a>
+</div>
+<div class="mode-view" data-mode-view="studio">
+<section class="panel"><h2>สร้างเสียงจากข้อความ</h2>
+<p class="small">ข้อความของโหมดนี้เป็นอิสระจากเอกสาร คิว ไลฟ์สด และ Discord · เสียงและโมเดลอ้างอิงค่ากลาง</p>
 <label for="message">ข้อความภาษาไทย</label>
 <textarea id="message">ชายหนุ่มกลายเป็นอมตะ และพูดคำต้องห้าม ก่อนหัวเราะ 55555</textarea>
+<button id="synthesize">สร้างเสียง WAV</button>
+<span class="small" id="audioStatus" role="status">กำลังตรวจสอบ Engine…</span>
+<span class="small" id="seedStatus" role="status">Seed ใช้สำหรับทำซ้ำผล ไม่ได้ใช้เปลี่ยนเสียงผู้พูด</span>
+<div id="studioSubtitle" class="mode-subtitle" role="status"></div>
+<audio id="audioPreview" controls style="width:100%;margin-top:16px;display:none"></audio>
+<a id="downloadAudio" style="display:none;color:#9bd2ff;margin-top:10px" download="VoxWeaveTTS-thai.wav">บันทึกไฟล์ WAV</a>
+</section>
+</div>
+<div class="mode-view" data-mode-view="reader" hidden><section class="panel" style="margin-top:18px">
+<h2>นำเข้าเอกสาร TXT / Markdown (Engine-independent)</h2>
+<p class="small">เลือกไฟล์ข้อความจากเครื่องคุณเพื่อจัดบท/ตอนและแบ่งช่วงอ่านข้อความโดยอัตโนมัติ ไม่ต้องใช้ Engine ในขั้นเตรียมเอกสาร ไฟล์จะอยู่ในหน่วยความจำของหน้านี้เท่านั้น ไม่บันทึกบนเซิร์ฟเวอร์ และไม่ส่งไป Cloud</p>
+<div class="voice-grid">
+<div><label for="readerFile">ไฟล์นิยาย/ข้อความ (.txt หรือ .md)</label><input id="readerFile" type="file" accept=".txt,.md,text/plain,text/markdown"></div>
+<div><label for="readerEncoding">การเข้ารหัสไฟล์</label><select id="readerEncoding"><option value="utf-8">UTF-8</option><option value="windows-874">Thai Windows-874</option></select></div>
+<div><label for="readerChunkChars">ความยาวสูงสุดต่อช่วง (ตัวอักษร)</label><input id="readerChunkChars" type="number" min="100" max="450" step="25" value="350" style="max-width:115px"></div>
+<button id="readerOpen" type="button">เปิดและแบ่งช่วง</button>
+</div>
+<p class="small" id="readerStatus" role="status">ยังไม่ได้เปิดเอกสาร · UTF-8 หรือ Thai Windows-874 สูงสุด 300,000 ตัวอักษร (ข้อมูล request ไม่เกิน 1.25 MB)</p>
+<div class="voice-grid">
+<div><label for="readerChapter">บท / ตอน</label><select id="readerChapter" disabled style="max-width:310px"><option value="">ยังไม่มีเอกสาร</option></select></div>
+<div><label for="readerChunk">ช่วงข้อความ</label><select id="readerChunk" disabled style="max-width:220px"><option value="">ยังไม่มีช่วง</option></select></div>
+<button type="button" id="readerPrev" disabled>หน้าก่อน</button>
+<button type="button" id="readerNext" disabled>หน้าถัดไป</button>
+</div>
+<label for="readerChunkPreview">ข้อความของช่วงที่เลือก (แก้ไขได้เฉพาะโหมดเอกสาร)</label>
+<textarea id="readerChunkPreview" style="min-height:130px" placeholder="เลือกไฟล์และบทก่อน"></textarea>
+<p class="small" id="readerBoundaryWarning" role="status"></p>
+<div class="output small" id="readerProcessedPreview" hidden></div>
+<div class="voice-grid">
+<button id="readerUseChunk" type="button" disabled>ตรวจคำอ่านของช่วงนี้</button>
+<button id="readerQueueChunk" type="button" disabled>ส่งช่วงนี้เข้าคิวเสียง</button>
+<button id="readerSavePosition" type="button" disabled>จดตำแหน่งช่วงนี้</button>
+<button id="readerResume" type="button" disabled>ไปยังตำแหน่งที่อ่านค้าง</button>
+<button id="readerClearPosition" type="button" disabled>ล้างตำแหน่งที่จำ</button>
+</div>
+<p class="small" id="readerProgressStatus" role="status">เมื่อเปิดไฟล์ ระบบจะตรวจตำแหน่งที่เคยบันทึกไว้ โดยไม่เก็บเนื้อหาเอกสารลงดิสก์</p>
+<div class="voice-grid">
+<button id="readerStart" type="button" disabled>สร้างเสียงและอ่านช่วงที่เลือก</button>
+<button id="readerPause" type="button" disabled>พัก / เล่นต่อ</button>
+<button id="readerStop" type="button" disabled>หยุดอ่าน</button>
+<label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="readerAutoNext" style="width:auto"> อ่านช่วงถัดไปอัตโนมัติหลังเสียงจบ</label>
+</div>
+<audio id="readerAudio" controls style="display:none;width:100%;margin-top:10px"></audio>
+<p class="small" id="readerPlaybackStatus" role="status">ระบบจะเตรียมเสียงทีละช่วงเท่านั้น ไม่สร้างเสียงล่วงหน้าทั้งเล่ม · หาก Browser บล็อก Auto-play ให้กดปุ่มเล่นในแถบเสียง</p>
+<p class="small">Subtitle จากเวลา <code>audio.currentTime</code> ใน Browser (ระดับ Segment ไม่ใช่การจับเวลารายคำ) · เปิด <a href="/overlay" target="_blank" rel="noopener noreferrer">OBS Subtitle Overlay</a> · <a href="/overlay?mode=estimated" target="_blank" rel="noopener noreferrer">ทดลอง Subtitle ช่วงย่อย (ประมาณเวลา)</a> · <a href="/overlay?mode=activity" target="_blank" rel="noopener noreferrer">ทดลอง Subtitle เฉพาะช่วงมีเสียงจริง (วิเคราะห์ PCM)</a> ในหน้าต่างแยกหรือ OBS Browser Source</p>
+<div id="readerSubtitle" style="margin:10px 0;padding:12px;min-height:2.5em;border:1px solid #354960;border-radius:7px;font-weight:600;white-space:pre-line" role="status"></div>
+<p class="small" id="readerClockStatus">ยังไม่มีเสียงที่เล่น</p>
+<p class="small">Markdown จะไม่นำ Markdown Syntax, Code Fences, รูปภาพ และ URL จากลิงก์มาอ่าน · เวลาที่เห็นในระบบคิวยังเป็นระยะเวลาที่สร้างเสียง ไม่ใช่ Playback Clock จริง</p>
+</section>
+</div>
+<div class="mode-view" data-mode-view="live" hidden><section class="panel" style="margin-top:0">
+<h2>อ่านจากไลฟ์สด</h2>
+<p class="small">โหมดนี้มีช่องข้อความและตัวเล่นเสียงของตัวเอง ใช้ Engine/เสียง/กฎคำอ่านส่วนกลาง · <strong>ยังไม่เชื่อม Live API / Discord Bot จริง</strong> สามารถทดสอบข้อความจำลองและขั้นตอนการอ่านได้ก่อนโดยไม่ต้องใช้บัญชี</p>
+<label for="liveText">ข้อความจาก Live Chat (ทดลองป้อนข้อความเอง)</label>
+<textarea id="liveText" placeholder="พิมพ์หรือวางข้อความเพื่อทดลองการอ่านในโหมดนี้"></textarea>
+<div class="voice-grid">
+<button type="button" id="liveSubmit">สร้างเสียงจากข้อความทดลอง</button>
+<button type="button" id="livePlay">เล่นเสียงที่สร้าง</button>
+<button type="button" id="liveStop">หยุดเสียงและยกเลิกงาน</button>
+</div>
+<p id="liveStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
+<audio id="liveAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
+<div id="liveSubtitle" class="mode-subtitle" role="status"></div>
+<a id="liveDownload" style="display:none" download="VoxWeaveTTS.wav">ดาวน์โหลด WAV</a>
+</section>
+</div>
+<div class="mode-view" data-mode-view="discord" hidden><section class="panel" style="margin-top:0">
+<h2>อ่านจาก Discord</h2>
+<p class="small">โหมดนี้มีช่องข้อความและตัวเล่นเสียงของตัวเอง ใช้ Engine/เสียง/กฎคำอ่านส่วนกลาง · <strong>ยังไม่เชื่อม Live API / Discord Bot จริง</strong> สามารถทดสอบข้อความจำลองและขั้นตอนการอ่านได้ก่อนโดยไม่ต้องใช้บัญชี</p>
+<label for="discordText">ข้อความจาก Discord (ทดลองป้อนข้อความเอง)</label>
+<textarea id="discordText" placeholder="พิมพ์หรือวางข้อความเพื่อทดลองการอ่านในโหมดนี้"></textarea>
+<div class="voice-grid">
+<button type="button" id="discordSubmit">สร้างเสียงจากข้อความทดลอง</button>
+<button type="button" id="discordPlay">เล่นเสียงที่สร้าง</button>
+<button type="button" id="discordStop">หยุดเสียงและยกเลิกงาน</button>
+</div>
+<p id="discordStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
+<audio id="discordAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
+<div id="discordSubtitle" class="mode-subtitle" role="status"></div>
+<a id="discordDownload" style="display:none" download="VoxWeaveTTS.wav">ดาวน์โหลด WAV</a>
+</section></div>
+<div class="mode-view" data-mode-view="queue" hidden><section class="panel" style="margin-top:18px">
+<h2>คิวเสียงและแก้เวลา Subtitle</h2>
+<label for="queueText">ข้อความสำหรับคิวนี้โดยเฉพาะ (ไม่ใช้ข้อความของโหมดสร้างเสียง)</label>
+<textarea id="queueText" placeholder="พิมพ์ข้อความสำหรับสร้าง WAV และแก้ Manual Alignment ในโหมดนี้"></textarea>
+<p class="small">ทดลองส่งงานเข้า Speech Coordinator ที่ใช้ร่วมกันทุก Engine · คิวทำงานทีละรายการ, ตรวจสถานะ, ยกเลิกงาน และดาวน์โหลด WAV ที่สร้างเสร็จได้</p>
+<p class="small"><strong>หมายเหตุ:</strong> สถานะ <code>ready</code> หมายถึงสร้าง WAV เสร็จเท่านั้น ยังไม่มีตัวเล่นเสียงตามเวลา/ซิงก์ Subtitle กับ OBS และการยกเลิกขณะโมเดลกำลังคำนวณไม่หยุดโมเดลกลางคัน แต่จะทิ้งผลลัพธ์เมื่อคำนวณเสร็จ</p>
+<div class="voice-grid">
+<button id="queueSubmit" type="button">เพิ่มงานลงคิว</button>
+<button id="queueRefresh" type="button">ดูสถานะคิว</button>
+<button id="queueCancel" type="button" disabled>ยกเลิกงานที่เลือก</button>
+</div>
+<p class="small" id="queueMessage" role="status">ยังไม่มีงานใหม่ในหน้าต่างนี้</p>
+<pre class="output" id="queueList" style="min-height:55px">–</pre>
+<audio id="queueAudio" controls style="display:none;width:100%;margin-top:12px"></audio>
+<div id="queueSubtitle" style="margin:10px 0;min-height:1.6em;font-weight:600;white-space:pre-line"></div>
+<p class="small" id="queueClockStatus">ยังไม่มีเสียงที่เล่น</p>
+<a id="queueDownload" style="display:none;color:#9bd2ff" download="VoxWeaveTTS-queued.wav">บันทึก WAV จากคิว</a>
+
+<details style="margin-top:18px">
+<summary style="cursor:pointer;font-weight:600">Manual Alignment — กำหนดเวลา Subtitle จากเสียง WAV ที่สร้างแล้ว (ทดลอง)</summary>
+<p class="small">เลือกงานที่สร้างเสียงเสร็จแล้ว ไฮไลต์ข้อความในช่อง Segment ตั้งตำแหน่งเริ่ม–จบจากแถบเสียงด้านบน และกดเพิ่ม Cue เพื่อกำหนดตำแหน่งข้อความตามเสียงจริงด้วยตนเอง ไม่ใช่การจับคำอัตโนมัติ</p>
+<div style="margin:12px 0">
+<canvas id="alignmentWaveform" tabindex="0" role="img" aria-label="Waveform: คลิกเพื่อเลื่อนตำแหน่งเสียง ลากเพื่อเลือกช่วง กดลูกศรเพื่อขยับเวลา" style="width:100%;height:190px;display:block;touch-action:none;cursor:crosshair;border:1px solid #435b75;border-radius:8px"></canvas>
+<div class="voice-grid">
+<label style="flex:1;min-width:150px" for="alignmentZoom">ซูม Waveform (1–32×)<input id="alignmentZoom" type="range" min="1" max="32" step="1" value="1"></label>
+<label style="flex:2;min-width:170px" for="alignmentPan">เลื่อนตำแหน่งที่แสดง<input id="alignmentPan" type="range" min="0" max="1000" step="1" value="0" disabled></label>
+</div>
+<p class="small">คลิกคลื่นเพื่อเลื่อน Audio Player · ลากบนคลื่นเพื่อกำหนดเวลาเริ่ม–จบ · แป้น ← → ขยับ 25 ms (Shift = 5 ms) · แถบเขียวคือ Cue ที่บันทึกใน JSON · ส่วนสีชมพูคือ Silence/Mask · เส้นแดงคือตำแหน่งเล่น</p>
+</div>
+<div class="voice-grid"><button type="button" id="alignmentLoad">โหลดงานล่าสุดที่ Ready</button>
+<div><label for="alignmentSegment">Speech Segment</label><select id="alignmentSegment" style="min-width:180px"></select></div></div>
+<label for="alignmentText">ไฮไลต์ข้อความช่วงที่กำลังได้ยิน (อ่านอย่างเดียว)</label>
+<textarea id="alignmentText" readonly spellcheck="false" style="min-height:75px"></textarea>
+<div class="voice-grid">
+<div><label for="alignmentStart">เริ่ม (ms)</label><input id="alignmentStart" type="number" step="1" min="0" value="0"></div>
+<button id="alignmentMarkStart" type="button">จับเวลาเริ่มจากเสียง</button>
+<div><label for="alignmentEnd">จบ (ms)</label><input id="alignmentEnd" type="number" step="1" min="0" value="0"></div>
+<button id="alignmentMarkEnd" type="button">จับเวลาจบจากเสียง</button>
+<button id="alignmentAdd" type="button">เพิ่ม Cue จากข้อความที่ไฮไลต์</button>
+</div>
+<label for="alignmentJson">รายการ Cue (JSON แก้ไขได้; Offset เป็น Unicode Code Points)</label>
+<textarea class="json" id="alignmentJson" spellcheck="false" style="min-height:135px">[]</textarea>
+<div class="voice-grid">
+<button id="alignmentFormat" type="button">จัดรูปแบบ JSON</button>
+<button id="alignmentSave" type="button">ใช้เวลา Subtitle ในงานนี้</button>
+<button id="alignmentDownload" type="button">ส่งออก JSON</button>
+<button id="alignmentImport" type="button">นำเข้า JSON</button>
+<input id="alignmentImportFile" type="file" accept=".json,application/json" style="display:none">
+</div>
+<label for="alignmentReference">Reference Cues JSON (ใช้เทียบความคลาดเคลื่อน; ต้องมีช่วงข้อความตรงกัน)</label>
+<textarea class="json" id="alignmentReference" spellcheck="false" style="min-height:80px">[]</textarea>
+<button id="alignmentCompare" type="button">วัด Timing Error เทียบ Reference</button>
+<pre id="alignmentMetrics" class="output" style="min-height:60px">–</pre>
+<p class="small" id="alignmentStatus" role="status">ยังไม่โหลดงาน · ข้อมูลเวลาอยู่ในหน่วยความจำของ Speech Job; ส่งออก JSON ก่อนปิดโปรแกรมหากต้องการเก็บ</p>
+<p class="small">หลังบันทึกให้เริ่มเล่น WAV ใหม่และเปิด <a href="/overlay?mode=manual" target="_blank" rel="noopener noreferrer">OBS Manual Cues</a> · ช่วงที่ไม่ได้กำหนด Cue จะไม่แสดงข้อความ · ไม่เปลี่ยนผลสังเคราะห์เสียง</p>
+</details>
+</section></div>
+<div class="mode-view" data-mode-view="rules" hidden><div class="layout">
+<section class="panel">
+<h2>กฎการอ่านส่วนกลาง</h2>
+<label for="rulesTestText">ข้อความทดสอบกฎและคำอ่าน (เฉพาะหน้านี้)</label>
+<textarea id="rulesTestText">ชายหนุ่มพูดคำต้องห้าม แล้วหัวเราะ 55555</textarea>
 <div class="json-toolbar">
 <label for="rule">Rules — กฎการอ่านและกรองคำ (JSON Array)</label>
 <div class="json-actions">
@@ -107,49 +293,10 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <p id="error" class="error" role="status"></p>
 </section>
 </div>
-<section class="panel" style="margin-top:18px">
-<h2>นำเข้าเอกสาร TXT / Markdown (Engine-independent)</h2>
-<p class="small">เลือกไฟล์ข้อความจากเครื่องคุณเพื่อจัดบท/ตอนและแบ่งช่วงอ่านข้อความโดยอัตโนมัติ ไม่ต้องใช้ Engine ในขั้นเตรียมเอกสาร ไฟล์จะอยู่ในหน่วยความจำของหน้านี้เท่านั้น ไม่บันทึกบนเซิร์ฟเวอร์ และไม่ส่งไป Cloud</p>
-<div class="voice-grid">
-<div><label for="readerFile">ไฟล์นิยาย/ข้อความ (.txt หรือ .md)</label><input id="readerFile" type="file" accept=".txt,.md,text/plain,text/markdown"></div>
-<div><label for="readerEncoding">การเข้ารหัสไฟล์</label><select id="readerEncoding"><option value="utf-8">UTF-8</option><option value="windows-874">Thai Windows-874</option></select></div>
-<div><label for="readerChunkChars">ความยาวสูงสุดต่อช่วง (ตัวอักษร)</label><input id="readerChunkChars" type="number" min="100" max="450" step="25" value="350" style="max-width:115px"></div>
-<button id="readerOpen" type="button">เปิดและแบ่งช่วง</button>
 </div>
-<p class="small" id="readerStatus" role="status">ยังไม่ได้เปิดเอกสาร · UTF-8 หรือ Thai Windows-874 สูงสุด 300,000 ตัวอักษร (ข้อมูล request ไม่เกิน 1.25 MB)</p>
-<div class="voice-grid">
-<div><label for="readerChapter">บท / ตอน</label><select id="readerChapter" disabled style="max-width:310px"><option value="">ยังไม่มีเอกสาร</option></select></div>
-<div><label for="readerChunk">ช่วงข้อความ</label><select id="readerChunk" disabled style="max-width:220px"><option value="">ยังไม่มีช่วง</option></select></div>
-<button type="button" id="readerPrev" disabled>หน้าก่อน</button>
-<button type="button" id="readerNext" disabled>หน้าถัดไป</button>
-</div>
-<label for="readerChunkPreview">ตัวอย่างข้อความในช่วงที่เลือก (แก้ต้นฉบับได้หลังนำไปใส่ช่องข้อความหลัก)</label>
-<textarea id="readerChunkPreview" readonly style="min-height:130px" placeholder="เลือกไฟล์และบทก่อน"></textarea>
-<p class="small" id="readerBoundaryWarning" role="status"></p>
-<div class="voice-grid">
-<button id="readerUseChunk" type="button" disabled>นำช่วงนี้ไปแก้ไขในช่องข้อความ</button>
-<button id="readerQueueChunk" type="button" disabled>ส่งช่วงนี้เข้าคิวเสียง</button>
-<button id="readerSavePosition" type="button" disabled>จดตำแหน่งช่วงนี้</button>
-<button id="readerResume" type="button" disabled>ไปยังตำแหน่งที่อ่านค้าง</button>
-<button id="readerClearPosition" type="button" disabled>ล้างตำแหน่งที่จำ</button>
-</div>
-<p class="small" id="readerProgressStatus" role="status">เมื่อเปิดไฟล์ ระบบจะตรวจตำแหน่งที่เคยบันทึกไว้ โดยไม่เก็บเนื้อหาเอกสารลงดิสก์</p>
-<div class="voice-grid">
-<button id="readerStart" type="button" disabled>สร้างเสียงและอ่านช่วงที่เลือก</button>
-<button id="readerPause" type="button" disabled>พัก / เล่นต่อ</button>
-<button id="readerStop" type="button" disabled>หยุดอ่าน</button>
-<label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="readerAutoNext" style="width:auto"> อ่านช่วงถัดไปอัตโนมัติหลังเสียงจบ</label>
-</div>
-<audio id="readerAudio" controls style="display:none;width:100%;margin-top:10px"></audio>
-<p class="small" id="readerPlaybackStatus" role="status">ระบบจะเตรียมเสียงทีละช่วงเท่านั้น ไม่สร้างเสียงล่วงหน้าทั้งเล่ม · หาก Browser บล็อก Auto-play ให้กดปุ่มเล่นในแถบเสียง</p>
-<p class="small">Subtitle จากเวลา <code>audio.currentTime</code> ใน Browser (ระดับ Segment ไม่ใช่การจับเวลารายคำ) · เปิด <a href="/overlay" target="_blank" rel="noopener noreferrer">OBS Subtitle Overlay</a> · <a href="/overlay?mode=estimated" target="_blank" rel="noopener noreferrer">ทดลอง Subtitle ช่วงย่อย (ประมาณเวลา)</a> · <a href="/overlay?mode=activity" target="_blank" rel="noopener noreferrer">ทดลอง Subtitle เฉพาะช่วงมีเสียงจริง (วิเคราะห์ PCM)</a> ในหน้าต่างแยกหรือ OBS Browser Source</p>
-<div id="readerSubtitle" style="margin:10px 0;padding:12px;min-height:2.5em;border:1px solid #354960;border-radius:7px;font-weight:600;white-space:pre-line" role="status"></div>
-<p class="small" id="readerClockStatus">ยังไม่มีเสียงที่เล่น</p>
-<p class="small">Markdown จะไม่นำ Markdown Syntax, Code Fences, รูปภาพ และ URL จากลิงก์มาอ่าน · เวลาที่เห็นในระบบคิวยังเป็นระยะเวลาที่สร้างเสียง ไม่ใช่ Playback Clock จริง</p>
-</section>
-<section class="panel" style="margin-top:18px">
-<h2>สร้างเสียงภาษาไทย (M1 · CPU)</h2>
-<p class="small">สร้าง WAV ภาษาไทยจริงจากข้อความด้านบน โดยใช้ Engine และเสียงผู้พูดที่เลือกไว้ด้านล่าง รวมถึง Rules/Pronunciations ที่กำหนด · ยังไม่มี Voice Cloning หรือการฝึกเสียงจากผู้ใช้</p>
+<div class="mode-view" data-mode-view="settings" hidden><section class="panel" style="margin-top:18px">
+<h2>การตั้งค่าเสียงและโมเดลส่วนกลาง</h2>
+<p class="small">การเลือก Engine, เสียงพูด, Preset, Speed, EQ, Seed และการตั้งค่าคำอ่านใช้ร่วมกันทุกโหมด · เปลี่ยนที่นี่มีผลกับงานเสียงใหม่จากทุกโหมด</p>
 <p class="small">แต่ละ Engine อาจออกเสียงคำสั้นอย่าง “ฮ่า” ได้ต่างกัน การเปลี่ยน Seed ไม่ใช่การแก้การออกเสียงที่เชื่อถือได้ หากอ่านผิดสามารถปรับ Rules/Pronunciations ในส่วนข้อความด้านบนได้โดยตรง</p>
 <div style="display:flex;gap:14px;align-items:end;flex-wrap:wrap">
 <div class="voice-grid">
@@ -157,6 +304,11 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <div><label for="voiceSelect">เสียงผู้พูด</label><select id="voiceSelect"><option value="thai_som">thai_som</option></select></div>
 </div>
 <div style="width:100%;margin:12px 0"><p id="engineStatus" class="small">กำลังตรวจสอบ Engine และอุปกรณ์...</p><p id="dspStatus" class="small">ตรวจสอบตัวปรับเสียง...</p></div>
+<div class="voice-grid" style="width:100%;padding:10px 0 15px">
+<button id="globalVoiceSave" type="button">บันทึก Engine และค่าปรับเสียงเป็นค่ากลาง</button>
+<button id="globalVoiceReload" type="button">โหลดค่ากลางอีกครั้ง</button>
+<span class="small" id="globalVoiceStatus" role="status">ค่ากลางใช้กับทุกโหมด เมื่อบันทึกแล้วจะโหลดกลับมาในครั้งถัดไป</span>
+</div>
 <div style="width:100%;border:1px solid #32425b;border-radius:10px;padding:14px">
 <h2>Voice Studio — ปรับเสียงละเอียด</h2>
 <p class="small">ใช้ Slider หรือตัวเลขเพื่อปรับค่าเดียวกันได้ · Speed เป็นความสามารถของ Engine ส่วนระดับเสียง, EQ และ Pitch เป็นการปรับไฟล์เสียงภายหลัง</p>
@@ -187,76 +339,26 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <button id="saveSeed" type="button">บันทึก Seed</button>
 </div>
 </details>
-<button id="synthesize">สร้างเสียง WAV</button>
-<span class="small" id="audioStatus" role="status">กำลังตรวจสอบ Engine…</span>
-<span class="small" id="seedStatus" role="status">Seed ใช้สำหรับทำซ้ำผล ไม่ได้ใช้เปลี่ยนเสียงผู้พูด</span>
 </div>
-<audio id="audioPreview" controls style="width:100%;margin-top:16px;display:none"></audio>
-<a id="downloadAudio" style="display:none;color:#9bd2ff;margin-top:10px" download="VoxWeaveTTS-thai.wav">บันทึกไฟล์ WAV</a>
 </section>
-<section class="panel" style="margin-top:18px">
-<h2>คิวเตรียมเสียง (Engine-independent)</h2>
-<p class="small">ทดลองส่งงานเข้า Speech Coordinator ที่ใช้ร่วมกันทุก Engine · คิวทำงานทีละรายการ, ตรวจสถานะ, ยกเลิกงาน และดาวน์โหลด WAV ที่สร้างเสร็จได้</p>
-<p class="small"><strong>หมายเหตุ:</strong> สถานะ <code>ready</code> หมายถึงสร้าง WAV เสร็จเท่านั้น ยังไม่มีตัวเล่นเสียงตามเวลา/ซิงก์ Subtitle กับ OBS และการยกเลิกขณะโมเดลกำลังคำนวณไม่หยุดโมเดลกลางคัน แต่จะทิ้งผลลัพธ์เมื่อคำนวณเสร็จ</p>
-<div class="voice-grid">
-<button id="queueSubmit" type="button">เพิ่มงานลงคิว</button>
-<button id="queueRefresh" type="button">ดูสถานะคิว</button>
-<button id="queueCancel" type="button" disabled>ยกเลิกงานที่เลือก</button>
 </div>
-<p class="small" id="queueMessage" role="status">ยังไม่มีงานใหม่ในหน้าต่างนี้</p>
-<pre class="output" id="queueList" style="min-height:55px">–</pre>
-<audio id="queueAudio" controls style="display:none;width:100%;margin-top:12px"></audio>
-<div id="queueSubtitle" style="margin:10px 0;min-height:1.6em;font-weight:600;white-space:pre-line"></div>
-<p class="small" id="queueClockStatus">ยังไม่มีเสียงที่เล่น</p>
-<a id="queueDownload" style="display:none;color:#9bd2ff" download="VoxWeaveTTS-queued.wav">บันทึก WAV จากคิว</a>
-
-<details style="margin-top:18px">
-<summary style="cursor:pointer;font-weight:600">Manual Alignment — กำหนดเวลา Subtitle จากเสียง WAV ที่สร้างแล้ว (ทดลอง)</summary>
-<p class="small">เลือกงานที่สร้างเสียงเสร็จแล้ว ไฮไลต์ข้อความในช่อง Segment ตั้งตำแหน่งเริ่ม–จบจากแถบเสียงด้านบน และกดเพิ่ม Cue เพื่อกำหนดตำแหน่งข้อความตามเสียงจริงด้วยตนเอง ไม่ใช่การจับคำอัตโนมัติ</p>
-<div style="margin:12px 0">
-<canvas id="alignmentWaveform" tabindex="0" role="img" aria-label="Waveform: คลิกเพื่อเลื่อนตำแหน่งเสียง ลากเพื่อเลือกช่วง กดลูกศรเพื่อขยับเวลา" style="width:100%;height:190px;display:block;touch-action:none;cursor:crosshair;border:1px solid #435b75;border-radius:8px"></canvas>
-<div class="voice-grid">
-<label style="flex:1;min-width:150px" for="alignmentZoom">ซูม Waveform (1–32×)<input id="alignmentZoom" type="range" min="1" max="32" step="1" value="1"></label>
-<label style="flex:2;min-width:170px" for="alignmentPan">เลื่อนตำแหน่งที่แสดง<input id="alignmentPan" type="range" min="0" max="1000" step="1" value="0" disabled></label>
-</div>
-<p class="small">คลิกคลื่นเพื่อเลื่อน Audio Player · ลากบนคลื่นเพื่อกำหนดเวลาเริ่ม–จบ · แป้น ← → ขยับ 25 ms (Shift = 5 ms) · แถบเขียวคือ Cue ที่บันทึกใน JSON · ส่วนสีชมพูคือ Silence/Mask · เส้นแดงคือตำแหน่งเล่น</p>
-</div>
-<div class="voice-grid"><button type="button" id="alignmentLoad">โหลดงานล่าสุดที่ Ready</button>
-<div><label for="alignmentSegment">Speech Segment</label><select id="alignmentSegment" style="min-width:180px"></select></div></div>
-<label for="alignmentText">ไฮไลต์ข้อความช่วงที่กำลังได้ยิน (อ่านอย่างเดียว)</label>
-<textarea id="alignmentText" readonly spellcheck="false" style="min-height:75px"></textarea>
-<div class="voice-grid">
-<div><label for="alignmentStart">เริ่ม (ms)</label><input id="alignmentStart" type="number" step="1" min="0" value="0"></div>
-<button id="alignmentMarkStart" type="button">จับเวลาเริ่มจากเสียง</button>
-<div><label for="alignmentEnd">จบ (ms)</label><input id="alignmentEnd" type="number" step="1" min="0" value="0"></div>
-<button id="alignmentMarkEnd" type="button">จับเวลาจบจากเสียง</button>
-<button id="alignmentAdd" type="button">เพิ่ม Cue จากข้อความที่ไฮไลต์</button>
-</div>
-<label for="alignmentJson">รายการ Cue (JSON แก้ไขได้; Offset เป็น Unicode Code Points)</label>
-<textarea class="json" id="alignmentJson" spellcheck="false" style="min-height:135px">[]</textarea>
-<div class="voice-grid">
-<button id="alignmentFormat" type="button">จัดรูปแบบ JSON</button>
-<button id="alignmentSave" type="button">ใช้เวลา Subtitle ในงานนี้</button>
-<button id="alignmentDownload" type="button">ส่งออก JSON</button>
-<button id="alignmentImport" type="button">นำเข้า JSON</button>
-<input id="alignmentImportFile" type="file" accept=".json,application/json" style="display:none">
-</div>
-<label for="alignmentReference">Reference Cues JSON (ใช้เทียบความคลาดเคลื่อน; ต้องมีช่วงข้อความตรงกัน)</label>
-<textarea class="json" id="alignmentReference" spellcheck="false" style="min-height:80px">[]</textarea>
-<button id="alignmentCompare" type="button">วัด Timing Error เทียบ Reference</button>
-<pre id="alignmentMetrics" class="output" style="min-height:60px">–</pre>
-<p class="small" id="alignmentStatus" role="status">ยังไม่โหลดงาน · ข้อมูลเวลาอยู่ในหน่วยความจำของ Speech Job; ส่งออก JSON ก่อนปิดโปรแกรมหากต้องการเก็บ</p>
-<p class="small">หลังบันทึกให้เริ่มเล่น WAV ใหม่และเปิด <a href="/overlay?mode=manual" target="_blank" rel="noopener noreferrer">OBS Manual Cues</a> · ช่วงที่ไม่ได้กำหนด Cue จะไม่แสดงข้อความ · ไม่เปลี่ยนผลสังเคราะห์เสียง</p>
-</details>
-</section>
-<p class="small">API: <code>GET /v1/status</code>, <code>GET /v1/engines</code>, <code>POST /v1/text/process</code>, <code>POST /v1/speech</code> · MIT applies to project code, not third-party voice models.</p>
+<p class="small mode-footer">Single active workspace · กฎคำอ่านและ Voice Settings ใช้ร่วมกัน · OBS Overlay เป็นช่องเดียวของทุกโหมด · Live/Discord รับข้อความจำลองได้ก่อนเชื่อมบริการจริง</p>
+</div></div>
 </main>
+<script src="/mode_workspace.js"></script>
+<script src="/mode_inputs.js"></script>
 <script src="/playback_clock.js"></script>
 <script src="/waveform_editor.js"></script>
 <script src="/manual_alignment.js"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
+let modeRuntime = null;
+let liveMode = null;
+let discordMode = null;
+let studioGeneration = 0;
+let studioJobId = null;
+let studioReadyJob = null;
 const jsonLabels = {rule:"Rules",pron:"Pronunciations"};
 const sectionNames = {rule:"rules",pron:"pronunciations"};
 const configRevisions = {rule:null,pron:null};
@@ -438,7 +540,7 @@ el("run").addEventListener("click", async () => {
   el("error").textContent = "";
   try {
     const request = {
-      text: el("message").value,
+      text: el("rulesTestText").value,
       rules: parseConfigJson("rule"),
       pronunciations: parseConfigJson("pron")
     };
@@ -462,6 +564,7 @@ let engines = [];
 let presets = [];
 let ffmpegReady = false;
 let controlSchema = null;
+let globalVoiceRevision=0;
 const syncControls = () => {
   for (const key of controlKeys) {
     const number = el(key), slider = el("slider-"+key);
@@ -533,6 +636,52 @@ async function loadEngines(){
   el("formant_preserve").disabled=!ffmpegReady;
   refreshSelectedEngine();
 }
+async function loadGlobalVoiceSettings(){
+  const response=await fetch("/v1/settings/global-voice",{cache:"no-store"});
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||"โหลดค่ากลางไม่สำเร็จ");
+  globalVoiceRevision=data.revision;
+  const settings=data.settings;
+  if(settings){
+    const available=engines.find(x=>x.id===settings.engine_id && x.assets_ready && x.runtime_ready);
+    if(available){
+      el("engineSelect").value=settings.engine_id;
+      refreshSelectedEngine();
+    }
+    for(const key of controlKeys){
+      const value=key==="speed" ? settings.speed : settings.voice_controls?.[key];
+      if(typeof value==="number" && Number.isFinite(value))setControl(key,value);
+    }
+    el("formant_preserve").checked=Boolean(settings.voice_controls?.formant_preserve);
+    el("globalVoiceStatus").textContent=available
+      ? "โหลดค่ากลางที่บันทึกไว้แล้ว (Revision "+data.revision+")"
+      : "พบค่ากลาง แต่ Engine เดิมไม่พร้อม จึงใช้ Engine ที่พร้อมอยู่ชั่วคราว";
+  }else{
+    el("globalVoiceStatus").textContent="ยังไม่เคยบันทึก Engine และค่าปรับเสียงกลาง · ใช้ค่าเริ่มต้น";
+  }
+}
+el("globalVoiceSave").addEventListener("click",async()=>{
+  try{
+    const info=selectedEngineInfo();
+    if(!info)throw Error("กรุณาเลือก Engine");
+    const response=await fetch("/v1/settings/global-voice",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"save-global-voice"},
+      body:JSON.stringify({
+        engine_id:info.id,voice_id:el("voiceSelect").value,
+        speed:readNumber("speed"),voice_controls:readVoiceControls(),
+        expected_revision:globalVoiceRevision
+      })
+    });
+    const data=await response.json();
+    if(!response.ok)throw Error(data.error||"บันทึกค่ากลางไม่สำเร็จ");
+    globalVoiceRevision=data.revision;
+    el("globalVoiceStatus").textContent="บันทึก Engine/Voice/DSP เป็นค่ากลางแล้ว · ทุกโหมดใช้การตั้งค่านี้ (Revision "+data.revision+")";
+  }catch(error){el("globalVoiceStatus").textContent=String(error.message||error);}
+});
+el("globalVoiceReload").addEventListener("click",()=>{
+  loadGlobalVoiceSettings().catch(error=>el("globalVoiceStatus").textContent=String(error.message||error));
+});
 el("engineSelect").addEventListener("change",refreshSelectedEngine);
 el("resetControls").addEventListener("click",()=>{
   for(const [key,val] of Object.entries(defaults))setControl(key,val);
@@ -591,7 +740,7 @@ el("applyPreset").addEventListener("click",()=>{
   el("seed").value=preset.seed;
   el("presetStatus").textContent="โหลด Preset "+preset.name+" แล้ว (กดสร้างเสียงเพื่อฟัง)";
 });
-loadEngines().catch(e=>{el("engineStatus").textContent=String(e.message||e)});
+loadEngines().then(loadGlobalVoiceSettings).catch(e=>{el("engineStatus").textContent=String(e.message||e)});
 loadPresets().catch(e=>{el("presetStatus").textContent=String(e.message||e)});
 
 const seedValue = () => {
@@ -656,8 +805,10 @@ let readerJobId = null;
 let readerAudioUrl = null;
 let readerPlayingChunk = null;
 let readerReading = false;
+const readerDrafts = new Map();
 const readerAudio = el("readerAudio");
-async function sendPlaybackReport(payload) {
+async function sendPlaybackReport(payload, mode) {
+  if(modeRuntime) Object.assign(payload, modeRuntime.credentials(mode));
   const response=await fetch("/v1/playback/event",{
     method:"POST",
     headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"report-playback"},
@@ -670,7 +821,7 @@ async function sendPlaybackReport(payload) {
   }
 }
 const readerClock=VoxPlaybackClock.attach(
-  readerAudio,sendPlaybackReport,({text,position_ms,duration_ms,state})=>{
+  readerAudio,(payload)=>sendPlaybackReport(payload,"reader"),({text,position_ms,duration_ms,state})=>{
     el("readerSubtitle").textContent=text;
     el("readerClockStatus").textContent="Browser media clock: "+
       (position_ms/1000).toFixed(2)+" / "+(duration_ms/1000).toFixed(2)+
@@ -806,7 +957,7 @@ async function readerPlayChunk(index) {
   const chunk=currentReaderChunk();
   if(!chunk || chunk.index!==index)throw new Error("ช่วงข้อความไม่ตรงกับตำแหน่ง");
   const body=buildSpeechPayload();
-  body.text=chunk.text;
+  body.text=el("readerChunkPreview").value;
   body.source="document";
   // Do not dedupe replays of an already completed passage.
   readerFeedback("กำลังสร้างเสียงช่วง "+(index+1)+" / "+readerPage.chunk_total+"...");
@@ -858,9 +1009,13 @@ async function readerBegin(index) {
 readerAudio.addEventListener("ended",async()=>{
   const completed=readerPlayingChunk;
   if(completed===null || !readerReading || !readerPage)return;
+  if(modeRuntime && !modeRuntime.guard("reader"))return;
+  const generation=readingGeneration;
   const next=completed+1;
   try {
     await saveReaderPosition(next);
+    // Switching workspaces invalidates asynchronous end-of-chunk work.
+    if(generation!==readingGeneration || (modeRuntime&&!modeRuntime.guard("reader")))return;
     const continueNext=el("readerAutoNext").checked && next<readerPage.chunk_total;
     readerReading=false;
     readerPlayingChunk=null;
@@ -911,6 +1066,13 @@ el("readerStop").addEventListener("click",async()=>{
 });
 
 
+el("readerChunkPreview").addEventListener("input",()=>{
+  const item=currentReaderChunk();
+  if(item && readerPage){
+    readerDrafts.set(readerPage.document_id+":"+item.index,
+                     el("readerChunkPreview").value);
+  }
+});
 function currentReaderChunk() {
   if (!readerPage) return null;
   return readerPage.chunks.find(item => item.index === selectedChunkIndex) || null;
@@ -945,7 +1107,9 @@ function renderReaderPage(preferredIndex) {
   chunks.value = String(selectedChunkIndex);
   const chosen = currentReaderChunk();
   el("readerChapter").value = String(chosen.chapter_index);
-  el("readerChunkPreview").value = chosen.text;
+  const readerKey=data.document_id+":"+chosen.index;
+  el("readerChunkPreview").value = readerDrafts.has(readerKey)
+    ? readerDrafts.get(readerKey) : chosen.text;
   updateReaderBoundaryWarning(chosen);
   el("readerStatus").textContent = readerTitle + " · " + data.chapter_total +
     " บท · " + data.chunk_total + " ช่วง · หน้าที่ " +
@@ -1038,13 +1202,27 @@ el("readerNext").addEventListener("click", () => {
     el("readerStatus").textContent=String(err.message||err);
   });
 });
-el("readerUseChunk").addEventListener("click", () => {
-  const chosen = currentReaderChunk();
-  if (!chosen) return;
-  el("message").value = chosen.text;
-  el("run").click();
-  el("readerStatus").textContent = "นำช่วง " + (chosen.index+1) +
-    " ไปช่องข้อความหลักแล้ว สามารถแก้ไขก่อนสร้างเสียงได้";
+el("readerUseChunk").addEventListener("click", async () => {
+  const chosen=currentReaderChunk();
+  if(!chosen)return;
+  try{
+    const response=await fetch("/v1/text/process",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        text:el("readerChunkPreview").value,
+        rules:parseConfigJson("rule"),
+        pronunciations:parseConfigJson("pron"),
+        source:"document"
+      })
+    });
+    const data=await response.json();
+    if(!response.ok)throw Error(data.error||"ตรวจคำอ่านไม่สำเร็จ");
+    const preview=el("readerProcessedPreview");
+    preview.hidden=false;
+    preview.textContent="Subtitle: "+data.display_text+"\nสำหรับอ่านเสียง: "+data.spoken_text;
+    el("readerStatus").textContent="ตรวจคำอ่านช่วง "+(chosen.index+1)+
+      " โดยไม่เปลี่ยนข้อความของโหมดอื่น";
+  }catch(e){el("readerStatus").textContent=String(e.message||e);}
 });
 el("readerQueueChunk").addEventListener("click", async () => {
   const chosen = currentReaderChunk();
@@ -1052,7 +1230,7 @@ el("readerQueueChunk").addEventListener("click", async () => {
   el("readerQueueChunk").disabled=true;
   try {
     const payload = buildSpeechPayload();
-    payload.text = chosen.text;
+    payload.text = el("readerChunkPreview").value;
     payload.source = "document";
     await submitQueuePayload(payload);
     el("readerStatus").textContent = "ส่งช่วง " + (chosen.index+1) +
@@ -1061,8 +1239,8 @@ el("readerQueueChunk").addEventListener("click", async () => {
   finally {el("readerQueueChunk").disabled=false;}
 });
 
-const buildSpeechPayload = () => ({
-  text: el("message").value,
+const buildSpeechPayload = (text = el("message").value) => ({
+  text,
   rules: parseConfigJson("rule"),
   pronunciations: parseConfigJson("pron"),
   engine_id: el("engineSelect").value,
@@ -1075,8 +1253,13 @@ let latestQueuedId = null;
 let jobPollTimer = null;
 let queuedAudioUrl = null;
 const queueAudio=el("queueAudio");
+const studioAudio=el("audioPreview");
+const studioClock=VoxPlaybackClock.attach(
+  studioAudio,(payload)=>sendPlaybackReport(payload,"studio"),
+  ({text})=>{el("studioSubtitle").textContent=text;}
+);
 const queueClock=VoxPlaybackClock.attach(
-  queueAudio,sendPlaybackReport,({text,position_ms,duration_ms,state})=>{
+  queueAudio,(payload)=>sendPlaybackReport(payload,"queue"),({text,position_ms,duration_ms,state})=>{
     el("queueSubtitle").textContent=text;
     el("queueClockStatus").textContent="Browser media clock: "+
       (position_ms/1000).toFixed(2)+" / "+(duration_ms/1000).toFixed(2)+
@@ -1162,7 +1345,7 @@ async function submitQueuePayload(payload) {
 }
 el("queueSubmit").addEventListener("click", async () => {
   el("queueSubmit").disabled=true;
-  try { await submitQueuePayload(buildSpeechPayload()); }
+  try { await submitQueuePayload(buildSpeechPayload(el("queueText").value)); }
   catch(err){el("queueMessage").textContent=String(err.message||err);}
   finally {el("queueSubmit").disabled=false;}
 });
@@ -1202,40 +1385,131 @@ fetch("/v1/status").then(r => r.json()).then(status => {
   el("nextSeed").disabled = true;
 });
 el("synthesize").addEventListener("click", async () => {
-  el("audioStatus").textContent = "กำลังสร้างเสียง...";
-  el("synthesize").disabled = true;
-  el("nextSeed").disabled = true;
-  const shouldPlay = autoPlayNextSeed;
-  autoPlayNextSeed = false;
+  if(modeRuntime && !modeRuntime.guard("studio")){
+    el("audioStatus").textContent="เลือกโหมดสร้างเสียงให้มีสิทธิ์เล่นก่อน";
+    return;
+  }
+  const generation=++studioGeneration;
+  studioClock.clear();
+  studioAudio.pause();
+  studioReadyJob=null;
+  el("audioStatus").textContent="กำลังสร้างเสียงจาก Engine ส่วนกลาง...";
+  el("synthesize").disabled=true;
+  el("nextSeed").disabled=true;
+  const shouldPlay=autoPlayNextSeed;
+  autoPlayNextSeed=false;
   try {
-    const requestedSeed = seedValue();
-    const body = buildSpeechPayload();
-    const response = await fetch("/v1/speech", {
-      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+    const requestedSeed=seedValue();
+    const body=buildSpeechPayload(el("message").value);
+    body.source="manual";
+    const response=await fetch("/v1/jobs",{
+      method:"POST",headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"queue-speech"},
+      body:JSON.stringify(body)
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || "Audio generation failed");
+    const queued=await response.json();
+    if(!response.ok)throw Error(queued.error||"สร้างงานเสียงไม่สำเร็จ");
+    if(generation!==studioGeneration || (modeRuntime&&!modeRuntime.guard("studio"))){
+      fetch("/v1/jobs/"+queued.speech_id+"/cancel",{
+        method:"POST",headers:{"X-VoxWeaveTTS-Intent":"cancel-speech-job"}
+      }).catch(()=>{});
+      return;
     }
-    const audio = await response.blob();
-    if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
-    currentAudioUrl = URL.createObjectURL(audio);
-    el("audioPreview").src = currentAudioUrl;
-    el("audioPreview").style.display = "block";
-    el("downloadAudio").href = currentAudioUrl;
-    el("downloadAudio").download = "VoxWeaveTTS-thai-seed-" + requestedSeed + ".wav";
-    el("downloadAudio").style.display = "inline-block";
-    el("audioStatus").textContent = "สร้างเสียงสำเร็จ (Seed " + requestedSeed + ", " + audio.size + " bytes)";
-    if (shouldPlay) {
-      try { await el("audioPreview").play(); } catch { /* User can press Play manually. */ }
+    studioJobId=queued.speech_id;
+    let ready=null;
+    for(let i=0;i<220;i++){
+      if(generation!==studioGeneration || (modeRuntime&&!modeRuntime.guard("studio")))return;
+      const result=await fetch("/v1/jobs/"+queued.speech_id,{cache:"no-store"});
+      const job=await result.json();
+      if(!result.ok)throw Error(job.error||"อ่านสถานะงานเสียงไม่ได้");
+      if(job.state==="ready"){ready=job;break;}
+      if(["failed","cancelled"].includes(job.state))throw Error("งานเสียง "+job.state);
+      await new Promise(resolve=>setTimeout(resolve,250));
     }
-  } catch (err) {
-    el("audioStatus").textContent = String(err.message || err);
-  } finally {
-    el("synthesize").disabled = false;
-    el("nextSeed").disabled = false;
+    if(!ready)throw Error("การสร้างเสียงยังไม่เสร็จ กรุณาตรวจคิว");
+    const wavResponse=await fetch("/v1/jobs/"+ready.speech_id+"/audio");
+    if(!wavResponse.ok)throw Error("ไม่สามารถดาวน์โหลด WAV ที่สร้างแล้ว");
+    const audio=await wavResponse.blob();
+    if(generation!==studioGeneration || (modeRuntime&&!modeRuntime.guard("studio")))return;
+    if(currentAudioUrl)URL.revokeObjectURL(currentAudioUrl);
+    currentAudioUrl=URL.createObjectURL(audio);
+    studioReadyJob=ready;
+    studioClock.clear();
+    studioClock.setSpeech(ready.speech_id,ready.audio);
+    studioAudio.src=currentAudioUrl;
+    studioAudio.style.display="block";
+    el("downloadAudio").href=currentAudioUrl;
+    el("downloadAudio").download="VoxWeaveTTS-thai-seed-"+requestedSeed+".wav";
+    el("downloadAudio").style.display="inline-block";
+    el("audioStatus").textContent="สร้าง WAV สำเร็จ · พร้อมฟังและแสดง Subtitle บน OBS ("+audio.size+" bytes)";
+    if(shouldPlay){
+      try{await studioAudio.play();}
+      catch{/* User may click Play manually when browser blocks autoplay. */}
+    }
+  }catch(error){
+    if(generation===studioGeneration)el("audioStatus").textContent=String(error.message||error);
+  }finally{
+    if(generation===studioGeneration){
+      el("synthesize").disabled=false;
+      el("nextSeed").disabled=false;
+    }
   }
 });
+
+
+// Single engine-neutral audio/OBS owner shared across all workspace modes.
+// Switching is deliberately synchronous on the browser side; server revokes
+// the previous playback token before returning the next owner token.
+function suspendAllPlayback(){
+  studioGeneration++;
+  studioClock.clear();
+  studioAudio.pause();
+  if(studioJobId && !studioReadyJob){
+    fetch("/v1/jobs/"+studioJobId+"/cancel",{
+      method:"POST",headers:{"X-VoxWeaveTTS-Intent":"cancel-speech-job"}
+    }).catch(()=>{});
+  }
+  // The Reader increments its generation before its first await; delayed
+  // TTS results cannot resume playing after a mode switch.
+  stopReaderPlayback().catch(()=>{});
+  stopJobPoll();
+  queueClock.clear();
+  queueAudio.pause();
+  liveMode?.suspend();
+  discordMode?.suspend();
+}
+function restoreModeAudio(mode){
+  // Unsaved global Engine/DSP edits remain in memory across mode changes.
+  // Reload from disk only during startup or explicit "โหลดค่ากลางอีกครั้ง".
+  if(mode==="studio" && studioReadyJob && currentAudioUrl){
+    studioClock.setSpeech(studioReadyJob.speech_id,studioReadyJob.audio);
+  }else if(mode==="queue" && latestQueuedId){
+    pollJob().catch(error=>{
+      el("queueMessage").textContent=String(error.message||error);
+    });
+  }else if(mode==="live")liveMode?.resume();
+  else if(mode==="discord")discordMode?.resume();
+}
+if(typeof VoxModeInputs!=="undefined"){
+  for(const mode of ["live","discord"]){
+    const instance=VoxModeInputs.attach({
+      mode,el,clockLibrary:VoxPlaybackClock,report:sendPlaybackReport,
+      getSpeechPayload:buildSpeechPayload,
+      guard:id=>!modeRuntime || modeRuntime.guard(id)
+    });
+    if(mode==="live")liveMode=instance;
+    else discordMode=instance;
+  }
+}
+if(typeof VoxWorkspaceModes!=="undefined"){
+  modeRuntime=VoxWorkspaceModes.attach({
+    document,
+    stopLocal:suspendAllPlayback,
+    onActive:restoreModeAudio,
+    onError:message=>{el("modeOwnerStatus").textContent=message;}
+  });
+  modeRuntime.startMonitor();
+}
+
 el("run").click();
 </script>
 </body>

@@ -6,7 +6,7 @@ const vm=require('node:vm');
 async function run(){
   const html=fs.readFileSync('web/index.html','utf8');
   const start=html.indexOf('let readerText = null;');
-  const end=html.indexOf('const buildSpeechPayload = () =>',start);
+  const end=html.indexOf('const buildSpeechPayload = (',start);
   assert.ok(start>0&&end>start,"reader code block exists");
   const nodes=new Map();
   function el(id){
@@ -49,7 +49,7 @@ async function run(){
   el('readerAutoNext').checked=false;
   const fetched=[];
   const sandbox={
-    el,window:{confirm:()=>true},console,TextDecoder,
+    el,window:{confirm:()=>true},console,TextDecoder,modeRuntime:null,
     VoxPlaybackClock:{attach:()=>({setSpeech(){},clear(){},update(){}})},
     setTimeout:(fn)=>{queueMicrotask(fn);return 1;},
     URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:()=>{}},

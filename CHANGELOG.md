@@ -2,6 +2,16 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev10 — Independent workspace modes with shared global TTS settings (2026-11-10)
+
+- Redesigned the web application as seven workspaces: Studio, Document Reader, Live simulation, Discord simulation, Speech Queue/Subtitle, Shared Reading Rules and Shared Engine/Voice Settings. Each working mode has independent text and player state while Engine/Voice/DSP/Seed/Presets/Rules/Pronunciations remain centralized.
+- Added exclusive local ModeState ownership: switching workspaces synchronously suspends all Browser audio, stops Reader auto-next, clears OBS PlaybackState and rotates per-mode playback tokens. Stale tabs and reports cannot overwrite the single local Overlay after switching.
+- Added GET /v1/modes/state, POST /v1/modes/activate and bounded SSE GET /v1/modes/stream; Browser BroadcastChannel and HTTP Polling cover cross-tab and cross-browser fallback.
+- Added persistent global Engine/Voice/Speed/DSP defaults (data/settings/global-voice.json, gitignored), optimistic revisions and GET/POST /v1/settings/global-voice. Existing Seed, Voice Presets and editable JSON reading rules stay shared.
+- Studio now synthesizes via the shared Speech Job API and browser clock so it can drive OBS like Reader, Queue, Live and Discord simulations. Live/Discord are explicitly LOCAL text-input prototypes, not live integrations or connected bots.
+- Kept original Document Reader, JSON Editor, manual alignment and waveform tools; added mode isolation, ownership, HTML structure, SSE, persistence and source-mode regression tests.
+- The currently executing CPU inference cannot be force-interrupted by a tab switch: playback and pending autoplay stop immediately and cancellation is best effort. True YouTube Live/Discord adapters remain future milestones.
+
 ## 0.3.0.dev9 — Conservative Thai caption boundaries and narration chunking (2026-11-10)
 
 - Fixed Estimated subtitles that cut Thai leading vowels, coda consonants and syllables into separate caption windows. The original roughly every-22-grapheme splitter now chooses only explicit punctuation/whitespace separators; if no natural separator exists, it retains the entire generated speech segment instead of claiming word boundaries.

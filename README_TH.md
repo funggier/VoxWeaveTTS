@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev9** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev10** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -21,6 +21,14 @@
 เพิ่ม Browser Playback Clock ที่ใช้ audio.currentTime ของเสียงซึ่งกำลังเล่นจาก Document Reader หรือ Speech Queue และหน้า http://127.0.0.1:8765/overlay สำหรับ OBS Browser Source แบบพื้นหลังโปร่งใส ใช้ร่วมกับทุก Engine และไม่เริ่มแสดง Subtitle เพียงเพราะสร้าง WAV เสร็จ เมื่อ Pause/Stop/Ended หรือ Browser หยุดรายงานเวลานาน ระบบจะซ่อน Subtitle
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
+
+## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.3.0.dev10)
+
+หน้าตาใหม่แบ่งเป็น **สร้างเสียง, อ่านเอกสาร, ไลฟ์สด, Discord, คิว/Subtitle, คำอ่านและกฎ, ตั้งค่ากลาง** โดยแต่ละโหมดมีข้อความและตัวเล่นของตัวเอง เมื่อเปลี่ยนแท็บเสียงและการอ่านอัตโนมัติของโหมดเดิมจะหยุดทันที มีโหมดที่ได้รับสิทธิ์ส่งเสียงไป OBS ได้เพียงโหมดเดียว แม้เปิดหลายแท็บ
+
+**Engine/Model, Voice, Speed, DSP, Seed, Preset และ Rules/Pronunciations ใช้ค่ากลาง** ไม่ต้องตั้งซ้ำในทุกโหมด สามารถกดบันทึก Engine/Voice/DSP ที่หน้า ตั้งค่ากลาง เพื่อโหลดกลับมาเมื่อเปิดโปรแกรมรอบต่อไป ส่วน JSON คำอ่านและ Seed ใช้การบันทึกกลางเดิม
+
+**โหมด Live และ Discord ตอนนี้เป็นการทดลองพิมพ์ข้อความจำลองในแต่ละโหมด ยังไม่ได้เชื่อม YouTube Live หรือ Discord Bot จริง** เพื่อให้ทดสอบสถาปัตยกรรมเสียง/OBS/การสลับโหมดก่อน ดู [คู่มือโหมดและค่ากลาง](docs/WORKSPACE_MODES_TH.md)
 
 ## ปรับปรุงการตัด Subtitle และช่วงอ่านภาษาไทย
 

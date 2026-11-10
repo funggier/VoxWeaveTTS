@@ -32,6 +32,11 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Import .txt/.md via browser and engine-neutral API, basic Markdown narration cleanup, TXT/Markdown chapter detection and paged text chunks
 - [x] Rules/Pronunciations JSON editor: pretty-format, validation, import/export, quick Unicode-safe entry, persistent local save/reload and stale-tab revision conflict checks
 - [x] Preserve common Thai/Emoji Unicode sequences when cutting document chunks
+- [x] Seven independent workspace views with one active audio/OBS owner and cross-tab SSE/revision checks
+- [x] Shared global Engine/Voice/Speed/DSP persistent configuration; Seed, Presets and Rules remain central
+- [x] Local Live/Discord text-input simulators with independent text and playback
+- [ ] Actual YouTube Live chat and Discord Bot input adapters (credentials, OAuth, moderation, reconnect, dedupe, rate limit, queue priority)
+- [ ] Persist optional mode drafts and improve cross-mode job history without losing privacy
 - [x] Prevent arbitrary splitting of Thai continuous words in Estimated Subtitle; use explicit separators or keep full generated Segment
 - [x] Improve Document Reader fallback boundaries and expose uncertainty; version document IDs to avoid misapplied reading bookmarks
 - [ ] Integrate a commercially-cleared Thai word tokenizer/linguistic segmenter for exceptionally long unspaced book paragraphs

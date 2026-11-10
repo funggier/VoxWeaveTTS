@@ -244,6 +244,14 @@ class PlaybackState:
         with self._lock:
             return self._snapshot(mode)
 
+    def reset(self) -> None:
+        """Release previous session/OBS caption synchronously on mode switch."""
+        with self._changed:
+            self._active = None
+            self._last_stale = False
+            self._revision += 1
+            self._changed.notify_all()
+
     def subscribe(self) -> None:
         with self._lock:
             if self._subscribers >= self._subscriber_limit:

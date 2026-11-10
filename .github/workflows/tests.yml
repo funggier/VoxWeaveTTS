@@ -37,3 +37,5 @@ jobs:
           node tests/overlay_sse_smoke.cjs
           node tests/manual_alignment_ui_smoke.cjs
           node tests/waveform_editor_smoke.cjs
+          node tests/mode_workspace_smoke.cjs
+          node tests/mode_inputs_smoke.cjs

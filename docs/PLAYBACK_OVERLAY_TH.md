@@ -27,6 +27,10 @@ HTTP Polling ที่ `GET /v1/playback/state` ยังรองรับแ�
 
 **โหมด Estimated ไม่ได้วิเคราะห์สัญญาณเสียง** จึงอาจเปลี่ยน Subtitle ก่อนหรือหลังคำที่พูดจริง โดยเฉพาะเมื่อ Engine อ่านคำภาษาไทยช้าหรือเร็วไม่เท่ากัน ห้ามถือว่าเป็น Word/Syllable Forced Alignment จริง หากต้องการความแม่นยำรายคำจะต้องเพิ่ม Aligner ที่ตรวจสอบเชิงพาณิชย์ได้หรือ Engine ที่ส่งเวลา Alignment มาโดยตรง
 
+## Overlay เดียวสำหรับทุก Workspace
+
+ตั้งแต่ v0.3.0.dev10 มีโหมดที่ส่งสถานะ Playback มายัง Overlay ได้เพียงโหมดเดียว เมื่อเลือกแท็บอื่น Browser จะพักเสียงทันที และ Server จะรีเซ็ต Subtitle เดิมพร้อมออก Token ใหม่. อีกแท็บจะได้ Event ผ่าน SSE/BroadcastChannel ให้หยุดเสียงเก่า. Studio/Reader/Queue/Live/Discord Simulator ใช้ Overlay URL เดิมร่วมกัน (Live/Discord ยังไม่ได้เชื่อมบริการจริง). ดู [Workspace Guide](WORKSPACE_MODES_TH.md).
+
 ## แก้ Estimated Subtitle ตัดสระนำหรือตัวสะกดผิด (v0.3.0.dev9)
 
 โหมด `/overlay?mode=estimated` เดิมแบ่งทุกจำนวนกลุ่มอักขระใกล้เคียงกัน ซึ่งไม่ใช่ขอบเขตคำไทย จึงมีกรณีสระนำ เช่น เ แ โ ใ ไ ไปค้างท้าย Subtitle เดิม หรือพยัญชนะตัวสะกดไปขึ้นต้น Subtitle ถัดไป

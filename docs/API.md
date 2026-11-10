@@ -65,6 +65,19 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
 
+## Independent Workspaces and Shared Voice Settings (v0.3.0.dev10)
+
+- GET /v1/modes/state — active_mode, revision, exclusive_playback and supported mode IDs (no owner token).
+- POST /v1/modes/activate — requires JSON {"mode":"studio|reader|queue|live|discord|rules|settings"} and X-VoxWeaveTTS-Intent: activate-mode; atomically invalidates the previous playback session/OBS state and returns the new owner mode_token plus revision.
+- GET /v1/modes/stream — read-only bounded local SSE event=workspace for near-immediate cross-tab mode changes. It never includes owner tokens. Browser BroadcastChannel and HTTP polling are fallbacks.
+- POST /v1/playback/event — after workspace activation, must include mode and mode_token from the current activation. Old mode/session reports return HTTP 409 and cannot repopulate OBS captions. Pre-workspace API consumers without activation remain compatible in isolated tests.
+- GET /v1/settings/global-voice — returns revision and settings (or null) for shared Engine/Voice/Speed/DSP defaults.
+- POST /v1/settings/global-voice — JSON {engine_id,voice_id,speed,voice_controls,expected_revision}, X-VoxWeaveTTS-Intent: save-global-voice. Validated, atomically saved in local gitignored data/settings/global-voice.json; stale revision returns 409.
+- Studio, Reader, Queue, Live simulation and Discord simulation use the same Speech Coordinator and single OBS Overlay. Live/Discord have NO external platform adapters yet and accept only user-provided test text.
+- Switching modes stops Browser output and prevents delayed autoplay, but does not guarantee interruption of in-progress CPU model inference.
+
+See [Workspace Guide](WORKSPACE_MODES_TH.md).
+
 ## Thai-safe Caption/Document Boundaries (v0.3.0.dev9)
 
 Estimated subtitle timing no longer cuts every ~22 Unicode graphemes: it selects explicit whitespace/punctuation separators in the filtered speech display text. Where the Thai text is continuous with no reliable break, the generated Speech Segment remains a single caption. No new API or external tokenizer is required.

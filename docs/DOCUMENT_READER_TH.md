@@ -92,6 +92,10 @@ API: GET /v1/reading/progress?document_id=<SHA256>, POST /v1/reading/progress (I
 
 **ข้อจำกัด:** ถ้าเปลี่ยนขนาด Chunk หรือแก้ข้อความนิยาย Hash/Chunk Mapping อาจเปลี่ยน ทำให้ต้องเลือกตำแหน่งอีกครั้ง; ยังไม่รองรับข้ามเครื่อง ข้าม Browser ในการเล่นเสียงจริง และไม่มี Playback Clock/OBS Subtitle Sync. การกดหยุดระหว่างสร้างเสียงไม่หยุด Model Inference กลางคัน แต่ยกเลิกผลลัพธ์ที่มาภายหลังได้
 
+## Document Reader ในระบบหลายโหมด
+
+เมื่อใช้ v0.3.0.dev10 Document Reader มีพื้นที่ทำงานของตัวเอง พร้อมช่องข้อความของช่วงปัจจุบันที่แก้ได้และเก็บ Draft แยกตาม Document ID + Chunk ใน Browser Memory. การเปลี่ยนโหมดจะหยุด Playback/Auto-Next และล้าง Subtitle เดิมจาก OBS ทันที โดยไม่เปลี่ยนข้อความ Draft ของ Studio/Queue/Live/Discord. Engine, เสียงและ Rules ยังคงใช้ค่ากลาง (ดู [WORKSPACE_MODES_TH.md](WORKSPACE_MODES_TH.md)).
+
 ## จุดแบ่งข้อความภาษาไทยที่ปลอดภัยขึ้น (v0.3.0.dev9)
 
 ปัญหา: การแบ่ง Chunk แบบนับอักขระอย่างเดียวอาจแยก **สระนำ** หรือ **ตัวสะกด** ไปอยู่คนละช่วงอ่าน โดยเฉพาะนิยายภาษาไทยที่เขียนติดกันยาว
