@@ -12,6 +12,43 @@ class ProcessingTests(unittest.TestCase):
         self.assertEqual(r["display_text"],"สวัสดี 55555")
         self.assertEqual(r["spoken_text"],"สวัสดี ฮ่า ฮ่า ฮ่า")
 
+    def test_repeated_fives_preserve_original_subtitle(self):
+        rule={"match":"555","match_mode":"five_run","mode":"replace",
+              "spoken":"ฮ่า ฮ่า ฮ่า"}
+        for text in ["555", "5555", "55555", "555555555555", "สวัสดี5555ครับ"]:
+            with self.subTest(text=text):
+                result=process_text(text,rules=[rule])
+                self.assertEqual(result["display_text"], text)
+                self.assertEqual(result["spoken_text"].count("ฮ่า"), 3)
+                replaced=[x for x in result["segments"] if x["spoken_text"]=="ฮ่า ฮ่า ฮ่า"]
+                self.assertEqual(len(replaced),1)
+                self.assertEqual(
+                    text[replaced[0]["source_start"]:replaced[0]["source_end"]],
+                    "5" * len(text[replaced[0]["source_start"]:replaced[0]["source_end"]])
+                )
+
+    def test_repeated_fives_ignore_numeric_literals(self):
+        rule={"match":"555","match_mode":"five_run","mode":"replace",
+              "spoken":"ฮ่า ฮ่า ฮ่า"}
+        for text in ["15555", "55551", "2555", "5555.50", "5555,5555",
+                     "5,55555", "5.55555", "55555.50", "10,55555"]:
+            with self.subTest(text=text):
+                result=process_text(text,rules=[rule])
+                self.assertEqual(result["spoken_text"], text)
+
+    def test_repeated_fives_rule_input_validation(self):
+        for rule in [
+            {"match":"555","match_mode":"arbitrary_regex","spoken":"wrong"},
+            {"match":"55","match_mode":"five_run","spoken":"wrong"},
+        ]:
+            with self.assertRaises(InputError):
+                process_text("55555",rules=[rule])
+        # Rules without a pattern retain the existing literal semantics.
+        self.assertEqual(
+            process_text("55555",rules=[{"match":"55555","spoken":"ฮ่า"}])["spoken_text"],
+            "ฮ่า"
+        )
+
     def test_silence(self):
         r=process_text("ก่อนคำต้องห้ามหลัง",rules=[{"match":"คำต้องห้าม","mode":"silence","display":"***","silence_ms":450}])
         self.assertEqual(r["display_text"],"ก่อน***หลัง")

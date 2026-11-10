@@ -20,6 +20,7 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [ ] Streaming playback, explicit cancellation and queue policy
 - [ ] Voice cloning / reference voice storage
 - [x] Fixed ONNX per-job seed control and verified byte-identical repeats for the same Thai text/seed in CPU smoke tests
+- [x] Bounded repeated-5 chat pattern (`555`, `55555`, etc.) with numerical-context exclusions and original Subtitle preservation
 - [ ] Listening-based Thai pronunciation regression testing and native phoneme overrides
 - [ ] Further engine quality/speed benchmarks and longer text stress tests
 

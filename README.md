@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.2.0.dev1 M1 preview):** local text processing and **real Thai WAV generation** using PyThaiTTS/FastThaiG2P CPU ONNX, when the optional model/runtime are installed. **Voice cloning, voice-specific tuning beyond speed, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.**
+> **Current status (v0.2.0.dev2 M1 preview):** local text processing and **real Thai WAV generation** using PyThaiTTS/FastThaiG2P CPU ONNX, when the optional model/runtime are installed. **Voice cloning, voice-specific tuning beyond speed, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.**
 
 ## Goals
 
@@ -28,7 +28,7 @@ The Python `.venv` is a developer environment, **not the final portable executab
 - `GET /v1/status` — build status and explicit capability flags.
 - `GET /v1/rules` — locally stored replacement rules, if configured.
 - `GET /v1/pronunciations` — locally stored pronunciation overrides, if configured.
-- `POST /v1/text/process` — deterministic filter, replacement, silence and pronunciation processing.
+- `POST /v1/text/process` — deterministic filter, replacement, silence and pronunciation processing; optional `match_mode: five_run` safely maps repeated chat 5s to speech while retaining the original subtitle.
 - `GET /v1/engines` and `GET /v1/voices` — available backend/capabilities and fixed voice.
 - `POST /v1/speech` — generate Thai PCM16/WAV through the optional FastThaiG2P CPU backend (500 spoken characters max per request), with optional reproducible `seed`.
 - `GET/POST /v1/settings/synthesis` — view/store a preferred seed in local portable settings (POST requires an explicit intent header).

@@ -4,12 +4,16 @@ Only text planning is implemented here. Audio generation/playback remains separa
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
 MAX_TEXT = 8_000
 MAX_RULES = 128
 MAX_SILENCE_MS = 10_000
+# Predefined, bounded pattern; it is not arbitrary user-supplied regex.
+# Exclude digit sequences within larger numbers and decimal/grouped numbers.
+_FIVE_RUN = re.compile(r'(?<!\d)(?<!\d[.,])5{3,}(?!\d)(?![.,]\d)')
 
 
 class InputError(ValueError):
@@ -32,14 +36,20 @@ class Rule:
     display: str | None = None
     silence_ms: int = 0
     sources: tuple[str, ...] = ()
+    match_mode: str = "literal"
 
     @classmethod
     def parse(cls, raw: Any) -> "Rule":
         if not isinstance(raw, Mapping):
             raise InputError("each rule must be an object")
-        match = _text(raw.get("match"), "match", 200)
+        match_mode = raw.get("match_mode", "literal")
+        if match_mode not in {"literal", "five_run"}:
+            raise InputError("match_mode must be literal or five_run")
+        match = _text(raw.get("match", "555" if match_mode == "five_run" else None), "match", 200)
         if not match:
             raise InputError("match cannot be empty")
+        if match_mode == "five_run" and match != "555":
+            raise InputError("five_run requires match=555")
         mode = raw.get("mode", "replace")
         if mode not in {"replace", "skip", "silence"}:
             raise InputError("mode must be replace, skip, or silence")
@@ -57,10 +67,17 @@ class Rule:
             isinstance(v, str) and 0 < len(v) <= 64 for v in sources
         ):
             raise InputError("sources must be a list of non-empty short strings")
-        return cls(match, mode, spoken, display, duration, tuple(sources))
+        return cls(match, mode, spoken, display, duration, tuple(sources), match_mode)
 
     def applies_to(self, source: str) -> bool:
         return not self.sources or source in self.sources
+
+    def find(self, text: str, position: int) -> tuple[int, str] | None:
+        if self.match_mode == "five_run":
+            result = _FIVE_RUN.search(text, position)
+            return (result.start(), result.group()) if result else None
+        index = text.find(self.match, position)
+        return (index, self.match) if index >= 0 else None
 
 
 def parse_rules(raw: Any) -> list[Rule]:
@@ -135,12 +152,13 @@ def process_text(
 
     position = 0
     while position < len(text):
-        candidate: tuple[int, int, int, Rule] | None = None
+        candidate: tuple[int, int, int, Rule, str] | None = None
         for priority, rule in enumerate(active):
-            index = text.find(rule.match, position)
-            if index == -1:
+            result = rule.find(text, position)
+            if result is None:
                 continue
-            rank = (index, -len(rule.match), priority, rule)
+            index, matched = result
+            rank = (index, -len(matched), priority, rule, matched)
             if candidate is None or rank[:3] < candidate[:3]:
                 candidate = rank
 
@@ -149,15 +167,15 @@ def process_text(
             add_segment("speech", apply_pronunciations(original, pronunciations),
                         original, position, len(text))
             break
-        index, _neg_length, _priority, rule = candidate
+        index, _neg_length, _priority, rule, matched = candidate
         if index > position:
             original = text[position:index]
             add_segment("speech", apply_pronunciations(original, pronunciations),
                         original, position, index)
-        end = index + len(rule.match)
+        end = index + len(matched)
         if rule.mode == "replace":
-            spoken = rule.match if rule.spoken is None else rule.spoken
-            display = rule.match if rule.display is None else rule.display
+            spoken = matched if rule.spoken is None else rule.spoken
+            display = matched if rule.display is None else rule.display
             add_segment("speech", apply_pronunciations(spoken, pronunciations),
                         display, index, end)
         elif rule.mode == "silence":

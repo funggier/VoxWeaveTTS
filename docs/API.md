@@ -23,6 +23,7 @@ The optional `rules` and `pronunciations` override local file configuration for 
 
 Rules:
 - `mode=replace`: `spoken` optional, `display` optional (default original spelling).
+- Optional `match_mode`: `literal` (default) or `five_run` (requires `match="555"`). A `five_run` rule matches three or more consecutive ASCII 5 characters outside surrounding numbers. `55555` → a selected replacement such as `ฮ่า ฮ่า ฮ่า`, while its actual display remains `55555` unless `display` is set. Grouped numbers or decimals such as `5,55555` and `55555.50` are excluded. This is a predefined safe pattern, not user-supplied regex.
 - `mode=silence`: `silence_ms` 0–10,000; `display` defaults to ***.
 - `mode=skip`: removes speech time, `display` defaults to ***.
 - Optional `sources` list restricts application to specific source IDs.

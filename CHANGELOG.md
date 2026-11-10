@@ -2,6 +2,12 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.2.0.dev2 — Repeated-5 chat pronunciation pattern (2026-11-10)
+
+- Added `match_mode=five_run` for rules that convert any run of 3+ ASCII 5s (e.g. `555`, `55555`, `5555555`) to user-defined spoken text while keeping the exact original subtitle and source span.
+- Excluded digit sequences inside numbers or decimal/grouped numeric strings; retained literal matching as the default for all existing rules.
+- Updated Thai UI example and regression tests. The speech remains synthesized by the TTS engine using the selected ONNX seed; no prerecorded laughter is used.
+
 ## 0.2.0.dev1 — Deterministic ONNX seed control (2026-11-10)
 
 - Investigated unstable output for `ฮ่า ฮ่า ฮ่า` (sometimes perceived as `พาน พ่าน พ่าน`). G2P produced the same phonemes but ONNX model samples varied across repeated calls.
