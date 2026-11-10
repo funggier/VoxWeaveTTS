@@ -1,5 +1,8 @@
 # Roadmap
 
+**Distribution gate:** Review [Commercial-First License Policy](COMMERCIAL_LICENSE_POLICY_TH.md) before adding model weights, pretrained voicepacks, training datasets, or bundling FFmpeg in portable releases. An MIT app license is not a commercial clearance for third-party assets.
+
+
 For the full rationale, detailed tasks, dependencies and acceptance tests, see [Project Vision (Thai)](PROJECT_VISION_TH.md), [Development Plan (Thai)](DEVELOPMENT_PLAN_TH.md), and [Requirements (Thai)](REQUIREMENTS_TH.md).
 
 **Status:** The initial foundation processes text; M1 has a working fixed-voice Thai CPU WAV preview. Voice cloning, live audio streaming, synced subtitle events and Windows portable EXEs remain planned; unchecked items are not implemented.

@@ -16,7 +16,7 @@
 
 ทั้งสองรายการรายงานความพร้อมผ่าน `GET /v1/engines`; UI ไม่ให้เลือก Engine ที่โมเดลยังไม่พร้อม และ `GET /v1/voices` คืนเสียงที่สอดคล้องกับแต่ละ Engine รวมถึงสถานะ `ready` ไม่มี Engine จำลองที่อ้างว่าใช้สร้างเสียงได้
 
-ข้อมูลอ้างอิง: https://github.com/PyThaiNLP/PyThaiTTS และ https://huggingface.co/pythainlp/MakHamTTS — **สิทธิ์โค้ดและสิทธิ์โมเดลต้องพิจารณาแยกกัน** ยังไม่ใส่โมเดลใน GitHub และยังไม่มี Portable ZIP
+ข้อมูลอ้างอิง: https://github.com/PyThaiNLP/PyThaiTTS และ https://huggingface.co/pythainlp/MakHamTTS — **สิทธิ์โค้ดและสิทธิ์โมเดลต้องพิจารณาแยกกัน** ยังไม่ใส่โมเดลใน GitHub และยังไม่มี Portable ZIP; โปรดดู [Commercial-First License Policy](COMMERCIAL_LICENSE_POLICY_TH.md) สำหรับสถานะการใช้งานเชิงพาณิชย์และ Release Gate
 
 ## Control ranges (ทั้ง Slider และ Numeric Input)
 

@@ -1,6 +1,6 @@
 # VoxWeaveTTS — แนวทางสร้างเสียงส่วนตัวและเทรนโมเดลภาษาไทย
 
-> **แผนงานในอนาคตเท่านั้น** (ณ v0.2.0.dev4) — ยังไม่มี Endpoint สำหรับฝึกโมเดลหรือ Voice Cloning
+> **แผนงานในอนาคตเท่านั้น** — ยังไม่มี Endpoint สำหรับฝึกโมเดลหรือ Voice Cloning; ใช้นโยบาย [Commercial-First License Policy](COMMERCIAL_LICENSE_POLICY_TH.md) ก่อนเลือกโมเดล/ฝึก/แจกจ่าย
 
 ## เหตุผลที่แยกระบบฝึกเสียงจากระบบอ่านคำ
 
@@ -11,6 +11,8 @@
 2. **Pronunciation Dictionary:** ผู้ใช้แก้คำอ่านหรือ IPA พร้อมบริบท/กฎ ใช้ได้หลาย Engine โดยไม่ต้องเทรนซ้ำ
 3. **Fine-tuning:** เมื่อ Engine, License และอุปกรณ์เหมาะสม จึงฝึกปรับโมเดลด้วยเสียงและข้อความที่จัดแนวถูกต้อง
 4. **Voice Style / Audio DSP:** ปรับ Pitch, Volume, EQ และอารมณ์ตามความสามารถของโมเดล แยกจากข้อมูลฝึก
+
+**Candidate เริ่มต้น:** VoxCPM2 (ผู้พัฒนาประกาศ Apache-2.0 สำหรับ code และ weights) เพราะรองรับทั้งภาษาไทยและ LoRA Fine-tuning แต่ยังต้องตรวจ Dependency/Voice Rights/Training Data ก่อนแจกจ่ายหรือใช้งานเชิงพาณิชย์จริง
 
 ## ขั้นตอนงานที่จะพัฒนา
 

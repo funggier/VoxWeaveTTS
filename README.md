@@ -66,3 +66,4 @@ The MIT license applies to **our code only**. Models, voice samples, dictionarie
 - [M1 real Thai audio setup and verification (Thai)](docs/M1_AUDIO_TH.md)
 - [Voice Studio engines and control ranges (Thai)](docs/VOICE_STUDIO_TH.md)
 - [Voice cloning and fine-tuning plan (Thai)](docs/VOICE_TRAINING_TH.md)
+- [Commercial-first license policy and model audit (Thai)](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
