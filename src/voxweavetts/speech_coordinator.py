@@ -16,6 +16,7 @@ from typing import Any, Callable
 from uuid import uuid4
 
 from .processing import InputError
+from .audio_alignment import AudioAlignmentProvider, PCMActivityProvider, BASIS as ACTIVITY_BASIS
 
 EVENT_SCHEMA_VERSION = 1
 MAX_JOBS = 12
@@ -94,12 +95,14 @@ class SpeechCoordinator:
         max_jobs: int = MAX_JOBS,
         max_total_audio_bytes: int = MAX_TOTAL_AUDIO_BYTES,
         ttl_seconds: float = JOB_TTL_SECONDS,
+        alignment_provider: AudioAlignmentProvider | None = None,
     ) -> None:
         if not callable(renderer):
             raise TypeError("renderer must be callable")
         if not 1 <= max_jobs <= 100 or max_total_audio_bytes < 1024 or ttl_seconds <= 0:
             raise ValueError("invalid coordinator limits")
         self._renderer = renderer
+        self._alignment_provider = alignment_provider if alignment_provider is not None else PCMActivityProvider()
         self._max_jobs = max_jobs
         self._max_total_audio_bytes = max_total_audio_bytes
         self._ttl_seconds = ttl_seconds
@@ -115,21 +118,29 @@ class SpeechCoordinator:
         self._thread.start()
 
     @staticmethod
-    def _public_timeline(info: dict[str, Any]) -> dict[str, Any]:
-        # Deliberately only allowlisted metadata, not arbitrary adapter fields.
+    def _public_timeline(
+        info: dict[str, Any],
+        activity_intervals: list[list[dict[str, int]]] | None = None,
+    ) -> dict[str, Any]:
+        # Allowlist public display metadata. Never expose original/spoken text.
         segments = []
-        for segment in info.get("segments", []):
-            segments.append({
+        for index, segment in enumerate(info.get("segments", [])):
+            clean = {
                 "kind": segment["kind"],
                 "display_text": segment["display_text"],
                 "start_ms": segment["start_ms"],
                 "end_ms": segment["end_ms"],
-            })
+            }
+            if activity_intervals is not None:
+                clean["activity_intervals"] = activity_intervals[index]
+            segments.append(clean)
         return {
             "duration_ms": info["duration_ms"],
             "sample_rate": info["sample_rate"],
             "segments": segments,
             "timing_basis": "generated_audio_samples_not_playback",
+            "activity_basis": ACTIVITY_BASIS if activity_intervals is not None else "unavailable",
+            "word_alignment": False,
         }
 
     def _transition(self, job: _Job, state: str, *, error: str | None = None) -> None:
@@ -232,7 +243,37 @@ class SpeechCoordinator:
                     or wav[:4] != b"RIFF" or wav[8:12] != b"WAVE"
                     or len(wav) > MAX_AUDIO_BYTES):
                     raise ValueError("invalid or excessive rendered WAV")
-                timeline = self._public_timeline(metadata)
+                try:
+                    activity = self._alignment_provider.analyze(
+                        wav, metadata["segments"])
+                    if activity is not None:
+                        if (not isinstance(activity, list)
+                            or len(activity) != len(metadata["segments"])):
+                            raise ValueError("invalid activity provider length")
+                        # Explicit public allowlist; untrusted future providers
+                        # cannot expose text or arbitrary metadata through API.
+                        safe_activity = []
+                        for part, intervals in zip(metadata["segments"], activity):
+                            if (not isinstance(intervals, list)
+                                or len(intervals) > 32):
+                                raise ValueError("invalid activity intervals")
+                            start, end = part["start_ms"], part["end_ms"]
+                            prior = start
+                            safe = []
+                            for item in intervals:
+                                left, right = item.get("start_ms"), item.get("end_ms")
+                                if (type(left) is not int or type(right) is not int
+                                    or not start <= prior <= left < right <= end
+                                    or part["kind"] != "speech"):
+                                    raise ValueError("invalid activity time bounds")
+                                safe.append({"start_ms":left,"end_ms":right})
+                                prior = right
+                            safe_activity.append(safe)
+                        activity = safe_activity
+                except Exception:
+                    # Optional analysis must never prevent successful WAV output.
+                    activity = None
+                timeline = self._public_timeline(metadata, activity)
                 with self._cv:
                     if job.state == "cancelled":
                         continue

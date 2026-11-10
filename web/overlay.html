@@ -29,7 +29,7 @@ body{display:flex;align-items:flex-end;justify-content:center;font-family:"Noto 
 "use strict";
 const subtitle=document.getElementById("subtitle");
 const query=new URLSearchParams(location.search);
-const mode=query.get("mode")==="estimated"?"estimated":"segment";
+const mode=["segment","estimated","activity"].includes(query.get("mode")) ? query.get("mode") : "segment";
 const modeQuery="?mode="+mode;
 let streamConnected=false;
 let inFlight=false;

@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Core v1
 
-> Implementation preview v0.3.0.dev5 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
+> Implementation preview v0.3.0.dev6 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
 
 ## เป้าหมาย
 
@@ -74,6 +74,10 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 ## Subtitle Relay ส่วนกลางสำหรับทุก Engine
 
 เมื่อ Browser เล่น WAV จริง จะรายงาน HTMLMediaElement.currentTime ไปยัง playback_state.py เพื่อเลือก Subtitle จาก Segment ที่ผ่านกฎกรองและให้ OBS Browser Source ดึงได้ที่ /overlay โดยไม่ต้องโหลดโมเดลในระบบเล่นเสียงและไม่ถือว่า Speech Job ready คือเริ่มเล่นแล้ว ดู [คู่มือ Playback/OBS](PLAYBACK_OVERLAY_TH.md)
+
+## ระบบวิเคราะห์ช่วงเสียง (Audio Activity)
+
+เพิ่ม AudioAlignmentProvider แบบ Engine-neutral ซึ่งตรวจพลังงานจาก WAV จริงหลังการสังเคราะห์เสียงและส่ง Activity Intervals ไปยัง OBS Mode activity ได้ (ดู [Audio Alignment](AUDIO_ALIGNMENT_TH.md)). ยังเป็น Energy-Based Activity Detection ไม่ใช่ Forced Word Alignment และไม่ต้องใช้โมเดลเสริม
 
 ## OBS Subtitle แบบ SSE และ Estimated Mode
 

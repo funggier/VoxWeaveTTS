@@ -12,7 +12,8 @@ from typing import Any
 
 MODE_SEGMENT = "segment"
 MODE_ESTIMATED = "estimated"
-MODES = frozenset({MODE_SEGMENT, MODE_ESTIMATED})
+MODE_ACTIVITY = "activity"
+MODES = frozenset({MODE_SEGMENT, MODE_ESTIMATED, MODE_ACTIVITY})
 
 
 def _clusters(value: str) -> list[str]:
@@ -87,5 +88,13 @@ def caption_for(
     cues = estimated_cues(segments) if mode == MODE_ESTIMATED else segments
     for cue in cues:
         if cue["start_ms"] <= position_ms < cue["end_ms"]:
-            return cue["display_text"] if cue["kind"] == "speech" else ""
+            if cue["kind"] != "speech":
+                return ""
+            if mode == MODE_ACTIVITY and "activity_intervals" in cue:
+                # Empty list means analyzed speech segment had no audible
+                # energy; do not show text over an all-silent waveform.
+                if not any(interval["start_ms"] <= position_ms < interval["end_ms"]
+                           for interval in cue["activity_intervals"]):
+                    return ""
+            return cue["display_text"]
     return ""

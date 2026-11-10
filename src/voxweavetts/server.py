@@ -179,8 +179,8 @@ class Handler(BaseHTTPRequestHandler):
     def _subtitle_mode(self) -> str:
         parameters = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
         values = parameters.get("mode", ["segment"])
-        if len(values) != 1 or values[0] not in {"segment", "estimated"}:
-            raise InputError("subtitle mode must be segment or estimated")
+        if len(values) != 1 or values[0] not in {"segment", "estimated", "activity"}:
+            raise InputError("subtitle mode must be segment, estimated or activity")
         return values[0]
 
     def _stream_playback(self) -> None:
@@ -279,6 +279,8 @@ class Handler(BaseHTTPRequestHandler):
                         "overlay_poll_interval_ms": 1000,
                         "subtitle_sse": True,
                         "estimated_subtitle_windows": True,
+                        "audio_activity_subtitles": True,
+                        "audio_activity_provider": "builtin-pcm16-energy-v1",
                         "word_level_alignment": False,
                         "portable_executable": False,
                     },

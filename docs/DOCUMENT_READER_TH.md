@@ -96,6 +96,10 @@ API: GET /v1/reading/progress?document_id=<SHA256>, POST /v1/reading/progress (I
 
 เมื่ออ่านนิยายเสียง สามารถดู Subtitle ของช่วงที่เสียงกำลังเล่นใน Document Reader และเปิด http://127.0.0.1:8765/overlay ใน OBS ได้กับทุก Engine. Caption เลือกจากเวลาที่ Browser รายงานด้วย audio.currentTime ทุกประมาณ 250 ms และซ่อนเมื่อหยุด/พัก/จบ หรือ Player ขาดการติดต่อ. เป็น Subtitle ระดับ Segment ยังไม่แยกตรงรายคำ. ดู [Playback/OBS Guide](PLAYBACK_OVERLAY_TH.md)
 
+## Audio Activity Mode
+
+Reader สามารถเปิด OBS Overlay ด้วย `?mode=activity` เพื่อซ่อน Subtitle ระหว่างช่วงเงียบใน WAV จริง โดยใช้ Python Standard Library วิเคราะห์ PCM และไม่ผูกกับ Engine แต่ยังไม่ใช่การจับเสียงรายคำ ดู [Audio Alignment](AUDIO_ALIGNMENT_TH.md)
+
 ## Subtitle แบบสตรีมมิงและการแบ่งช่วงข้อความทดลอง
 
 Reader ส่ง Audio Browser Clock ไป Subtitle Relay เดิม แต่ OBS Overlay รับการเปลี่ยนแปลงด้วย SSE ที่ `/v1/playback/stream` ได้แล้ว (HTTP Polling สำรองเมื่อขาดการเชื่อมต่อ) ส่วนโหมด `/overlay?mode=estimated` จะตัดข้อความยาวออกเป็นช่วงที่รักษาวรรณยุกต์ไทยและ Emoji แต่ **คาดเดาเวลาแสดงจากสัดส่วนข้อความเท่านั้น** ไม่ใช่การวิเคราะห์เสียงจริง ดู [PLAYBACK_OVERLAY_TH.md](PLAYBACK_OVERLAY_TH.md)

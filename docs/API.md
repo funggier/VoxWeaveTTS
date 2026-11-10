@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev5)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev6)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -65,9 +65,15 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
 
+## Audio Activity Metadata and Caption Mode (experimental)
+
+A successfully generated speech job's `audio` now includes `activity_basis` (PCM16 RMS energy heuristic or `unavailable`) and `word_alignment:false`. Each `audio.segments[]` may include a bounded array `activity_intervals:[{start_ms,end_ms}]` derived from the generated WAV (no waveform bytes or original text are included). If WAV decoding/analysis fails, generation still succeeds without activity intervals.
+
+`GET /v1/playback/state?mode=activity` and `GET /v1/playback/stream?mode=activity` use those intervals to hide captions during silent gaps. `subtitle_precision=pcm16_energy_activity_heuristic` signals that the result is NOT word-level alignment. If absent the mode falls back to the original segment timings and reports `subtitle_precision=generated_segment_fallback_no_activity`. See [Audio Alignment Guide](AUDIO_ALIGNMENT_TH.md).
+
 ## Local SSE Playback Stream and Estimated Captions (experimental)
 
-`GET /v1/playback/stream?mode=segment|estimated` is a **read-only Server-Sent Events** stream. Event name: `playback`, numeric `id` is the current in-memory state revision, `data` is the same JSON snapshot as GET /v1/playback/state. A new connection gets the current snapshot immediately, and changed state is pushed without polling. The server limits to 8 concurrent stream viewers per process, sends Keepalive comments, and closes each stream after 20 seconds so the Browser can reconnect. No history is replayed (snapshot-based reconnect). When the stream is unavailable, the OBS overlay polls `GET /v1/playback/state` as fallback.
+`GET /v1/playback/stream?mode=segment|estimated|activity` is a **read-only Server-Sent Events** stream. Event name: `playback`, numeric `id` is the current in-memory state revision, `data` is the same JSON snapshot as GET /v1/playback/state. A new connection gets the current snapshot immediately, and changed state is pushed without polling. The server limits to 8 concurrent stream viewers per process, sends Keepalive comments, and closes each stream after 20 seconds so the Browser can reconnect. No history is replayed (snapshot-based reconnect). When the stream is unavailable, the OBS overlay polls `GET /v1/playback/state` as fallback.
 
 Both endpoints accept `mode=segment` (default; full generated speech segment) and `mode=estimated` (optional, smaller grapheme-safe caption windows whose timing is **heuristically interpolated** within generated segment durations). Snapshot contains `subtitle_mode`, `subtitle_precision` (generated_segment or estimated_grapheme_windows) and `revision`. Neither mode provides word/phoneme alignment, and neither stream nor REST snapshots are an output-device hardware clock. Invalid mode returns HTTP 400.
 

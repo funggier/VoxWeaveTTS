@@ -14,7 +14,7 @@ import time
 from typing import Any
 
 from .processing import InputError
-from .subtitle_cues import MODES, MODE_SEGMENT, caption_for
+from .subtitle_cues import MODES, MODE_SEGMENT, MODE_ACTIVITY, caption_for
 
 SESSION_RE = re.compile(r"^[0-9a-f]{32}$")
 EVENTS = frozenset({"start", "progress", "paused", "resumed", "seeked", "ended", "stopped"})
@@ -106,13 +106,33 @@ class PlaybackState:
                 raise InputError("invalid timeline segment")
             kind, display = segment.get("kind"), segment.get("display_text")
             start, end = segment.get("start_ms"), segment.get("end_ms")
-            if (kind not in ("speech", "silence")
+            if (kind not in ("speech", "silence", "skip")
                 or not isinstance(display, str) or len(display) > 1200
                 or type(start) is not int or type(end) is not int
                 or not 0 <= previous <= start <= end <= duration):
                 raise InputError("invalid audio segment timing")
-            clean.append({"kind": kind, "display_text": display if kind == "speech" else "",
-                          "start_ms": start, "end_ms": end})
+            clean_segment = {
+                "kind": kind, "display_text": display if kind == "speech" else "",
+                "start_ms": start, "end_ms": end,
+            }
+            if "activity_intervals" in segment:
+                intervals = segment["activity_intervals"]
+                if not isinstance(intervals, list) or len(intervals) > 32:
+                    raise InputError("invalid audio activity intervals")
+                good_intervals = []
+                prior_end = start
+                for interval in intervals:
+                    if not isinstance(interval, dict):
+                        raise InputError("invalid audio activity interval")
+                    left, right = interval.get("start_ms"), interval.get("end_ms")
+                    if (type(left) is not int or type(right) is not int
+                        or not start <= prior_end <= left < right <= end
+                        or kind != "speech"):
+                        raise InputError("activity intervals exceed speech segment")
+                    good_intervals.append({"start_ms":left,"end_ms":right})
+                    prior_end = right
+                clean_segment["activity_intervals"] = good_intervals
+            clean.append(clean_segment)
             previous = end
         engine_id = job.get("engine_id")
         if not isinstance(engine_id, str) or not engine_id:
@@ -163,9 +183,22 @@ class PlaybackState:
             self._changed.notify_all()
             return self._snapshot()
 
+    @staticmethod
+    def _subtitle_precision(mode: str, segments: list[dict[str, Any]] | None) -> str:
+        if mode == "segment":
+            return "generated_segment"
+        if mode == "estimated":
+            return "estimated_grapheme_windows"
+        if segments is not None and any(
+            part["kind"] == "speech" and "activity_intervals" not in part
+            for part in segments
+        ):
+            return "generated_segment_fallback_no_activity"
+        return "pcm16_energy_activity_heuristic"
+
     def _snapshot(self, mode: str = MODE_SEGMENT) -> dict[str, Any]:
         if mode not in MODES:
-            raise InputError("subtitle mode must be segment or estimated")
+            raise InputError("subtitle mode must be segment, estimated or activity")
         session = self._active
         if session is None:
             return {
@@ -174,7 +207,7 @@ class PlaybackState:
                 "position_ms": 0, "duration_ms": 0,
                 "sequence": 0, "subtitle": "", "stale": False,
                 "revision": self._revision, "subtitle_mode": mode,
-                "subtitle_precision": "generated_segment" if mode == "segment" else "estimated_grapheme_windows",
+                "subtitle_precision": self._subtitle_precision(mode, None),
                 "clock_basis": "browser_html_media_current_time_reported",
             }
         elapsed = time.monotonic() - session.updated_mono
@@ -195,7 +228,7 @@ class PlaybackState:
             "sequence": session.sequence,
             "revision": self._revision,
             "subtitle_mode": mode,
-            "subtitle_precision": "generated_segment" if mode == "segment" else "estimated_grapheme_windows",
+            "subtitle_precision": self._subtitle_precision(mode, session.segments),
             "subtitle": "" if stale else self._cue(session, mode),
             "stale": stale,
             "clock_basis": "browser_html_media_current_time_reported",

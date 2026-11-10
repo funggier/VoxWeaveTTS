@@ -124,6 +124,9 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 6. M3 — Speech Coordinator, Queue และ Event Contract
 
+**เพิ่มใน v0.3.0.dev6:** Built-in Audio Activity Provider วิเคราะห์ PCM จาก WAV ด้วย Python Standard Library เพื่อซ่อน Subtitle ในช่วงไม่มีพลังงานเสียงจริง การตรวจพลังงานไม่ใช่การระบุตำแหน่งคำหรือพยางค์ (ดู [AUDIO_ALIGNMENT_TH.md](AUDIO_ALIGNMENT_TH.md)). Word Forced Alignment ยังเป็นงานถัดไปและต้องตรวจสิทธิ์โมเดลก่อน
+
+
 **เพิ่มใน v0.3.0.dev5:** เพิ่ม Server-Sent Events แบบ Local สำหรับส่ง Snapshot Subtitle จากการเล่นจริงไป OBS เมื่อสถานะเปลี่ยน โดยไม่ต้อง Poll ทุก 250ms และมี HTTP Fallback; เพิ่ม Estimated Subtitle Windows เป็นตัวเลือกที่แบ่งอักขระ Unicode ได้ปลอดภัยแต่ยังไม่จัดแนวเสียงรายคำจริง เหลืองาน Forced Alignment และ Secure Reconnect สำหรับ LAN
 
 **เพิ่มใน v0.3.0.dev4:** Browser Media Clock รับ currentTime จากเสียงที่กำลังเล่นจริง, POST Playback Event ไป Local API, และ OBS Browser Source ที่ /overlay เลือก Subtitle จาก Segment Timeline ที่สร้างขึ้น (ดู [PLAYBACK_OVERLAY_TH.md](PLAYBACK_OVERLAY_TH.md)). เป็นฐานทดลอง ไม่ใช่ Word Alignment หรือ Audio Hardware Clock

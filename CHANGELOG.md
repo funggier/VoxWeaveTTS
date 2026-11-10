@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev6 — Model-free PCM Audio Activity Alignment (2026-11-10)
+
+- Added a pluggable engine-neutral AudioAlignmentProvider contract and built-in stdlib PCM16 energy activity analyzer (20ms RMS windows, thresholding, noise floor, short-gap merging); no pretrained weights or new dependencies.
+- Speech Coordinator now annotates ready-job audio segment metadata with bounded speech-like energy intervals; analysis errors do not fail successful WAV synthesis.
+- Added third local OBS caption mode, /overlay?mode=activity, which hides captions over detected silent regions within generated speech segments without claiming real word-level forced alignment.
+- Activity metadata is allowlisted/validated through the public queue timeline and PlaybackState; no original private text or spoken replacement payload is published.
+- Added Python signal-based, negative, privacy, provider and playback tests. Precise Thai word/syllable audio alignment remains future work subject to commercial licensing review.
+
 ## 0.3.0.dev5 — Low-latency local SSE subtitles and estimated caption windows (2026-11-10)
 
 - Added a bounded local Server-Sent Events (SSE) transport at GET /v1/playback/stream; it sends initial and changed playback snapshots, has 8-client capacity, heartbeats, stale-caption transitions and auto-reconnect after 20s. Existing GET /v1/playback/state remains as fallback.

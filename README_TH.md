@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev5** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev6** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -21,6 +21,12 @@
 เพิ่ม Browser Playback Clock ที่ใช้ audio.currentTime ของเสียงซึ่งกำลังเล่นจาก Document Reader หรือ Speech Queue และหน้า http://127.0.0.1:8765/overlay สำหรับ OBS Browser Source แบบพื้นหลังโปร่งใส ใช้ร่วมกับทุก Engine และไม่เริ่มแสดง Subtitle เพียงเพราะสร้าง WAV เสร็จ เมื่อ Pause/Stop/Ended หรือ Browser หยุดรายงานเวลานาน ระบบจะซ่อน Subtitle
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
+
+## Audio Activity — Subtitle จากช่วงเสียงจริง (ทดลอง)
+
+เพิ่มโมดูลวิเคราะห์พลังงานสัญญาณ PCM จาก WAV ที่สร้างแล้ว โดยไม่ต้องมีโมเดลภายนอกหรือ Dependencies ใหม่ ใช้กับ TTS Engine ได้ทุกตัว และแยกออกจากตัว Engine ผ่าน AudioAlignmentProvider
+
+เปิด <http://127.0.0.1:8765/overlay?mode=activity> เพื่อทดลอง Subtitle ที่ซ่อนในช่วงเงียบซึ่งตรวจพบจาก Waveform จริง **นี่ไม่ใช่ Forced Alignment ระดับคำหรือพยางค์** การระบุว่าคำไหนกำลังออกเสียงยังต้องอาศัยโมเดลหรือ Aligner เพิ่มในอนาคต ซึ่งจะต้องตรวจสิทธิ์เชิงพาณิชย์ก่อน ดู [คู่มือ Audio Alignment](docs/AUDIO_ALIGNMENT_TH.md)
 
 ## OBS Subtitle แบบ SSE และช่วงข้อความที่ประมาณเวลา (ทดลอง)
 
