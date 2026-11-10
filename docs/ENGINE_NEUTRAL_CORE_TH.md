@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Core v1
 
-> Implementation preview v0.3.0.dev7 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
+> Implementation preview v0.3.0.dev8 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
 
 ## เป้าหมาย
 
@@ -74,6 +74,10 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 ## Subtitle Relay ส่วนกลางสำหรับทุก Engine
 
 เมื่อ Browser เล่น WAV จริง จะรายงาน HTMLMediaElement.currentTime ไปยัง playback_state.py เพื่อเลือก Subtitle จาก Segment ที่ผ่านกฎกรองและให้ OBS Browser Source ดึงได้ที่ /overlay โดยไม่ต้องโหลดโมเดลในระบบเล่นเสียงและไม่ถือว่า Speech Job ready คือเริ่มเล่นแล้ว ดู [คู่มือ Playback/OBS](PLAYBACK_OVERLAY_TH.md)
+
+## Waveform Editor สำหรับการทำ Manual Cues
+
+เพิ่มตัวอ่าน PCM16 WAV และ Canvas Waveform ใน Browser แยกเป็น web/waveform_editor.js รองรับซูม/เลื่อน/เลือกเวลาและ HiDPI จากเสียงที่สร้างโดย Engine ใดก็ได้ (หากให้ PCM16 WAV). การลากเลือกเวลาจะปรับเฉพาะฟอร์ม Manual Alignment ไม่กระทบ Engine หรือ WAV และไม่มีการบันทึกเสียงเพิ่ม ดู [Waveform Guide](WAVEFORM_EDITOR_TH.md)
 
 ## Manual Subtitle Cues จากการฟังจริง
 

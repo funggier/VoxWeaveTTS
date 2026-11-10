@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev7** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev8** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -21,6 +21,12 @@
 เพิ่ม Browser Playback Clock ที่ใช้ audio.currentTime ของเสียงซึ่งกำลังเล่นจาก Document Reader หรือ Speech Queue และหน้า http://127.0.0.1:8765/overlay สำหรับ OBS Browser Source แบบพื้นหลังโปร่งใส ใช้ร่วมกับทุก Engine และไม่เริ่มแสดง Subtitle เพียงเพราะสร้าง WAV เสร็จ เมื่อ Pause/Stop/Ended หรือ Browser หยุดรายงานเวลานาน ระบบจะซ่อน Subtitle
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
+
+## Waveform Editor — มองเห็นคลื่นเสียงและกำหนดช่วงเวลาได้ละเอียดขึ้น
+
+เพิ่ม Waveform จาก PCM16 WAV จริงที่ Speech Queue สร้างแล้วในแผง Manual Alignment รองรับซูม 1–32 เท่า เลื่อนดูช่วงอื่น คลิกเลื่อน Audio Player ลากคลื่นเพื่อกำหนดเวลาเริ่ม–จบ และกดลูกศรขยับเวลา 25ms (Shift = 5ms). Canvas ปรับตามขนาดหน้าจอ/HiDPI ไม่ใช้โมเดลหรือไลบรารีภายนอก และยังบันทึก Cue ตามขั้นตอนเดิมเท่านั้น
+
+Waveform เป็นเครื่องมือช่วย **ตรวจฟังและ Mark เวลาเอง** ไม่ใช่ระบบรู้จำคำจากเสียงโดย AI ดู [คู่มือ Waveform Editor](docs/WAVEFORM_EDITOR_TH.md)
 
 ## Manual Alignment — จับเวลา Subtitle รายคำ/วลีจากเสียงที่ฟังเอง
 

@@ -24,11 +24,17 @@ async function main(){
            manual_cues:[]},
   };
   let playbackReset=0;
+  const waveformActions={loads:[],resets:0,draws:0};
+  const waveform={
+    load:async id=>{waveformActions.loads.push(id);},
+    reset:()=>{waveformActions.resets++;},
+    draw:()=>{waveformActions.draws++;},
+  };
   const player={currentTime:0,paused:true};
   const posts=[];
   const downloaded=[];
   const sandbox={
-    window:{},Blob,TextDecoder,Promise,JSON,Array,Number,URL:{
+    window:{VoxWaveformEditor:{attach:()=>waveform}},Blob,TextDecoder,Promise,JSON,Array,Number,URL:{
       createObjectURL:()=> "blob:manual",revokeObjectURL:()=>{},
     },
     setTimeout:(fn)=>fn(),
@@ -68,6 +74,8 @@ async function main(){
     el,player,getJobId:()=>id,onSaved:()=>{playbackReset++;}
   });
   await editor.load();
+  assert.deepEqual(waveformActions.loads,[id]);
+  assert.equal(waveformActions.resets,1);
   assert.equal(el("alignmentSegment").options.length,1);
   assert.equal(el("alignmentText").value,text);
   // Highlight the first Thai grapheme, using JS UTF-16 offsets.
@@ -110,6 +118,15 @@ async function main(){
   el("alignmentDownload").click();
   await Promise.resolve();
   assert.deepEqual(downloaded,["voxweavetts-manual-cues.json"]);
+  assert.ok(waveformActions.draws>=3,"Manual editor changes should refresh waveform");
+  // If Canvas 2D is unsupported, manual editing must remain usable.
+  sandbox.window.VoxWaveformEditor.attach=()=>{throw Error("Canvas 2D unavailable");};
+  const numericOnly=sandbox.window.VoxManualAlignment.attach({
+    el,player,getJobId:()=>id,onSaved:()=>{}
+  });
+  await numericOnly.load();
+  assert.equal(el("alignmentText").value,text);
+  assert.equal(el("alignmentSegment").options.length,1);
   console.log("PASS: manual cue selection with Thai/emoji offsets, WAV marks, save revision, playback guard, metrics and JSON export");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

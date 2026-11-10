@@ -1,6 +1,6 @@
 # Manual Alignment Workbench — VoxWeaveTTS
 
-> v0.3.0.dev7 (ทดลอง) | ไม่ต้องใช้ ASR หรือโมเดลภายนอก
+> v0.3.0.dev8 (ทดลอง) | ไม่ต้องใช้ ASR หรือโมเดลภายนอก
 
 ## หลักการ
 
@@ -19,6 +19,14 @@
 7. เปิด http://127.0.0.1:8765/overlay?mode=manual เพื่อทดลอง Subtitle ใน OBS Browser Source
 
 ส่วนที่ไม่ได้สร้าง Cue จะไม่แสดงข้อความใน Manual Mode. การแก้ Timeline ไม่มีผลกับไฟล์ WAV และยังใช้กับ TTS Engine ได้ทุกตัว
+
+## Waveform Editor (v0.3.0.dev8)
+
+หลังโหลด Speech Job ที่ Ready ระบบจะแสดงคลื่นเสียงของ WAV จริง (PCM16 Mono/Stereo). ซูม 1–32 เท่าและเลื่อนตำแหน่งในหน้าได้ คลิกที่คลื่นเพื่อ Seek Audio Player และคลิกลากเพื่อกำหนดช่อง Start/End Milliseconds จากคลื่นโดยตรง หากต้องการปรับละเอียดให้ Focus ที่ Waveform แล้วกดลูกศรซ้าย/ขวา (25ms, Shift = 5ms) หรือใช้ปุ่ม Mark จากตำแหน่งเสียงที่กำลังเล่น
+
+สีคลื่นฟ้า = พลังงาน/Peak จาก WAV; น้ำเงิน = Speech; ชมพูเข้ม = Silence/Mask; เขียว = Cue ที่กำหนดแล้ว; เหลือง = ช่วงเลือก; แดง = Playhead. เมื่อแก้เวลาบน Waveform จะ **ไม่บันทึก Cue อัตโนมัติ** ต้องเลือกข้อความและกด เพิ่ม Cue, ตามด้วย ใช้เวลา Subtitle ในงานนี้ เหมือนเดิม
+
+หาก WAV ไม่ใช่ PCM16 หรือ Browser ไม่สามารถวาด Canvas ได้ จะยังใช้ช่องเวลาและแถบ Audio Player ตามปกติ โปรดดู [คู่มือ Waveform](WAVEFORM_EDITOR_TH.md).
 
 ## JSON Cues
 

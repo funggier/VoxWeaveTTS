@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev8 — Browser PCM16 Waveform Editor for Manual Alignment (2026-11-10)
+
+- Added independent web/waveform_editor.js: parses generated PCM16 RIFF/WAVE (mono/stereo 8–96kHz), builds a bounded 256-frame peak envelope and draws a HiDPI-aware waveform with speech/silence regions, local manual cue spans, selection marks and player position. No extra model, library, cloud calls or disk persistence.
+- Added zoom (1–32×), horizontal pan, click-to-seek, drag-to-set Start/End milliseconds and keyboard audio seeking (25ms, Shift 5ms). Waveform edits only the form until the user explicitly saves manual cues to a ready Speech Job.
+- Integrated the waveform with the existing in-memory manual cue/revision workflow and served its static JS from the loopback HTTP server. Unsupported WAV formats leave the original numeric/manual timecode editor usable.
+- Added synthetic PCM16 waveform interaction smoke tests, integrated manual editor smoke checks and HTTP asset tests. Real Thai audio cue recognition remains absent; no automatic word-level forced alignment is claimed.
+- Added instructions for building a rights-cleared, listener-reviewed Thai boundary benchmark; no accuracy data is fabricated.
+
 ## 0.3.0.dev7 — User-reviewed manual subtitle alignment and timing evaluation (2026-11-10)
 
 - Added a model-neutral Manual Alignment Workbench: select a span of filtered display text, mark its start/end from the Browser's WAV currentTime, and edit/import/export bounded JSON timecodes. No external models, weights, or cloud services.

@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev7)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev8)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -64,6 +64,10 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 ## Rules and Pronunciations JSON editor
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
+
+## Browser Waveform Asset (implemented preview)
+
+GET /waveform_editor.js returns the standalone, no-dependency PCM16 RIFF/WAVE Browser waveform viewer with Cache-Control: no-store. The viewer fetches already-ready WAV bytes from the existing GET /v1/jobs/{speech_id}/audio and renders a local peak envelope (no new waveform endpoint or server-side audio processing). Clicking/dragging changes Player position and the local Manual Alignment form. Only explicit POST /v1/jobs/{speech_id}/alignment updates the in-memory, revision-guarded cue list. No automatic word/phoneme alignment is introduced. See [Waveform Guide](WAVEFORM_EDITOR_TH.md).
 
 ## User-reviewed Manual Timecode Cues (implemented preview)
 

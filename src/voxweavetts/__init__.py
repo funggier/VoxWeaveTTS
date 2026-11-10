@@ -1,2 +1,2 @@
 """VoxWeaveTTS: local-first Thai speech processing foundation."""
-__version__ = "0.3.0.dev7"
+__version__ = "0.3.0.dev8"

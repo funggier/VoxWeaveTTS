@@ -7,6 +7,27 @@ function attach({el, player, getJobId, onSaved}) {
   let job=null;
   const get=id=>el(id);
   function status(message){get("alignmentStatus").textContent=message;}
+  let wave=null;
+  if (root.VoxWaveformEditor) {
+    try {
+      wave=root.VoxWaveformEditor.attach({
+        canvas:get("alignmentWaveform"),player,
+        zoomInput:get("alignmentZoom"),panInput:get("alignmentPan"),
+        startInput:get("alignmentStart"),endInput:get("alignmentEnd"),
+        onFeedback:status,
+        getSegments:()=>job?.audio?.segments||[],
+        getCues:()=>{
+          try{
+            const all=visibleCues();
+            return Array.isArray(all)?all.slice(0,128):[];
+          }catch{return [];}
+        }
+      });
+    } catch(error) {
+      // A missing canvas renderer must never break the numeric cue editor.
+      status("Waveform ไม่พร้อม ใช้ช่องเวลาแบบเดิมได้: "+String(error.message||error));
+    }
+  }
   function visibleCues(){return JSON.parse(get("alignmentJson").value);}
   function serializeCues(items){return JSON.stringify(items,null,2);}
   function minimal(items) {
@@ -29,6 +50,7 @@ function attach({el, player, getJobId, onSaved}) {
     const found=await response.json();
     if(!response.ok||found.state!=="ready")throw Error(found.error||"งานเสียงยังไม่พร้อม");
     job=found;
+    wave?.reset();
     const options=get("alignmentSegment");
     options.replaceChildren();
     found.audio.segments.forEach((part,index)=>{
@@ -43,12 +65,17 @@ function attach({el, player, getJobId, onSaved}) {
     selectSegment();
     get("alignmentJson").value=serializeCues(found.audio.manual_cues||[]);
     status("พร้อมกำหนดเวลา · Revision "+found.alignment_revision+" · เลือกข้อความในกล่องแล้วจับเวลาเสียง");
+    if (wave) {
+      try { await wave.load(found.speech_id); }
+      catch(error) { status("โหลดงานแล้ว แต่ Waveform ไม่พร้อม: "+String(error.message||error)); }
+    }
   }
   function mark(id){
     if(!job)throw Error("โหลดงานเสียงที่พร้อมก่อน");
     const time=Math.round(Number(player.currentTime||0)*1000);
     if(!Number.isInteger(time)||time<0)throw Error("ตำแหน่ง Audio ไม่ถูกต้อง");
     get(id).value=String(time);
+    wave?.draw();
     status("บันทึกจุดเวลา "+time+" ms (เลือกคำแล้วกดเพิ่มช่วง)");
   }
   function add(){
@@ -67,6 +94,7 @@ function attach({el, player, getJobId, onSaved}) {
                start_ms:startMs,end_ms:endMs});
     cues.sort((a,b)=>a.start_ms-b.start_ms);
     get("alignmentJson").value=serializeCues(cues);
+    wave?.draw();
     status("เพิ่ม Cue "+JSON.stringify(text.slice(box.selectionStart,box.selectionEnd))+
       " แล้ว · ตรวจรายการก่อนบันทึก");
   }
@@ -83,6 +111,7 @@ function attach({el, player, getJobId, onSaved}) {
     if(!response.ok)throw Error(data.error||"บันทึก Alignment ไม่ได้");
     job=data;
     get("alignmentJson").value=serializeCues(cues);
+    wave?.draw();
     onSaved(data);
     status("บันทึก Timecodes ในหน่วยความจำของงานสำเร็จ (Revision "+
       data.alignment_revision+") · กด Play ใหม่แล้วเปิด /overlay?mode=manual");
@@ -115,12 +144,12 @@ function attach({el, player, getJobId, onSaved}) {
       Promise.resolve().then(fn).catch(err=>status(String(err.message||err)));
     });
   }
-  get("alignmentSegment").addEventListener("change",selectSegment);
+  get("alignmentSegment").addEventListener("change",()=>{selectSegment();wave?.draw();});
   bind("alignmentLoad",load);
   bind("alignmentMarkStart",()=>mark("alignmentStart"));
   bind("alignmentMarkEnd",()=>mark("alignmentEnd"));
   bind("alignmentAdd",add);
-  bind("alignmentFormat",()=>{get("alignmentJson").value=serializeCues(minimal(visibleCues()));status("จัดรูปแบบ JSON แล้ว");});
+  bind("alignmentFormat",()=>{get("alignmentJson").value=serializeCues(minimal(visibleCues()));wave?.draw();status("จัดรูปแบบ JSON แล้ว");});
   bind("alignmentSave",save);
   bind("alignmentDownload",download);
   bind("alignmentCompare",compare);
@@ -132,6 +161,7 @@ function attach({el, player, getJobId, onSaved}) {
       if(file.size>32768)throw Error("ไฟล์ Alignment ต้องไม่เกิน 32 KiB");
       const raw=new TextDecoder("utf-8",{fatal:true}).decode(await file.arrayBuffer()).replace(/^\uFEFF/,"");
       get("alignmentJson").value=serializeCues(minimal(JSON.parse(raw)));
+      wave?.draw();
       status("นำเข้า JSON แล้ว · ตรวจช่วงและกดบันทึกในงานอีกครั้ง");
     }catch(err){status(String(err.message||err));}
     finally{get("alignmentImportFile").value="";}

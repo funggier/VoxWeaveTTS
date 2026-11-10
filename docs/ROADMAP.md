@@ -71,6 +71,8 @@ Read [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md) for contract and current l
 - [x] Optional Unicode-grapheme caption windows with **estimated** internal segment timing
 - [x] Lightweight PCM16 audio activity detection independent of TTS Engine, with silent-gap cue masking and pluggable AlignmentProvider
 - [x] User-reviewed word/phrase timing editor, validated public-text offsets, local JSON export/import and in-memory cue revisions
+- [x] Browser PCM16 Waveform Editor with responsive high-DPI peaks, zoom/pan, click-to-seek, time-range drag and keyboard nudge
+- [ ] Real listener-reviewed Thai reference waveform/timecode corpus with consent and hash-based session binding
 - [x] Reference timing evaluation metrics: coverage, mean/max boundary error, within-100ms
 - [ ] True automatic word/syllable alignment from speech audio, and authenticated multi-client playback ownership
 - [ ] Sentence/subsentence segments, optional word alignment

@@ -36,3 +36,4 @@ jobs:
           node tests/playback_clock_smoke.cjs
           node tests/overlay_sse_smoke.cjs
           node tests/manual_alignment_ui_smoke.cjs
+          node tests/waveform_editor_smoke.cjs

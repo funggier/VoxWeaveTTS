@@ -212,6 +212,14 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <details style="margin-top:18px">
 <summary style="cursor:pointer;font-weight:600">Manual Alignment — กำหนดเวลา Subtitle จากเสียง WAV ที่สร้างแล้ว (ทดลอง)</summary>
 <p class="small">เลือกงานที่สร้างเสียงเสร็จแล้ว ไฮไลต์ข้อความในช่อง Segment ตั้งตำแหน่งเริ่ม–จบจากแถบเสียงด้านบน และกดเพิ่ม Cue เพื่อกำหนดตำแหน่งข้อความตามเสียงจริงด้วยตนเอง ไม่ใช่การจับคำอัตโนมัติ</p>
+<div style="margin:12px 0">
+<canvas id="alignmentWaveform" tabindex="0" role="img" aria-label="Waveform: คลิกเพื่อเลื่อนตำแหน่งเสียง ลากเพื่อเลือกช่วง กดลูกศรเพื่อขยับเวลา" style="width:100%;height:190px;display:block;touch-action:none;cursor:crosshair;border:1px solid #435b75;border-radius:8px"></canvas>
+<div class="voice-grid">
+<label style="flex:1;min-width:150px" for="alignmentZoom">ซูม Waveform (1–32×)<input id="alignmentZoom" type="range" min="1" max="32" step="1" value="1"></label>
+<label style="flex:2;min-width:170px" for="alignmentPan">เลื่อนตำแหน่งที่แสดง<input id="alignmentPan" type="range" min="0" max="1000" step="1" value="0" disabled></label>
+</div>
+<p class="small">คลิกคลื่นเพื่อเลื่อน Audio Player · ลากบนคลื่นเพื่อกำหนดเวลาเริ่ม–จบ · แป้น ← → ขยับ 25 ms (Shift = 5 ms) · แถบเขียวคือ Cue ที่บันทึกใน JSON · ส่วนสีชมพูคือ Silence/Mask · เส้นแดงคือตำแหน่งเล่น</p>
+</div>
 <div class="voice-grid"><button type="button" id="alignmentLoad">โหลดงานล่าสุดที่ Ready</button>
 <div><label for="alignmentSegment">Speech Segment</label><select id="alignmentSegment" style="min-width:180px"></select></div></div>
 <label for="alignmentText">ไฮไลต์ข้อความช่วงที่กำลังได้ยิน (อ่านอย่างเดียว)</label>
@@ -243,6 +251,7 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <p class="small">API: <code>GET /v1/status</code>, <code>GET /v1/engines</code>, <code>POST /v1/text/process</code>, <code>POST /v1/speech</code> · MIT applies to project code, not third-party voice models.</p>
 </main>
 <script src="/playback_clock.js"></script>
+<script src="/waveform_editor.js"></script>
 <script src="/manual_alignment.js"></script>
 <script>
 "use strict";

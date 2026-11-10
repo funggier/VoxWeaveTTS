@@ -241,8 +241,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js"}:
-                name = ("manual_alignment.js" if route == "/manual_alignment.js" else
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js"}:
+                name = ("waveform_editor.js" if route == "/waveform_editor.js" else
+                        "manual_alignment.js" if route == "/manual_alignment.js" else
                         "playback_clock.js" if route == "/playback_clock.js"
                         else "overlay.html" if route in {"/overlay", "/overlay.html"}
                         else "index.html")

@@ -12,6 +12,10 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Browser Waveform Visualization (engine-independent)
+
+The standalone web/waveform_editor.js reads the generated WAV from GET /v1/jobs/{speech_id}/audio, decodes PCM16 RIFF/WAVE in Browser memory, and caches min/max amplitude envelopes in 256-sample blocks. Canvas is responsive to display resolution (DPR capped at 2) and exposes zoom, pan, click-to-seek, drag time selection and keyboard seeking. The Browser does not upload or persist any waveform data; manual timecodes are still validated and stored through SpeechCoordinator's existing in-memory manual-cue API. This visual analyzer provides no automatic word timing, and unsupported WAV formats do not block the numeric editor. See [Waveform Guide](WAVEFORM_EDITOR_TH.md).
+
 ## User-reviewed Manual Alignment (engine-neutral)
 
 manual_alignment.py validates selected filtered-display text offsets and user-marked audio timestamps and measures timing error against a user-verified reference; SpeechCoordinator stores cues as bounded in-memory Ready-Job metadata with optimistic revision checking. The Browser Workbench captures currentTime with text selections (UTF-16 browser positions converted to Python Unicode codepoint offsets), while PlaybackState publishes only reviewed cues through /overlay?mode=manual. No arbitrary user-supplied cue text or new model weights enter the system. See [Manual Alignment](MANUAL_ALIGNMENT_TH.md).
