@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.3.0.dev3 Engine-Neutral Reader preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
+> **Current status (v0.3.0.dev4 Browser Media-Clock Subtitle preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, word/phoneme subtitle alignment, a native hardware Playback Clock, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
 
 ## Goals
 
@@ -29,7 +29,7 @@ The text pipeline, engine registry, queue, event statuses and result delivery ar
 
 - Job states: `queued → rendering → ready`, or `cancelled/failed` (ready means generated, not played).
 - FIFO + source message dedup + explicit cancellation + bounded in-memory audio / job limits.
-- Versioned job events; no claim of playback/OBS synchronization yet.
+- Versioned preparation events; browser media-clock reports now drive a local OBS segment-level subtitle overlay (not sample-accurate OBS sync).
 - All engines retain `commercial_status: review_required` unless their complete artifact and dependencies pass an audit.
 
 See [Engine-Neutral Core architecture (Thai)](docs/ENGINE_NEUTRAL_CORE_TH.md).
@@ -37,6 +37,10 @@ See [Engine-Neutral Core architecture (Thai)](docs/ENGINE_NEUTRAL_CORE_TH.md).
 ## Readable Rules / Pronunciations JSON editor
 
 The existing **Rules JSON array** and **Pronunciations JSON object** now provide format, syntax/type check, download and quick-entry actions. Quick entry uses JSON.stringify to escape quotation marks, backslashes and Unicode safely. Formatting preserves the rule array's order. **Save in Program** now persists validated config under ignored local `data/filters/rules.json` and `data/dictionaries/pronunciations.json`; saved rules reload on app start and are shared by all Engines. The editor also supports importing previously exported JSON files. Concurrency is protected by section-specific SHA-256 revisions (HTTP 409 on conflict), and file downloads remain separate from server persistence. See [Thai JSON pronunciation guide](docs/PRONUNCIATION_JSON_TH.md).
+
+## Browser media-clock subtitle overlay (implemented preview)
+
+When a generated WAV actually plays in the document reader or job queue player, a shared browser media-clock adapter reports currentTime, seek, pause, resume, end and stop to the local Playback API. A read-only transparent OBS overlay can open http://127.0.0.1:8765/overlay. The overlay follows Browser-reported time, hides silenced segments, and automatically hides stale captions. It does NOT play audio itself; capture audio from the original player separately in OBS. This is SEGMENT-level timing, not word/phoneme alignment or hardware-output-accurate synchronization. See [Playback and OBS guide (Thai)](docs/PLAYBACK_OVERLAY_TH.md).
 
 ## Resume reading and one-chunk-at-a-time playback (implemented preview)
 

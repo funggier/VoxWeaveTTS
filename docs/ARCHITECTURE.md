@@ -12,6 +12,10 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Browser Playback State and Local OBS Subtitles (implemented preview)
+
+The Player HTMLMediaElement.currentTime (not model-completion time) is reported via web/playback_clock.js to src/voxweavetts/playback_state.py. The service validates and relays only the ready-job DISPLAY segments with monotonically increasing sequences and stale-caption expiry. GET /v1/playback/state feeds a transparent GET /overlay Browser Source. Pause/end/stop hide the subtitle. Missing: word-level forced alignment, direct OS audio clock, secure remote/LAN event stream. See [Playback/OBS](PLAYBACK_OVERLAY_TH.md).
+
 ## Private engine-neutral reading progress (implemented)
 
 `reading_progress.py` persists only document SHA-256 keys, chunk configuration, next unread chunk and timestamp through atomic writes and per-document optimistic revisions; content and raw text stay in the browser and in ephemeral Speech Jobs, not in the reading progress file. The browser's audio 'ended' event advances the next-chunk position and optionally submits exactly one next chunk through the current queue. This is **not** a synchronized external player clock or OBS event bus.
@@ -58,4 +62,4 @@ The stdlib text pipeline (`src/voxweavetts/processing.py`) performs literal long
 - `LiveConnectors`: separately configured Discord and YouTube adapters with OAuth/bot tokens never in public repo.
 - `PortableBuilder`: deterministic Windows build that bundles runtime; model packs kept separate subject to licensing.
 
-The live Input Adapters and actual playback-clock timing are not yet implemented. See [VOICE_STUDIO_TH.md](VOICE_STUDIO_TH.md) and [VOICE_TRAINING_TH.md](VOICE_TRAINING_TH.md).
+Live Input Adapters and a hardware audio-device playback clock are not yet implemented; the local Browser-reported media clock and OBS overlay preview are available. See [VOICE_STUDIO_TH.md](VOICE_STUDIO_TH.md) and [VOICE_TRAINING_TH.md](VOICE_TRAINING_TH.md).

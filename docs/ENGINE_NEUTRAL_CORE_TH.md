@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Core v1
 
-> Implementation preview v0.3.0.dev3 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
+> Implementation preview v0.3.0.dev4 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
 
 ## เป้าหมาย
 
@@ -13,7 +13,7 @@
 3. **Speech Coordinator** — เก็บ Speech Job พร้อม ID, FIFO Queue, Dedup, Cancel, Status, จำกัด Memory และ Event
 4. **Engine Registry** — ลงทะเบียน Factory ของโมเดล พร้อม Descriptor/Capability/Version (ไม่มีการโหลด Python Plugin อัตโนมัติ)
 5. **WAV Renderer + Voice DSP** — รับ PCM16 จาก Adapter แล้วรวม Silence และ Export WAV พร้อมระยะเวลาต่อ Segment
-6. **Playback Clock** — ยังไม่พัฒนา; เมื่อมีจริงจะเชื่อม OBS / Event Stream และ Subtitle กับเวลาที่เสียงเล่นจริง
+6. **Playback Clock** — มี Browser Media CurrentTime + Segment Subtitle + OBS Overlay ใช้งาน Local แล้ว แต่ยังไม่มี Hardware Clock/Word-Level Alignment
 
 ## Engine Adapter Contract v1
 
@@ -71,12 +71,16 @@ Cancel ระหว่าง ONNX กำลัง Inference ไม่ได้�
 
 Queue ยังเก็บอยู่ใน RAM เท่านั้น และไม่อยู่ข้าม Restart; ข้อความต้นฉบับ/Spoken Plan ถูกเก็บเป็นข้อมูลส่วนตัวระหว่างรอประมวลผลและจะถูกล้างหลังได้ผลสำเร็จหรือผิดพลาด Public Job/Event API คืนเฉพาะข้อความ Subtitle ที่ผ่านการกรองแล้ว ไม่มี Spoken/Original และ Exception ของโมเดล
 
+## Subtitle Relay ส่วนกลางสำหรับทุก Engine
+
+เมื่อ Browser เล่น WAV จริง จะรายงาน HTMLMediaElement.currentTime ไปยัง playback_state.py เพื่อเลือก Subtitle จาก Segment ที่ผ่านกฎกรองและให้ OBS Browser Source ดึงได้ที่ /overlay โดยไม่ต้องโหลดโมเดลในระบบเล่นเสียงและไม่ถือว่า Speech Job ready คือเริ่มเล่นแล้ว ดู [คู่มือ Playback/OBS](PLAYBACK_OVERLAY_TH.md)
+
 ## ข้อจำกัดและงานต่อไป
 
-- Browser รองรับเล่น WAV ทีละช่วงจากเอกสาร พร้อม Pause/Resume/Stop และ Bookmark แบบ Local แล้ว แต่ **ยังไม่มี** Service-level Audio Playback Clock, Priority, Persistent Speech Queue, Real-Time Audio Streaming หรือ OBS Subtitle Sync
+- Browser รองรับเล่น WAV ทีละช่วงจากเอกสาร พร้อม Pause/Resume/Stop และ Bookmark แบบ Local แล้ว แต่ มี Browser Media-Time Reporting และ OBS Overlay ระดับ Segment แล้ว แต่ **ยังไม่มี** Hardware-Level Clock, Word Alignment, Priority, Persistent Speech Queue หรือ Real-Time Audio Streaming
 - ไม่ได้สร้างโมเดลใหม่หรือเทรนโมเดลในขั้นนี้
-- การเล่น WAV ผ่าน Browser เป็นการเล่นจาก UI แต่ยังไม่เชื่อม Event กับ Audio Playback Clock
-- เพิ่ม Input TXT/Markdown และแยกบท/ช่วงแล้ว ดู [Document Reader](DOCUMENT_READER_TH.md); เพิ่มการจดตำแหน่งอ่าน/เล่นทีละช่วงแล้ว ดู [Document Reader](DOCUMENT_READER_TH.md); งานถัดไปคือ Player Clock, Simulator และ Timeline Event Bus
+- การเล่น WAV ผ่าน Browser ส่งค่า CurrentTime เป็นระยะให้ Overlay แล้ว; ยังไม่ใช่ Audio Hardware Clock และไม่ใช่ Word Alignment
+- เพิ่ม Input TXT/Markdown และแยกบท/ช่วงแล้ว ดู [Document Reader](DOCUMENT_READER_TH.md); เพิ่มการจดตำแหน่งอ่าน/เล่นทีละช่วงแล้ว ดู [Document Reader](DOCUMENT_READER_TH.md); งานถัดไปคือ Hardware/External Player Clock, Simulator และ Push Event Bus
 - ก่อนพัฒนาโมเดล/Training Worker ให้ผ่านข้อกำหนดเรื่องสิทธิ์จาก [Commercial-First Policy](COMMERCIAL_LICENSE_POLICY_TH.md)
 
 ## ผลตรวจสอบ

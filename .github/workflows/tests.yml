@@ -33,3 +33,4 @@ jobs:
         run: |
           node tests/json_settings_ui_smoke.cjs
           node tests/reading_ui_smoke.cjs
+          node tests/playback_clock_smoke.cjs

@@ -124,6 +124,10 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 6. M3 — Speech Coordinator, Queue และ Event Contract
 
+**เพิ่มใน v0.3.0.dev4:** Browser Media Clock รับ currentTime จากเสียงที่กำลังเล่นจริง, POST Playback Event ไป Local API, และ OBS Browser Source ที่ /overlay เลือก Subtitle จาก Segment Timeline ที่สร้างขึ้น (ดู [PLAYBACK_OVERLAY_TH.md](PLAYBACK_OVERLAY_TH.md)). เป็นฐานทดลอง ไม่ใช่ Word Alignment หรือ Audio Hardware Clock
+
+
+
 **สถานะปัจจุบัน: M3 Core Partial (v0.3.0.dev0)** — พัฒนา Engine-neutral Registry และ Preparation Queue แล้ว โดยทดสอบด้วย Fake Engine โดยไม่ต้องติดตั้งโมเดล, และทดสอบ WAV ของ MakHam/FastThaiG2P จริงผ่าน HTTP Queue API ด้วย แต่ **Playback Clock / Pause / OBS / WebSocket ยังไม่ได้ทำ** ดู [ENGINE_NEUTRAL_CORE_TH.md](ENGINE_NEUTRAL_CORE_TH.md)
 
 สิ่งที่ใช้งานได้แล้ว:

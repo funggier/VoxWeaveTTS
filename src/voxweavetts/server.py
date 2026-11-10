@@ -29,6 +29,7 @@ from .voice_controls import control_schema
 from .presets import load_presets, save_preset
 from .text_settings import load_all as load_text_settings, load_section as load_text_section, save_section as save_text_section, SettingsConflict
 from .reading_progress import load_position, save_position, clear_position, ProgressConflict
+from .playback_state import PlaybackState, PlaybackConflict
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
 from .speech_coordinator import (
@@ -41,6 +42,7 @@ SYNTHESIS_SETTINGS = PROJECT_ROOT / "data" / "settings" / "synthesis.json"
 _SETTINGS_LOCK = threading.RLock()
 _COORDINATOR_LOCK = threading.Lock()
 _COORDINATOR: SpeechCoordinator | None = None
+_PLAYBACK_STATE = PlaybackState()
 
 
 def _load_json(relative: str, default: Any) -> Any:
@@ -107,6 +109,10 @@ class Handler(BaseHTTPRequestHandler):
         # Tests can inject an isolated fake renderer into their HTTP server.
         return getattr(self.server, "speech_coordinator", None) or _coordinator_default()
 
+    def _playback_state(self) -> PlaybackState:
+        # Isolate the live overlay state when testing multiple HTTP servers.
+        return getattr(self.server, "playback_state", None) or _PLAYBACK_STATE
+
     @staticmethod
     def _job_route(route: str) -> tuple[str, str] | None:
         parts = route.split("/")
@@ -172,9 +178,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html"}:
-                payload = (PROJECT_ROOT / "web" / "index.html").read_bytes()
-                self._headers(200, "text/html; charset=utf-8", len(payload))
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js"}:
+                name = ("playback_clock.js" if route == "/playback_clock.js"
+                        else "overlay.html" if route in {"/overlay", "/overlay.html"}
+                        else "index.html")
+                payload = (PROJECT_ROOT / "web" / name).read_bytes()
+                content_type = ("text/javascript; charset=utf-8"
+                                if name.endswith(".js") else "text/html; charset=utf-8")
+                self._headers(200, content_type, len(payload))
                 self.wfile.write(payload)
             elif route == "/v1/status":
                 info = engine_info()
@@ -201,10 +212,14 @@ class Handler(BaseHTTPRequestHandler):
                         "voice_cloning": False,
                         "websocket_streaming": False,
                         "live_connectors": False,
-                        "subtitle_overlay": False,
+                        "subtitle_overlay": True,
+                        "browser_media_clock_reporting": True,
+                        "overlay_poll_interval_ms": 250,
                         "portable_executable": False,
                     },
                 })
+            elif route == "/v1/playback/state":
+                self.send_json(200, self._playback_state().snapshot())
             elif route == "/v1/jobs":
                 self.send_json(200, {"schema_version": EVENT_SCHEMA_VERSION,
                                      "jobs": self._coordinator().list()})
@@ -300,6 +315,28 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, self._coordinator().cancel(job_route[0]))
             except JobMissing:
                 self.send_json(404, {"error": "speech job not found"})
+            return
+        if route == "/v1/playback/event":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "report-playback":
+                self.reject_unread_post(403, {"error": "missing playback intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "playback event requires application/json"})
+                return
+            try:
+                data = self._read_json()
+                ready_job = None
+                PlaybackState._validate_event(data)
+                if data.get("event") == "start":
+                    ready_job = self._coordinator().get(data["speech_id"])
+                result = self._playback_state().report(data, ready_job=ready_job)
+                self.send_json(200, result)
+            except JobMissing:
+                self.send_json(404, {"error": "speech job not found"})
+            except PlaybackConflict as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
             return
         if route == "/v1/documents/preview":
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":

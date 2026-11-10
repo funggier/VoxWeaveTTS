@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev4 — Browser media-clock subtitles and local OBS overlay (2026-11-10)
+
+- Added an Engine-neutral PlaybackState relay with session IDs, increasing event sequences, ready-job timeline checks, safe silent segments and stale caption hiding.
+- Added GET /v1/playback/state, POST /v1/playback/event (intent header), transparent GET /overlay and a shared Browser media-clock reporter.
+- Document Reader and queued WAV browser players report currentTime during Play/Pause/Resume/Seek/End so OBS subtitle segments follow playback rather than model-generation completion.
+- Added Python service/API tests and Node media-clock regression tests; this is segment-level timing from HTMLMediaElement, not word alignment or a hardware audio clock.
+- Retains local-only API, private text masking and Commercial-First licensing rules.
+
 ## 0.3.0.dev3 — Resumable, sequential document reading (2026-11-10)
 
 - Added private, engine-independent reading bookmarks keyed by the normalized document SHA-256; stores only chunk size, total, next unread chunk and timestamp. No novel text, path or user audio is persisted.

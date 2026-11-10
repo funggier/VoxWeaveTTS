@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev3)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev4)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -64,6 +64,14 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 ## Rules and Pronunciations JSON editor
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
+
+## Browser Media Playback Clock and OBS Subtitle Relay (implemented)
+
+- GET /v1/playback/state: current local player snapshot (idle, playing, paused, ended, stopped, stale); filtered display_text only, reported current position. clock_basis = browser_html_media_current_time_reported.
+- POST /v1/playback/event: application/json and X-VoxWeaveTTS-Intent: report-playback required. Body fields session_id (32 lowercase hex), speech_id (32 lowercase hex), event (start, progress, paused, resumed, seeked, ended, stopped), sequence (increasing integer), position_ms (finite nonnegative number). Start requires a ready Speech Job and valid generated audio timeline; a stale or superseded session returns 409 and missing Job 404.
+- GET /overlay or GET /overlay.html: read-only transparent OBS Browser Source polling every 250ms. GET /playback_clock.js: Browser Media Clock Adapter.
+- Browser reports currentTime about every 250ms while playing. Captions disappear on stop/end/pause or if no new browser progress is received for over 3 seconds.
+- This is SEGMENT-level subtitle timing, not word/syllable/phoneme alignment or hardware-audio frame synchronization. Overlay does not generate or play audio. See [Playback Guide](PLAYBACK_OVERLAY_TH.md).
 
 ## Private document reading progress (implemented)
 

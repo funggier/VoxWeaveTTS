@@ -35,7 +35,8 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Send selected chapter chunk through existing Rules/Pronunciations and Engine-independent Speech Queue
 - [x] Private hash-keyed reading position and explicit resume/clear after reopening the document
 - [x] Browser-managed per-chunk audio playback with pause/stop and optional next chunk after ended event (one synthesis at a time)
-- [ ] Full player-owned playback clock, resilient long-form streaming, prioritization and OBS subtitle synchronization
+- [x] Browser HTMLMediaElement currentTime reporting, local OBS segment captions and pause/resume/seek/end
+- [ ] Hardware audio-device clock, resilient streaming, word-level alignment and authenticated subtitle event stream
 
 - [x] Select 2 real Thai CPU Engines and save/load local Voice Presets
 - [x] Paired Slider/Numeric inputs for Native Speed and post-DSP Gain/Pitch/Bass/Treble, formant-preserve mode
@@ -48,7 +49,8 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Engine-neutral Adapter Contract v1 and explicit Registry (ready for self-trained engines)
 - [x] In-memory FIFO Audio Preparation Jobs, Dedup by source/message ID, bounded memory/TTL and Versioned Events
 - [x] HTTP Job Queue, Status, Cancel, Events and WAV Download endpoints; UI queue preview
-- [ ] Playback Clock based on actual output audio and Pause/Resume
+- [x] Browser Media Playback Clock from currentTime with Pause/Resume/Seek/End
+- [ ] Native output-device playback clock and streaming player
 - [ ] Durable queue/snapshot and reconnect semantics
 - [ ] Nonblocking streaming, Backpressure and priority policies
 
@@ -62,8 +64,10 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 Read [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md) for contract and current limitations.
 
 ## Milestone 4 — Subtitle coordination
-- [ ] Playback-clock-led speech events and source-span mapping
-- [ ] OBS transparent browser overlay and reconnect snapshot
+- [x] Browser-reported Segment Timeline for live local Subtitle Preview
+- [ ] Word/phoneme source-span alignment and audio-hardware output timing
+- [x] Local transparent OBS Browser Source and in-memory GET /v1/playback/state snapshot
+- [ ] Authenticated multi-client reconnect, low-latency push updates
 - [ ] Sentence/subsentence segments, optional word alignment
 - [ ] Stream offset calibration, cancellation and multi-consumer validation
 

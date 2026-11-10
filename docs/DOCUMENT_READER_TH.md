@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Document Reader (TXT / Markdown)
 
-> Implementation preview v0.3.0.dev3 — ข้อความ/เอกสารใช้ Core ได้โดยไม่ต้องติดตั้ง TTS Engine; การสร้าง WAV ยังต้องมี Engine
+> Implementation preview v0.3.0.dev4 — ข้อความ/เอกสารใช้ Core ได้โดยไม่ต้องติดตั้ง TTS Engine; การสร้าง WAV ยังต้องมี Engine
 
 ## เป้าหมาย
 
@@ -91,6 +91,10 @@ Progress เก็บใน `data/reading/positions.json` ซึ่งอยู�
 API: GET /v1/reading/progress?document_id=<SHA256>, POST /v1/reading/progress (Intent: save-reading-progress), POST /v1/reading/progress/clear (Intent: clear-reading-progress). ใช้ revision แบบ Optimistic Concurrency ป้องกันการบันทึกทับกันจากสองแท็บ และ Atomic Write ป้องกันไฟล์ค้างจากการเขียนไม่ครบ
 
 **ข้อจำกัด:** ถ้าเปลี่ยนขนาด Chunk หรือแก้ข้อความนิยาย Hash/Chunk Mapping อาจเปลี่ยน ทำให้ต้องเลือกตำแหน่งอีกครั้ง; ยังไม่รองรับข้ามเครื่อง ข้าม Browser ในการเล่นเสียงจริง และไม่มี Playback Clock/OBS Subtitle Sync. การกดหยุดระหว่างสร้างเสียงไม่หยุด Model Inference กลางคัน แต่ยกเลิกผลลัพธ์ที่มาภายหลังได้
+
+## Subtitle จากเวลาเล่นจริงใน Browser
+
+เมื่ออ่านนิยายเสียง สามารถดู Subtitle ของช่วงที่เสียงกำลังเล่นใน Document Reader และเปิด http://127.0.0.1:8765/overlay ใน OBS ได้กับทุก Engine. Caption เลือกจากเวลาที่ Browser รายงานด้วย audio.currentTime ทุกประมาณ 250 ms และซ่อนเมื่อหยุด/พัก/จบ หรือ Player ขาดการติดต่อ. เป็น Subtitle ระดับ Segment ยังไม่แยกตรงรายคำ. ดู [Playback/OBS Guide](PLAYBACK_OVERLAY_TH.md)
 
 ## งานต่อไป
 
