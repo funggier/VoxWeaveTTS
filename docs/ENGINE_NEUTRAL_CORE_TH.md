@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Core v1
 
-> Implementation preview v0.3.0.dev0 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
+> Implementation preview v0.3.0.dev1 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
 
 ## เป้าหมาย
 
@@ -8,7 +8,7 @@
 
 ## โครงสร้าง
 
-1. **Input Adapters** — Manual HTTP ในปัจจุบัน; Simulator, Discord, YouTube, TXT/MD ในขั้นถัดไป
+1. **Input Adapters** — Manual HTTP และ TXT/Markdown Reader ใช้ได้แล้ว; Simulator, Discord, YouTube ยังเป็นงานถัดไป
 2. **Text Processor** — แปลงกฎ, Pronunciation, Source และแยก Spoken Text กับ Subtitle อิสระจาก Engine
 3. **Speech Coordinator** — เก็บ Speech Job พร้อม ID, FIFO Queue, Dedup, Cancel, Status, จำกัด Memory และ Event
 4. **Engine Registry** — ลงทะเบียน Factory ของโมเดล พร้อม Descriptor/Capability/Version (ไม่มีการโหลด Python Plugin อัตโนมัติ)
@@ -76,7 +76,7 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 - ยังไม่มี Audio Device Playback, Pause/Resume, Priority, Persistent Queue, Real-Time Audio Streaming หรือ OBS Subtitle Sync
 - ไม่ได้สร้างโมเดลใหม่หรือเทรนโมเดลในขั้นนี้
 - การเล่น WAV ผ่าน Browser เป็นการเล่นจาก UI แต่ยังไม่เชื่อม Event กับ Audio Playback Clock
-- งานถัดไปควรเพิ่ม Input TXT/Markdown, การแบ่งบทและช่วง, Playback Controller, Simulator และ Timeline Event Bus
+- เพิ่ม Input TXT/Markdown และแยกบท/ช่วงแล้ว ดู [Document Reader](DOCUMENT_READER_TH.md); งานถัดไปคือบันทึกตำแหน่งอ่าน, Playback Controller, Simulator และ Timeline Event Bus
 - ก่อนพัฒนาโมเดล/Training Worker ให้ผ่านข้อกำหนดเรื่องสิทธิ์จาก [Commercial-First Policy](COMMERCIAL_LICENSE_POLICY_TH.md)
 
 ## ผลตรวจสอบ

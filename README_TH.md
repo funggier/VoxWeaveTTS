@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Core Preview v0.3.0.dev0** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Playback Clock, Discord/YouTube, OBS Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev1** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Playback Clock, Discord/YouTube, OBS Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -11,6 +11,14 @@
 ระบบปัจจุบันยัง **ไม่ใช่ Playback Clock, OBS Subtitle Sync, Discord/YouTube Input หรือ Training Engine** และไม่มีการรับรอง License ของโมเดลทุกตัวว่าใช้เชิงพาณิชย์แล้ว
 
 อ่าน [โครง Engine-Neutral Core (ภาษาไทย)](docs/ENGINE_NEUTRAL_CORE_TH.md)
+
+## ตัวแก้กฎคำอ่าน JSON ที่ปรับปรุงแล้ว
+
+ช่อง **Rules** และ **Pronunciations** ที่มีอยู่เดิมมีปุ่ม **จัดรูปแบบ / ตรวจ JSON / บันทึกไฟล์** และช่อง **เพิ่มรายการเร็ว** เพื่อเพิ่มข้อความที่มีเครื่องหมายคำพูด แบ็กสแลช อักขระไทยหรือ Emoji โดยไม่ต้อง Escape เอง การทดลองอ่านจะใช้กฎเดียวกับ API; ส่วนการบันทึกไฟล์เป็นการดาวน์โหลดลงเครื่อง ไม่บันทึกทับ Config Server โดยอัตโนมัติ อ่าน [คู่มือการตั้งค่าคำอ่าน JSON](docs/PRONUNCIATION_JSON_TH.md)
+
+## ระบบนำเข้า TXT / Markdown ที่เพิ่มแล้ว
+
+เพิ่ม **Document Reader** สำหรับเลือกไฟล์ .txt/.md จากเครื่อง แบ่งบท/ตอน และช่วงข้อความผ่าน Core เดียวกันได้ โดยไม่ต้องมี TTS Engine ในขั้นจัดเอกสาร รองรับ UTF-8 หรือ Thai Windows-874 มีปุ่มส่งช่วงที่เลือกเข้าคิวเตรียมเสียงพร้อมกฎการอ่านเดิม **ยังไม่อ่านทั้งเล่มต่อเนื่องหรือบันทึก Resume Position ข้าม Session** ดู [รายละเอียด Document Reader](docs/DOCUMENT_READER_TH.md)
 
 ## ข้อกำหนดที่ต้องรักษา
 1. ปรับเสียงได้: ความเร็ว, ระดับเสียง, Formant, ความกังวาน, อารมณ์, เว้นจังหวะ (ขึ้นกับความสามารถของ TTS รุ่นนั้น)
@@ -32,7 +40,8 @@
 4. สามารถตั้งชื่อและบันทึก **Voice Preset** แล้วโหลดกลับมาใช้งานได้ เก็บไว้ใน `data/presets/voice-presets.json` ภายในโปรเจกต์
 5. ใช้ `scripts/Generate-ThaiSample.ps1` เพื่อสร้าง WAV จาก API หรือใช้ `scripts/Smoke-VoiceStudio.ps1` เพื่อทดสอบ Engine ทั้งสอง
 6. ใช้ `Test-Dev.cmd` ทดสอบ
-7. ลองส่วน **คิวเตรียมเสียง (Engine-independent)** บนหน้าเว็บ เพื่อเข้าคิว, ดูสถานะ, ยกเลิก และดาวน์โหลด WAV เมื่อ Ready โดยไม่ผูกกับ Engine ตัวใดตัวหนึ่ง
+7. ทดลอง **นำเข้าเอกสาร TXT / Markdown** เลือก Encoding, Chapter และ Chunk แล้วนำช่วงไปแก้ไขในช่องข้อความหรือส่งเข้าคิวเสียงได้
+8. ลองส่วน **คิวเตรียมเสียง (Engine-independent)** บนหน้าเว็บ เพื่อเข้าคิว, ดูสถานะ, ยกเลิก และดาวน์โหลด WAV เมื่อ Ready โดยไม่ผูกกับ Engine ตัวใดตัวหนึ่ง
 
 กฎตัวอย่าง `match_mode: "five_run"` รองรับเลข 5 ตั้งแต่ 3 ตัวขึ้นไปในแชท เช่น `555`, `55555`, `55555555` โดยอ่านเป็น `ฮ่า ฮ่า ฮ่า` แต่แสดงเลขเดิมบน Subtitle และไม่นำรูปแบบตัวเลขอย่าง `5,55555` หรือ `55555.50` มาอ่านเป็นเสียงหัวเราะ
 
@@ -51,6 +60,7 @@
 - [M1 — การเชื่อม TTS Engine ไทยและผลทดลองเสียงจริง](docs/M1_AUDIO_TH.md)
 - [Voice Studio — การเลือก Engine และค่าปรับเสียงละเอียด](docs/VOICE_STUDIO_TH.md)
 - [โครงระบบ Engine-Neutral Core, Registry, Queue และ Adapter v1](docs/ENGINE_NEUTRAL_CORE_TH.md)
+- [Document Reader — นำเข้า TXT/Markdown แบ่งบท/ช่วงแบบไม่ผูก Engine](docs/DOCUMENT_READER_TH.md)
 - [แผนการสร้างเสียงส่วนตัวและ Fine-tuning](docs/VOICE_TRAINING_TH.md)
 
 ## Commercial-First License Policy

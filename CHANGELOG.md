@@ -2,6 +2,16 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev1 — Engine-neutral TXT/Markdown narrator input (2026-11-10)
+
+- Added Python standard-library Document Reader with Thai TXT chapter detection, Markdown heading parsing, narrated-text cleanup and safe text chunking (100–450 characters, paging and normalized offsets).
+- Improved existing Rules/Pronunciations JSON editors with pretty-format, syntax/type checks, local download and quick-entry forms that safely encode quotes, backslashes, Thai Unicode and emoji.
+- Improved document chunk boundaries to avoid splitting common emoji ZWJ/skin-tone/regional-indicator sequences, and added special character regression tests.
+- Added POST /v1/documents/preview using a separately bounded request size so document preview does not weaken small TTS API limits; imported files are not written to the server or repository.
+- Web UI reads local UTF-8/Thai Windows-874 .txt/.md files, displays chapters/chunks, and can copy the chosen chunk to the text editor or send it to the existing engine-neutral Speech Queue with current rules and voice settings.
+- Added document normalization, stable pagination, validation, sanitization and mock-engine queue regression tests; maintained existing real Thai Engine APIs.
+- No unattended full-book audio generation, saved reading progress, Playback Clock, or voice training is claimed.
+
 ## 0.3.0.dev0 — Engine-neutral adapter registry and speech job queue (2026-11-10)
 
 - Introduced explicit versioned, ML-independent EngineRegistry and PCM16 adapter protocol; future user-trained voice models can register without editing core text/HTTP/queue modules.

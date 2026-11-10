@@ -12,6 +12,10 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Engine-neutral TXT/Markdown Input (implemented)
+
+The engine-independent Document Reader in src/voxweavetts/document_reader.py parses TXT/Markdown into chapter-indexed text chunks with normalized offsets and deterministic paging; the browser reads files locally, sends UTF-8 text through POST /v1/documents/preview, and lets the user push **only a selected chunk** through the existing Text Processor and Speech Queue. It never imports model modules or stores novel text on the server. See [Document Reader](DOCUMENT_READER_TH.md).
+
 ## Engine-neutral Core v1 (implemented)
 
 The model-independent code is now in `src/voxweavetts/engine_contract.py` (Adapter Version 1, explicit Engine Registry, commercial review status) and `src/voxweavetts/speech_coordinator.py` (bounded in-memory sequential preparation queue, deduplication, cancellation, versioned events). Both depend only on the Python standard library; the current Thai model adapters remain behind a factory in `speech.py`. The HTTP `/v1/jobs` endpoints share the Text Plan and Voice Studio controls with `/v1/speech`. State `ready` means **WAV generation completed**, not that audio was played. See [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md).

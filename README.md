@@ -2,7 +2,7 @@
 
 **Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
 
-> **Current status (v0.3.0.dev0 Engine-Neutral Core preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
+> **Current status (v0.3.0.dev1 Engine-Neutral Reader preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live Discord/YouTube connectors, subtitle playback events, and a bundled Windows portable executable are NOT implemented.** The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
 
 ## Goals
 
@@ -34,11 +34,22 @@ The text pipeline, engine registry, queue, event statuses and result delivery ar
 
 See [Engine-Neutral Core architecture (Thai)](docs/ENGINE_NEUTRAL_CORE_TH.md).
 
+## Readable Rules / Pronunciations JSON editor
+
+The existing **Rules JSON array** and **Pronunciations JSON object** now provide format, syntax/type check, download and quick-entry actions. Quick entry uses JSON.stringify to escape quotation marks, backslashes and Unicode safely. Formatting preserves the rule array's order. A downloaded JSON file is not automatically persisted as server configuration. See [Thai JSON pronunciation guide](docs/PRONUNCIATION_JSON_TH.md).
+
+## Text/Novel import (implemented preview)
+
+The web UI can open a **local UTF-8 or Thai Windows-874 .txt/.md file**, normalize Markdown narration, identify chapters and page through short chunks **without loading any speech model**. A chosen chunk can be copied into the existing text editor or sent to the engine-neutral speech queue with the current voice/rule settings. This is manual chunk preparation, **not full-book autoplay or persistent reading position**. Documents are retained only in the browser page session, not stored by the server.
+
+See [Engine-neutral Document Reader (Thai)](docs/DOCUMENT_READER_TH.md).
+
 ## API
 
 - `GET /v1/status` — build status and explicit capability flags.
 - `GET /v1/rules` — locally stored replacement rules, if configured.
 - `GET /v1/pronunciations` — locally stored pronunciation overrides, if configured.
+- `POST /v1/documents/preview` — TXT/Markdown normalization, chapter detection, deterministic chunk pagination and metadata (no model required).
 - `POST /v1/text/process` — deterministic filter, replacement, silence and pronunciation processing; optional `match_mode: five_run` safely maps repeated chat 5s to speech while retaining the original subtitle.
 - `GET /v1/engines` and `GET /v1/voices` — two Thai CPU engine adapters, their readiness, voice IDs and detailed DSP control schema.
 - `POST /v1/jobs`, `GET /v1/jobs` and `GET /v1/jobs/{id}` — engine-neutral asynchronous audio preparation queue; `GET /v1/jobs/{id}/events`, `GET /v1/jobs/{id}/audio` and `POST /v1/jobs/{id}/cancel`.
@@ -80,3 +91,4 @@ The MIT license applies to **our code only**. Models, voice samples, dictionarie
 - [Voice cloning and fine-tuning plan (Thai)](docs/VOICE_TRAINING_TH.md)
 - [Commercial-first license policy and model audit (Thai)](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
 - [Engine-neutral Core, Registry and Queue (Thai)](docs/ENGINE_NEUTRAL_CORE_TH.md)
+- [TXT/Markdown Document Reader (Thai)](docs/DOCUMENT_READER_TH.md)

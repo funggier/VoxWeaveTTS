@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Core preview (v0.3.0.dev0)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev1)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -52,6 +52,14 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 `POST /v1/speech` accepts `voice_controls`: `gain_db` (-18..+12 dB), `pitch_semitones` (-4..+4), `bass_db`/ `treble_db` (-12..+12 dB) and `formant_preserve` (boolean). Defaults are zero and `true` for formant preservation. Gain is handled by Python DSP, Pitch/EQ use **optional external FFmpeg with Rubber Band**. The Engine does not natively support Pitch/Formant/Emotion; independent formant shifting is unsupported. Silent segments remain exact PCM zeros.
 
 `GET /v1/presets` lists local JSON presets. `POST /v1/presets` requires `X-VoxWeaveTTS-Intent: save-voice-preset` with JSON body containing `name`, `engine_id`, `voice_id`, `speed`, `seed`, and `voice_controls`. Up to 32 validated presets are saved locally in `data/presets/voice-presets.json`, which is Git-ignored. See [VOICE_STUDIO_TH.md](VOICE_STUDIO_TH.md).
+
+## Rules and Pronunciations JSON editor
+
+The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, and local file download. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
+
+## Engine-neutral TXT / Markdown preview (implemented)
+
+POST /v1/documents/preview — JSON with text, format (txt/md), optional title, chunk_chars=100–450 (default 350), page_size=1–30 (default 15), page_index (zero-based). Accepts up to 1,250,000 HTTP request bytes and 300,000 document characters. Returns document_id SHA-256 of canonical text, chapter/chunk counts and metadata, paged chunks with stable offsets in normalized text. Never uses TTS Engine or stores the file on server. Browser supports UTF-8 and Windows-874 file decoding; API itself receives UTF-8 JSON. See [Document Reader](DOCUMENT_READER_TH.md).
 
 ## Engine-neutral job queue (implemented)
 

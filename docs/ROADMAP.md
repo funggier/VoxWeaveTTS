@@ -13,7 +13,7 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Deterministic text replacement, masking, skip/silence and pronunciation mapping
 - [x] Local-only HTTP preview API and web preview
 - [x] Unit tests
-- [ ] Model-based speech output
+- [x] Model-based Thai speech output (optional local CPU engines; not yet full-featured)
 
 ## Milestone 1 — Real speech generation (partial: CPU preview works)
 - [x] Evaluate an initial Thai CPU ONNX TTS backend (FastThaiG2P), document source and licensing caveats
@@ -28,7 +28,13 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [ ] Listening-based Thai pronunciation regression testing and native phoneme overrides
 - [ ] Further engine quality/speed benchmarks and longer text stress tests
 
-## Milestone 2 — Voice Studio (partial)
+## Milestone 2 — Voice Studio / Long Text (partial)
+- [x] Import .txt/.md via browser and engine-neutral API, basic Markdown narration cleanup, TXT/Markdown chapter detection and paged text chunks
+- [x] Rules/Pronunciations JSON editor: pretty-format, validation, download, quick Unicode-safe entry
+- [x] Preserve common Thai/Emoji Unicode sequences when cutting document chunks
+- [x] Send selected chapter chunk through existing Rules/Pronunciations and Engine-independent Speech Queue
+- [ ] Persistent reading position, auto-progress across chunks with backpressure and safe long-form playback
+
 - [x] Select 2 real Thai CPU Engines and save/load local Voice Presets
 - [x] Paired Slider/Numeric inputs for Native Speed and post-DSP Gain/Pitch/Bass/Treble, formant-preserve mode
 - [ ] Native Formant shift, expressive style models and pause adjustment

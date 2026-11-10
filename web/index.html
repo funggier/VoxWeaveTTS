@@ -16,7 +16,16 @@ h1{font-size:clamp(27px,4vw,38px);letter-spacing:-.04em;margin:0}h2{font-size:18
 .panel{border:1px solid #32425b;background:#141f30;padding:20px;border-radius:14px;min-width:0}
 label{display:block;color:#bfd1e9;font-size:13px;margin:13px 0 7px}
 textarea{width:100%;border:1px solid #40516d;background:#0e1929;color:#eaf0f9;border-radius:9px;padding:12px;font:inherit;outline-offset:3px;min-height:115px;resize:vertical;line-height:1.7}
-textarea.json{min-height:135px;font:13px/1.6 Consolas,monospace}
+textarea.json{min-height:190px;font:13px/1.65 Consolas,monospace;tab-size:2;white-space:pre;overflow-wrap:normal}
+.json-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.json-toolbar label{margin-bottom:5px}
+.json-actions{display:flex;gap:6px;flex-wrap:wrap}
+button.small-button{padding:7px 10px;margin-top:5px;font-size:12px}
+.json-status{margin:4px 0 10px;font-size:12px;color:#a7d7b7;min-height:18px}
+.json-status.invalid{color:#ffb0ad}
+.json-add{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin:8px 0}
+.json-add>div{flex:1;min-width:160px}
+.json-add input{width:100%}
 select,input[type=number],input[type=text]{background:#0e1929;color:#eaf0f9;border:1px solid #40516d;border-radius:9px;padding:9px;font:inherit}
 input[type=range]{accent-color:#8cc8ff;width:100%;min-width:145px}
 .voice-row{display:grid;grid-template-columns:155px minmax(130px,1fr) 125px 72px;gap:12px;align-items:center;margin:12px 0}
@@ -39,13 +48,46 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <h2>ข้อความและกฎ</h2>
 <label for="message">ข้อความภาษาไทย</label>
 <textarea id="message">ชายหนุ่มกลายเป็นอมตะ และพูดคำต้องห้าม ก่อนหัวเราะ 55555</textarea>
-<label for="rule">Rules (JSON array)</label>
-<textarea class="json" id="rule">[
+<div class="json-toolbar">
+<label for="rule">Rules — กฎการอ่านและกรองคำ (JSON Array)</label>
+<div class="json-actions">
+<button id="ruleFormat" class="small-button" type="button">จัดรูปแบบ</button>
+<button id="ruleCheck" class="small-button" type="button">ตรวจ JSON</button>
+<button id="ruleDownload" class="small-button" type="button">บันทึกไฟล์</button>
+</div>
+</div>
+<textarea class="json" id="rule" spellcheck="false" aria-describedby="ruleJsonStatus">[
   {"match":"คำต้องห้าม","mode":"silence","display":"***","silence_ms":400},
   {"match":"555","match_mode":"five_run","mode":"replace","spoken":"ฮ่า ฮ่า ฮ่า"}
 ]</textarea>
-<label for="pron">Pronunciations (JSON object)</label>
-<textarea class="json" id="pron">{"อมตะ":"อะ มะ ตะ","เซียน":"เซียน"}</textarea>
+<p class="json-status" id="ruleJsonStatus" role="status">ใช้ JSON มาตรฐาน · ค่าข้อความต้องอยู่ในเครื่องหมายคำพูดคู่</p>
+<details>
+<summary class="small" style="cursor:pointer">เพิ่มกฎแทนคำอย่างรวดเร็ว (รองรับเครื่องหมายพิเศษ)</summary>
+<div class="json-add">
+<div><label for="ruleMatch">ข้อความที่พบ</label><input id="ruleMatch" type="text" placeholder="เช่น “สวัสดี!”" maxlength="200"></div>
+<div><label for="ruleSpoken">ข้อความที่ให้อ่าน</label><input id="ruleSpoken" type="text" placeholder="เช่น สวัสดีครับ" maxlength="500"></div>
+<button id="ruleAdd" class="small-button" type="button">เพิ่มกฎ</button>
+</div>
+</details>
+<div class="json-toolbar">
+<label for="pron">Pronunciations — คำอ่าน (JSON Object)</label>
+<div class="json-actions">
+<button id="pronFormat" class="small-button" type="button">จัดรูปแบบ</button>
+<button id="pronCheck" class="small-button" type="button">ตรวจ JSON</button>
+<button id="pronDownload" class="small-button" type="button">บันทึกไฟล์</button>
+</div>
+</div>
+<textarea class="json" id="pron" spellcheck="false" aria-describedby="pronJsonStatus">{
+  "อมตะ": "อะ มะ ตะ",
+  "เซียน": "เซียน"
+}</textarea>
+<p class="json-status" id="pronJsonStatus" role="status">เครื่องหมายคำพูด แบ็กสแลช ภาษาไทย และ Emoji ใช้ได้เมื่อเป็น JSON ที่ถูกต้อง</p>
+<div class="json-add">
+<div><label for="pronMatch">คำต้นฉบับ</label><input id="pronMatch" type="text" placeholder="เช่น «ฮ่า!»" maxlength="200"></div>
+<div><label for="pronSpoken">ให้อ่านว่า</label><input id="pronSpoken" type="text" placeholder="เช่น ฮ่า" maxlength="500"></div>
+<button id="pronAdd" class="small-button" type="button">เพิ่มคำอ่าน</button>
+</div>
+<p class="small">ปุ่มจัดรูปแบบไม่เปลี่ยนลำดับกฎ · ปุ่มบันทึกไฟล์ดาวน์โหลด JSON ลงเครื่องโดยไม่ส่งขึ้น Cloud · การพิมพ์เครื่องหมาย <code>"</code> หรือ <code>\</code> ใน JSON เองต้อง Escape ให้ถูกต้อง แต่ช่องเพิ่มคำอ่านจะจัดการให้โดยอัตโนมัติ</p>
 <button id="run">ทดลองประมวลผลข้อความ</button>
 <p class="small">ข้อมูลทั้งหมดถูกส่งไปที่ Local API บนเครื่องเดียวกัน ไม่ถูกส่งไปบริการ Cloud โดยหน้านี้</p>
 </section>
@@ -57,6 +99,30 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <p id="error" class="error" role="status"></p>
 </section>
 </div>
+<section class="panel" style="margin-top:18px">
+<h2>นำเข้าเอกสาร TXT / Markdown (Engine-independent)</h2>
+<p class="small">เลือกไฟล์ข้อความจากเครื่องคุณเพื่อจัดบท/ตอนและแบ่งช่วงอ่านข้อความโดยอัตโนมัติ ไม่ต้องใช้ Engine ในขั้นเตรียมเอกสาร ไฟล์จะอยู่ในหน่วยความจำของหน้านี้เท่านั้น ไม่บันทึกบนเซิร์ฟเวอร์ และไม่ส่งไป Cloud</p>
+<div class="voice-grid">
+<div><label for="readerFile">ไฟล์นิยาย/ข้อความ (.txt หรือ .md)</label><input id="readerFile" type="file" accept=".txt,.md,text/plain,text/markdown"></div>
+<div><label for="readerEncoding">การเข้ารหัสไฟล์</label><select id="readerEncoding"><option value="utf-8">UTF-8</option><option value="windows-874">Thai Windows-874</option></select></div>
+<div><label for="readerChunkChars">ความยาวสูงสุดต่อช่วง (ตัวอักษร)</label><input id="readerChunkChars" type="number" min="100" max="450" step="25" value="350" style="max-width:115px"></div>
+<button id="readerOpen" type="button">เปิดและแบ่งช่วง</button>
+</div>
+<p class="small" id="readerStatus" role="status">ยังไม่ได้เปิดเอกสาร · UTF-8 หรือ Thai Windows-874 สูงสุด 300,000 ตัวอักษร (ข้อมูล request ไม่เกิน 1.25 MB)</p>
+<div class="voice-grid">
+<div><label for="readerChapter">บท / ตอน</label><select id="readerChapter" disabled style="max-width:310px"><option value="">ยังไม่มีเอกสาร</option></select></div>
+<div><label for="readerChunk">ช่วงข้อความ</label><select id="readerChunk" disabled style="max-width:220px"><option value="">ยังไม่มีช่วง</option></select></div>
+<button type="button" id="readerPrev" disabled>หน้าก่อน</button>
+<button type="button" id="readerNext" disabled>หน้าถัดไป</button>
+</div>
+<label for="readerChunkPreview">ตัวอย่างข้อความในช่วงที่เลือก (แก้ต้นฉบับได้หลังนำไปใส่ช่องข้อความหลัก)</label>
+<textarea id="readerChunkPreview" readonly style="min-height:130px" placeholder="เลือกไฟล์และบทก่อน"></textarea>
+<div class="voice-grid">
+<button id="readerUseChunk" type="button" disabled>นำช่วงนี้ไปแก้ไขในช่องข้อความ</button>
+<button id="readerQueueChunk" type="button" disabled>ส่งช่วงนี้เข้าคิวเสียง</button>
+</div>
+<p class="small">Markdown จะไม่นำ Markdown Syntax, Code Fences, รูปภาพ และ URL จากลิงก์มาอ่าน · เวลาที่เห็นในระบบคิวยังเป็นระยะเวลาที่สร้างเสียง ไม่ใช่ Playback Clock จริง</p>
+</section>
 <section class="panel" style="margin-top:18px">
 <h2>สร้างเสียงภาษาไทย (M1 · CPU)</h2>
 <p class="small">สร้าง WAV ภาษาไทยจริงจากข้อความด้านบน โดยใช้ Engine และเสียงผู้พูดที่เลือกไว้ด้านล่าง รวมถึง Rules/Pronunciations ที่กำหนด · ยังไม่มี Voice Cloning หรือการฝึกเสียงจากผู้ใช้</p>
@@ -123,13 +189,94 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <script>
 "use strict";
 const el = id => document.getElementById(id);
+const jsonLabels = {rule:"Rules",pron:"Pronunciations"};
+function parseConfigJson(id) {
+  const source = el(id).value;
+  const parsed = JSON.parse(source);
+  const proper = id === "rule"
+    ? Array.isArray(parsed)
+    : parsed !== null && typeof parsed === "object" && !Array.isArray(parsed);
+  if (!proper) throw new Error(
+    jsonLabels[id] + " ต้องเป็น " + (id === "rule" ? "JSON Array [ ... ]" : "JSON Object { ... }")
+  );
+  return parsed;
+}
+function configFeedback(id, message, valid) {
+  const status = el(id+"JsonStatus");
+  status.textContent = message;
+  status.classList.toggle("invalid", !valid);
+}
+function configOperation(id, operation) {
+  try {
+    const value = parseConfigJson(id);
+    if (operation === "format") {
+      el(id).value = JSON.stringify(value, null, 2);
+      configFeedback(id, "จัดรูปแบบ JSON แล้ว · ลำดับกฎยังคงเดิม", true);
+    } else if (operation === "download") {
+      const data = new Blob([JSON.stringify(value, null, 2) + "\n"],
+                            {type:"application/json;charset=utf-8"});
+      const url = URL.createObjectURL(data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = id === "rule" ? "rules.json" : "pronunciations.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      // Release the object URL on the next user-visible event loop turn.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      configFeedback(id, "ดาวน์โหลด JSON ลงเครื่องแล้ว", true);
+    } else {
+      configFeedback(id, "JSON ถูกต้องตามไวยากรณ์และประเภทข้อมูล · กดทดลองประมวลผลเพื่อตรวจเงื่อนไขกฎกับ API", true);
+    }
+  } catch (error) {
+    configFeedback(id, "JSON ไม่ถูกต้อง: " + String(error.message || error), false);
+    el(id).focus();
+  }
+}
+for (const id of ["rule", "pron"]) {
+  const prefix = id;
+  el(prefix+"Format").addEventListener("click", () => configOperation(id, "format"));
+  el(prefix+"Check").addEventListener("click", () => configOperation(id, "check"));
+  el(prefix+"Download").addEventListener("click", () => configOperation(id, "download"));
+  el(id).addEventListener("input", () => {
+    // Do not reformat uncommitted user input or erase an in-progress edit.
+    configFeedback(id, "มีการแก้ไข · กดตรวจ JSON หรือจัดรูปแบบเมื่อต้องการ", true);
+  });
+}
+function addConfigValue(id, keyId, valueId) {
+  try {
+    const key = el(keyId).value;
+    const value = el(valueId).value;
+    if (!key || !value) throw new Error("กรุณาระบุทั้งข้อความต้นฉบับและคำอ่าน");
+    const config = parseConfigJson(id);
+    if (id === "rule") {
+      if (config.length >= 128) throw new Error("Rules ได้ไม่เกิน 128 รายการ");
+      config.push({match:key,mode:"replace",spoken:value});
+    } else {
+      if (Object.prototype.hasOwnProperty.call(config, key))
+        throw new Error("มีคำนี้ใน Pronunciations แล้ว กรุณาแก้ค่าเดิมใน JSON");
+      if (Object.keys(config).length >= 512) throw new Error("Pronunciations ได้ไม่เกิน 512 รายการ");
+      config[key] = value;
+    }
+    // JSON.stringify safely escapes quotes, backslashes and control characters.
+    el(id).value = JSON.stringify(config, null, 2);
+    el(keyId).value = "";
+    el(valueId).value = "";
+    configFeedback(id, "เพิ่มรายการแล้ว · ตรวจสอบด้วยปุ่มทดลองประมวลผลข้อความ", true);
+  } catch (error) {
+    configFeedback(id, "เพิ่มรายการไม่ได้: " + String(error.message || error), false);
+  }
+}
+el("ruleAdd").addEventListener("click", () => addConfigValue("rule", "ruleMatch", "ruleSpoken"));
+el("pronAdd").addEventListener("click", () => addConfigValue("pron", "pronMatch", "pronSpoken"));
+
 el("run").addEventListener("click", async () => {
   el("error").textContent = "";
   try {
     const request = {
       text: el("message").value,
-      rules: JSON.parse(el("rule").value),
-      pronunciations: JSON.parse(el("pron").value)
+      rules: parseConfigJson("rule"),
+      pronunciations: parseConfigJson("pron")
     };
     const response = await fetch("/v1/text/process", {
       method:"POST", headers:{"Content-Type":"application/json"},
@@ -330,10 +477,150 @@ el("saveSeed").addEventListener("click", async () => {
     el("saveSeed").disabled = false;
   }
 });
+let readerText = null;
+let readerFormat = null;
+let readerTitle = "";
+let readerPage = null;
+let readerPageNumber = 0;
+let selectedChunkIndex = -1;
+const readerPageSize = 15;
+
+function currentReaderChunk() {
+  if (!readerPage) return null;
+  return readerPage.chunks.find(item => item.index === selectedChunkIndex) || null;
+}
+function renderReaderPage(preferredIndex) {
+  const data = readerPage;
+  el("readerChapter").replaceChildren();
+  for (const chapter of data.chapters) {
+    const option = document.createElement("option");
+    option.value = String(chapter.index);
+    option.textContent = chapter.title + " (" + (chapter.chunk_end - chapter.chunk_start) + " ช่วง)";
+    el("readerChapter").append(option);
+  }
+  const chunks = el("readerChunk");
+  chunks.replaceChildren();
+  for (const item of data.chunks) {
+    const option = document.createElement("option");
+    option.value = String(item.index);
+    option.textContent = "ช่วง " + (item.index + 1) + " · " + item.chapter_title;
+    chunks.append(option);
+  }
+  selectedChunkIndex = data.chunks.some(c => c.index === preferredIndex)
+    ? preferredIndex : data.chunks[0].index;
+  chunks.value = String(selectedChunkIndex);
+  const chosen = currentReaderChunk();
+  el("readerChapter").value = String(chosen.chapter_index);
+  el("readerChunkPreview").value = chosen.text;
+  el("readerStatus").textContent = readerTitle + " · " + data.chapter_total +
+    " บท · " + data.chunk_total + " ช่วง · หน้าที่ " +
+    (data.page_index + 1) + " / " + Math.ceil(data.chunk_total / data.page_size);
+  el("readerChapter").disabled = false;
+  chunks.disabled = false;
+  el("readerPrev").disabled = data.page_index === 0;
+  el("readerNext").disabled = !data.has_next;
+  el("readerUseChunk").disabled = false;
+  el("readerQueueChunk").disabled = false;
+}
+async function loadReaderPage(page, preferredIndex = -1) {
+  if (readerText === null) throw new Error("กรุณาเลือกไฟล์ก่อน");
+  const length = Number(el("readerChunkChars").value);
+  if (!Number.isInteger(length) || length < 100 || length > 450)
+    throw new Error("ความยาวช่วงต้องเป็น 100–450 ตัวอักษร");
+  const payload = {
+    text: readerText, format: readerFormat, title: readerTitle,
+    chunk_chars: length, page_index: page, page_size: readerPageSize
+  };
+  const response = await fetch("/v1/documents/preview", {
+    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || "เปิดเอกสารไม่สำเร็จ");
+  readerPage = body;readerPageNumber = page;
+  renderReaderPage(preferredIndex);
+}
+el("readerOpen").addEventListener("click", async () => {
+  el("readerOpen").disabled = true;
+  try {
+    const file = el("readerFile").files?.[0];
+    if (!file) throw new Error("กรุณาเลือกไฟล์ TXT หรือ Markdown");
+    const lower = file.name.toLowerCase();
+    const format = lower.endsWith(".md") ? "md" : lower.endsWith(".txt") ? "txt" : "";
+    if (!format) throw new Error("รองรับเฉพาะไฟล์ .txt หรือ .md");
+    if (file.size > 1000000) throw new Error("ไฟล์ใหญ่เกิน 1 MB ในรุ่นทดลอง");
+    let text;
+    try {
+      const decoder = new TextDecoder(el("readerEncoding").value, {fatal: true});
+      text = decoder.decode(await file.arrayBuffer());
+    } catch {
+      throw new Error("อ่านไฟล์ไม่สำเร็จ โปรดตรวจสอบการเข้ารหัส UTF-8 / Windows-874");
+    }
+    if (text.length > 300000) throw new Error("ข้อความเกิน 300,000 ตัวอักษร");
+    if (text.includes("\uFFFD")) throw new Error("พบอักขระเสียหาย โปรดบันทึกไฟล์เป็น UTF-8");
+    readerText = text;
+    readerFormat = format;
+    readerTitle = file.name.slice(0,160);
+    el("readerStatus").textContent = "กำลังแบ่งข้อความ...";
+    await loadReaderPage(0);
+  } catch (err) {
+    readerPage = null;selectedChunkIndex = -1;
+    el("readerUseChunk").disabled=true;
+    el("readerQueueChunk").disabled=true;
+    for(const id of ["readerPrev","readerNext","readerChunk","readerChapter"])el(id).disabled=true;
+    el("readerStatus").textContent=String(err.message||err);
+  } finally {el("readerOpen").disabled = false;}
+});
+el("readerChunk").addEventListener("change", () => {
+  selectedChunkIndex = Number(el("readerChunk").value);
+  const chosen = currentReaderChunk();
+  if (!chosen) return;
+  el("readerChapter").value = String(chosen.chapter_index);
+  el("readerChunkPreview").value = chosen.text;
+});
+el("readerChapter").addEventListener("change", async () => {
+  try {
+    const chapter = readerPage.chapters[Number(el("readerChapter").value)];
+    if (!chapter) return;
+    await loadReaderPage(Math.floor(chapter.chunk_start / readerPageSize), chapter.chunk_start);
+  } catch(err){el("readerStatus").textContent=String(err.message||err);}
+});
+el("readerPrev").addEventListener("click", () => {
+  loadReaderPage(readerPageNumber-1).catch(err=>{
+    el("readerStatus").textContent=String(err.message||err);
+  });
+});
+el("readerNext").addEventListener("click", () => {
+  loadReaderPage(readerPageNumber+1).catch(err=>{
+    el("readerStatus").textContent=String(err.message||err);
+  });
+});
+el("readerUseChunk").addEventListener("click", () => {
+  const chosen = currentReaderChunk();
+  if (!chosen) return;
+  el("message").value = chosen.text;
+  el("run").click();
+  el("readerStatus").textContent = "นำช่วง " + (chosen.index+1) +
+    " ไปช่องข้อความหลักแล้ว สามารถแก้ไขก่อนสร้างเสียงได้";
+});
+el("readerQueueChunk").addEventListener("click", async () => {
+  const chosen = currentReaderChunk();
+  if (!chosen) return;
+  el("readerQueueChunk").disabled=true;
+  try {
+    const payload = buildSpeechPayload();
+    payload.text = chosen.text;
+    payload.source = "document";
+    await submitQueuePayload(payload);
+    el("readerStatus").textContent = "ส่งช่วง " + (chosen.index+1) +
+      " เข้าคิวเสียงแล้ว · ดูสถานะในแผงคิวด้านล่าง";
+  } catch(err){el("readerStatus").textContent=String(err.message||err);}
+  finally {el("readerQueueChunk").disabled=false;}
+});
+
 const buildSpeechPayload = () => ({
   text: el("message").value,
-  rules: JSON.parse(el("rule").value),
-  pronunciations: JSON.parse(el("pron").value),
+  rules: parseConfigJson("rule"),
+  pronunciations: parseConfigJson("pron"),
   engine_id: el("engineSelect").value,
   voice_id: el("voiceSelect").value,
   speed: readNumber("speed"),
@@ -385,32 +672,35 @@ async function pollJob() {
   }
   return job.state;
 }
-el("queueSubmit").addEventListener("click", async () => {
-  el("queueSubmit").disabled = true;
+async function submitQueuePayload(payload) {
   el("queueMessage").textContent = "กำลังส่งงานเข้าคิว...";
   stopJobPoll();
-  try {
-    const response = await fetch("/v1/jobs", {
-      method: "POST",
-      headers: {"Content-Type":"application/json", "X-VoxWeaveTTS-Intent":"queue-speech"},
-      body: JSON.stringify(buildSpeechPayload())
-    });
-    const job = await response.json();
-    if (!response.ok) throw Error(job.error || "Queue request failed");
-    latestQueuedId = job.speech_id;
-    el("queueAudio").style.display = "none";
-    el("queueDownload").style.display = "none";
-    const observedState = await pollJob();
-    if (jobPollTimer === null && ["queued","rendering"].includes(observedState)) {
-      jobPollTimer = setInterval(() => {
-        pollJob().catch(err => { stopJobPoll(); el("queueMessage").textContent=String(err.message||err); });
-      }, 800);
-    }
-  } catch(err) {
-    el("queueMessage").textContent = String(err.message || err);
-  } finally {
-    el("queueSubmit").disabled = false;
+  const response = await fetch("/v1/jobs", {
+    method: "POST",
+    headers: {"Content-Type":"application/json", "X-VoxWeaveTTS-Intent":"queue-speech"},
+    body: JSON.stringify(payload)
+  });
+  const job = await response.json();
+  if (!response.ok) throw Error(job.error || "Queue request failed");
+  latestQueuedId = job.speech_id;
+  el("queueAudio").style.display = "none";
+  el("queueDownload").style.display = "none";
+  const observedState = await pollJob();
+  if (jobPollTimer === null && ["queued","rendering"].includes(observedState)) {
+    jobPollTimer = setInterval(() => {
+      pollJob().catch(err => {
+        stopJobPoll();
+        el("queueMessage").textContent=String(err.message||err);
+      });
+    }, 800);
   }
+  return job;
+}
+el("queueSubmit").addEventListener("click", async () => {
+  el("queueSubmit").disabled=true;
+  try { await submitQueuePayload(buildSpeechPayload()); }
+  catch(err){el("queueMessage").textContent=String(err.message||err);}
+  finally {el("queueSubmit").disabled=false;}
 });
 el("queueRefresh").addEventListener("click", () => {
   getQueueJobs().catch(err => { el("queueMessage").textContent = String(err.message || err); });

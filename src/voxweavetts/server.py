@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .processing import InputError, process_text
+from .document_reader import prepare_document, MAX_DOCUMENT_REQUEST_BYTES
 from .speech import (
     ENGINE_ID,
     EngineUnavailable,
@@ -164,6 +165,8 @@ class Handler(BaseHTTPRequestHandler):
                     "foundation": False,
                     "capabilities": {
                         "text_filter": True,
+                        "document_preview": True,
+                        "document_queue_chunks": True,
                         "engine_registry": True,
                         "audio_preparation_queue": True,
                         "queue_events": True,
@@ -236,10 +239,10 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, InputError) as exc:
             self.send_json(400, {"error": str(exc)})
 
-    def _read_json(self) -> dict[str, Any]:
+    def _read_json(self, max_bytes: int = MAX_REQUEST_BYTES) -> dict[str, Any]:
         length_text = self.headers.get("Content-Length", "")
-        if not length_text.isdecimal() or int(length_text) > MAX_REQUEST_BYTES:
-            raise InputError("invalid or excessive Content-Length (max 65536)")
+        if (not length_text.isdecimal() or not 0 < int(length_text) <= max_bytes):
+            raise InputError(f"invalid or excessive Content-Length (max {max_bytes})")
         data = json.loads(self.rfile.read(int(length_text)).decode("utf-8"))
         if not isinstance(data, dict):
             raise InputError("request must be a JSON object")
@@ -272,6 +275,22 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, self._coordinator().cancel(job_route[0]))
             except JobMissing:
                 self.send_json(404, {"error": "speech job not found"})
+            return
+        if route == "/v1/documents/preview":
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.send_json(415, {"error": "document preview requires application/json"})
+                return
+            try:
+                data = self._read_json(MAX_DOCUMENT_REQUEST_BYTES)
+                self.send_json(200, prepare_document(
+                    data.get("text"), data.get("format"),
+                    title=data.get("title", ""),
+                    chunk_chars=data.get("chunk_chars", 350),
+                    page_index=data.get("page_index", 0),
+                    page_size=data.get("page_size", 15),
+                ))
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
             return
         if route == "/v1/jobs":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "queue-speech":
