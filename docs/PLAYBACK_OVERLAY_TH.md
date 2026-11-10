@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Browser Playback Clock และ OBS Subtitle Overlay
 
-> สถานะ: v0.3.0.dev4 · ระบบกลางที่ **ไม่ผูก TTS Engine** · เฉพาะเครื่อง Local
+> สถานะ: v0.3.0.dev5 · ระบบกลางที่ **ไม่ผูก TTS Engine** · เฉพาะเครื่อง Local
 
 ## หลักการสำคัญ
 
@@ -13,6 +13,19 @@
 3. OBS Browser Source โหลด Overlay และ Poll State ประมาณทุก 250 ms แล้วแสดง Subtitle ของ Segment ปัจจุบันโดยใช้ textContent (ไม่แทรก HTML)
 
 **ยังไม่มี Word-Level / Phoneme-Level Alignment**: หาก Engine สร้างหนึ่ง Speech Segment ยาวหลายวินาที Subtitle จะแสดงข้อความของทั้ง Segment ในช่วงนั้น ไม่ได้ไฮไลต์ทีละคำ. ความคลาดเคลื่อนจากการ Polling, Network และ Audio Output Latency ยังมีได้ จึงเป็น **Browser-Clock Sync Preview** ไม่ใช่การรับรองว่าตรงระดับเฟรมหรือ Audio Hardware Clock
+
+## การลดความหน่วงด้วย SSE และโหมดแสดงข้อความ
+
+ตั้งแต่ v0.3.0.dev5 หน้า OBS Overlay จะเปิด **EventSource** ไปยัง `GET /v1/playback/stream` เพื่อรับ Subtitle เมื่อสถานะ Browser เปลี่ยน โดยรองรับการเชื่อมต่อซ้ำและ Snapshot ล่าสุดทันที ไม่เก็บประวัติข้อความต้นฉบับหรือ Speech Audio ลง Disk. SSE มีเพดานผู้รับพร้อมกัน 8 ตัว, เปิดค้างต่อรอบไม่เกิน 20 วินาที และใช้ Keepalive ระหว่างไม่มีข้อความ
+
+HTTP Polling ที่ `GET /v1/playback/state` ยังรองรับและจะถูกใช้เป็น Fallback ทุก 1 วินาทีในกรณีที่ SSE ใช้งานไม่ได้ **ความหน่วงรวมยังถูกจำกัดโดยการรายงาน `audio.currentTime` จาก Browser ประมาณทุก 250 ms** และระยะเวลาประมวลผล/แสดงผลที่ OBS
+
+มี URL สองแบบ:
+
+- `http://127.0.0.1:8765/overlay` — **Segment Mode** ใช้ระยะเวลาจากตัวอย่างเสียงที่ Render แล้ว โดยแสดงข้อความทั้ง Segment ไม่ใช่ทีละคำ
+- `http://127.0.0.1:8765/overlay?mode=estimated` — **Estimated Mode (ทดลอง)** แบ่งข้อความยาวเป็นช่วงย่อยบนขอบเขตกลุ่มอักขระ Unicode (ไม่แยกวรรณยุกต์ไทยหรือ Emoji ที่อยู่ด้วยกัน) แล้วประมาณเวลาแสดงจากสัดส่วนจำนวนอักขระภายใน Segment นั้น
+
+**โหมด Estimated ไม่ได้วิเคราะห์สัญญาณเสียง** จึงอาจเปลี่ยน Subtitle ก่อนหรือหลังคำที่พูดจริง โดยเฉพาะเมื่อ Engine อ่านคำภาษาไทยช้าหรือเร็วไม่เท่ากัน ห้ามถือว่าเป็น Word/Syllable Forced Alignment จริง หากต้องการความแม่นยำรายคำจะต้องเพิ่ม Aligner ที่ตรวจสอบเชิงพาณิชย์ได้หรือ Engine ที่ส่งเวลา Alignment มาโดยตรง
 
 ## วิธีใช้บนเครื่อง
 
@@ -40,7 +53,8 @@
 
 ## API
 
-- GET /v1/playback/state — อ่าน Snapshot ของสถานะผู้เล่น/Subtitle ปัจจุบัน (ใช้กับ OBS Overlay)
+- GET /v1/playback/state?mode=segment|estimated — อ่าน Snapshot ของสถานะผู้เล่น/Subtitle ปัจจุบัน รวม revision/subtitle_precision (ใช้เป็น Fallback)
+- GET /v1/playback/stream?mode=segment|estimated — ส่ง Snapshot เมื่อมีการเปลี่ยนสถานะผ่าน SSE: event=playback, id=revision, data=JSON; ส่ง Snapshot ล่าสุดเมื่อเชื่อมต่อใหม่, ไม่มี Log Replay
 - POST /v1/playback/event — ส่ง Event จาก Browser ซึ่งกำลังเล่นเสียงจริง
 - GET /overlay หรือ GET /overlay.html — หน้า Overlay พื้นหลังโปร่งใส
 - GET /playback_clock.js — Shared Browser Media Clock Adapter
@@ -74,15 +88,16 @@ Snapshot คืนสถานะ playing, paused, ended, stopped, stale หร�
 | src/voxweavetts/playback_state.py | ตรวจ Report, เลือก Segment จากเวลาที่รายงาน, ทำ Stale, ป้องกัน Event เก่า |
 | src/voxweavetts/server.py | HTTP Playback Endpoints / Static Overlay |
 | web/playback_clock.js | Browser Media Clock Adapter สำหรับทุกเสียง |
-| web/overlay.html | OBS Caption-only Overlay โปร่งใส, Polling และ Text Sanitization |
+| web/overlay.html | OBS Caption-only Overlay โปร่งใส, SSE และ HTTP Fallback, Text Sanitization |
 | web/index.html | เชื่อม Reader และ Queue Audio กับ Media Clock และแสดง Subtitle ระหว่างเล่น |
-| tests/test_playback_state.py | Unit/HTTP Tests โดยไม่ต้องติดตั้งโมเดล |
+| src/voxweavetts/subtitle_cues.py | แบ่งข้อความแบบ Estimated Grapheme Windows ที่ไม่อ้างว่าเป็นเสียงรายคำ |
+| tests/test_playback_state.py และ tests/test_subtitle_stream.py | Unit/HTTP/SSE Tests โดยไม่ต้องติดตั้งโมเดล |
 | tests/playback_clock_smoke.cjs | Node Tests จำลอง HTMLMediaElement play/pause/seek/end |
 
 ## ความสามารถและข้อจำกัดในรอบต่อไป
 
 - เพิ่ม Timeline Alignment จาก Engine ที่รองรับ หรือ Forced Aligner ของเราเอง เพื่อ Subtitle ระดับคำ/พยางค์
-- เพิ่ม Event Stream (SSE/WebSocket) และ Session Ownership/Auth เมื่อจะเปิด API ให้ LAN/Cloud
+- เพิ่ม Authenticated Multi-Client Session Ownership และ WebSocket หากขยาย API ไป LAN/Cloud; SSE แบบ Local มีแล้ว
 - เพิ่มการกำหนด Style/Position/Subtitles สำหรับ OBS และการตั้งค่าหลาย Scene
 - เพิ่ม Audio Device/Playback Service ใน Core หากต้องเล่นเสียงโดยไม่ต้องมี Browser
 - รองรับแหล่งข้อความ Live เช่น Discord, YouTube ผ่าน Adapter โดยใช้ Playback API กลาง

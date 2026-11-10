@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,7 @@ from .voice_controls import control_schema
 from .presets import load_presets, save_preset
 from .text_settings import load_all as load_text_settings, load_section as load_text_section, save_section as save_text_section, SettingsConflict
 from .reading_progress import load_position, save_position, clear_position, ProgressConflict
-from .playback_state import PlaybackState, PlaybackConflict
+from .playback_state import PlaybackState, PlaybackConflict, StreamFull
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
 from .speech_coordinator import (
@@ -175,6 +176,67 @@ class Handler(BaseHTTPRequestHandler):
                 self.connection.settimeout(previous_timeout)
         self.send_json(status, body)
 
+    def _subtitle_mode(self) -> str:
+        parameters = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        values = parameters.get("mode", ["segment"])
+        if len(values) != 1 or values[0] not in {"segment", "estimated"}:
+            raise InputError("subtitle mode must be segment or estimated")
+        return values[0]
+
+    def _stream_playback(self) -> None:
+        """Short-lived SSE snapshot stream; reconnect requires no replay log.
+
+        No per-client queue and no speech audio/body retention. Bound streams,
+        reuse playback revisions, and close idle sockets after 20 seconds.
+        """
+        state = self._playback_state()
+        mode = self._subtitle_mode()
+        try:
+            state.subscribe()
+        except StreamFull:
+            self.send_json(429, {"error": "too many local subtitle viewers"})
+            return
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-transform")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+
+            def publish(snapshot: dict[str, Any]) -> None:
+                payload = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":"))
+                packet = (
+                    "id: " + str(snapshot["revision"]) + "\n"
+                    + "event: playback\n"
+                    + "data: " + payload + "\n\n"
+                ).encode("utf-8")
+                self.wfile.write(packet)
+                self.wfile.flush()
+
+            snapshot = state.snapshot(mode)
+            publish(snapshot)
+            revision = snapshot["revision"]
+            deadline = time.monotonic() + 20.0
+            keepalive = time.monotonic()
+            while time.monotonic() < deadline:
+                update = state.watch(revision, timeout=0.5, mode=mode)
+                if update is not None:
+                    publish(update)
+                    revision = update["revision"]
+                    keepalive = time.monotonic()
+                elif time.monotonic() - keepalive >= 6:
+                    self.wfile.write(b": keepalive\n\n")
+                    self.wfile.flush()
+                    keepalive = time.monotonic()
+        except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
+            # Browsers/OBS routinely disconnect when scenes or tabs change.
+            pass
+        finally:
+            state.unsubscribe()
+
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
@@ -214,12 +276,17 @@ class Handler(BaseHTTPRequestHandler):
                         "live_connectors": False,
                         "subtitle_overlay": True,
                         "browser_media_clock_reporting": True,
-                        "overlay_poll_interval_ms": 250,
+                        "overlay_poll_interval_ms": 1000,
+                        "subtitle_sse": True,
+                        "estimated_subtitle_windows": True,
+                        "word_level_alignment": False,
                         "portable_executable": False,
                     },
                 })
             elif route == "/v1/playback/state":
-                self.send_json(200, self._playback_state().snapshot())
+                self.send_json(200, self._playback_state().snapshot(self._subtitle_mode()))
+            elif route == "/v1/playback/stream":
+                self._stream_playback()
             elif route == "/v1/jobs":
                 self.send_json(200, {"schema_version": EVENT_SCHEMA_VERSION,
                                      "jobs": self._coordinator().list()})

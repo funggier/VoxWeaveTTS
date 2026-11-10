@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev4)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev5)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -64,6 +64,14 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 ## Rules and Pronunciations JSON editor
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
+
+## Local SSE Playback Stream and Estimated Captions (experimental)
+
+`GET /v1/playback/stream?mode=segment|estimated` is a **read-only Server-Sent Events** stream. Event name: `playback`, numeric `id` is the current in-memory state revision, `data` is the same JSON snapshot as GET /v1/playback/state. A new connection gets the current snapshot immediately, and changed state is pushed without polling. The server limits to 8 concurrent stream viewers per process, sends Keepalive comments, and closes each stream after 20 seconds so the Browser can reconnect. No history is replayed (snapshot-based reconnect). When the stream is unavailable, the OBS overlay polls `GET /v1/playback/state` as fallback.
+
+Both endpoints accept `mode=segment` (default; full generated speech segment) and `mode=estimated` (optional, smaller grapheme-safe caption windows whose timing is **heuristically interpolated** within generated segment durations). Snapshot contains `subtitle_mode`, `subtitle_precision` (generated_segment or estimated_grapheme_windows) and `revision`. Neither mode provides word/phoneme alignment, and neither stream nor REST snapshots are an output-device hardware clock. Invalid mode returns HTTP 400.
+
+See [Local OBS Playback Guide](PLAYBACK_OVERLAY_TH.md).
 
 ## Browser Media Playback Clock and OBS Subtitle Relay (implemented)
 

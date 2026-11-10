@@ -12,6 +12,12 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Local Subtitle Stream v1 (implemented preview)
+
+The shared `PlaybackState` now maintains a per-process monotonically increasing revision and condition-variable notifications. The `GET /v1/playback/stream` SSE transport pushes the latest snapshot when reports change rather than polling; it is bounded to 8 subscribers, self-closes after 20 seconds, and preserves a REST polling fallback. No persistent event log or replay is maintained, and connection to a different machine is not exposed.
+
+An independent `subtitle_cues.py` provides opt-in estimated Unicode grapheme windows inside generated speech segments. Estimated mode does **not** infer actual speech phoneme/word boundaries; generated-segment mode is the default. The Audio Browser clock continues to be authoritative for the **reported playback position**. See [Playback/OBS Guide](PLAYBACK_OVERLAY_TH.md).
+
 ## Browser Playback State and Local OBS Subtitles (implemented preview)
 
 The Player HTMLMediaElement.currentTime (not model-completion time) is reported via web/playback_clock.js to src/voxweavetts/playback_state.py. The service validates and relays only the ready-job DISPLAY segments with monotonically increasing sequences and stale-caption expiry. GET /v1/playback/state feeds a transparent GET /overlay Browser Source. Pause/end/stop hide the subtitle. Missing: word-level forced alignment, direct OS audio clock, secure remote/LAN event stream. See [Playback/OBS](PLAYBACK_OVERLAY_TH.md).

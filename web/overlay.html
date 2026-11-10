@@ -28,27 +28,43 @@ body{display:flex;align-items:flex-end;justify-content:center;font-family:"Noto 
 <script>
 "use strict";
 const subtitle=document.getElementById("subtitle");
-let lastSequence=null;
+const query=new URLSearchParams(location.search);
+const mode=query.get("mode")==="estimated"?"estimated":"segment";
+const modeQuery="?mode="+mode;
+let streamConnected=false;
 let inFlight=false;
-async function updateOverlay(){
-  if(inFlight)return;
+let lastRevision=-1;
+function showState(state){
+  if(!state || !Number.isInteger(state.revision))return;
+  if(state.revision<lastRevision)return;
+  lastRevision=state.revision;
+  const caption=state.state==="playing"&&!state.stale ? state.subtitle : "";
+  // Never use innerHTML: captions may contain quotes, emoji and markup.
+  if(subtitle.textContent!==caption)subtitle.textContent=caption;
+}
+async function pollFallback(){
+  if(streamConnected||inFlight)return;
   inFlight=true;
   try{
-    const response=await fetch("/v1/playback/state",{cache:"no-store"});
-    if(!response.ok)throw new Error("playback state unavailable");
-    const state=await response.json();
-    // textContent prevents HTML injection from imported fiction/Unicode input.
-    const visible=state.state==="playing"&&!state.stale ? state.subtitle : "";
-    if(subtitle.textContent!==visible)subtitle.textContent=visible;
-    lastSequence=state.sequence;
+    const response=await fetch("/v1/playback/state"+modeQuery,{cache:"no-store"});
+    if(!response.ok)throw new Error("playback unavailable");
+    showState(await response.json());
   }catch{
-    // Hide the last subtitle rather than leaving stale speech on screen.
     subtitle.textContent="";
-    lastSequence=null;
   }finally{inFlight=false;}
 }
-updateOverlay();
-setInterval(updateOverlay,250);
+if(typeof EventSource!=="undefined"){
+  const stream=new EventSource("/v1/playback/stream"+modeQuery);
+  // A server restart resets its in-memory revision counter.
+  stream.onopen=()=>{lastRevision=-1;};
+  stream.addEventListener("playback",event=>{
+    try{showState(JSON.parse(event.data));streamConnected=true;}
+    catch{streamConnected=false;}
+  });
+  stream.onerror=()=>{streamConnected=false;};
+}
+pollFallback();
+setInterval(pollFallback,1000);
 </script>
 </body>
 </html>

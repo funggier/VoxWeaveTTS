@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev4** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev5** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -21,6 +21,15 @@
 เพิ่ม Browser Playback Clock ที่ใช้ audio.currentTime ของเสียงซึ่งกำลังเล่นจาก Document Reader หรือ Speech Queue และหน้า http://127.0.0.1:8765/overlay สำหรับ OBS Browser Source แบบพื้นหลังโปร่งใส ใช้ร่วมกับทุก Engine และไม่เริ่มแสดง Subtitle เพียงเพราะสร้าง WAV เสร็จ เมื่อ Pause/Stop/Ended หรือ Browser หยุดรายงานเวลานาน ระบบจะซ่อน Subtitle
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
+
+## OBS Subtitle แบบ SSE และช่วงข้อความที่ประมาณเวลา (ทดลอง)
+
+เพิ่ม **Server-Sent Events (SSE)** ส่งสถานะเสียงที่เปลี่ยนไปยัง Overlay ทันทีที่ Browser รายงาน โดยไม่ต้องรอรอบ HTTP Polling 250 ms แบบเดิม เมื่อ SSE ใช้ไม่ได้ Overlay จะกลับไปใช้ HTTP Polling ทุก 1 วินาทีอัตโนมัติ
+
+- `http://127.0.0.1:8765/overlay` — แสดง Subtitle ตามขอบเขต Segment ที่สร้าง WAV จริง (ค่าเริ่มต้น)
+- `http://127.0.0.1:8765/overlay?mode=estimated` — แบ่งข้อความเป็นช่วงย่อยที่ไม่ตัดวรรณยุกต์ไทย/Emoji แต่ **เวลาเป็นค่าประมาณตามจำนวนกลุ่มอักขระ ไม่ใช่การจับเสียงรายคำจริง** แนะนำให้ทดลองก่อนใช้งานจริง
+
+ทั้งสองรูปแบบใช้ได้กับทุก Engine และยังไม่ต้องติดตั้งโมเดลเพิ่ม ดู [คู่มือ Subtitle/OBS](docs/PLAYBACK_OVERLAY_TH.md)
 
 ## บันทึกตำแหน่งอ่านค้างและอ่านทีละช่วง
 

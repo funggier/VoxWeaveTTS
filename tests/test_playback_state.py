@@ -159,7 +159,8 @@ class PlaybackHTTPTests(unittest.TestCase):
             body=response.read().decode("utf-8")
             self.assertEqual(response.status,200)
             self.assertIn("background:transparent",body)
-            self.assertIn('subtitle.textContent=visible',body)
+            self.assertIn('subtitle.textContent=caption',body)
+            self.assertIn('EventSource("/v1/playback/stream"',body)
             self.assertIn("/v1/playback/state",body)
         with urlopen(self.base+"/playback_clock.js",timeout=5) as response:
             self.assertIn(b"HTMLMediaElement.currentTime",response.read())

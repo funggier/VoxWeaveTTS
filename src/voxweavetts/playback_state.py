@@ -14,6 +14,7 @@ import time
 from typing import Any
 
 from .processing import InputError
+from .subtitle_cues import MODES, MODE_SEGMENT, caption_for
 
 SESSION_RE = re.compile(r"^[0-9a-f]{32}$")
 EVENTS = frozenset({"start", "progress", "paused", "resumed", "seeked", "ended", "stopped"})
@@ -34,6 +35,10 @@ class _Session:
     updated_mono: float
 
 
+class StreamFull(Exception):
+    """The local server already has its maximum number of overlay viewers."""
+
+
 class PlaybackConflict(Exception):
     """Old, expired or superseded browser playback session."""
 
@@ -47,6 +52,11 @@ class PlaybackState:
         self._stale_after = stale_after
         self._lock = threading.RLock()
         self._active: _Session | None = None
+        self._changed = threading.Condition(self._lock)
+        self._revision = 0
+        self._last_stale = False
+        self._subscribers = 0
+        self._subscriber_limit = 8
 
     @staticmethod
     def _validate_event(data: Any) -> tuple[str, str, str, int, int]:
@@ -72,13 +82,10 @@ class PlaybackState:
         return session_id, speech_id, event, sequence, round(position)
 
     @staticmethod
-    def _cue(session: _Session) -> str:
+    def _cue(session: _Session, mode: str = MODE_SEGMENT) -> str:
         if session.state != "playing":
             return ""
-        for cue in session.segments:
-            if cue["start_ms"] <= session.position_ms < cue["end_ms"]:
-                return cue["display_text"] if cue["kind"] == "speech" else ""
-        return ""
+        return caption_for(session.segments, session.position_ms, mode)
 
     @staticmethod
     def _validated_job(job: Any, speech_id: str) -> tuple[list[dict[str, Any]], int, str]:
@@ -152,9 +159,13 @@ class PlaybackState:
                 elif event == "stopped":
                     current.state = "stopped"
                 # seeked leaves playing/paused state unchanged.
+            self._revision += 1
+            self._changed.notify_all()
             return self._snapshot()
 
-    def _snapshot(self) -> dict[str, Any]:
+    def _snapshot(self, mode: str = MODE_SEGMENT) -> dict[str, Any]:
+        if mode not in MODES:
+            raise InputError("subtitle mode must be segment or estimated")
         session = self._active
         if session is None:
             return {
@@ -162,10 +173,17 @@ class PlaybackState:
                 "speech_id": None, "session_id": None,
                 "position_ms": 0, "duration_ms": 0,
                 "sequence": 0, "subtitle": "", "stale": False,
+                "revision": self._revision, "subtitle_mode": mode,
+                "subtitle_precision": "generated_segment" if mode == "segment" else "estimated_grapheme_windows",
                 "clock_basis": "browser_html_media_current_time_reported",
             }
         elapsed = time.monotonic() - session.updated_mono
         stale = session.state == "playing" and elapsed > self._stale_after
+        if stale != self._last_stale:
+            self._last_stale = stale
+            if stale:
+                self._revision += 1
+                self._changed.notify_all()
         return {
             "schema_version": SCHEMA_VERSION,
             "state": "stale" if stale else session.state,
@@ -175,11 +193,43 @@ class PlaybackState:
             "position_ms": session.position_ms,
             "duration_ms": session.duration_ms,
             "sequence": session.sequence,
-            "subtitle": "" if stale else self._cue(session),
+            "revision": self._revision,
+            "subtitle_mode": mode,
+            "subtitle_precision": "generated_segment" if mode == "segment" else "estimated_grapheme_windows",
+            "subtitle": "" if stale else self._cue(session, mode),
             "stale": stale,
             "clock_basis": "browser_html_media_current_time_reported",
         }
 
-    def snapshot(self) -> dict[str, Any]:
+    def snapshot(self, mode: str = MODE_SEGMENT) -> dict[str, Any]:
         with self._lock:
-            return self._snapshot()
+            return self._snapshot(mode)
+
+    def subscribe(self) -> None:
+        with self._lock:
+            if self._subscribers >= self._subscriber_limit:
+                raise StreamFull("too many local overlay viewers")
+            self._subscribers += 1
+
+    def unsubscribe(self) -> None:
+        with self._lock:
+            self._subscribers = max(0, self._subscribers - 1)
+
+    def watch(self, previous_revision: int, timeout: float = 1.0,
+              mode: str = MODE_SEGMENT) -> dict[str, Any] | None:
+        """Wait briefly for a new report or the 3-second stale transition.
+
+        Return None only when no playback change occurred within timeout.
+        SSE connections reconnect from the current snapshot, not a stored log.
+        """
+        if type(previous_revision) is not int or previous_revision < 0:
+            raise ValueError("invalid previous_revision")
+        if not 0 < timeout <= 5.0:
+            raise ValueError("invalid watcher timeout")
+        with self._changed:
+            current = self._snapshot(mode)
+            if current["revision"] != previous_revision:
+                return current
+            self._changed.wait(timeout)
+            current = self._snapshot(mode)
+            return current if current["revision"] != previous_revision else None

@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev5 — Low-latency local SSE subtitles and estimated caption windows (2026-11-10)
+
+- Added a bounded local Server-Sent Events (SSE) transport at GET /v1/playback/stream; it sends initial and changed playback snapshots, has 8-client capacity, heartbeats, stale-caption transitions and auto-reconnect after 20s. Existing GET /v1/playback/state remains as fallback.
+- OBS Overlay now uses EventSource first and HTTP polling only as fallback, reducing additional overlay transport delay compared with 250ms polling.
+- Added opt-in /overlay?mode=estimated: Unicode grapheme-safe subtitle windows interpolated WITHIN a generated speech segment. This is explicitly approximate text timing, NOT actual word/syllable/phoneme audio alignment.
+- Added versioned stream state revisions, reconnect handling, stale-browser caption hiding, API/SSE tests and browser overlay simulator tests including Thai/emoji and markup-safe display.
+- Retained model-neutral dependencies, locally bound API, original-word masking and commercial licensing restrictions.
+
 ## 0.3.0.dev4 — Browser media-clock subtitles and local OBS overlay (2026-11-10)
 
 - Added an Engine-neutral PlaybackState relay with session IDs, increasing event sequences, ready-job timeline checks, safe silent segments and stale caption hiding.
