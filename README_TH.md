@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev2** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Playback Clock, Discord/YouTube, OBS Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev3** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Playback Clock, Discord/YouTube, OBS Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -15,6 +15,12 @@
 ## ตัวแก้กฎคำอ่าน JSON ที่ปรับปรุงแล้ว
 
 ช่อง **Rules** และ **Pronunciations** ที่มีอยู่เดิมมีปุ่ม **จัดรูปแบบ / ตรวจ JSON / บันทึกไฟล์ / นำเข้าไฟล์ / บันทึกในโปรแกรม / โหลดค่าที่บันทึก** และช่อง **เพิ่มรายการเร็ว** เพื่อเพิ่มข้อความที่มีเครื่องหมายคำพูด แบ็กสแลช อักขระไทยหรือ Emoji โดยไม่ต้อง Escape เอง การทดลองอ่านจะใช้กฎเดียวกับ API; เพิ่มการบันทึกถาวรลงโฟลเดอร์ data/filters และ data/dictionaries การโหลดค่าที่เคยบันทึก การนำเข้าไฟล์ JSON และการป้องกันเขียนทับจากอีกแท็บ ส่วนปุ่มบันทึกไฟล์ยังเป็นการดาวน์โหลดแยกกัน อ่าน [คู่มือการตั้งค่าคำอ่าน JSON](docs/PRONUNCIATION_JSON_TH.md)
+
+## บันทึกตำแหน่งอ่านค้างและอ่านทีละช่วง
+
+ในแผง **นำเข้าเอกสาร TXT/Markdown** สามารถกด **จดตำแหน่งช่วงนี้**, **ไปยังตำแหน่งที่อ่านค้าง**, **ล้างตำแหน่งที่จำ** และ **สร้างเสียงและอ่านช่วงที่เลือก** ได้แล้ว มีปุ่มพัก/เล่นต่อ หยุด และตัวเลือกอ่านช่วงถัดไปอัตโนมัติ โดยจะสร้างเสียงทีละช่วง ไม่สร้างทั้งเล่มล่วงหน้า
+
+ตำแหน่งอ่านบันทึกใน `data/reading/positions.json` ภายในโปรเจกต์ (Git Ignore) เก็บเพียง Hash ของเนื้อหาและหมายเลขช่วง ไม่บันทึกข้อความนิยาย; เมื่อเล่นเสียงใน Browser จบหนึ่งช่วงจึงค่อยบันทึกว่าช่วงถัดไปเป็นจุดอ่านต่อ หาก Browser ไม่อนุญาต Auto-play ให้กด Play ในแถบเสียงเอง **ยังไม่มี Audio Playback Clock ที่ต่อ OBS, ข้อความ Subtitle แบบ Live หรือ Playback ข้ามอุปกรณ์**
 
 ## ระบบนำเข้า TXT / Markdown ที่เพิ่มแล้ว
 

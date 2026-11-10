@@ -1,4 +1,4 @@
-# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev2)
+# API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev3)
 
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
@@ -64,6 +64,14 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 ## Rules and Pronunciations JSON editor
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
+
+## Private document reading progress (implemented)
+
+`GET /v1/reading/progress?document_id=<SHA-256>` returns `{schema_version:1, document_id, progress:null|{chunk_chars, chunk_total, next_chunk, updated_at}, revision:<SHA256>}`.
+
+`POST /v1/reading/progress` requires `X-VoxWeaveTTS-Intent: save-reading-progress` and application/json: `{document_id, chunk_chars, chunk_total, next_chunk, expected_revision}`. `POST /v1/reading/progress/clear` requires `X-VoxWeaveTTS-Intent: clear-reading-progress`, application/json and `{document_id, expected_revision}`. On concurrent stale updates returns HTTP 409; invalid data returns 400, missing intent returns 403. Stores only document hash and position counters in `data/reading/positions.json` using atomic replacement; no file content or speech data is persisted. Max 128 tracked documents.
+
+The browser document reader records the next unread chunk only after its WAV media element signals playback ended, and synthesizes no more than one book chunk at a time. `ready` continues to mean **WAV generated**, not played. The reader UI's local playback events are **not** authoritative OBS/subtitle stream timestamps.
 
 ## Engine-neutral TXT / Markdown preview (implemented)
 

@@ -33,7 +33,9 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Rules/Pronunciations JSON editor: pretty-format, validation, import/export, quick Unicode-safe entry, persistent local save/reload and stale-tab revision conflict checks
 - [x] Preserve common Thai/Emoji Unicode sequences when cutting document chunks
 - [x] Send selected chapter chunk through existing Rules/Pronunciations and Engine-independent Speech Queue
-- [ ] Persistent reading position, auto-progress across chunks with backpressure and safe long-form playback
+- [x] Private hash-keyed reading position and explicit resume/clear after reopening the document
+- [x] Browser-managed per-chunk audio playback with pause/stop and optional next chunk after ended event (one synthesis at a time)
+- [ ] Full player-owned playback clock, resilient long-form streaming, prioritization and OBS subtitle synchronization
 
 - [x] Select 2 real Thai CPU Engines and save/load local Voice Presets
 - [x] Paired Slider/Numeric inputs for Native Speed and post-DSP Gain/Pitch/Bass/Treble, formant-preserve mode

@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Document Reader (TXT / Markdown)
 
-> Implementation preview v0.3.0.dev1 — ข้อความ/เอกสารใช้ Core ได้โดยไม่ต้องติดตั้ง TTS Engine; การสร้าง WAV ยังต้องมี Engine
+> Implementation preview v0.3.0.dev3 — ข้อความ/เอกสารใช้ Core ได้โดยไม่ต้องติดตั้ง TTS Engine; การสร้าง WAV ยังต้องมี Engine
 
 ## เป้าหมาย
 
@@ -77,6 +77,20 @@ TXT/Markdown รองรับตัวอักษร Unicode, เครื่
 3. กด **เปิดและแบ่งช่วง** แล้วเลือก Chapter/Chunk หรือเปลี่ยนหน้า
 4. กด **นำช่วงนี้ไปแก้ไขในช่องข้อความ** เพื่อแก้ Rules/Pronunciation หรือกด **ส่งช่วงนี้เข้าคิวเสียง** ทันที
 5. ดูสถานะ/ดาวน์โหลด WAV ที่แผง Speech Queue (สถานะ ready = สร้างไฟล์เสร็จ ยังไม่ใช่จังหวะการเล่นจริง)
+
+## ตำแหน่งอ่านค้างและการอ่านต่อเนื่อง (เพิ่มใน v0.3.0.dev3)
+
+- กด **จดตำแหน่งช่วงนี้** เพื่อบันทึกให้ช่วงที่เลือกเป็นช่วงที่จะอ่านต่อ
+- เมื่อเปิดไฟล์เดิมซ้ำ กด **ไปยังตำแหน่งที่อ่านค้าง** (Document Hash, จำนวนช่วง และขนาดช่วงต้องตรงกัน) เพื่อเลือกช่วงนั้น
+- กด **สร้างเสียงและอ่านช่วงที่เลือก** เพื่อส่งช่วงนี้ไปที่ Speech Coordinator และเล่น WAV ผ่าน Browser เมื่อพร้อม; ใช้ **พัก / เล่นต่อ** หรือ **หยุดอ่าน**
+- เปิดตัวเลือก **อ่านช่วงถัดไปอัตโนมัติหลังเสียงจบ** เพื่อให้ระบบสร้างเสียงเพียงช่วงถัดไปหลัง Browser แจ้งว่าเสียงช่วงปัจจุบันเล่นจบแล้ว โดยมีเพียงหนึ่งช่วงที่กำลังสังเคราะห์ในแต่ละครั้ง; หาก Browser บล็อก Auto-play จะต้องกด Play เอง
+- กด **ล้างตำแหน่งที่จำ** เพื่อคืนเอกสารนี้เป็นสถานะไม่มีตำแหน่งที่บันทึก โดยไม่ลบเอกสารบนเครื่อง
+
+Progress เก็บใน `data/reading/positions.json` ซึ่งอยู่ใน Git Ignore โดยมีเฉพาะ SHA256 Document ID, Chunk Size, Chunk Count, Next Chunk Index และ Timestamp ไม่มีข้อความนิยาย ชื่อไฟล์ Path หรือ WAV ของผู้ใช้ ส่วนเนื้อเรื่องต้องเปิดไฟล์ใน Browser ใหม่ทุก Session
+
+API: GET /v1/reading/progress?document_id=<SHA256>, POST /v1/reading/progress (Intent: save-reading-progress), POST /v1/reading/progress/clear (Intent: clear-reading-progress). ใช้ revision แบบ Optimistic Concurrency ป้องกันการบันทึกทับกันจากสองแท็บ และ Atomic Write ป้องกันไฟล์ค้างจากการเขียนไม่ครบ
+
+**ข้อจำกัด:** ถ้าเปลี่ยนขนาด Chunk หรือแก้ข้อความนิยาย Hash/Chunk Mapping อาจเปลี่ยน ทำให้ต้องเลือกตำแหน่งอีกครั้ง; ยังไม่รองรับข้ามเครื่อง ข้าม Browser ในการเล่นเสียงจริง และไม่มี Playback Clock/OBS Subtitle Sync. การกดหยุดระหว่างสร้างเสียงไม่หยุด Model Inference กลางคัน แต่ยกเลิกผลลัพธ์ที่มาภายหลังได้
 
 ## งานต่อไป
 

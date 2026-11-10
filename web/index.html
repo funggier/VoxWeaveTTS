@@ -128,7 +128,19 @@ button:hover{background:#b4dbff}pre{overflow:auto;white-space:pre-wrap;word-brea
 <div class="voice-grid">
 <button id="readerUseChunk" type="button" disabled>นำช่วงนี้ไปแก้ไขในช่องข้อความ</button>
 <button id="readerQueueChunk" type="button" disabled>ส่งช่วงนี้เข้าคิวเสียง</button>
+<button id="readerSavePosition" type="button" disabled>จดตำแหน่งช่วงนี้</button>
+<button id="readerResume" type="button" disabled>ไปยังตำแหน่งที่อ่านค้าง</button>
+<button id="readerClearPosition" type="button" disabled>ล้างตำแหน่งที่จำ</button>
 </div>
+<p class="small" id="readerProgressStatus" role="status">เมื่อเปิดไฟล์ ระบบจะตรวจตำแหน่งที่เคยบันทึกไว้ โดยไม่เก็บเนื้อหาเอกสารลงดิสก์</p>
+<div class="voice-grid">
+<button id="readerStart" type="button" disabled>สร้างเสียงและอ่านช่วงที่เลือก</button>
+<button id="readerPause" type="button" disabled>พัก / เล่นต่อ</button>
+<button id="readerStop" type="button" disabled>หยุดอ่าน</button>
+<label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="readerAutoNext" style="width:auto"> อ่านช่วงถัดไปอัตโนมัติหลังเสียงจบ</label>
+</div>
+<audio id="readerAudio" controls style="display:none;width:100%;margin-top:10px"></audio>
+<p class="small" id="readerPlaybackStatus" role="status">ระบบจะเตรียมเสียงทีละช่วงเท่านั้น ไม่สร้างเสียงล่วงหน้าทั้งเล่ม · หาก Browser บล็อก Auto-play ให้กดปุ่มเล่นในแถบเสียง</p>
 <p class="small">Markdown จะไม่นำ Markdown Syntax, Code Fences, รูปภาพ และ URL จากลิงก์มาอ่าน · เวลาที่เห็นในระบบคิวยังเป็นระยะเวลาที่สร้างเสียง ไม่ใช่ Playback Clock จริง</p>
 </section>
 <section class="panel" style="margin-top:18px">
@@ -588,6 +600,240 @@ let readerPage = null;
 let readerPageNumber = 0;
 let selectedChunkIndex = -1;
 const readerPageSize = 15;
+let readerRevision = null;
+let readerProgress = null;
+let readerSavedNext = null;
+let readingGeneration = 0;
+let readerJobId = null;
+let readerAudioUrl = null;
+let readerPlayingChunk = null;
+let readerReading = false;
+const readerAudio = el("readerAudio");
+
+function readerFeedback(message) {
+  el("readerPlaybackStatus").textContent=message;
+}
+function refreshReaderProgressUi() {
+  const loaded = Boolean(readerPage && readerRevision);
+  const matching = loaded && readerProgress &&
+    readerProgress.chunk_chars === readerPage.chunk_chars &&
+    readerProgress.chunk_total === readerPage.chunk_total;
+  readerSavedNext = matching ? readerProgress.next_chunk : null;
+  el("readerSavePosition").disabled = !loaded;
+  el("readerResume").disabled = !matching || readerSavedNext >= readerPage.chunk_total;
+  el("readerClearPosition").disabled = !loaded || !readerProgress;
+  el("readerStart").disabled = !loaded || readerReading;
+  const status=el("readerProgressStatus");
+  if(!loaded) status.textContent="ยังไม่ได้เปิดเอกสารหรือโหลดข้อมูลตำแหน่ง";
+  else if(!readerProgress) status.textContent="เอกสารนี้ยังไม่มีตำแหน่งที่บันทึกไว้";
+  else if(!matching) status.textContent="พบตำแหน่งเดิม แต่ความยาวช่วง/จำนวนช่วงเปลี่ยนไป เลือกช่วงใหม่แล้วกดจดตำแหน่ง";
+  else if(readerSavedNext === readerPage.chunk_total)
+    status.textContent="บันทึกว่าอ่านครบแล้ว (" + readerSavedNext + " / " + readerPage.chunk_total + " ช่วง)";
+  else status.textContent="อ่านต่อได้ตั้งแต่ช่วง " + (readerSavedNext+1) +
+    " / " + readerPage.chunk_total + " (เก็บเฉพาะรหัสเอกสารและหมายเลขช่วง)";
+}
+async function fetchReaderProgress() {
+  if(!readerPage)return;
+  const id = readerPage.document_id;
+  const response=await fetch("/v1/reading/progress?document_id="+encodeURIComponent(id),{cache:"no-store"});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||"อ่านตำแหน่งค้างไม่สำเร็จ");
+  // Ignore responses for old documents when the user changed files.
+  if(!readerPage || readerPage.document_id!==id)return;
+  readerRevision=data.revision;
+  readerProgress=data.progress;
+  refreshReaderProgressUi();
+}
+async function saveReaderPosition(index) {
+  if(!readerPage || !readerRevision)throw new Error("ยังไม่มีเอกสาร/Revision ของตำแหน่ง");
+  const body={
+    document_id:readerPage.document_id,
+    chunk_chars:readerPage.chunk_chars,chunk_total:readerPage.chunk_total,
+    next_chunk:index,expected_revision:readerRevision
+  };
+  const response=await fetch("/v1/reading/progress",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"save-reading-progress"},
+    body:JSON.stringify(body)
+  });
+  const data=await response.json();
+  if(!response.ok) {
+    if(response.status===409)throw new Error("ตำแหน่งถูกเปลี่ยนในอีกแท็บ กรุณาเปิดไฟล์ใหม่ก่อนบันทึกต่อ");
+    throw new Error(data.error||"บันทึกตำแหน่งไม่ได้");
+  }
+  readerRevision=data.revision;
+  readerProgress=data.progress;
+  refreshReaderProgressUi();
+}
+async function gotoReaderIndex(index) {
+  if(!readerPage || !Number.isInteger(index) || index<0 ||
+     index>=readerPage.chunk_total)throw new Error("ไม่พบช่วงที่เลือก");
+  const destination=Math.floor(index/readerPageSize);
+  if(destination!==readerPageNumber)await loadReaderPage(destination,index);
+  else {
+    selectedChunkIndex=index;
+    renderReaderPage(index);
+  }
+}
+async function clearReaderPosition() {
+  if(!readerPage || !readerRevision)throw new Error("ยังไม่มีเอกสารให้ล้าง");
+  if(!window.confirm("ลบตำแหน่งที่เคยบันทึกของเอกสารนี้หรือไม่?"))return;
+  const response=await fetch("/v1/reading/progress/clear",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"clear-reading-progress"},
+    body:JSON.stringify({
+      document_id:readerPage.document_id,expected_revision:readerRevision
+    })
+  });
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.error||"ล้างตำแหน่งไม่ได้");
+  readerRevision=result.revision;
+  readerProgress=null;
+  refreshReaderProgressUi();
+}
+function releaseReaderAudio() {
+  readerAudio.pause();
+  readerAudio.removeAttribute("src");
+  readerAudio.load();
+  readerAudio.style.display="none";
+  if(readerAudioUrl)URL.revokeObjectURL(readerAudioUrl);
+  readerAudioUrl=null;
+}
+async function stopReaderPlayback() {
+  readingGeneration++;
+  const job=readerJobId;
+  readerJobId=null;
+  readerPlayingChunk=null;
+  readerReading=false;
+  releaseReaderAudio();
+  el("readerPause").disabled=true;
+  el("readerStop").disabled=true;
+  refreshReaderProgressUi();
+  if(job) {
+    try {
+      await fetch("/v1/jobs/"+job+"/cancel",{
+        method:"POST",headers:{"X-VoxWeaveTTS-Intent":"cancel-speech-job"}
+      });
+    } catch {/* Best-effort cancellation; an active model call is not forcibly stopped. */}
+  }
+}
+async function readerPlayChunk(index) {
+  if(!readerPage)throw new Error("กรุณาเปิดเอกสารก่อน");
+  const generation=++readingGeneration;
+  readerReading=true;
+  readerPlayingChunk=index;
+  el("readerStart").disabled=true;
+  el("readerStop").disabled=false;
+  el("readerPause").disabled=true;
+  releaseReaderAudio();
+  await gotoReaderIndex(index);
+  if(generation!==readingGeneration)return;
+  const chunk=currentReaderChunk();
+  if(!chunk || chunk.index!==index)throw new Error("ช่วงข้อความไม่ตรงกับตำแหน่ง");
+  const body=buildSpeechPayload();
+  body.text=chunk.text;
+  body.source="document";
+  // Do not dedupe replays of an already completed passage.
+  readerFeedback("กำลังสร้างเสียงช่วง "+(index+1)+" / "+readerPage.chunk_total+"...");
+  const request=await fetch("/v1/jobs",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"queue-speech"},
+    body:JSON.stringify(body)
+  });
+  const item=await request.json();
+  if(!request.ok)throw new Error(item.error||"ส่งช่วงเข้าคิวไม่สำเร็จ");
+  readerJobId=item.speech_id;
+  for(let attempt=0;attempt<240;attempt++){
+    if(generation!==readingGeneration)return;
+    const response=await fetch("/v1/jobs/"+item.speech_id,{cache:"no-store"});
+    const state=await response.json();
+    if(!response.ok)throw new Error(state.error||"ตรวจสถานะไม่ได้");
+    if(state.state==="ready"){
+      const wavResponse=await fetch("/v1/jobs/"+item.speech_id+"/audio");
+      if(!wavResponse.ok)throw new Error("ไฟล์เสียงพร้อมแต่ดาวน์โหลดไม่ได้");
+      const bytes=await wavResponse.blob();
+      if(generation!==readingGeneration)return;
+      readerAudioUrl=URL.createObjectURL(bytes);
+      readerAudio.src=readerAudioUrl;
+      readerAudio.style.display="block";
+      el("readerPause").disabled=false;
+      readerFeedback("เสียงช่วง "+(index+1)+" พร้อมแล้ว · การจดตำแหน่งจะเกิดเมื่อเล่นเสียงจนจบ");
+      try {
+        await readerAudio.play();
+      }catch {
+        readerFeedback("Browser ไม่อนุญาต Auto-play · กด Play ที่แถบเสียงเพื่ออ่านช่วง "+(index+1));
+      }
+      return;
+    }
+    if(["failed","cancelled"].includes(state.state))
+      throw new Error("งานสังเคราะห์จบด้วยสถานะ "+state.state);
+    await new Promise(resolve=>setTimeout(resolve,500));
+  }
+  throw new Error("หมดเวลารอเสียง โปรดลองใหม่");
+}
+async function readerBegin(index) {
+  if(readerReading)await stopReaderPlayback();
+  try{await readerPlayChunk(index);}
+  catch(error){
+    await stopReaderPlayback();
+    readerFeedback(String(error.message||error));
+  }
+}
+readerAudio.addEventListener("ended",async()=>{
+  const completed=readerPlayingChunk;
+  if(completed===null || !readerReading || !readerPage)return;
+  const next=completed+1;
+  try {
+    await saveReaderPosition(next);
+    const continueNext=el("readerAutoNext").checked && next<readerPage.chunk_total;
+    readerReading=false;
+    readerPlayingChunk=null;
+    readerJobId=null;
+    el("readerPause").disabled=true;
+    el("readerStop").disabled=true;
+    refreshReaderProgressUi();
+    if(continueNext){
+      await readerBegin(next);
+    } else if(next===readerPage.chunk_total){
+      readerFeedback("อ่านครบทุกช่วงแล้ว · บันทึกตำแหน่งสิ้นสุดเอกสาร");
+    } else {
+      readerFeedback("จบช่วง "+(completed+1)+" แล้ว บันทึกตำแหน่งอ่านต่อที่ช่วง "+(next+1));
+    }
+  }catch(error){
+    await stopReaderPlayback();
+    readerFeedback("เสียงจบแต่ยังบันทึกตำแหน่งไม่ได้: "+String(error.message||error));
+  }
+});
+el("readerSavePosition").addEventListener("click",async()=>{
+  try {
+    await saveReaderPosition(selectedChunkIndex);
+    el("readerProgressStatus").textContent+=" · จดตำแหน่งช่วงนี้แล้ว";
+  }catch(error){el("readerProgressStatus").textContent=String(error.message||error);}
+});
+el("readerClearPosition").addEventListener("click",()=>{
+  clearReaderPosition().catch(error=>el("readerProgressStatus").textContent=String(error.message||error));
+});
+el("readerResume").addEventListener("click",async()=>{
+  if(readerSavedNext===null)return;
+  try{
+    await gotoReaderIndex(readerSavedNext);
+    readerFeedback("เลือกตำแหน่งอ่านค้างแล้ว กดสร้างเสียงและอ่านช่วงที่เลือก");
+  }catch(error){readerFeedback(String(error.message||error));}
+});
+el("readerStart").addEventListener("click",()=>{
+  if(selectedChunkIndex>=0)readerBegin(selectedChunkIndex);
+});
+el("readerPause").addEventListener("click",async()=>{
+  if(!readerReading)return;
+  if(readerAudio.paused){
+    try{await readerAudio.play();}catch(error){readerFeedback(String(error.message||error));}
+  }else readerAudio.pause();
+});
+el("readerStop").addEventListener("click",async()=>{
+  await stopReaderPlayback();
+  readerFeedback("หยุดอ่านแล้ว (ตำแหน่งที่บันทึกจะไม่ข้ามช่วงที่ยังเล่นไม่จบ)");
+});
+
 
 function currentReaderChunk() {
   if (!readerPage) return null;
@@ -625,6 +871,7 @@ function renderReaderPage(preferredIndex) {
   el("readerNext").disabled = !data.has_next;
   el("readerUseChunk").disabled = false;
   el("readerQueueChunk").disabled = false;
+  refreshReaderProgressUi();
 }
 async function loadReaderPage(page, preferredIndex = -1) {
   if (readerText === null) throw new Error("กรุณาเลือกไฟล์ก่อน");
@@ -645,6 +892,7 @@ async function loadReaderPage(page, preferredIndex = -1) {
 }
 el("readerOpen").addEventListener("click", async () => {
   el("readerOpen").disabled = true;
+  await stopReaderPlayback();
   try {
     const file = el("readerFile").files?.[0];
     if (!file) throw new Error("กรุณาเลือกไฟล์ TXT หรือ Markdown");
@@ -665,11 +913,18 @@ el("readerOpen").addEventListener("click", async () => {
     readerFormat = format;
     readerTitle = file.name.slice(0,160);
     el("readerStatus").textContent = "กำลังแบ่งข้อความ...";
+    readerRevision=null;
+    readerProgress=null;
+    refreshReaderProgressUi();
     await loadReaderPage(0);
+    await fetchReaderProgress();
   } catch (err) {
     readerPage = null;selectedChunkIndex = -1;
     el("readerUseChunk").disabled=true;
     el("readerQueueChunk").disabled=true;
+    readerRevision=null;
+    readerProgress=null;
+    refreshReaderProgressUi();
     for(const id of ["readerPrev","readerNext","readerChunk","readerChapter"])el(id).disabled=true;
     el("readerStatus").textContent=String(err.message||err);
   } finally {el("readerOpen").disabled = false;}

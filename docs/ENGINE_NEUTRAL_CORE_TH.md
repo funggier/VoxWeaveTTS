@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Engine-Neutral Core v1
 
-> Implementation preview v0.3.0.dev1 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
+> Implementation preview v0.3.0.dev3 — ออกแบบให้ Core ทำงานได้โดยไม่ติดตั้งโมเดลหรือ ML Framework
 
 ## เป้าหมาย
 
@@ -73,10 +73,10 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 
 ## ข้อจำกัดและงานต่อไป
 
-- ยังไม่มี Audio Device Playback, Pause/Resume, Priority, Persistent Queue, Real-Time Audio Streaming หรือ OBS Subtitle Sync
+- Browser รองรับเล่น WAV ทีละช่วงจากเอกสาร พร้อม Pause/Resume/Stop และ Bookmark แบบ Local แล้ว แต่ **ยังไม่มี** Service-level Audio Playback Clock, Priority, Persistent Speech Queue, Real-Time Audio Streaming หรือ OBS Subtitle Sync
 - ไม่ได้สร้างโมเดลใหม่หรือเทรนโมเดลในขั้นนี้
 - การเล่น WAV ผ่าน Browser เป็นการเล่นจาก UI แต่ยังไม่เชื่อม Event กับ Audio Playback Clock
-- เพิ่ม Input TXT/Markdown และแยกบท/ช่วงแล้ว ดู [Document Reader](DOCUMENT_READER_TH.md); งานถัดไปคือบันทึกตำแหน่งอ่าน, Playback Controller, Simulator และ Timeline Event Bus
+- เพิ่ม Input TXT/Markdown และแยกบท/ช่วงแล้ว ดู [Document Reader](DOCUMENT_READER_TH.md); เพิ่มการจดตำแหน่งอ่าน/เล่นทีละช่วงแล้ว ดู [Document Reader](DOCUMENT_READER_TH.md); งานถัดไปคือ Player Clock, Simulator และ Timeline Event Bus
 - ก่อนพัฒนาโมเดล/Training Worker ให้ผ่านข้อกำหนดเรื่องสิทธิ์จาก [Commercial-First Policy](COMMERCIAL_LICENSE_POLICY_TH.md)
 
 ## ผลตรวจสอบ

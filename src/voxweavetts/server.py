@@ -8,7 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .processing import InputError, process_text
@@ -28,6 +28,7 @@ from .speech import (
 from .voice_controls import control_schema
 from .presets import load_presets, save_preset
 from .text_settings import load_all as load_text_settings, load_section as load_text_section, save_section as save_text_section, SettingsConflict
+from .reading_progress import load_position, save_position, clear_position, ProgressConflict
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
 from .speech_coordinator import (
@@ -149,6 +150,25 @@ class Handler(BaseHTTPRequestHandler):
         self._headers(status, "application/json; charset=utf-8", len(payload))
         self.wfile.write(payload)
 
+    def reject_unread_post(self, status: int, body: Any) -> None:
+        """Finish a small local request before returning an early HTTP error.
+
+        Windows can abort an HTTP/1.0 connection before the caller receives
+        its 403/415 response when the handler closes a socket with an unread
+        POST body. Bound and time-limit the discard; never accept huge input.
+        """
+        length = self.headers.get("Content-Length", "")
+        if length.isdecimal() and 0 < int(length) <= MAX_REQUEST_BYTES:
+            previous_timeout = self.connection.gettimeout()
+            try:
+                self.connection.settimeout(1.0)
+                self.rfile.read(int(length))
+            except (OSError, TimeoutError):
+                pass
+            finally:
+                self.connection.settimeout(previous_timeout)
+        self.send_json(status, body)
+
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
@@ -168,6 +188,8 @@ class Handler(BaseHTTPRequestHandler):
                         "text_filter": True,
                         "document_preview": True,
                         "document_queue_chunks": True,
+                        "document_resume_metadata": True,
+                        "document_read_ahead_playback": False,
                         "engine_registry": True,
                         "audio_preparation_queue": True,
                         "queue_events": True,
@@ -229,6 +251,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, {"presets": load_presets()})
             elif route == "/v1/settings/text":
                 self.send_json(200, load_text_settings())
+            elif route == "/v1/reading/progress":
+                params = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                values = params.get("document_id", [])
+                if len(values) != 1:
+                    raise InputError("exactly one document_id is required")
+                self.send_json(200, load_position(values[0]))
             elif route == "/v1/rules":
                 self.send_json(200, load_text_section("rules")["value"])
             elif route == "/v1/pronunciations":
@@ -266,7 +294,7 @@ class Handler(BaseHTTPRequestHandler):
         job_route = self._job_route(route)
         if job_route is not None and job_route[1] == "cancel":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "cancel-speech-job":
-                self.send_json(403, {"error": "missing cancel intent"})
+                self.reject_unread_post(403, {"error": "missing cancel intent"})
                 return
             try:
                 self.send_json(200, self._coordinator().cancel(job_route[0]))
@@ -275,7 +303,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route == "/v1/documents/preview":
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.send_json(415, {"error": "document preview requires application/json"})
+                self.reject_unread_post(415, {"error": "document preview requires application/json"})
                 return
             try:
                 data = self._read_json(MAX_DOCUMENT_REQUEST_BYTES)
@@ -291,10 +319,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route == "/v1/jobs":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "queue-speech":
-                self.send_json(403, {"error": "missing queue intent"})
+                self.reject_unread_post(403, {"error": "missing queue intent"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.send_json(415, {"error": "speech job requires application/json"})
+                self.reject_unread_post(415, {"error": "speech job requires application/json"})
                 return
             try:
                 data = self._read_json()
@@ -313,12 +341,40 @@ class Handler(BaseHTTPRequestHandler):
             except QueueFull:
                 self.send_json(429, {"error": "speech queue is full"})
             return
-        if route == "/v1/settings/text":
-            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-text-settings":
-                self.send_json(403, {"error": "missing text settings update intent"})
+        if route in {"/v1/reading/progress", "/v1/reading/progress/clear"}:
+            clearing = route.endswith("/clear")
+            intent = "clear-reading-progress" if clearing else "save-reading-progress"
+            if self.headers.get("X-VoxWeaveTTS-Intent") != intent:
+                self.reject_unread_post(403, {"error": "missing reading progress update intent"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.send_json(415, {"error": "text settings must be application/json"})
+                self.reject_unread_post(415, {"error": "reading progress must be application/json"})
+                return
+            try:
+                body = self._read_json()
+                if clearing:
+                    result = clear_position(
+                        body.get("document_id"), body.get("expected_revision"))
+                else:
+                    result = save_position(
+                        body.get("document_id"),
+                        chunk_chars=body.get("chunk_chars"),
+                        chunk_total=body.get("chunk_total"),
+                        next_chunk=body.get("next_chunk"),
+                        expected_revision=body.get("expected_revision"),
+                    )
+                self.send_json(200, result)
+            except ProgressConflict as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError, OSError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
+        if route == "/v1/settings/text":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-text-settings":
+                self.reject_unread_post(403, {"error": "missing text settings update intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "text settings must be application/json"})
                 return
             try:
                 data = self._read_json()
@@ -334,10 +390,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route == "/v1/settings/synthesis":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-synthesis-settings":
-                self.send_json(403, {"error": "missing settings update intent"})
+                self.reject_unread_post(403, {"error": "missing settings update intent"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.send_json(415, {"error": "settings must be application/json"})
+                self.reject_unread_post(415, {"error": "settings must be application/json"})
                 return
             try:
                 data = self._read_json()
@@ -349,10 +405,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route == "/v1/presets":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-voice-preset":
-                self.send_json(403, {"error": "missing preset update intent"})
+                self.reject_unread_post(403, {"error": "missing preset update intent"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.send_json(415, {"error": "preset must be application/json"})
+                self.reject_unread_post(415, {"error": "preset must be application/json"})
                 return
             try:
                 result = save_preset(self._read_json())

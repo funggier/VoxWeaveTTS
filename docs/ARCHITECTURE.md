@@ -12,6 +12,10 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Private engine-neutral reading progress (implemented)
+
+`reading_progress.py` persists only document SHA-256 keys, chunk configuration, next unread chunk and timestamp through atomic writes and per-document optimistic revisions; content and raw text stay in the browser and in ephemeral Speech Jobs, not in the reading progress file. The browser's audio 'ended' event advances the next-chunk position and optionally submits exactly one next chunk through the current queue. This is **not** a synchronized external player clock or OBS event bus.
+
 ## Engine-neutral persistent text settings (implemented)
 
 `text_settings.py` owns validated portable Rules/Pronunciations state with atomic file replacement and per-section revision hashes; its HTTP API and browser editing controls do not depend on TTS models. These settings are used as defaults for any Engine through the existing shared text-processing layer, while explicit request overrides remain supported. File paths are fixed inside Git-ignored data directories. See [JSON Settings](PRONUNCIATION_JSON_TH.md).

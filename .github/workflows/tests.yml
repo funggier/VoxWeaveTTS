@@ -30,4 +30,6 @@ jobs:
           node-version: '22'
       - name: JSON Editor browser smoke (no dependencies)
         shell: pwsh
-        run: node tests/json_settings_ui_smoke.cjs
+        run: |
+          node tests/json_settings_ui_smoke.cjs
+          node tests/reading_ui_smoke.cjs

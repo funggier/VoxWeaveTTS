@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev3 — Resumable, sequential document reading (2026-11-10)
+
+- Added private, engine-independent reading bookmarks keyed by the normalized document SHA-256; stores only chunk size, total, next unread chunk and timestamp. No novel text, path or user audio is persisted.
+- Added GET/POST /v1/reading/progress and POST /v1/reading/progress/clear with atomic local data writes, optimistic revisions, bounded storage, explicit mutation intent headers and stale-tab conflict responses.
+- Browser Reader can save the selected position, restore a matching position after re-opening TXT/Markdown, clear it, synthesize/play a selected chunk, pause/resume, stop and optionally advance one chunk after browser audio 'ended'.
+- Bookmarks advance ONLY after playback finished; stopping or audio-generation failure does not skip unfinished text. At most one document chunk is synthesized at a time; no full-book preload, remote player event timing or OBS sync.
+- Added model-free HTTP/validation/concurrency/bookmark tests and Node browser flow smoke for resumable playback and end-of-document behavior.
+
 ## 0.3.0.dev2 — Persistent Rules/Pronunciations editor (2026-11-10)
 
 - Added atomic, validated on-disk Rules and Pronunciations storage in the existing ignored portable data paths, with section-specific SHA-256 optimistic revision checks to avoid overwriting edits made in another tab.
