@@ -32,12 +32,33 @@ HANDSHAKE, FRAME, CLOSE, PING, PONG = 0, 1, 2, 3, 4
 OAUTH_ERROR_HINTS = {
     # Only surface the documented OAuth error identifier, not provider text.
     "invalid_client": "check Application Client ID and current Client Secret",
+    "invalid_scope": "RPC scopes are restricted; verify app approval or authorized tester access",
+    "invalid_redirect_uri": "verify the Redirect URI registered in Developer Portal",
     "invalid_grant": "authorization code expired, was reused, or was bound to a different Redirect URI; reconnect",
     "invalid_request": "check the OAuth request and exact registered Redirect URI",
     "unauthorized_client": "this application is not authorized for the OAuth grant",
     "access_denied": "Discord authorization was declined",
     "unsupported_grant_type": "Discord rejected the authorization_code grant",
 }
+
+def rpc_oauth_error_hint(details: object) -> str:
+    """Extract only a public OAuth2 error identifier from Discord's RPC 5000.
+
+    The provider's free-form message may include private data, so it is never
+    returned or logged. Recognize only Discord's 'OAuth2 Error: error_name:'
+    envelope and a fixed allowlist of known error identifiers.
+    """
+    if not isinstance(details, dict):
+        return "OAuth2 error (5000); details unavailable"
+    provider_message = details.get("message")
+    if not isinstance(provider_message, str) or len(provider_message) > 1024:
+        return "OAuth2 error (5000); details unavailable"
+    match = re.match(r"\AOAuth2 Error:\s*([a-z][a-z0-9_]{0,40})(?:\s*:|\s*\Z)", provider_message)
+    code = match.group(1) if match else None
+    if code in OAUTH_ERROR_HINTS:
+        return f"OAuth2 {code} (5000); {OAUTH_ERROR_HINTS[code]}"
+    return "OAuth2 error (5000); details unavailable"
+
 
 RPC_ERROR_HINTS = {
     4000: "invalid RPC payload", 4002: "invalid RPC command",
@@ -338,7 +359,9 @@ class DiscordClientRPCAdapter:
                 if payload.get("evt")=="ERROR" or payload.get("cmd")=="ERROR":
                     details = payload.get("data")
                     code = details.get("code") if isinstance(details, dict) else None
-                    hint = RPC_ERROR_HINTS.get(code, "command rejected") if type(code) is int else "command rejected"
+                    hint = (rpc_oauth_error_hint(details) if code == 5000
+                            else RPC_ERROR_HINTS.get(code, "command rejected")
+                            if type(code) is int else "command rejected")
                     raise SourceFailure(f"Discord RPC {cmd}: {hint}", fatal=True)
                 return payload
         raise SourceFailure("Discord RPC authorization timed out",fatal=True)
@@ -352,9 +375,11 @@ class DiscordClientRPCAdapter:
         if opcode!=FRAME or response.get("evt")!="READY":
             raise SourceFailure("Discord Desktop rejected RPC handshake; check Client ID",fatal=True)
         self.phase = "awaiting_discord_consent"
+        # The official Local RPC AUTHORIZE command accepts client_id and
+        # scopes; redirect_uri is NOT among its documented arguments. It is
+        # still required for the subsequent standard OAuth token exchange.
         auth = self._command("AUTHORIZE",{
             "client_id":self.client_id,"scopes":["rpc","messages.read"],
-            "redirect_uri":self.redirect_uri,
         })
         code = auth.get("data",{}).get("code")
         if not isinstance(code,str) or not code:

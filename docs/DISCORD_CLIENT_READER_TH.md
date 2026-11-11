@@ -1,6 +1,6 @@
 # Discord Client Reader — เลือกห้อง Discord ที่ต้องการอ่าน
 
-> v0.3.0.dev15 — Discord Desktop Official Local RPC · ต้องได้รับอนุญาต · ยังไม่ได้ทดสอบกับบัญชีจริง
+> v0.3.0.dev16 — Discord Desktop Official Local RPC · ต้องได้รับอนุญาต · ยังไม่ได้ทดสอบกับบัญชีจริง
 
 ## ความสามารถ
 
@@ -51,7 +51,7 @@ VoxWeaveTTS แสดงสถานะ opening_discord_pipe → handshake → a
 
 ## ตรวจสอบ OAuth หลังหน้าต่าง Discord ยืนยันแล้ว
 
-หากสถานะเดิมขึ้น `Discord RPC OAuth denied` แปลว่าได้ Authorization Code แต่แลก Access Token ไม่สำเร็จ จึงยังไม่เกี่ยวกับ Channel ID หรือ Auto-read รุ่น dev15 จะส่ง Redirect URI ที่ผู้ใช้ตั้งไว้ทั้งใน RPC `AUTHORIZE` และคำขอ `/api/oauth2/token` และจะแสดงรหัสผิดพลาดแบบจำกัดรายการโดยไม่เปิดเผยข้อความตอบกลับดิบ
+หากสถานะเดิมขึ้น `Discord RPC OAuth denied` แปลว่าได้ Authorization Code แต่แลก Access Token ไม่สำเร็จ จึงยังไม่เกี่ยวกับ Channel ID หรือ Auto-read รุ่น dev16 จะส่ง `client_id` และ `scopes` ใน RPC `AUTHORIZE` ตามเอกสาร Discord โดย **ไม่มี** `redirect_uri` ในคำสั่ง RPC (ไม่อยู่ในโครงสร้าง Argument ทางการ) และยังส่ง Redirect URI ที่ผู้ใช้ตั้งไว้ในคำขอ `/api/oauth2/token` และจะแสดงรหัสผิดพลาดแบบจำกัดรายการโดยไม่เปิดเผยข้อความตอบกลับดิบ
 
 - `invalid_client`: ตรวจว่าใส่ **Client Secret** ของ Discord Application เดียวกับ Client ID ไม่ใช่ Public Key หรือ Bot Token และหากเคย Reset Secret ให้ใช้ค่าล่าสุด
 - `invalid_grant`: กดเชื่อมใหม่เพื่อขอ Code ใหม่ ตรวจ Redirect URI ใน Developer Portal และโปรแกรมให้ตรงกันทุกอักขระ รวมถึงพอร์ตและเส้นทาง (`http://127.0.0.1:8765` ไม่เท่ากับ `http://127.0.0.1:8765/callback`)
@@ -60,6 +60,16 @@ VoxWeaveTTS แสดงสถานะ opening_discord_pipe → handshake → a
 - กรณี HTTP/Network อื่น: ดูรหัสสถานะที่ปลอดภัย; ไม่ต้องส่ง Client Secret, Authorization Code หรือ Access Token เพื่อให้วินิจฉัย
 
 การเลือก `rpc` / `messages.read` ใน OAuth2 URL Generator ไม่ได้ยืนยันว่าแอปมีสิทธิ์ RPC และการเปิด URL Generator โดยตรงไม่ทำให้ Local RPC Session เชื่อมต่อสำเร็จ ต้องเริ่มจากปุ่มเชื่อมใน VoxWeaveTTS ผู้ใช้ต้องยืนยันหน้าต่าง Discord ด้วยตนเอง
+
+## เมื่อ RPC AUTHORIZE ตอบรหัส 5000
+
+Discord RPC Error 5000 หมายถึง OAuth2 Error และรายละเอียดจะอยู่ในฟิลด์ message ของ Error Response ซึ่งรุ่น dev16 จะแสดง **เฉพาะรหัส OAuth ในรายการที่อนุญาต** เช่น `invalid_scope`, `invalid_request` ไม่ส่งข้อความตอบกลับดิบไปหน้าเว็บ
+
+หากพบ `invalid_scope` ให้ตรวจว่า Discord Application ได้รับอนุมัติให้ใช้ Local RPC หรือบัญชีที่ทดสอบอยู่ใน **รายชื่อ Authorized Testers** ของแอป โดยการเห็น `rpc` และ `messages.read` ใน OAuth2 URL Generator ไม่ได้ยืนยันสิทธิ์ใช้งาน Local RPC การกรอก Redirect URI ซ้ำหรือสลับ `/callback` จะไม่แก้ปัญหาสิทธิ์ Scope
+
+โปรดอย่าส่ง Client Secret, Authorization Code หรือ Access Token ให้ผู้อื่น หาก API แสดงเพียง "OAuth2 error (5000); details unavailable" ยังสรุปไม่ได้ว่าเป็น invalid_scope หรือสาเหตุอื่น และต้องตรวจการอนุมัติจาก Discord
+
+อ้างอิง: [Discord RPC](https://discord.com/developers/docs/topics/rpc), [Discord Error Codes](https://discord.com/developers/docs/topics/opcodes-and-status-codes#rpc-rpc-error-codes)
 
 ## ผลทดสอบ
 

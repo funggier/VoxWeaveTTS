@@ -14,6 +14,7 @@ from urllib.parse import parse_qs
 from voxweavetts.discord_client_rpc import (
     CHANNEL_ID, CLOSE, FRAME, HANDSHAKE, PING, PONG,
     DiscordClientRPCAdapter, frame_packet, parse_channel_event, oauth_exchange,
+    rpc_oauth_error_hint,
     parse_frame_header, validate_channel_id, validate_redirect_uri,
 )
 from voxweavetts.mode_state import ModeState, ModeConflict
@@ -70,7 +71,7 @@ class MockPipe:
             cmd = body["cmd"]
             if cmd == "AUTHORIZE":
                 assert body["args"]["scopes"] == ["rpc", "messages.read"]
-                assert body["args"]["redirect_uri"] == CREDS["redirect_uri"]
+                assert "redirect_uri" not in body["args"]  # official AUTHORIZE schema
                 response = {"cmd": "AUTHORIZE", "nonce": body["nonce"], "data": {"code": "code-from-user-consent"}}
             elif cmd == "AUTHENTICATE":
                 assert body["args"]["access_token"] == "approved-rpc-token-value"
@@ -98,6 +99,52 @@ class MockPipe:
 
 
 class ClientRPCPayloadTests(unittest.TestCase):
+    def test_rpc_oauth_5000_allowlisted_diagnostics(self):
+        from voxweavetts.source_adapters import SourceFailure
+        for code, hint in (("invalid_scope", "authorized tester"),
+                           ("invalid_request", "invalid_request"),
+                           ("invalid_client", "invalid_client"),
+                           ("unauthorized_client", "unauthorized_client")):
+            with self.subTest(code=code):
+                details = {"code": 5000, "message":
+                           "OAuth2 Error: " + code + ": private-user-secret-do-not-echo"}
+                message = rpc_oauth_error_hint(details)
+                self.assertIn(code, message)
+                self.assertNotIn("private-user-secret", message)
+        for invalid in ("OAuth2 Error: unexpected_new_error: SECRET",
+                        "arbitrary SECRET with invalid_scope inside",
+                        "OAuth2 Error: invalid_scope: " + "SECRET" * 500):
+            with self.subTest(invalid=invalid[:32]):
+                self.assertEqual(rpc_oauth_error_hint({"code": 5000, "message": invalid}),
+                                 "OAuth2 error (5000); details unavailable")
+        self.assertEqual(rpc_oauth_error_hint(None),
+                         "OAuth2 error (5000); details unavailable")
+
+        mock = MockPipe()
+        original_write = mock.write
+        def denied(packet):
+            original_write(packet)
+            if mock.commands and mock.commands[-1]["cmd"] == "AUTHORIZE":
+                mock.buffer.clear()
+                mock.queue(FRAME, {
+                    "cmd": "AUTHORIZE", "evt": "ERROR",
+                    "nonce": mock.commands[-1]["nonce"],
+                    "data": {"code": 5000,
+                             "message": "OAuth2 Error: invalid_scope: SECRET-PROVIDER-DATA"},
+                })
+        mock.write = denied
+        client = DiscordClientRPCAdapter(
+            CHANNEL, CREDS, pipe_factory=lambda: mock,
+            exchange=lambda *args: "not_used",
+        )
+        with self.assertRaises(SourceFailure) as failure:
+            client.poll()
+        self.assertIn("invalid_scope", str(failure.exception))
+        self.assertIn("5000", str(failure.exception))
+        self.assertNotIn("SECRET-PROVIDER-DATA", str(failure.exception))
+        self.assertTrue(failure.exception.fatal)
+        self.assertTrue(mock.closed)
+
     def test_oauth_token_request_and_safe_http_error_diagnostics(self):
         from voxweavetts.source_adapters import SourceFailure
         for error_id in ("invalid_grant", "invalid_client", "unknown-error"):
@@ -204,7 +251,7 @@ class ClientRPCProtocolTests(unittest.TestCase):
         self.assertEqual(exchanges[0][3],"code-from-user-consent")
         self.assertEqual(client._secret,"")
         self.assertEqual(client.phase,"subscribed")
-        self.assertEqual(mock.commands[0]["args"]["redirect_uri"], CREDS["redirect_uri"])
+        self.assertNotIn("redirect_uri", mock.commands[0]["args"])
         mock.queue(FRAME,dispatch(OTHER,"ห้ามเข้าคิว"))
         self.assertEqual(client.poll().messages,())
         mock.queue(FRAME,dispatch(CHANNEL,"อ่านได้ครับ"))

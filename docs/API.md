@@ -71,7 +71,7 @@ New workspace mode is discord_client. POST /v1/modes/activate with mode discord_
 
 The adapter connects to the official Discord Desktop IPC, requests user authorization for rpc and messages.read, exchanges the returned code with Discord OAuth, authenticates and issues SUBSCRIBE for MESSAGE_CREATE with args.channel_id equal to the selected room. Each dispatch is filtered again by channel_id. Other channels never enter the TTS queue; no old messages or edit events are requested.
 
-The account connection remains subject to Discord's RPC app/tester approval and is unverified with real account credentials. GET /v1/sources/status?mode=discord_client and source drain status expose safe connection_phase and terminal failed_phase values. OAuth token exchange errors display only an allowlisted OAuth error identifier and HTTP status; they never return token, authorization code, Client Secret or raw Discord error descriptions. See [Discord Client Reader](DISCORD_CLIENT_READER_TH.md).
+The account connection remains subject to Discord's RPC app/tester approval and is unverified with real account credentials. GET /v1/sources/status?mode=discord_client and source drain status expose safe connection_phase and terminal failed_phase values. RPC AUTHORIZE error code 5000 and OAuth token exchange errors display only allowlisted OAuth error identifiers (HTTP status for exchange); they never return token, authorization code, Client Secret or raw Discord error descriptions. See [Discord Client Reader](DISCORD_CLIENT_READER_TH.md).
 
 ## Read-only YouTube / Discord Source Inputs (v0.3.0.dev11)
 

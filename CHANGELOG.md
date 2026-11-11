@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev16 — Diagnose Discord RPC OAuth error 5000 (2026-11-12)
+
+- Corrected the Local RPC AUTHORIZE payload to match Discord's documented argument schema: client_id and scopes only. The redirect_uri added to AUTHORIZE in dev15 is **not listed** in the official RPC arguments; redirect_uri remains part of the token exchange.
+- For RPC error code 5000, inspect only an allowlisted OAuth error identifier from Discord's bounded "OAuth2 Error: <code>:" message, such as invalid_scope, invalid_request or unauthorized_client. Never expose arbitrary provider text, account data, auth codes, Client Secret, or Access Tokens.
+- Confirmed that an RPC 5000 error occurs during AUTHORIZE, **before** receiving an authorization code; the error itself does not identify the root cause. The next safe diagnostic is whether it is invalid_scope (possibly missing approved RPC access/tester status).
+- Added fake-transport regression tests for 5000 allowlist and undocumented-argument removal; retained all existing protections and auto-read defaults.
+- A real Discord Desktop session with the user's authorization was not attempted by the regression suite; successful live message receipt is not claimed.
+
 ## 0.3.0.dev15 — Discord RPC OAuth code-exchange diagnostics (2026-11-12)
 
 - Added the configured registered `redirect_uri` to the Discord Desktop RPC `AUTHORIZE` command as well as the OAuth token exchange. Previously only the token request carried it, potentially producing an authorization code associated with a different URI. The public Discord RPC documentation lists the short-form AUTHORIZE arguments; this fix is regression-tested with a fake transport, but real token-exchange behavior still requires a fresh user-approved session.
