@@ -1,15 +1,19 @@
 """Official Discord Desktop RPC room-specific message source — offline tests."""
 from __future__ import annotations
 
+import io
 import json
 import struct
 import threading
 import time
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
+from urllib.parse import parse_qs
 
 from voxweavetts.discord_client_rpc import (
     CHANNEL_ID, CLOSE, FRAME, HANDSHAKE, PING, PONG,
-    DiscordClientRPCAdapter, frame_packet, parse_channel_event,
+    DiscordClientRPCAdapter, frame_packet, parse_channel_event, oauth_exchange,
     parse_frame_header, validate_channel_id, validate_redirect_uri,
 )
 from voxweavetts.mode_state import ModeState, ModeConflict
@@ -66,6 +70,7 @@ class MockPipe:
             cmd = body["cmd"]
             if cmd == "AUTHORIZE":
                 assert body["args"]["scopes"] == ["rpc", "messages.read"]
+                assert body["args"]["redirect_uri"] == CREDS["redirect_uri"]
                 response = {"cmd": "AUTHORIZE", "nonce": body["nonce"], "data": {"code": "code-from-user-consent"}}
             elif cmd == "AUTHENTICATE":
                 assert body["args"]["access_token"] == "approved-rpc-token-value"
@@ -93,6 +98,51 @@ class MockPipe:
 
 
 class ClientRPCPayloadTests(unittest.TestCase):
+    def test_oauth_token_request_and_safe_http_error_diagnostics(self):
+        from voxweavetts.source_adapters import SourceFailure
+        for error_id in ("invalid_grant", "invalid_client", "unknown-error"):
+            with self.subTest(error_id=error_id):
+                class ErrorOpener:
+                    def open(self, request, timeout):
+                        self.assert_payload = parse_qs(request.data.decode("utf-8"))
+                        self.req_url = request.full_url
+                        body = json.dumps({
+                            "error": error_id,
+                            "error_description": "SECRET_IN_PROVIDER_DESCRIPTION",
+                            "access_token": "SECRET_IN_PROVIDER_TOKEN",
+                        }).encode("utf-8")
+                        raise HTTPError(request.full_url, 400, "Bad Request",
+                                        {}, io.BytesIO(body))
+                opener = ErrorOpener()
+                with patch("voxweavetts.discord_client_rpc.build_opener", return_value=opener):
+                    with self.assertRaises(SourceFailure) as failure:
+                        oauth_exchange(APP_ID, "SECRET_IN_CLIENT", "http://127.0.0.1:8765",
+                                       "SECRET_IN_CODE")
+                self.assertEqual(opener.req_url, "https://discord.com/api/oauth2/token")
+                self.assertEqual(opener.assert_payload["redirect_uri"], ["http://127.0.0.1:8765"])
+                self.assertEqual(opener.assert_payload["grant_type"], ["authorization_code"])
+                self.assertEqual(opener.assert_payload["code"], ["SECRET_IN_CODE"])
+                message = str(failure.exception)
+                self.assertTrue(failure.exception.fatal)
+                self.assertIn("HTTP 400", message)
+                for private in ("SECRET_IN_PROVIDER_DESCRIPTION", "SECRET_IN_PROVIDER_TOKEN",
+                                "SECRET_IN_CLIENT", "SECRET_IN_CODE", "unknown-error"):
+                    self.assertNotIn(private, message)
+                if error_id in ("invalid_grant", "invalid_client"):
+                    self.assertIn(error_id, message)
+
+    def test_oauth_rejects_non_json_server_error_without_disclosing_html(self):
+        from voxweavetts.source_adapters import SourceFailure
+        class HtmlOpener:
+            def open(self, request, timeout):
+                raise HTTPError(request.full_url, 502, "Bad Gateway", {},
+                                io.BytesIO(b"<html>SECRET_HTML</html>"))
+        with patch("voxweavetts.discord_client_rpc.build_opener", return_value=HtmlOpener()):
+            with self.assertRaises(SourceFailure) as failure:
+                oauth_exchange(APP_ID, CREDS["client_secret"], CREDS["redirect_uri"], "TEST_CODE")
+        self.assertIn("HTTP 502", str(failure.exception))
+        self.assertNotIn("SECRET_HTML", str(failure.exception))
+
     def test_validates_one_selected_channel_and_registered_redirect(self):
         self.assertEqual(validate_channel_id(CHANNEL), CHANNEL)
         for value in ("https://discord.com/channels/1/2", "invalid", "1234",
@@ -154,6 +204,7 @@ class ClientRPCProtocolTests(unittest.TestCase):
         self.assertEqual(exchanges[0][3],"code-from-user-consent")
         self.assertEqual(client._secret,"")
         self.assertEqual(client.phase,"subscribed")
+        self.assertEqual(mock.commands[0]["args"]["redirect_uri"], CREDS["redirect_uri"])
         mock.queue(FRAME,dispatch(OTHER,"ห้ามเข้าคิว"))
         self.assertEqual(client.poll().messages,())
         mock.queue(FRAME,dispatch(CHANNEL,"อ่านได้ครับ"))
@@ -254,6 +305,32 @@ class ClientRPCProtocolTests(unittest.TestCase):
         self.assertNotIn("private-secret", str(error.exception))
         self.assertTrue(mock.closed)
 
+    def test_manager_retains_failed_oauth_phase_for_diagnostics(self):
+        from voxweavetts.source_adapters import SourceFailure
+        modes = ModeState()
+        playback = PlaybackState()
+        active = modes.activate("discord_client", playback)
+        manager = SourceManager(client_factory=lambda source, cred: DiscordClientRPCAdapter(
+            source, cred, pipe_factory=MockPipe,
+            exchange=lambda *args: (_ for _ in ()).throw(
+                SourceFailure("Discord OAuth token exchange: invalid_grant (HTTP 400)", fatal=True)
+            ),
+        ))
+        try:
+            manager.start({"mode": "discord_client", "mode_token": active["mode_token"],
+                           "source_id": CHANNEL, "credential": dict(CREDS)}, modes)
+            deadline = time.monotonic() + 3
+            while manager.status("discord_client")["state"] != "error" and time.monotonic() < deadline:
+                time.sleep(.01)
+            status = manager.status("discord_client")
+            self.assertEqual(status["state"], "error")
+            self.assertEqual(status["connection_phase"], "disconnected")
+            self.assertEqual(status["failed_phase"], "exchanging_oauth_code")
+            self.assertIn("invalid_grant", status["info"])
+            self.assertNotIn(CREDS["client_secret"], str(status))
+        finally:
+            manager.stop_all()
+
     def test_idle_timeout_keeps_authorized_channel_alive(self):
         mock = MockPipe()
         client = DiscordClientRPCAdapter(
@@ -321,6 +398,7 @@ class ClientRPCProtocolTests(unittest.TestCase):
             self.assertIn("reconnect", status["info"])
             self.assertEqual(status["next_poll_seconds"], 0)
             self.assertEqual(status["connection_phase"], "disconnected")
+            self.assertEqual(status["failed_phase"], "subscribed")
         finally:
             manager.stop_all()
 

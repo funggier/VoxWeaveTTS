@@ -63,6 +63,10 @@ class _Session:
             **({"connection_phase": self.adapter.phase}
                if self.mode == "discord_client" and isinstance(getattr(self.adapter, "phase", None), str)
                else {}),
+            **({"failed_phase": self.adapter.failed_phase}
+               if self.mode == "discord_client" and self.state == "error"
+               and isinstance(getattr(self.adapter, "failed_phase", None), str)
+               else {}),
         }
 
 

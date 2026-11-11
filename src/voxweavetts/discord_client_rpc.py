@@ -29,6 +29,16 @@ HANDSHAKE, FRAME, CLOSE, PING, PONG = 0, 1, 2, 3, 4
 
 # Show only documented, non-sensitive Discord RPC diagnostics. Never display
 # raw OAuth tokens, authorization codes, payloads, or arbitrary error messages.
+OAUTH_ERROR_HINTS = {
+    # Only surface the documented OAuth error identifier, not provider text.
+    "invalid_client": "check Application Client ID and current Client Secret",
+    "invalid_grant": "authorization code expired, was reused, or was bound to a different Redirect URI; reconnect",
+    "invalid_request": "check the OAuth request and exact registered Redirect URI",
+    "unauthorized_client": "this application is not authorized for the OAuth grant",
+    "access_denied": "Discord authorization was declined",
+    "unsupported_grant_type": "Discord rejected the authorization_code grant",
+}
+
 RPC_ERROR_HINTS = {
     4000: "invalid RPC payload", 4002: "invalid RPC command",
     4004: "invalid RPC event", 4005: "invalid channel ID or access",
@@ -124,9 +134,32 @@ def oauth_exchange(client_id: str, client_secret: str,
             if not isinstance(token, str) or not 10 <= len(token) <= 2048:
                 raise SourceFailure("Discord OAuth authorization failed", fatal=True)
             return token
-    except (HTTPError, URLError, TimeoutError, OSError, ValueError):
-        raise SourceFailure("Discord RPC OAuth denied; verify approved app, redirect and consent",
-                            fatal=True) from None
+    except HTTPError as error:
+        # OAuth error responses are often JSON: {"error":"invalid_grant",...}.
+        # Only inspect a bounded allowlisted error identifier. In particular
+        # NEVER show raw error_description, response body, auth code or secret.
+        try:
+            body = error.read(2049)
+            parsed = json.loads(body.decode("utf-8")) if len(body) <= 2048 else None
+        except (OSError, UnicodeDecodeError, ValueError):
+            parsed = None
+        name = parsed.get("error") if isinstance(parsed, dict) else None
+        if isinstance(name, str) and name in OAUTH_ERROR_HINTS:
+            raise SourceFailure(
+                f"Discord OAuth token exchange: {name} (HTTP {error.code}); "
+                f"{OAUTH_ERROR_HINTS[name]}", fatal=True
+            ) from None
+        raise SourceFailure(
+            f"Discord OAuth token exchange rejected (HTTP {error.code}); "
+            "verify credentials and registered Redirect URI", fatal=True
+        ) from None
+    except (URLError, TimeoutError, OSError):
+        raise SourceFailure(
+            "Discord OAuth token endpoint unreachable; check network or TLS",
+            fatal=True
+        ) from None
+    except (UnicodeDecodeError, ValueError):
+        raise SourceFailure("Discord OAuth token response invalid", fatal=True) from None
 
 
 class WindowsDiscordPipe:
@@ -234,6 +267,7 @@ class DiscordClientRPCAdapter:
         self._connected = False
         self._terminal = False
         self.phase = "not_connected"
+        self.failed_phase: str | None = None
 
     def set_cancel(self, cancel: threading.Event) -> None:
         self._cancel = cancel
@@ -247,6 +281,8 @@ class DiscordClientRPCAdapter:
         self._secret = ""
         self._subscribed = False
         self._connected = False
+        if not self._cancel.is_set():
+            self.failed_phase = self.phase
         self.phase = "disconnected"
         if self._pipe:
             self._pipe.close()
@@ -318,6 +354,7 @@ class DiscordClientRPCAdapter:
         self.phase = "awaiting_discord_consent"
         auth = self._command("AUTHORIZE",{
             "client_id":self.client_id,"scopes":["rpc","messages.read"],
+            "redirect_uri":self.redirect_uri,
         })
         code = auth.get("data",{}).get("code")
         if not isinstance(code,str) or not code:

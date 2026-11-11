@@ -48,7 +48,7 @@ async function main(){
       }
       if(path==="/v1/sources/drain"){
         if(failed)return {ok:true,async json(){return {
-          messages:[],status:{state:"error",info:"Discord RPC closed; reconnect",pending:0,received:1},
+          messages:[],status:{state:"error",info:"Discord OAuth token exchange: invalid_grant (HTTP 400)",failed_phase:"exchanging_oauth_code",pending:0,received:1},
         }}};
         return {ok:true,async json(){return {
           messages:[{message_id:"100000000000000112",author:"ผู้ใช้",text:"ห้องที่เลือก"}],
@@ -106,7 +106,8 @@ async function main(){
   assert.equal(el("discordClientFeedAuto").checked,true,"preserve preference on RPC error; queue is cleared");
   assert.equal(ticker,null,"terminal RPC error must clear the poll timer");
   assert.ok(stopCallbacks>0,"terminal RPC error must clear auto-read queue");
-  assert.ok(el("discordClientFeedStatus").textContent.includes("reconnect"));
+  assert.ok(el("discordClientFeedStatus").textContent.includes("invalid_grant"));
+  assert.ok(el("discordClientFeedStatus").textContent.includes("ผิดพลาดที่"));
   active=false;source.suspend();
   assert.equal(source.connected,false);
   assert.equal(ticker,null);

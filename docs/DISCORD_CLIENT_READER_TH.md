@@ -1,6 +1,6 @@
 # Discord Client Reader — เลือกห้อง Discord ที่ต้องการอ่าน
 
-> v0.3.0.dev14 — Discord Desktop Official Local RPC · ต้องได้รับอนุญาต · ยังไม่ได้ทดสอบกับบัญชีจริง
+> v0.3.0.dev15 — Discord Desktop Official Local RPC · ต้องได้รับอนุญาต · ยังไม่ได้ทดสอบกับบัญชีจริง
 
 ## ความสามารถ
 
@@ -48,6 +48,18 @@ Discord Client Reader เป็นแท็บแยกจาก Discord Bot แ
 **OAuth2 URL Generator ไม่ใช่การเชื่อม RPC อัตโนมัติ**: ต้องกดเชื่อมจากแท็บ Discord Client ใน VoxWeaveTTS แล้วตอบหน้าต่างอนุญาตที่ Discord แสดงจากคำสั่ง RPC `AUTHORIZE`; การเปิด URL จาก Generator แยกต่างหากไม่ทำให้ Source Worker สมัครรับข้อความ
 
 VoxWeaveTTS แสดงสถานะ opening_discord_pipe → handshake → awaiting_discord_consent → exchanging_oauth_code → authenticating → subscribing_channel → subscribed (และ API running) ก่อนเริ่มรับข้อความ หากค้างรออนุญาตให้ตรวจ Discord Desktop; หาก Error ให้ตรวจข้อความแสดงขั้นตอนที่ปลอดภัยและสิทธิ์แอป
+
+## ตรวจสอบ OAuth หลังหน้าต่าง Discord ยืนยันแล้ว
+
+หากสถานะเดิมขึ้น `Discord RPC OAuth denied` แปลว่าได้ Authorization Code แต่แลก Access Token ไม่สำเร็จ จึงยังไม่เกี่ยวกับ Channel ID หรือ Auto-read รุ่น dev15 จะส่ง Redirect URI ที่ผู้ใช้ตั้งไว้ทั้งใน RPC `AUTHORIZE` และคำขอ `/api/oauth2/token` และจะแสดงรหัสผิดพลาดแบบจำกัดรายการโดยไม่เปิดเผยข้อความตอบกลับดิบ
+
+- `invalid_client`: ตรวจว่าใส่ **Client Secret** ของ Discord Application เดียวกับ Client ID ไม่ใช่ Public Key หรือ Bot Token และหากเคย Reset Secret ให้ใช้ค่าล่าสุด
+- `invalid_grant`: กดเชื่อมใหม่เพื่อขอ Code ใหม่ ตรวจ Redirect URI ใน Developer Portal และโปรแกรมให้ตรงกันทุกอักขระ รวมถึงพอร์ตและเส้นทาง (`http://127.0.0.1:8765` ไม่เท่ากับ `http://127.0.0.1:8765/callback`)
+- `unauthorized_client`: ตรวจสิทธิ์ RPC / ข้อจำกัดของแอปหรือบัญชีผู้ทดสอบกับ Discord
+- `invalid_request`: ตรวจ Redirect URI และรูปแบบคำขอ
+- กรณี HTTP/Network อื่น: ดูรหัสสถานะที่ปลอดภัย; ไม่ต้องส่ง Client Secret, Authorization Code หรือ Access Token เพื่อให้วินิจฉัย
+
+การเลือก `rpc` / `messages.read` ใน OAuth2 URL Generator ไม่ได้ยืนยันว่าแอปมีสิทธิ์ RPC และการเปิด URL Generator โดยตรงไม่ทำให้ Local RPC Session เชื่อมต่อสำเร็จ ต้องเริ่มจากปุ่มเชื่อมใน VoxWeaveTTS ผู้ใช้ต้องยืนยันหน้าต่าง Discord ด้วยตนเอง
 
 ## ผลทดสอบ
 

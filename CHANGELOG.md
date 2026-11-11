@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev15 — Discord RPC OAuth code-exchange diagnostics (2026-11-12)
+
+- Added the configured registered `redirect_uri` to the Discord Desktop RPC `AUTHORIZE` command as well as the OAuth token exchange. Previously only the token request carried it, potentially producing an authorization code associated with a different URI. The public Discord RPC documentation lists the short-form AUTHORIZE arguments; this fix is regression-tested with a fake transport, but real token-exchange behavior still requires a fresh user-approved session.
+- Replaced the single generic OAuth denial message with privacy-preserving, allowlisted OAuth response error identifiers (`invalid_client`, `invalid_grant`, `unauthorized_client`, `invalid_request`, etc.) and HTTP status. Provider error descriptions, auth codes, secrets, tokens and raw responses remain hidden.
+- Added `failed_phase` to the Discord Client status only after terminal failure; the UI identifies whether failure happened at consent, token exchange or a later stage without exposing credentials.
+- Added tests for matching authorization and exchange URIs, safe OAuth HTTP error handling and preserving the failed RPC phase. No real user credentials were saved or included in tests.
+- The user's observed `Discord RPC OAuth denied` means token exchange failed, not channel polling. The exact provider error remains unknown until the user reconnects after updating; do not assume a successful account connection.
+
 ## 0.3.0.dev14 — Default-on live reading and RPC connection diagnostics (2026-11-12)
 
 - Enabled the automatic-read checkbox by default for YouTube Live, Discord Bot, and Discord Client. External sources still require explicit Connect, and users may disable the checkbox at any time. Mode/room changes stop the previous source and clear speech queues while preserving the user's checkbox preference.

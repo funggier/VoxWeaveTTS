@@ -145,7 +145,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
         }
       }
       render();
-      const phase=status.connection_phase ? " · "+(RPC_PHASE_NAMES[status.connection_phase]||"กำลังตรวจสอบสถานะ Discord RPC") : "";
+      const phase=status.failed_phase && status.state==="error"
+        ? " · ผิดพลาดที่ "+(RPC_PHASE_NAMES[status.failed_phase]||"ขั้นตอน Discord RPC")
+        : status.connection_phase ? " · "+(RPC_PHASE_NAMES[status.connection_phase]||"กำลังตรวจสอบสถานะ Discord RPC") : "";
       message(
         "API: "+status.state+phase+
         " · รับ "+(status.received||0)+
