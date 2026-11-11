@@ -13,7 +13,8 @@ from urllib.parse import parse_qs
 
 from voxweavetts.discord_client_rpc import (
     CHANNEL_ID, CLOSE, FRAME, HANDSHAKE, PING, PONG,
-    DiscordClientRPCAdapter, frame_packet, parse_channel_event, oauth_exchange,
+    DiscordClientRPCAdapter, DISCORD_HTTP_USER_AGENT,
+    frame_packet, parse_channel_event, oauth_exchange,
     rpc_oauth_error_hint,
     parse_frame_header, validate_channel_id, validate_redirect_uri,
 )
@@ -153,6 +154,7 @@ class ClientRPCPayloadTests(unittest.TestCase):
                     def open(self, request, timeout):
                         self.assert_payload = parse_qs(request.data.decode("utf-8"))
                         self.req_url = request.full_url
+                        self.req_headers = request.headers
                         body = json.dumps({
                             "error": error_id,
                             "error_description": "SECRET_IN_PROVIDER_DESCRIPTION",
@@ -165,7 +167,9 @@ class ClientRPCPayloadTests(unittest.TestCase):
                     with self.assertRaises(SourceFailure) as failure:
                         oauth_exchange(APP_ID, "SECRET_IN_CLIENT", "http://127.0.0.1:8765",
                                        "SECRET_IN_CODE")
-                self.assertEqual(opener.req_url, "https://discord.com/api/oauth2/token")
+                self.assertEqual(opener.req_url, "https://discord.com/api/v10/oauth2/token")
+                self.assertEqual(opener.req_headers["User-agent"], DISCORD_HTTP_USER_AGENT)
+                self.assertIn("VoxWeaveTTS (https://github.com/funggier/VoxWeaveTTS,", DISCORD_HTTP_USER_AGENT)
                 self.assertEqual(opener.assert_payload["redirect_uri"], ["http://127.0.0.1:8765"])
                 self.assertEqual(opener.assert_payload["grant_type"], ["authorization_code"])
                 self.assertEqual(opener.assert_payload["code"], ["SECRET_IN_CODE"])
@@ -189,6 +193,23 @@ class ClientRPCPayloadTests(unittest.TestCase):
                 oauth_exchange(APP_ID, CREDS["client_secret"], CREDS["redirect_uri"], "TEST_CODE")
         self.assertIn("HTTP 502", str(failure.exception))
         self.assertNotIn("SECRET_HTML", str(failure.exception))
+
+    def test_http_403_is_reported_as_api_block_without_leaking_html(self):
+        from voxweavetts.source_adapters import SourceFailure
+        class Forbidden:
+            def open(self, request, timeout):
+                self.user_agent = request.headers.get("User-agent")
+                raise HTTPError(request.full_url, 403, "Forbidden", {},
+                                io.BytesIO(b"<html>SECRET_NO_LEAK</html>"))
+        opener = Forbidden()
+        with patch("voxweavetts.discord_client_rpc.build_opener", return_value=opener):
+            with self.assertRaises(SourceFailure) as error:
+                oauth_exchange(APP_ID, "PRIVATE_CLIENT_SECRET",
+                               "http://127.0.0.1:8765", "PRIVATE_AUTHORIZATION_CODE")
+        self.assertEqual(opener.user_agent, DISCORD_HTTP_USER_AGENT)
+        self.assertIn("HTTP 403", str(error.exception))
+        for secret in ("PRIVATE_CLIENT_SECRET", "PRIVATE_AUTHORIZATION_CODE", "SECRET_NO_LEAK"):
+            self.assertNotIn(secret, str(error.exception))
 
     def test_validates_one_selected_channel_and_registered_redirect(self):
         self.assertEqual(validate_channel_id(CHANNEL), CHANNEL)

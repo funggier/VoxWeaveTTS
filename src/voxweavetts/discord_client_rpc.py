@@ -20,11 +20,17 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from . import __version__
 from .processing import InputError
 from .source_adapters import PollResult, SourceFailure, SourceMessage, _normal_text
 
 CHANNEL_ID = re.compile(r"[0-9]{16,22}\Z")
 MAX_FRAME = 65536
+# Discord requires an identifiable User-Agent on HTTP API requests. urllib\'s
+# default Python-urllib/* signature can receive HTTP 403 from Cloudflare.
+DISCORD_HTTP_USER_AGENT = (
+    f"VoxWeaveTTS (https://github.com/funggier/VoxWeaveTTS, {__version__})"
+)
 HANDSHAKE, FRAME, CLOSE, PING, PONG = 0, 1, 2, 3, 4
 
 # Show only documented, non-sensitive Discord RPC diagnostics. Never display
@@ -142,9 +148,10 @@ def oauth_exchange(client_id: str, client_secret: str,
         "grant_type": "authorization_code", "code": code,
         "redirect_uri": redirect_uri,
     }).encode("utf-8")
-    req = Request("https://discord.com/api/oauth2/token", data=payload, method="POST",
+    req = Request("https://discord.com/api/v10/oauth2/token", data=payload, method="POST",
                   headers={"Content-Type":"application/x-www-form-urlencoded",
-                           "Accept":"application/json"})
+                           "Accept":"application/json",
+                           "User-Agent":DISCORD_HTTP_USER_AGENT})
     try:
         with build_opener(_NoRedirect()).open(req, timeout=9) as response:
             raw = response.read(8193)
@@ -169,6 +176,11 @@ def oauth_exchange(client_id: str, client_secret: str,
             raise SourceFailure(
                 f"Discord OAuth token exchange: {name} (HTTP {error.code}); "
                 f"{OAUTH_ERROR_HINTS[name]}", fatal=True
+            ) from None
+        if error.code == 403:
+            raise SourceFailure(
+                "Discord OAuth token request blocked (HTTP 403); check Discord API "
+                "access and User-Agent, then reconnect", fatal=True
             ) from None
         raise SourceFailure(
             f"Discord OAuth token exchange rejected (HTTP {error.code}); "

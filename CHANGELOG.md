@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev17 — Fix Discord OAuth HTTP 403 from default Python User-Agent (2026-11-12)
+
+- Identified an HTTP-level request issue in the Discord OAuth token exchange: on the user's Windows host, harmless test requests using Python's default `Python-urllib/3.11` User-Agent received HTTP 403; the same OAuth endpoint with an explicit, application-identifying User-Agent returned the expected HTTP 400 `invalid_client` for intentionally fake credentials.
+- Added a versioned `VoxWeaveTTS (https://github.com/funggier/VoxWeaveTTS, <version>)` User-Agent to OAuth requests, and used Discord's explicitly versioned `/api/v10/oauth2/token` route. Form encoding and no-redirect handling remain intact.
+- Clarified the generic OAuth 403 error to distinguish request blocking from an OAuth code/redirect mismatch. Never include secrets, authorization codes or provider response bodies in error output.
+- Added regression tests for User-Agent, endpoint version, and safe HTTP 403 reporting. Verified the real `oauth_exchange()` function with **fake-only** credentials now receives expected `invalid_client (HTTP 400)` from Discord instead of HTTP 403.
+- This demonstrates that the token endpoint can be reached by the fixed HTTP client. A real authorized Discord account/token exchange and message subscription are still unverified; reconnect and explicitly approve the app to test them.
+
 ## 0.3.0.dev16 — Diagnose Discord RPC OAuth error 5000 (2026-11-12)
 
 - Corrected the Local RPC AUTHORIZE payload to match Discord's documented argument schema: client_id and scopes only. The redirect_uri added to AUTHORIZE in dev15 is **not listed** in the official RPC arguments; redirect_uri remains part of the token exchange.

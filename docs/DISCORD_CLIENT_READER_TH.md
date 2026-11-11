@@ -1,6 +1,6 @@
 # Discord Client Reader — เลือกห้อง Discord ที่ต้องการอ่าน
 
-> v0.3.0.dev16 — Discord Desktop Official Local RPC · ต้องได้รับอนุญาต · ยังไม่ได้ทดสอบกับบัญชีจริง
+> v0.3.0.dev17 — Discord Desktop Official Local RPC · ต้องได้รับอนุญาต · ยังไม่ได้ทดสอบกับบัญชีจริง
 
 ## ความสามารถ
 
@@ -70,6 +70,14 @@ Discord RPC Error 5000 หมายถึง OAuth2 Error และรายล�
 โปรดอย่าส่ง Client Secret, Authorization Code หรือ Access Token ให้ผู้อื่น หาก API แสดงเพียง "OAuth2 error (5000); details unavailable" ยังสรุปไม่ได้ว่าเป็น invalid_scope หรือสาเหตุอื่น และต้องตรวจการอนุมัติจาก Discord
 
 อ้างอิง: [Discord RPC](https://discord.com/developers/docs/topics/rpc), [Discord Error Codes](https://discord.com/developers/docs/topics/opcodes-and-status-codes#rpc-rpc-error-codes)
+
+## เมื่อได้ HTTP 403 ในขั้นตอน OAuth Token Exchange
+
+Discord กำหนดให้ HTTP API Client ส่ง User-Agent ที่ระบุแอปและเวอร์ชันอย่างชัดเจน หากใช้ User-Agent ค่าเริ่มต้นของ `urllib` อาจถูกบล็อกได้ (ดู [Discord HTTP API — User Agent](https://discord.com/developers/docs/reference#user-agent)). ใน dev17 โปรแกรมส่ง `VoxWeaveTTS (https://github.com/funggier/VoxWeaveTTS, 0.3.0.dev17)` และใช้ `https://discord.com/api/v10/oauth2/token` ตามเอกสาร
+
+จากเครื่อง Windows ของผู้ใช้ การส่งคำขอทดสอบด้วยข้อมูล **ปลอมเท่านั้น** ให้ผล HTTP 403 สำหรับ User-Agent เดิม แต่ User-Agent ใหม่ได้ HTTP 400 `invalid_client` ตามคาด จึงยืนยันว่าปัญหา User-Agent เป็นหนึ่งในสาเหตุที่ทำให้ไม่ผ่าน Token API ได้ ไม่จำเป็นต้องเปลี่ยน Redirect URI หรือ Channel ID เพื่อแก้ HTTP 403 ชนิดนี้
+
+ให้รีโหลดเว็บและกดเชื่อมใหม่ด้วย Client Secret ปัจจุบันเพื่อขอ Code ใหม่จาก Discord Desktop อีกรอบ ถ้ายังค้างให้ส่งเฉพาะข้อความ API Error ที่ไม่รวมข้อมูลลับ โดยยังไม่รับรองว่า Discord อนุญาตให้แอปรับ `messages.read` จากห้องจริงแล้ว
 
 ## ผลทดสอบ
 
