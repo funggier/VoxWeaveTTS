@@ -230,7 +230,10 @@ class SourceManager:
                             session.discarded += 1
                             continue
                         if len(session.pending) == MAX_PENDING:
+                            # Preserve older unread messages. Drop only the
+                            # arriving overflow item; never evict pending work.
                             session.discarded += 1
+                            continue
                         session.pending.append(item)
                         session.received += 1
                     if not batch.online:

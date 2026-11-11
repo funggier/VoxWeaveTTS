@@ -4,14 +4,30 @@
  */
 (function(root){
 "use strict";
-function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
+function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState}){
   if(!["live","discord","discord_client"].includes(mode))throw Error("unknown source mode");
   const prefix=mode==="discord_client"?"discordClient":mode;
   const get=id=>el(prefix+id);
   const audio=get("Audio");
   let generation=0, jobId=null, lastReady=null, wavUrl=null;
+  // One controller is created per source mode. All three provider types use
+  // exactly the same serial queue; there is no cross-mode audio overlap.
+  const MAX_WAITING=12;
   const incoming=[];
-  let autoBusy=false;
+  let autoBusy=false, activeIncoming=null, queueEpoch=0, overflow=0;
+  function mark(item,state){
+    if(item?.message_id != null)onMessageState?.(String(item.message_id),state);
+  }
+  function clearAutoQueue({includeActive=false}={}){
+    for(const item of incoming)mark(item,"skipped");
+    incoming.length=0;
+    if(includeActive){
+      queueEpoch++;
+      if(activeIncoming)mark(activeIncoming,"skipped");
+      activeIncoming=null;
+      autoBusy=false;
+    }
+  }
   const clock=clockLibrary.attach(audio,payload=>report(payload,mode),
     state=>{
       get("Subtitle").textContent=state.text;
@@ -50,8 +66,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
     if(old)feedback("หยุดเสียงของโหมดนี้แล้ว · ข้อความยังอยู่");
   }
   function suspend(){
-    incoming.length=0;
-    autoBusy=false;
+    clearAutoQueue({includeActive:true});
     stop({discard:false});
     // Re-entering a mode should never automatically resume audio.
     if(audio.currentTime>0)audio.currentTime=0;
@@ -60,6 +75,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
     if(!guard(mode))throw Error("กรุณาเปิดโหมดนี้ให้เป็นโหมดปัจจุบันก่อน");
     const text=get("Text").value;
     if(!text.trim())throw Error("กรุณาใส่ข้อความทดลอง");
+    // A manual request takes precedence over a queued automatic feed.
+    if(!autoPlay)clearAutoQueue({includeActive:true});
     stop({discard:true});
     const my=++generation;
     lastReady=null;
@@ -103,7 +120,11 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
           get("Download").style.display="inline-block";
           feedback("เสียงพร้อม · กด Play เพื่ออ่านข้อความของโหมดนี้");
           if(autoPlay){
-            try{await audio.play();}
+            try{
+              await audio.play();
+              if(activeIncoming && activeIncoming.message_id===messageId)
+                mark(activeIncoming,"reading");
+            }
             catch{
               feedback("Browser ไม่อนุญาต Auto-play · กด Play เองได้");
               return false;
@@ -124,34 +145,58 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
   }
   async function pumpIncoming(){
     if(autoBusy||!guard(mode)||!get("FeedAuto").checked)return;
-    // Never interrupt an already playing WAV in this workspace.
+    // Wait for the current manual or automatic WAV to finish.
     if(!audio.paused&&!audio.ended)return;
     const next=incoming.shift();
     if(!next)return;
-    autoBusy=true;
+    const ticket=queueEpoch;
+    activeIncoming=next;
+    autoBusy=true; // remains true until the audio "ended" event
+    mark(next,"preparing");
     get("Text").value=next.text;
-    const played=await submit({autoPlay:true,messageId:next.message_id});
-    if(!played){
-      autoBusy=false;
-      // Require explicit opt-in again if autoplay failed or was blocked.
+    try{
+      const played=await submit({autoPlay:true,messageId:next.message_id});
+      if(ticket!==queueEpoch)return; // stop/mode switch cancelled this job
+      if(!played){
+        // Do not pretend a generated WAV was actually read if autoplay fails.
+        clearAutoQueue({includeActive:true});
+        get("FeedAuto").checked=false;
+        feedback("อ่านอัตโนมัติหยุดชั่วคราว · ตรวจสิทธิ์เล่นเสียงใน Browser แล้วเปิดใหม่");
+      }
+    }catch(error){
+      if(ticket!==queueEpoch)return;
+      clearAutoQueue({includeActive:true});
       get("FeedAuto").checked=false;
-      incoming.length=0;
+      feedback(String(error.message||error));
     }
   }
   function receiveIncoming(msg,autoRead){
-    if(!autoRead||!guard(mode)||typeof msg?.text!=="string")return;
-    if(incoming.length>=12)incoming.shift();
+    if(!autoRead||!guard(mode)||typeof msg?.text!=="string")return "manual";
+    if(incoming.length>=MAX_WAITING){
+      // Never silently evict an earlier unread message. New overflow is
+      // skipped, and the UI marks it as such instead of claiming it was read.
+      overflow++;
+      return "skipped";
+    }
     incoming.push(msg);
-    pumpIncoming().catch(error=>{
-      autoBusy=false;
-      feedback(String(error.message||error));
-    });
+    pumpIncoming();
+    return "queued";
   }
   audio.addEventListener("ended",()=>{
+    if(activeIncoming)mark(activeIncoming,"read");
+    activeIncoming=null;
     autoBusy=false;
-    pumpIncoming().catch(error=>feedback(String(error.message||error)));
+    pumpIncoming();
   });
-  function clearAutoQueue(){incoming.length=0;autoBusy=false;}
+  audio.addEventListener("error",()=>{
+    if(!activeIncoming)return;
+    clearAutoQueue({includeActive:true});
+    get("FeedAuto").checked=false;
+    feedback("เกิดข้อผิดพลาดขณะเล่นเสียง · หยุดคิวอัตโนมัติแล้ว");
+  });
+  get("FeedAuto").addEventListener("change",()=>{
+    if(get("FeedAuto").checked)pumpIncoming();
+  });
   function resume(){
     if(lastReady && wavUrl){
       clock.setSpeech(lastReady.speech_id,lastReady.audio);
@@ -167,12 +212,15 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
   });
   get("Submit").addEventListener("click",()=>submit().catch(e=>feedback(String(e.message||e))));
   get("Stop").addEventListener("click",()=>{
-    clearAutoQueue();
+    clearAutoQueue({includeActive:true});
     get("FeedAuto").checked=false;
     stop({discard:true});
     feedback("หยุดอ่านในโหมดนี้แล้ว · หากต้องการอ่านอัตโนมัติให้เปิดตัวเลือกอีกครั้ง");
   });
-  return {stop,suspend,resume,submit,receiveIncoming,clearAutoQueue,get jobId(){return jobId;}};
+  return {stop,suspend,resume,submit,receiveIncoming,clearAutoQueue,
+          get pendingAuto(){return incoming.length;},
+          get skippedOverflow(){return overflow;},
+          get jobId(){return jobId;}};
 }
 root.VoxModeInputs={attach};
 if(typeof module!=="undefined"&&module.exports)module.exports={attach};

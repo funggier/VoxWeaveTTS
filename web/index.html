@@ -69,6 +69,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 .source-message{padding:8px 0;border-bottom:1px solid #30445d;color:#dfebfc;overflow-wrap:break-word}
 .source-author{color:#9dbdde;font-weight:600}
 .source-message button{margin:5px 8px;vertical-align:middle}
+.source-message-state{display:inline-block;color:#a5c6e2;font-size:12px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -175,12 +176,20 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="liveFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="liveFeedMaxChars" min="20" max="280" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<div><label for="liveFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="liveFeedKeepRead" min="0" max="100" value="20"></div>
 </div>
 <div class="voice-grid">
 <button type="button" id="liveFeedStart">เชื่อมต่อ API</button>
 <button type="button" id="liveFeedStop">หยุดรับข้อความ</button>
 </div>
+<div class="voice-grid">
+<button type="button" id="liveFeedExport">Export การตั้งค่า (.json)</button>
+<button type="button" id="liveFeedImport">Import การตั้งค่า (.json)</button>
+<input type="file" id="liveFeedImportFile" accept=".json,application/json" hidden>
+</div>
+<p class="small"><strong>คำเตือน:</strong> Export รวม API Key เป็นข้อความลับใน JSON ที่ไม่เข้ารหัส ควร Export ก่อนกดเชื่อมต่อ (ช่องลับจะถูกล้างหลังเชื่อมสำเร็จ) · Import เติมทุกช่องรวมช่องว่าง แต่ไม่เชื่อมต่อเอง</p>
 <p id="liveFeedStatus" class="small" role="status">ยังไม่ได้เชื่อมต่อ · สามารถใช้ข้อความทดลองด้านบนได้โดยไม่ต้องเชื่อมบัญชี</p>
+<p id="liveFeedQueueStatus" class="small" role="status"></p>
 <ol id="liveFeedItems" class="source-message-list"></ol>
 </details>
 <p id="liveStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
@@ -214,12 +223,20 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="discordFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="discordFeedMaxChars" min="20" max="280" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<div><label for="discordFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="discordFeedKeepRead" min="0" max="100" value="20"></div>
 </div>
 <div class="voice-grid">
 <button type="button" id="discordFeedStart">เชื่อมต่อ API</button>
 <button type="button" id="discordFeedStop">หยุดรับข้อความ</button>
 </div>
+<div class="voice-grid">
+<button type="button" id="discordFeedExport">Export การตั้งค่า (.json)</button>
+<button type="button" id="discordFeedImport">Import การตั้งค่า (.json)</button>
+<input type="file" id="discordFeedImportFile" accept=".json,application/json" hidden>
+</div>
+<p class="small"><strong>คำเตือน:</strong> Export รวม Bot Token เป็นข้อความลับใน JSON ที่ไม่เข้ารหัส ควร Export ก่อนกดเชื่อมต่อ (ช่องลับจะถูกล้างหลังเชื่อมสำเร็จ) · Import เติมทุกช่องรวมช่องว่าง แต่ไม่เชื่อมต่อเอง</p>
 <p id="discordFeedStatus" class="small" role="status">ยังไม่ได้เชื่อมต่อ · สามารถใช้ข้อความทดลองด้านบนได้โดยไม่ต้องเชื่อมบัญชี</p>
+<p id="discordFeedQueueStatus" class="small" role="status"></p>
 <ol id="discordFeedItems" class="source-message-list"></ol>
 </details>
 <p id="discordStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
@@ -260,12 +277,20 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <label style="display:flex;align-items:center;gap:7px">
 <input id="discordClientFeedAuto" type="checkbox" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)
 </label>
+<div><label for="discordClientFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input id="discordClientFeedKeepRead" type="number" min="0" max="100" value="20"></div>
 </div>
 <div class="voice-grid">
 <button id="discordClientFeedStart" type="button">เชื่อมและสมัครรับห้องนี้</button>
 <button id="discordClientFeedStop" type="button">หยุดรับข้อความ</button>
 </div>
+<div class="voice-grid">
+<button type="button" id="discordClientFeedExport">Export การตั้งค่า (.json)</button>
+<button type="button" id="discordClientFeedImport">Import การตั้งค่า (.json)</button>
+<input type="file" id="discordClientFeedImportFile" accept=".json,application/json" hidden>
+</div>
+<p class="small"><strong>คำเตือน:</strong> Export รวม Client Secret เป็นข้อความลับใน JSON ที่ไม่เข้ารหัส ควร Export ก่อนกดเชื่อมต่อ (ช่องลับจะถูกล้างหลังเชื่อมสำเร็จ) · Import เติมทุกช่องรวมช่องว่าง แต่ไม่เชื่อมต่อเอง</p>
 <p id="discordClientFeedStatus" class="small" role="status">ยังไม่เชื่อมต่อ · ต้องได้รับสิทธิ์ Discord RPC ก่อน หากยังไม่ได้รับสิทธิ์สามารถพิมพ์ข้อความทดลองด้านบนได้</p>
+<p id="discordClientFeedQueueStatus" class="small" role="status"></p>
 <ol id="discordClientFeedItems" class="source-message-list"></ol>
 </details>
 <p id="discordClientStatus" class="small" role="status">รอข้อความหรือพิมพ์เพื่อทดลองอ่าน</p>
@@ -1605,7 +1630,11 @@ if(typeof VoxModeInputs!=="undefined"){
     const instance=VoxModeInputs.attach({
       mode,el,clockLibrary:VoxPlaybackClock,report:sendPlaybackReport,
       getSpeechPayload:buildSpeechPayload,
-      guard:id=>!modeRuntime || modeRuntime.guard(id)
+      guard:id=>!modeRuntime || modeRuntime.guard(id),
+      onMessageState:(id,state)=>{
+        const feed=mode==="live"?liveFeed:(mode==="discord"?discordFeed:discordClientFeed);
+        feed?.setMessageState(id,state);
+      }
     });
     if(mode==="live")liveMode=instance;
     else if(mode==="discord")discordMode=instance;
@@ -1621,7 +1650,7 @@ if(typeof VoxSourceFeed!=="undefined"){
       guard:id=>Boolean(modeRuntime?.guard(id)),
       onMessage:(entry,automatic)=>inputMode.receiveIncoming(entry,automatic),
       onPick:entry=>{el((mode==="discord_client"?"discordClient":mode)+"Text").value=entry.text;},
-      onStop:()=>inputMode.clearAutoQueue(),
+      onStop:()=>{inputMode.clearAutoQueue({includeActive:true});inputMode.stop({discard:true});},
     });
     if(mode==="live")liveFeed=feed;
     else if(mode==="discord")discordFeed=feed;

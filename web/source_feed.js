@@ -5,7 +5,55 @@
  */
 (function(root){
 "use strict";
-const MAX_VISIBLE=25;
+const MAX_UNREAD=12;
+const MAX_PASSIVE=25;
+const MAX_READ_KEEP=100;
+const SETTINGS_FORMAT="voxweavetts.source-settings";
+const SETTINGS_VERSION=1;
+const MAX_SETTINGS_BYTES=16384;
+const SETTINGS_KEYS=new Set(["format","version","mode","source_id",
+                             "filters","auto_read","read_history_limit",
+                             "credential","client_id","client_secret","redirect_uri"]);
+function isRecord(value){
+  return value!==null && typeof value==="object" && !Array.isArray(value);
+}
+function validateSettingsProfile(value,mode){
+  // Check structure and size, not connection validity. Partial entries and
+  // empty fields are valid for offline drafts; Connect validates separately.
+  // Secret fields intentionally round-trip as plaintext by explicit request.
+  if(!isRecord(value) || Object.keys(value).some(key=>!SETTINGS_KEYS.has(key))
+     || value.format!==SETTINGS_FORMAT || value.version!==SETTINGS_VERSION
+     || value.mode!==mode)throw Error("ไฟล์ตั้งค่าไม่ตรงกับโหมดหรือรูปแบบที่รองรับ");
+  if(typeof value.source_id!=="string" || value.source_id.length>200
+     || /[\u0000-\u001f\u007f]/.test(value.source_id))
+    throw Error("Source/Channel ID ในไฟล์ไม่ถูกต้อง");
+  if(!isRecord(value.filters) || Object.keys(value.filters).some(k=>!["blocked_words","max_chars"].includes(k))
+     || typeof value.filters.blocked_words!=="string" || value.filters.blocked_words.length>2000
+     || !(value.filters.max_chars==="" || (Number.isInteger(value.filters.max_chars)
+          && value.filters.max_chars>=20 && value.filters.max_chars<=280)))
+    throw Error("ตัวกรองหรือจำนวนอักษรในไฟล์ไม่ถูกต้อง");
+  if(typeof value.auto_read!=="boolean"
+     || !(value.read_history_limit==="" || (Number.isInteger(value.read_history_limit)
+          && value.read_history_limit>=0 && value.read_history_limit<=MAX_READ_KEEP)))
+    throw Error("ค่าคิวเสียงหรือจำนวนประวัติไม่ถูกต้อง");
+  if(mode==="discord_client"){
+    if(typeof value.client_id!=="string" || value.client_id.length>200
+       || typeof value.client_secret!=="string" || value.client_secret.length>2048
+       || typeof value.redirect_uri!=="string" || value.redirect_uri.length>240)
+      throw Error("Client ID หรือ OAuth Redirect URI ในไฟล์ไม่ถูกต้อง");
+  }else if("client_id" in value || "client_secret" in value || "redirect_uri" in value){
+    throw Error("ไฟล์ตั้งค่ามีช่องข้อมูลของแหล่งอื่น");
+  }else if(typeof value.credential!=="string" || value.credential.length>4096){
+    throw Error("ค่าข้อมูลรับรองของแหล่งข้อความไม่ถูกต้อง");
+  }
+  if(mode==="discord_client" && "credential" in value)
+    throw Error("ไฟล์ตั้งค่ามีช่องข้อมูลของแหล่งอื่น");
+  return value;
+}
+const STATE_LABELS={
+  queued:"รออ่าน",preparing:"กำลังสร้างเสียง",reading:"กำลังอ่าน",read:"อ่านแล้ว",
+  skipped:"ข้ามการอ่าน",manual:"เลือกอ่านเอง",
+};
 const RPC_PHASE_NAMES={
   not_connected:"ยังไม่ได้เชื่อม",
   opening_discord_pipe:"กำลังค้นหา Discord Desktop",
@@ -22,11 +70,98 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
   const prefix=mode==="discord_client"?"discordClient":mode;
   const get=id=>el(prefix+id);
   let timer=null, generation=0, connected=false, inFlight=false;
-  let visible=[];
+  let visible=[], overflow=0;
   function message(text){get("FeedStatus").textContent=String(text);}
+  function buildSettingsProfile(){
+    const blocked=get("FeedBlocked").value;
+    const max=get("FeedMaxChars").value.trim();
+    const keep=get("FeedKeepRead").value.trim();
+    const data={
+      format:SETTINGS_FORMAT,version:SETTINGS_VERSION,mode,
+      source_id:get("FeedSourceId").value,
+      filters:{blocked_words:blocked,max_chars:max===""?"":Number(max)},
+      auto_read:Boolean(get("FeedAuto").checked),
+      read_history_limit:keep===""?"":Number(keep),
+    };
+    if(mode==="discord_client"){
+      data.client_id=get("FeedAppId").value;
+      data.client_secret=get("FeedAppSecret").value;
+      data.redirect_uri=get("FeedRedirect").value;
+    }else data.credential=get("FeedCredential").value;
+    return validateSettingsProfile(data,mode);
+  }
+  function exportSettings(){
+    try{
+      const data=buildSettingsProfile();
+      const safeId=data.source_id.replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,40);
+      const a=document.createElement("a");
+      a.download="VoxWeaveTTS-"+mode+"-"+safeId+".json";
+      a.href="data:application/json;charset=utf-8,"+
+             encodeURIComponent(JSON.stringify(data,null,2));
+      a.click();
+      message("ส่งออกการตั้งค่าทุกช่องแล้ว รวมถึงข้อมูลลับ (JSON ไม่เข้ารหัส · เก็บไฟล์ให้ปลอดภัย)");
+      return data;
+    }catch(error){
+      message("ส่งออกไม่สำเร็จ: "+String(error.message||error));
+      return null;
+    }
+  }
+  async function importSettings(file){
+    if(!file)return false;
+    try{
+      if(!Number.isSafeInteger(file.size) || file.size<=0 || file.size>MAX_SETTINGS_BYTES)
+        throw Error("ไฟล์ตั้งค่าใหญ่เกินกำหนด (สูงสุด 16 KB)");
+      const data=validateSettingsProfile(JSON.parse(await file.text()),mode);
+      // All validation is atomic: do not modify a single field on failure.
+      if(connected)await stop(); // Import never keeps an old-room session alive.
+      get("FeedSourceId").value=data.source_id;
+      get("FeedBlocked").value=data.filters.blocked_words;
+      get("FeedMaxChars").value=String(data.filters.max_chars);
+      get("FeedAuto").checked=data.auto_read;
+      get("FeedKeepRead").value=String(data.read_history_limit);
+      if(mode==="discord_client"){
+        get("FeedAppId").value=data.client_id;
+        get("FeedRedirect").value=data.redirect_uri;
+        get("FeedAppSecret").value=data.client_secret;
+      }else get("FeedCredential").value=data.credential;
+      prune();render();
+      message("โหลดการตั้งค่าครบทุกช่องแล้ว (รวมข้อมูลลับ) · ยังไม่เชื่อมต่ออัตโนมัติ");
+      return true;
+    }catch(error){
+      // JSON parser errors may quote pieces of the input file, including
+      // credentials. Never reflect raw parser exceptions in the UI.
+      message("นำเข้าการตั้งค่าไม่สำเร็จ: โปรดตรวจรูปแบบไฟล์ เวอร์ชัน และช่องทางที่เลือก");
+      return false;
+    }
+  }
+  function readLimit(){
+    const raw=Number(get("FeedKeepRead").value);
+    return Number.isInteger(raw) ? Math.max(0,Math.min(MAX_READ_KEEP,raw)) : 20;
+  }
+  function prune(){
+    const keep=readLimit();
+    let read=0,passive=0;
+    // Newest-first; never prune a queued or currently reading message.
+    visible=visible.filter(entry=>{
+      if(["queued","preparing","reading"].includes(entry.state))return true;
+      if(entry.state==="read")return ++read<=keep;
+      return ++passive<=MAX_PASSIVE;
+    });
+  }
+  function renderSummary(){
+    const queued=visible.filter(x=>x.state==="queued").length;
+    const reading=visible.filter(x=>x.state==="preparing"||x.state==="reading").length;
+    const read=visible.filter(x=>x.state==="read").length;
+    get("FeedQueueStatus").textContent=
+      "คิวรออ่าน "+queued+"/"+MAX_UNREAD+
+      " · กำลังเตรียม/อ่าน "+reading+
+      " · อ่านแล้วที่เก็บ "+read+"/"+readLimit()+
+      " · ข้ามเพราะคิวเต็ม "+overflow;
+  }
   function clearMessages(){
-    visible=[];
+    visible=[];overflow=0;
     get("FeedItems").replaceChildren();
+    renderSummary();
   }
   function render(){
     const area=get("FeedItems");
@@ -50,9 +185,21 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
         }
         onPick(data);
       });
-      li.append(details,body,button);
+      const state=document.createElement("small");
+      state.className="source-message-state";
+      state.textContent=STATE_LABELS[data.state]||"เลือกอ่านเอง";
+      li.append(details,body,button,state);
       area.appendChild(li);
     }
+    renderSummary();
+  }
+  function setMessageState(messageId,state){
+    if(!Object.prototype.hasOwnProperty.call(STATE_LABELS,state))return;
+    const entry=visible.find(x=>String(x.message_id)===String(messageId));
+    if(!entry)return; // source session already switched or was cleared
+    entry.state=state;
+    prune();
+    render();
   }
   async function api(operation,body){
     const response=await fetch("/v1/sources/"+operation,{
@@ -91,7 +238,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     } : get("FeedCredential").value.trim();
     const blocked=get("FeedBlocked").value.split(",").map(x=>x.trim()).filter(Boolean);
     const maxChars=Number(get("FeedMaxChars").value);
-    if(!Number.isInteger(maxChars))throw Error("ความยาวข้อความต้องเป็นตัวเลขจำนวนเต็ม");
+    if(!Number.isInteger(maxChars) || get("FeedMaxChars").value.trim()==="")
+      throw Error("กรุณากำหนดความยาวข้อความสูงสุดก่อนเชื่อมต่อ");
     // Switch room without leaving the previous source running if the new
     // room/credentials fail: unsubscribe/stop before trying the new room.
     const previousOwner=connected?credentials(mode):null;
@@ -139,9 +287,16 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
       if(Array.isArray(result.messages)){
         for(const item of result.messages){
           if(!item || typeof item.text!=="string")continue;
-          visible.unshift({message_id:item.message_id,author:item.author,text:item.text});
-          if(visible.length>MAX_VISIBLE)visible.pop();
-          onMessage(item,Boolean(get("FeedAuto").checked));
+          const auto=Boolean(get("FeedAuto").checked);
+          const entry={message_id:item.message_id,author:item.author,text:item.text,
+                       state:auto?"queued":"manual"};
+          visible.unshift(entry);
+          const accepted=onMessage(item,auto);
+          if(accepted==="skipped"){
+            entry.state="skipped";
+            overflow++;
+          }
+          prune();
         }
       }
       render();
@@ -187,12 +342,24 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     try { await api("stop",authorization); }
     catch(error){message("หยุดรับใน Browser แล้ว ("+String(error.message||error)+")");}
   }
+  get("FeedExport").addEventListener("click",exportSettings);
+  get("FeedImport").addEventListener("click",()=>get("FeedImportFile").click());
+  get("FeedImportFile").addEventListener("change",async()=>{
+    const input=get("FeedImportFile");
+    const file=input.files?.[0];
+    input.value=""; // re-selecting the same file should still trigger change
+    await importSettings(file);
+  });
   get("FeedStart").addEventListener("click",()=>{
     start().catch(()=>{});
   });
   get("FeedStop").addEventListener("click",()=>stop().catch(()=>{}));
   get("FeedStop").disabled=true;
-  return {start,stop,poll,suspend:localSuspend,
+  get("FeedKeepRead").addEventListener("input",()=>{
+    prune();render();
+  });
+  renderSummary();
+  return {start,stop,poll,suspend:localSuspend,setMessageState,exportSettings,importSettings,
           get connected(){return connected;},get visible(){return visible.slice();}};
 }
 root.VoxSourceFeed={attach};

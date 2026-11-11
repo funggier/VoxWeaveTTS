@@ -1,6 +1,6 @@
 # VoxWeaveTTS — โหมดการทำงานอิสระและการตั้งค่ากลาง
 
-> v0.3.0.dev14 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord มีตัวรับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง
+> v0.3.0.dev18 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · YouTube Live/Discord Bot รับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง (Discord Client RPC ผู้ใช้ยืนยันว่าใช้งานได้แล้ว)
 
 ## โครงสร้าง
 

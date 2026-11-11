@@ -173,6 +173,9 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(status["duplicates"],1)
         messages=self.manager.drain({**base,"limit":20},self.modes)
         self.assertEqual(len(messages["messages"]),20)
+        self.assertEqual(messages["messages"][0]["message_id"], "0",
+                         "overflow must not evict oldest unread message")
+        self.assertEqual(messages["messages"][1]["message_id"], "2")
         self.assertNotIn("blocked message",str(messages))
         self.assertNotIn("https://",str(messages))
         with self.assertRaises(ModeConflict):

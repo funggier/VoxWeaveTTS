@@ -2,6 +2,16 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev18 — Shared live FIFO, capped read history, source-settings export/import (2026-11-12)
+
+- Unified YouTube Live, Discord Bot, and Discord Desktop RPC auto-reading into the same per-mode serial speech queue. Each message progresses through queued → preparing WAV → reading → read on the browser audio ended event; stop, mode changes and feed failures cancel pending work.
+- Preserve older unread items when overloaded: browser auto-read retains up to 12 waiting messages plus the active item and rejects additional arrivals with a skipped counter; backend queue preserves up to 40 pending items and rejects new overflow instead of evicting older unread items.
+- Show per-message states and queue counts, and offer a per-mode adjustable **completed-message history** limit (default 20, allowed 0–100). Only completed messages are pruned FIFO; queued/preparing/playing messages are retained. Manual and skipped browser history is separately bounded to 25.
+- Added per-provider **Export/Import JSON settings** buttons for all three live source modes. Profiles round-trip every editable source field, including plain-text API Keys, Bot Tokens, Discord Application Client Secrets, incomplete fields and empty values. The files are created/read **in the browser** without uploading them or starting connections; only the selected source mode can load a profile.
+- Import validates schema/version, size and mode *before* modifying inputs; if a connection is active it is stopped first. Secret-bearing files are explicitly marked unencrypted on the UI; malformed JSON or errors never echo raw user data into status. Connection-time validation remains separate from draft profile validity.
+- Added offline end-to-end smoke tests for high-volume FIFO flow, read-only history pruning, pause/resume/stop, and full/blank/invalid secret-bearing profile export/import for all three modes. Included both suites in GitHub Actions.
+- User previously confirmed actual Discord Desktop RPC message receipt on dev17. The dev18 queue/profile tests use fake messages and credentials; an authorized external account retest was not performed as part of these automated tests.
+
 ## 0.3.0.dev17 — Fix Discord OAuth HTTP 403 from default Python User-Agent (2026-11-12)
 
 - Identified an HTTP-level request issue in the Discord OAuth token exchange: on the user's Windows host, harmless test requests using Python's default `Python-urllib/3.11` User-Agent received HTTP 403; the same OAuth endpoint with an explicit, application-identifying User-Agent returned the expected HTTP 400 `invalid_client` for intentionally fake credentials.
