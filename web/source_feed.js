@@ -90,19 +90,59 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     }else data.credential=get("FeedCredential").value;
     return validateSettingsProfile(data,mode);
   }
-  function exportSettings(){
+  async function exportSettings(){
     try{
       const data=buildSettingsProfile();
-      const safeId=data.source_id.replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,40);
-      const a=document.createElement("a");
-      a.download="VoxWeaveTTS-"+mode+"-"+safeId+".json";
-      a.href="data:application/json;charset=utf-8,"+
-             encodeURIComponent(JSON.stringify(data,null,2));
-      a.click();
-      message("ส่งออกการตั้งค่าทุกช่องแล้ว รวมถึงข้อมูลลับ (JSON ไม่เข้ารหัส · เก็บไฟล์ให้ปลอดภัย)");
+      const safeId=data.source_id.replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,40)||"settings";
+      const filename="VoxWeaveTTS-"+mode+"-"+safeId+".json";
+      const content=JSON.stringify(data,null,2)+"\n";
+      if(typeof root.showSaveFilePicker==="function"){
+        // Chrome: true browser Save As, with native path/filename selection.
+        // Invoke the picker before the first await, preserving user activation.
+        const file=await root.showSaveFilePicker({
+          suggestedName:filename,
+          types:[{description:"VoxWeaveTTS JSON",accept:{"application/json":[".json"]}}],
+        });
+        const stream=await file.createWritable();
+        try{
+          await stream.write(content);
+          await stream.close();
+        }catch{
+          try{await stream.abort?.();}catch{/* no partial write on cancel */}
+          throw Error("file write failed");
+        }
+      }else{
+        // Firefox does not implement showSaveFilePicker. Ask the loopback-only
+        // desktop app to open a Windows Save As dialog. No path is provided by
+        // the web page: the user chooses the destination in the native UI.
+        const response=await fetch("/v1/sources/save-profile",{
+          method:"POST",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":"choose-source-profile-file"},
+          body:JSON.stringify({filename,profile:data}),
+        });
+        const status=await response.json();
+        if(!response.ok){
+          if(response.status===503)
+            throw Error("เปิดหน้าต่าง Save As ของ Windows ไม่ได้");
+          throw Error("เปิดหน้าต่างบันทึกไฟล์ไม่สำเร็จ");
+        }
+        if(status.cancelled){
+          message("ยกเลิกการบันทึกไฟล์");
+          return null;
+        }
+        if(!status.saved)throw Error("ไม่ได้รับผลยืนยันการบันทึกไฟล์");
+      }
+      message("บันทึกไฟล์การตั้งค่าแล้ว (มีข้อมูลลับที่ไม่เข้ารหัส · เก็บไฟล์อย่างปลอดภัย)");
       return data;
     }catch(error){
-      message("ส่งออกไม่สำเร็จ: "+String(error.message||error));
+      if(error?.name==="AbortError"){
+        message("ยกเลิกการบันทึกไฟล์");
+      }else{
+        // Never reflect browser/OS error messages that could contain file
+        // paths or secret-bearing payloads.
+        message("ส่งออกไม่สำเร็จ · ตรวจสิทธิ์บันทึกไฟล์ หรือเปิด Save As ของ Windows");
+      }
       return null;
     }
   }
@@ -342,7 +382,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     try { await api("stop",authorization); }
     catch(error){message("หยุดรับใน Browser แล้ว ("+String(error.message||error)+")");}
   }
-  get("FeedExport").addEventListener("click",exportSettings);
+  get("FeedExport").addEventListener("click",()=>exportSettings());
   get("FeedImport").addEventListener("click",()=>get("FeedImportFile").click());
   get("FeedImportFile").addEventListener("change",async()=>{
     const input=get("FeedImportFile");

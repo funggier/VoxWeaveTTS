@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev19 — Select Export file location in Firefox and Chrome (2026-11-12)
+
+- Replace automatic browser download on source profile Export with an explicit **Save As** location/file-name picker, preserving all fields, blank values and plaintext user-supplied credentials in the JSON profile.
+- Chrome uses the native browser File System Access `showSaveFilePicker` API, invoked synchronously from the Export button's user gesture. It writes UTF-8 JSON directly to the user-approved destination, never silently downloading into Downloads.
+- Firefox does not expose `showSaveFilePicker`: the local VoxWeaveTTS Windows backend opens a native Tk Save As dialog. The Firefox browser POST uses explicit custom intent, same-origin Origin/Sec-Fetch-Site and loopback Host checks; no arbitrary target pathname, token or file contents are returned by the server. Only a confirmed user-selected .json path is written, atomically.
+- Canceling either dialog saves nothing; native Save As unavailability returns a clear failure rather than silently writing credentials to the downloads folder. Save/Import does not connect any source.
+- Added offline Chrome/Firefox mock tests, native selected-path write tests, HTTP origin/intent rejection and no-secret-leak tests. Verified Tk can initialize in the user's Windows Python environment. The system chooser UI is user-operated and was not autonomously clicked during tests.
+
 ## 0.3.0.dev18 — Shared live FIFO, capped read history, source-settings export/import (2026-11-12)
 
 - Unified YouTube Live, Discord Bot, and Discord Desktop RPC auto-reading into the same per-mode serial speech queue. Each message progresses through queued → preparing WAV → reading → read on the browser audio ended event; stop, mode changes and feed failures cancel pending work.

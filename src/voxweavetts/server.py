@@ -33,6 +33,8 @@ from .reading_progress import load_position, save_position, clear_position, Prog
 from .playback_state import PlaybackState, PlaybackConflict, StreamFull
 from .mode_state import ModeState, ModeConflict, MODES
 from .source_manager import SourceManager
+from .profile_export import (save_source_profile_dialog, SaveDialogBusy,
+                             SaveDialogUnavailable)
 from .manual_alignment import timing_metrics
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
@@ -531,6 +533,35 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         route = urlsplit(self.path).path
+        if route == "/v1/sources/save-profile":
+            # JSON may contain a Bot Token or Client Secret. Browsers cannot
+            # forge Origin or Sec-Fetch-Site; this endpoint requires same
+            # origin, loopback host, and explicit user-save intent.
+            local_origins = {f"http://{name}:{self.server.server_port}"
+                             for name in ("127.0.0.1", "localhost")}
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            if (f"http://{host}" not in local_origins or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "choose-source-profile-file"):
+                self.reject_unread_post(403, {"error": "same-origin save permission required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "profile export requires application/json"})
+                return
+            try:
+                data = self._read_json(max_bytes=24_576)
+                saved = save_source_profile_dialog(data)
+                self.send_json(200, {"saved": saved, "cancelled": not saved})
+            except SaveDialogBusy:
+                self.send_json(409, {"error": "another Save As dialog is open"})
+            except SaveDialogUnavailable:
+                self.send_json(503, {"error": "native Save As is unavailable"})
+            except (ValueError, InputError, UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid profile export request"})
+            except OSError:
+                self.send_json(500, {"error": "could not write selected file"})
+            return
         job_route = self._job_route(route)
         if job_route is not None and job_route[1] == "cancel":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "cancel-speech-job":

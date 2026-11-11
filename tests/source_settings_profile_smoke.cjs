@@ -12,7 +12,24 @@ const asFile=profile=>{
 
 async function verify(mode){
   const prefix=mode==="discord_client"?"discordClient":mode;
-  const elements=new Map(),downloads=[],requests=[];
+  const elements=new Map(),pickerWrites=[],requests=[];
+  const browser={
+    async showSaveFilePicker(options){
+      if(browser.cancelSave){
+        const error=new Error("user cancelled");
+        error.name="AbortError";
+        throw error;
+      }
+      assert.ok(options.suggestedName.endsWith(".json"));
+      assert.equal(options.types[0].accept["application/json"][0],".json");
+      return {async createWritable(){
+        return {
+          async write(contents){pickerWrites.push({filename:options.suggestedName,contents});},
+          async close(){},
+        };
+      }};
+    },
+  };
   for(const suffix of ["FeedExport","FeedImport","FeedImportFile"]){
     assert.ok(html.includes('id="'+prefix+suffix+'"'),suffix+" absent from "+mode);
   }
@@ -27,11 +44,8 @@ async function verify(mode){
     return elements.get(id);
   }
   const sandbox={
-    window:{},Number,JSON,encodeURIComponent,
+    window:browser,Number,JSON,encodeURIComponent,
     document:{createElement(tag){
-      if(tag==="a")return {download:"",href:"",click(){
-        downloads.push({filename:this.download,href:this.href});
-      }};
       return {textContent:"",className:"",children:[],events:{},
         append(...nodes){this.children.push(...nodes);},
         addEventListener(event,fn){this.events[event]=fn;}};
@@ -40,6 +54,14 @@ async function verify(mode){
     clearInterval(){},
     async fetch(path,options){
       requests.push({path,options});
+      if(path==="/v1/sources/save-profile"){
+        assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"choose-source-profile-file");
+        assert.equal(options.method,"POST");
+        const body=JSON.parse(options.body);
+        assert.equal(body.profile.mode,mode);
+        assert.ok(body.filename.endsWith(".json"));
+        return {ok:true,async json(){return {saved:!browser.cancelNative,cancelled:Boolean(browser.cancelNative)};}};
+      }
       if(path==="/v1/sources/start")return {ok:true,async json(){return {mode,state:"connecting"};}};
       if(path==="/v1/sources/drain")return {ok:true,async json(){return {messages:[],status:{state:"running",next_poll_seconds:5}};}};
       if(path==="/v1/sources/stop"){
@@ -65,13 +87,12 @@ async function verify(mode){
   };
   for(const [suffix,value] of Object.entries(fields))el(prefix+suffix).value=value;
   el(prefix+"FeedAuto").checked=false;
-  const original=feed.exportSettings();
+  const original=await feed.exportSettings();
   assert.ok(original,"Export should support all fields");
   assert.equal(requests.length,0,"Export must not send credentials via HTTP");
-  assert.equal(downloads.length,1);
-  assert.ok(downloads[0].filename.endsWith(".json"));
-  assert.ok(downloads[0].href.startsWith("data:application/json;charset=utf-8,"));
-  const decoded=JSON.parse(decodeURIComponent(downloads[0].href.split(",").slice(1).join(",")));
+  assert.equal(pickerWrites.length,1);
+  assert.ok(pickerWrites[0].filename.endsWith(".json"));
+  const decoded=JSON.parse(pickerWrites[0].contents);
   assert.equal(decoded.format,FORMAT);
   assert.equal(decoded.mode,mode);
   assert.equal(decoded.source_id,fields.FeedSourceId);
@@ -107,7 +128,7 @@ async function verify(mode){
   // Every editable field may be blank in an unfinished draft.
   for(const [key] of Object.entries(fields))el(prefix+key).value="";
   el(prefix+"FeedAuto").checked=true;
-  const blanks=feed.exportSettings();
+  const blanks=await feed.exportSettings();
   assert.ok(blanks);
   assert.equal(blanks.source_id,"");
   assert.equal(blanks.filters.blocked_words,"");
@@ -147,9 +168,9 @@ async function verify(mode){
     assert.ok(!el(prefix+"FeedStatus").textContent.includes("DO_NOT_ECHO"));
   }
   // Button wiring: exporting downloads locally, importing picks a file.
-  const count=downloads.length;
-  el(prefix+"FeedExport").events.click();
-  assert.equal(downloads.length,count+1);
+  const count=pickerWrites.length;
+  await el(prefix+"FeedExport").events.click();
+  assert.equal(pickerWrites.length,count+1);
   el(prefix+"FeedImport").events.click();
   assert.equal(el(prefix+"FeedImportFile").clicks,1);
   el(prefix+"FeedImportFile").files=[asFile(decoded)];
@@ -157,21 +178,38 @@ async function verify(mode){
   assert.equal(el(prefix+"FeedImportFile").value,"");
   assert.equal(el(prefix+"FeedSourceId").value,fields.FeedSourceId);
   assert.equal(requests.length,0);
+  // Chrome cancellation must never write a partial file.
+  browser.cancelSave=true;
+  assert.equal(await feed.exportSettings(),null);
+  assert.equal(pickerWrites.length,count+1);
+  browser.cancelSave=false;
+  // Firefox: showSaveFilePicker is unavailable. Use the Windows Save As
+  // picker through the explicitly authorized same-origin local endpoint.
+  delete browser.showSaveFilePicker;
+  const native=await feed.exportSettings();
+  assert.ok(native);
+  assert.deepEqual(requests.map(x=>x.path),["/v1/sources/save-profile"]);
+  browser.cancelNative=true;
+  assert.equal(await feed.exportSettings(),null);
+  assert.ok(el(prefix+"FeedStatus").textContent.includes("ยกเลิก"));
+  browser.cancelNative=false;
+  assert.equal(pickerWrites.length,count+1,
+               "Firefox must not silently download to the default folder");
   // If a user imports while connected, the previous feed is disconnected
   // before replacing its credential fields, without reconnecting the feed.
   await feed.start();
   assert.equal(feed.connected,true);
-  assert.deepEqual(requests.map(item=>item.path),[
+  assert.deepEqual(requests.map(item=>item.path).filter(x=>x!=="/v1/sources/save-profile"),[
     "/v1/sources/start","/v1/sources/drain",
   ]);
   assert.equal(await feed.importSettings(asFile(decoded)),true);
   assert.equal(feed.connected,false);
-  assert.deepEqual(requests.map(item=>item.path),[
+  assert.deepEqual(requests.map(item=>item.path).filter(x=>x!=="/v1/sources/save-profile"),[
     "/v1/sources/start","/v1/sources/drain","/v1/sources/stop",
   ]);
   if(mode==="discord_client")assert.equal(el(prefix+"FeedAppSecret").value,fields.FeedAppSecret);
   else assert.equal(el(prefix+"FeedCredential").value,fields.FeedCredential);
-  console.log("PASS:",mode,"all fields/secrets/blanks, atomic validation, disconnect-before-import");
+  console.log("PASS:",mode,"Chrome and Firefox Save As, cancellation, secrets/blanks and import isolation");
 }
 (async()=>{
   for(const mode of ["live","discord","discord_client"])await verify(mode);
