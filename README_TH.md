@@ -2,13 +2,13 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev12** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev13** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, การเชื่อมต่อ Discord/YouTube ที่ยืนยันด้วยบัญชีจริง, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
 เพิ่ม **Engine Registry v1** และ **Speech Coordinator** ที่ไม่ผูกกับโมเดล: มีคิวเรียงลำดับ, ID, การป้องกันข้อความซ้ำ, การยกเลิกงาน, เหตุการณ์แบบเวอร์ชัน, WAV ที่ดาวน์โหลดหลังเตรียมเสียงสำเร็จ และหน้าเว็บทดลองคิว โมเดลใหม่ที่ฝึกเองสามารถสร้าง Adapter มาลงทะเบียนด้วย Interface เดียวกัน ไม่ต้องเปลี่ยน Text Processor หรือ API หลัก
 
-ระบบปัจจุบันยัง **ไม่ใช่ Playback Clock, OBS Subtitle Sync, Discord/YouTube Input หรือ Training Engine** และไม่มีการรับรอง License ของโมเดลทุกตัวว่าใช้เชิงพาณิชย์แล้ว
+ระบบมี Browser Playback Clock, OBS Subtitle แบบระดับ Segment และตัวรับข้อความ Discord/YouTube แบบ Official API ที่ยังไม่ได้ทดสอบบัญชีจริงแล้ว แต่ยัง **ไม่มี Hardware Playback Clock, Forced Alignment รายคำ หรือ Training Engine** และยังไม่มีการรับรอง License ของโมเดลทุกตัวว่าใช้เชิงพาณิชย์ได้แล้ว
 
 อ่าน [โครง Engine-Neutral Core (ภาษาไทย)](docs/ENGINE_NEUTRAL_CORE_TH.md)
 
@@ -26,7 +26,7 @@
 
 เพิ่มแท็บ **Discord Client** แยกจาก Discord Bot สามารถระบุ Channel ID ของห้องที่ต้องการอ่านโดยเฉพาะได้ และรับเฉพาะข้อความใหม่จากห้องนั้นผ่าน Official Discord Desktop Local RPC (เมื่อได้รับสิทธิ์จาก Discord) พร้อมตัวกรองและตัวเลือกอ่านข้อความอัตโนมัติที่ปิดไว้เป็นค่าเริ่มต้น
 
-ต้องมี Discord Desktop และ Discord Developer Application ที่ได้รับสิทธิ์ RPC หรืออยู่ในรายชื่อผู้ทดสอบ รวมถึงผู้ใช้ยินยอมให้แอปใช้สิทธิ์ rpc + messages.read โดยตรง ไม่มีการใช้ User Token แบบ Self-bot; ยังไม่ได้ทดสอบกับบัญชีจริง คู่มือ: [Discord Client Reader](docs/DISCORD_CLIENT_READER_TH.md)
+ต้องมี Discord Desktop และ Discord Developer Application ที่ได้รับสิทธิ์ RPC หรืออยู่ในรายชื่อผู้ทดสอบ รวมถึงผู้ใช้ยินยอมให้แอปใช้สิทธิ์ rpc + messages.read โดยตรง ไม่มีการใช้ User Token แบบ Self-bot; ยังไม่ได้ทดสอบกับบัญชีจริง เมื่อเปลี่ยนห้อง Auto-read จะปิดและต้องกดเปิดใหม่; หากการเชื่อมต่อหลุดต้องใส่ Client Secret อีกครั้งแล้วกดเชื่อมใหม่ คู่มือ: [Discord Client Reader](docs/DISCORD_CLIENT_READER_TH.md)
 
 ## เชื่อมอ่านข้อความจาก YouTube Live และ Discord (ทดลอง)
 
@@ -36,7 +36,7 @@
 
 **หมายเหตุ:** โค้ด Official API และการทดสอบจำลองพร้อมแล้ว แต่ยังไม่ได้ยืนยันกับ Live/Discord จริงเพราะยังไม่มี Credentials ของผู้ใช้ และเป็น REST Polling ไม่ใช่ Push แบบ Latency ต่ำ คู่มือ: [Live/Discord Inputs](docs/LIVE_INPUT_ADAPTERS_TH.md)
 
-## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.3.0.dev12)
+## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.3.0.dev13)
 
 หน้าตาใหม่แบ่งเป็น **สร้างเสียง, อ่านเอกสาร, ไลฟ์สด, Discord, คิว/Subtitle, คำอ่านและกฎ, ตั้งค่ากลาง** โดยแต่ละโหมดมีข้อความและตัวเล่นของตัวเอง เมื่อเปลี่ยนแท็บเสียงและการอ่านอัตโนมัติของโหมดเดิมจะหยุดทันที มีโหมดที่ได้รับสิทธิ์ส่งเสียงไป OBS ได้เพียงโหมดเดียว แม้เปิดหลายแท็บ
 

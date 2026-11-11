@@ -82,7 +82,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     // Switch room without leaving the previous source running if the new
     // room/credentials fail: unsubscribe/stop before trying the new room.
     const previousOwner=connected?credentials(mode):null;
-    localSuspend({clearAuto:false});
+    // Selecting a new Discord Client room must never inherit auto-read consent
+    // from an earlier room. The user opts in again after reconnecting.
+    localSuspend({clearAuto:mode==="discord_client"});
     if(previousOwner){
       try{await api("stop",previousOwner);}
       catch{/* stale-owner server activation will also stop the old source */}
@@ -145,6 +147,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
         if(timer!==null){clearInterval(timer);timer=null;}
         get("FeedStart").disabled=false;
         get("FeedStop").disabled=true;
+        // The source cannot supply more messages. Do not read a stale
+        // auto-queue after an authorization or transport failure.
+        get("FeedAuto").checked=false;
+        onStop?.();
       }
     }catch(error){
       if(ticket===generation){

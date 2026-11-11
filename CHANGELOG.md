@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev13 — Discord Client RPC disconnect safety (2026-11-11)
+
+- Distinguished idle RPC reads from partial-frame timeouts; partial frames are now terminal rather than silently returning with a corrupted frame boundary.
+- Handshake/authentication failures and an established RPC session being disconnected, closed, or failing a PONG now require an explicit fresh connection and user consent. Invalid sessions are discarded without cancelling the source worker before it can publish an actionable error state.
+- Discord Client auto-read is reset when selecting a different room, and terminal source errors clear pending browser auto-read messages. Other source modes retain their existing behavior.
+- Expanded fake-transport and browser regression checks for idle timeouts, RPC close/disconnect, initial handshake failure, SourceManager fatal status, and room-switch consent.
+- Official Discord Desktop with an authorized application/tester is **not** available in this test environment; no live-account compatibility is claimed.
+
 ## 0.3.0.dev12 — Discord Desktop Client Reader with selectable room (2026-11-11)
 
 - Added a dedicated Discord Client Reader workspace for a user's own Discord Desktop account, separate from the Discord Bot Reader.

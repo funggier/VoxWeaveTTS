@@ -180,6 +180,8 @@ class WindowsDiscordPipe:
             count = min(available.value, length-len(data))
             if not count:
                 if time.monotonic() >= deadline:
+                    if data:
+                        raise SourceFailure("Discord RPC partial frame timed out; reconnect", fatal=True)
                     raise SourceFailure("Discord RPC response timed out", retry_after=5)
                 cancel.wait(.02)
                 continue
@@ -220,16 +222,28 @@ class DiscordClientRPCAdapter:
         self._pipe: WindowsDiscordPipe | None = None
         self._subscribed = False
         self._connected = False
+        self._terminal = False
 
     def set_cancel(self, cancel: threading.Event) -> None:
         self._cancel = cancel
 
-    def close(self) -> None:
-        self._cancel.set()
+    def _drop_transport(self) -> None:
+        """Discard a failed RPC session without cancelling the manager worker.
+
+        The worker must observe a fatal SourceFailure and publish its error
+        state before it cancels itself. A new user action creates a new adapter.
+        """
         self._secret = ""
+        self._subscribed = False
+        self._connected = False
         if self._pipe:
             self._pipe.close()
             self._pipe = None
+
+    def close(self) -> None:
+        self._cancel.set()
+        self._terminal = True
+        self._drop_transport()
 
     def _read_frame(self, timeout: float = 20) -> tuple[int, dict]:
         if not self._pipe:
@@ -290,23 +304,41 @@ class DiscordClientRPCAdapter:
         self._secret=""  # no longer needed after consent/token exchange
 
     def poll(self) -> PollResult:
+        if self._terminal or self._cancel.is_set():
+            raise SourceFailure("Discord RPC session stopped; reconnect explicitly", fatal=True)
         if not self._connected:
             try:
                 self._connect()
+            except SourceFailure as exc:
+                self._terminal = True
+                self._drop_transport()
+                if exc.fatal:
+                    raise
+                raise SourceFailure("Discord RPC setup interrupted; reconnect explicitly", fatal=True) from None
             except Exception:
-                self.close()
-                raise
+                self._terminal = True
+                self._drop_transport()
+                raise SourceFailure("Discord RPC setup failed; reconnect explicitly", fatal=True) from None
             return PollResult((), .25)
         try:
             opcode,payload = self._read_frame(timeout=1.5)
         except SourceFailure as exc:
-            if "timed out" in str(exc):
+            if not exc.fatal and str(exc) == "Discord RPC response timed out":
                 return PollResult((), .25)
-            raise
+            self._terminal = True
+            self._drop_transport()
+            raise SourceFailure("Discord RPC connection lost; reconnect and authorize again", fatal=True) from None
         if opcode==PING:
-            self._pipe.write(frame_packet(PONG,payload))
+            try:
+                self._pipe.write(frame_packet(PONG,payload))
+            except SourceFailure:
+                self._terminal = True
+                self._drop_transport()
+                raise SourceFailure("Discord RPC connection lost; reconnect and authorize again", fatal=True) from None
             return PollResult((),.25)
         if opcode==CLOSE:
-            raise SourceFailure("Discord Desktop RPC closed",retry_after=5)
+            self._terminal = True
+            self._drop_transport()
+            raise SourceFailure("Discord Desktop RPC closed; reconnect and authorize again", fatal=True)
         found = parse_channel_event(payload,self.channel_id) if opcode==FRAME else None
         return PollResult((found,) if found else (), .25)

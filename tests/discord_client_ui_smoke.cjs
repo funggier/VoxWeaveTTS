@@ -25,7 +25,7 @@ async function main(){
   };
   const doc={createElement:mk};
   const requests=[],picked=[],audioInput=[];
-  let starts=0;
+  let starts=0, failed=false, stopCallbacks=0;
   let active=true, ticker;
   const sandbox={
     window:{},document:doc,JSON,Number,
@@ -44,6 +44,9 @@ async function main(){
         return {ok:true,async json(){return {mode:"discord_client",state:"connecting",pending:0}}};
       }
       if(path==="/v1/sources/drain"){
+        if(failed)return {ok:true,async json(){return {
+          messages:[],status:{state:"error",info:"Discord RPC closed; reconnect",pending:0,received:1},
+        }}};
         return {ok:true,async json(){return {
           messages:[{message_id:"100000000000000112",author:"ผู้ใช้",text:"ห้องที่เลือก"}],
           status:{state:"running",received:1,discarded:0,pending:0,next_poll_seconds:1},
@@ -62,7 +65,7 @@ async function main(){
     guard:()=>active,
     onMessage:(item,auto)=>audioInput.push({item,auto}),
     onPick:item=>picked.push(item),
-    onStop:()=>{},
+    onStop:()=>{stopCallbacks++;},
   });
   el("discordClientFeedSourceId").value="100000000000000111";
   el("discordClientFeedAppId").value="100000000000000005";
@@ -81,14 +84,25 @@ async function main(){
   // Selecting a DIFFERENT room must stop the old subscription before
   // activating the newly selected channel, even if it is in same Discord guild.
   el("discordClientFeedSourceId").value="100000000000000222";
+  el("discordClientFeedAuto").checked=true;
   el("discordClientFeedAppSecret").value="secret-for-test-only-123";
   await source.start();
+  assert.equal(el("discordClientFeedAuto").checked,false,
+    "changing Discord rooms must require a new auto-read opt-in");
   assert.equal(starts,2);
   const relevant=requests.filter(x=>["/v1/sources/start","/v1/sources/stop"].includes(x.path));
   assert.deepEqual(relevant.slice(0,3).map(x=>x.path),[
     "/v1/sources/start","/v1/sources/stop","/v1/sources/start",
   ]);
   assert.equal(el("discordClientFeedAppSecret").value,"");
+  el("discordClientFeedAuto").checked=true;
+  failed=true;
+  await source.poll();
+  assert.equal(source.connected,false,"terminal RPC error must stop client polling");
+  assert.equal(el("discordClientFeedAuto").checked,false,"disable auto-read on RPC error");
+  assert.equal(ticker,null,"terminal RPC error must clear the poll timer");
+  assert.ok(stopCallbacks>0,"terminal RPC error must clear auto-read queue");
+  assert.ok(el("discordClientFeedStatus").textContent.includes("reconnect"));
   active=false;source.suspend();
   assert.equal(source.connected,false);
   assert.equal(ticker,null);

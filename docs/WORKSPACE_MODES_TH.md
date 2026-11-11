@@ -1,6 +1,6 @@
 # VoxWeaveTTS — โหมดการทำงานอิสระและการตั้งค่ากลาง
 
-> v0.3.0.dev12 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord มีตัวรับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง
+> v0.3.0.dev13 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord มีตัวรับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง
 
 ## โครงสร้าง
 
@@ -15,7 +15,7 @@
 | สร้างเสียง | ข้อความเฉพาะโหมด, สร้าง/ฟัง/ดาวน์โหลด WAV, Subtitle | ใช้งานได้ |
 | อ่านเอกสาร | TXT/Markdown, แก้ข้อความในช่วง, เลือกบท, Bookmark, Auto-next, Subtitle | ใช้งานได้ |
 | อ่านไลฟ์สด | ข้อความจำลอง Live Chat, สร้าง WAV, เล่น/หยุด, Subtitle | ทดลอง Local หรือรับ Official API เมื่อมี Credentials |
-| Discord | ข้อความจำลอง Discord, สร้าง WAV, เล่น/หยุด, Subtitle | ทดลอง Local เท่านั้น |
+| Discord | ข้อความจำลอง Discord, สร้าง WAV, เล่น/หยุด, Subtitle, Discord Bot REST | ทดลอง Local หรือรับ Official API เมื่อมี Credentials |
 | คิวและ Subtitle | ข้อความของคิว, WAV Jobs, Waveform และ Manual Alignment JSON | ใช้งานได้ |
 | คำอ่านและกฎ | Rules/Pronunciations JSON, ตรวจ/แก้/เพิ่ม/นำเข้า/บันทึก/ทดลองคำอ่าน | ค่ากลาง |
 | ตั้งค่ากลาง | Engine/Voice/Speed/DSP/Seed/Voice Preset และบันทึก/โหลดค่า | ค่ากลาง |

@@ -181,6 +181,92 @@ class ClientRPCProtocolTests(unittest.TestCase):
             client.poll()
         self.assertTrue(mock.closed)
 
+    def test_handshake_timeout_needs_fresh_consent_and_keeps_manager_alive(self):
+        from voxweavetts.source_adapters import SourceFailure
+        mock = MockPipe()
+        mock.buffer.clear()  # Discord Desktop never replies to handshake.
+        client = DiscordClientRPCAdapter(
+            CHANNEL, CREDS, pipe_factory=lambda: mock,
+            exchange=lambda *args: "approved-rpc-token-value",
+        )
+        with self.assertRaises(SourceFailure) as error:
+            client.poll()
+        self.assertTrue(error.exception.fatal)
+        self.assertTrue(mock.closed)
+        self.assertTrue(client._terminal)
+        self.assertEqual(client._secret, "")
+        self.assertFalse(client._cancel.is_set())
+        client.close()
+
+    def test_idle_timeout_keeps_authorized_channel_alive(self):
+        mock = MockPipe()
+        client = DiscordClientRPCAdapter(
+            CHANNEL, CREDS, pipe_factory=lambda: mock,
+            exchange=lambda *args: "approved-rpc-token-value",
+        )
+        client.poll()
+        self.assertEqual(client.poll().messages, ())
+        self.assertTrue(client._connected)
+        self.assertFalse(mock.closed)
+        mock.queue(FRAME, dispatch(CHANNEL, "ข้อความใหม่"))
+        self.assertEqual(client.poll().messages[0].text, "ข้อความใหม่")
+        client.close()
+
+    def test_disconnect_and_close_frame_require_explicit_reconnect(self):
+        from voxweavetts.source_adapters import SourceFailure
+        for disconnected in (False, True):
+            with self.subTest(disconnected=disconnected):
+                mock = MockPipe()
+                client = DiscordClientRPCAdapter(
+                    CHANNEL, CREDS, pipe_factory=lambda: mock,
+                    exchange=lambda *args: "approved-rpc-token-value",
+                )
+                client.poll()
+                if disconnected:
+                    def failed_read(*args):
+                        raise SourceFailure("Discord RPC transport disconnected", retry_after=5)
+                    mock.read_exact = failed_read
+                else:
+                    mock.queue(CLOSE, {"message": "closed"})
+                with self.assertRaises(SourceFailure) as error:
+                    client.poll()
+                self.assertTrue(error.exception.fatal)
+                self.assertIn("reconnect", str(error.exception))
+                self.assertTrue(mock.closed)
+                self.assertFalse(client._connected)
+                self.assertFalse(client._cancel.is_set(),
+                                 "adapter must let SourceManager publish fatal error")
+                with self.assertRaises(SourceFailure):
+                    client.poll()
+                client.close()
+
+    def test_manager_reports_terminal_rpc_error_instead_of_retrying(self):
+        from voxweavetts.source_adapters import SourceFailure
+        class DisconnectAfterSubscribe(MockPipe):
+            def write(self, packet):
+                super().write(packet)
+                if self.commands and self.commands[-1]["cmd"] == "SUBSCRIBE":
+                    self.queue(CLOSE, {"message": "closed"})
+        modes = ModeState()
+        playback = PlaybackState()
+        active = modes.activate("discord_client", playback)
+        manager = SourceManager(client_factory=lambda source, cred: DiscordClientRPCAdapter(
+            source, cred, pipe_factory=DisconnectAfterSubscribe,
+            exchange=lambda *args: "approved-rpc-token-value",
+        ))
+        try:
+            manager.start({"mode": "discord_client", "mode_token": active["mode_token"],
+                           "source_id": CHANNEL, "credential": dict(CREDS)}, modes)
+            deadline = time.monotonic() + 3
+            while manager.status("discord_client")["state"] != "error" and time.monotonic() < deadline:
+                time.sleep(.01)
+            status = manager.status("discord_client")
+            self.assertEqual(status["state"], "error")
+            self.assertIn("reconnect", status["info"])
+            self.assertEqual(status["next_poll_seconds"], 0)
+        finally:
+            manager.stop_all()
+
     def test_manager_uses_active_owner_and_channel_id(self):
         created=[]
         class FakeClient:
