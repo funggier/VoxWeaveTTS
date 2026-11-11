@@ -27,6 +27,10 @@ HTTP Polling ที่ `GET /v1/playback/state` ยังรองรับแ�
 
 **โหมด Estimated ไม่ได้วิเคราะห์สัญญาณเสียง** จึงอาจเปลี่ยน Subtitle ก่อนหรือหลังคำที่พูดจริง โดยเฉพาะเมื่อ Engine อ่านคำภาษาไทยช้าหรือเร็วไม่เท่ากัน ห้ามถือว่าเป็น Word/Syllable Forced Alignment จริง หากต้องการความแม่นยำรายคำจะต้องเพิ่ม Aligner ที่ตรวจสอบเชิงพาณิชย์ได้หรือ Engine ที่ส่งเวลา Alignment มาโดยตรง
 
+## Discord Client และ OBS
+
+โหมด Discord Client รับข้อความจากห้องที่เลือกผ่าน Official Local RPC หลังผู้ใช้อนุญาตและแอปมีสิทธิ์ ใช้ Audio Player กับ Overlay เดียวกับโหมด Discord Bot และ Live. เมื่อเปลี่ยนห้องหรือโหมด ข้อความจากห้องเดิมจะหยุดรับและเสียงเก่าจะหยุดตาม Single Active Workspace (ดู [DISCORD_CLIENT_READER_TH.md](DISCORD_CLIENT_READER_TH.md))
+
 ## Live/Discord Auto-read กับ OBS (v0.3.0.dev11)
 
 เมื่อผู้ใช้กดเชื่อม Live/Discord Official API และเปิดตัวเลือกอ่านข้อความใหม่อัตโนมัติ โปรแกรมจะสร้างเสียงตามลำดับและรายงานตำแหน่ง Audio Player มายัง OBS Overlay เดิมทีละข้อความ. หากเปลี่ยนโหมด เสียงและ Subtitle ของโหมดเก่าจะหยุดทันที. ระบบยังใช้ Segment/Estimated/Activity/Manual Modes ตามเดิม และไม่ได้รู้จำเวลาคำอัตโนมัติ. ดู [Live Input Guide](LIVE_INPUT_ADAPTERS_TH.md).

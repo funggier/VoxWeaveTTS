@@ -6,8 +6,9 @@
 "use strict";
 const MAX_VISIBLE=25;
 function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
-  if(!["live","discord"].includes(mode))throw Error("invalid source mode");
-  const get=id=>el(mode+id);
+  if(!["live","discord","discord_client"].includes(mode))throw Error("invalid source mode");
+  const prefix=mode==="discord_client"?"discordClient":mode;
+  const get=id=>el(prefix+id);
   let timer=null, generation=0, connected=false, inFlight=false;
   let visible=[];
   function message(text){get("FeedStatus").textContent=String(text);}
@@ -70,11 +71,22 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
   async function start(){
     if(!guard(mode))throw Error("กรุณาเปิดโหมดนี้ก่อนเชื่อมต่อ");
     const channelId=get("FeedSourceId").value.trim();
-    const temporaryCredential=get("FeedCredential").value.trim();
+    const temporaryCredential=mode==="discord_client" ? {
+      client_id:get("FeedAppId").value.trim(),
+      client_secret:get("FeedAppSecret").value.trim(),
+      redirect_uri:get("FeedRedirect").value.trim(),
+    } : get("FeedCredential").value.trim();
     const blocked=get("FeedBlocked").value.split(",").map(x=>x.trim()).filter(Boolean);
     const maxChars=Number(get("FeedMaxChars").value);
     if(!Number.isInteger(maxChars))throw Error("ความยาวข้อความต้องเป็นตัวเลขจำนวนเต็ม");
+    // Switch room without leaving the previous source running if the new
+    // room/credentials fail: unsubscribe/stop before trying the new room.
+    const previousOwner=connected?credentials(mode):null;
     localSuspend({clearAuto:false});
+    if(previousOwner){
+      try{await api("stop",previousOwner);}
+      catch{/* stale-owner server activation will also stop the old source */}
+    }
     clearMessages();
     const ticket=++generation;
     get("FeedStart").disabled=true;
@@ -85,7 +97,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
         credential:temporaryCredential,
         filters:{blocked_words:blocked,max_chars:maxChars},
       });
-      get("FeedCredential").value=""; // do not retain secrets in DOM inputs
+      if(mode==="discord_client")get("FeedAppSecret").value="";
+      else get("FeedCredential").value=""; // clear DOM secret as soon as accepted
       if(ticket!==generation||!guard(mode))return;
       connected=true;
       get("FeedStop").disabled=false;

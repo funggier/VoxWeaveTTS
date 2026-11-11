@@ -53,7 +53,7 @@ class WorkspaceMarkupTests(unittest.TestCase):
         parser.close()
         self.assertEqual(parser.errors,[])
         self.assertEqual(parser.stack,[])
-        expected={"studio","reader","live","discord","queue","rules","settings"}
+        expected={"studio","reader","live","discord","discord_client","queue","rules","settings"}
         self.assertEqual(set(parser.mode_counts),expected)
         self.assertEqual(set(parser.nav_counts),expected)
         self.assertTrue(all(value==1 for value in parser.mode_counts.values()))
@@ -62,6 +62,8 @@ class WorkspaceMarkupTests(unittest.TestCase):
             ("readerChunkPreview","reader"),("readerAudio","reader"),
             ("liveText","live"),("liveAudio","live"),
             ("discordText","discord"),("discordAudio","discord"),
+            ("discordClientText","discord_client"),("discordClientAudio","discord_client"),
+            ("discordClientFeedSourceId","discord_client"),
             ("queueText","queue"),("queueAudio","queue"),
             ("rule","rules"),("pron","rules"),
             ("engineSelect","settings"),("voiceSelect","settings"),

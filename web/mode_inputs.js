@@ -5,8 +5,9 @@
 (function(root){
 "use strict";
 function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
-  if(mode!=="live"&&mode!=="discord")throw Error("unknown source mode");
-  const get=id=>el(mode+id);
+  if(!["live","discord","discord_client"].includes(mode))throw Error("unknown source mode");
+  const prefix=mode==="discord_client"?"discordClient":mode;
+  const get=id=>el(prefix+id);
   const audio=get("Audio");
   let generation=0, jobId=null, lastReady=null, wavUrl=null;
   const incoming=[];
@@ -66,7 +67,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard}){
     feedback("กำลังสร้างเสียงของโหมด "+mode+"...");
     try{
       const body=getSpeechPayload(text);
-      body.source=mode==="discord"?"discord":"youtube-live";
+      body.source=mode==="live"?"youtube-live":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
         method:"POST",

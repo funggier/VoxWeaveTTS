@@ -35,6 +35,8 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Seven independent workspace views with one active audio/OBS owner and cross-tab SSE/revision checks
 - [x] Shared global Engine/Voice/Speed/DSP persistent configuration; Seed, Presets and Rules remain central
 - [x] Local Live/Discord text-input simulators with independent text and playback
+- [x] Discord Client room selection via explicit Channel ID and approved-app Local RPC architecture; subscribed events filter by selected room
+- [ ] Test authorized Discord Desktop RPC with an approved app/tester account and explicit messages.read consent; verify OAuth redirect and named-pipe behavior end to end
 - [x] Official YouTube Live REST and Discord Bot REST read-only pollers with ephemeral credentials, dedupe, filters, bounded queues and opt-in sequential playback
 - [ ] Verify actual providers using authorized accounts, add low-latency YouTube streamList/Discord Gateway and advanced moderation/queue priority
 - [ ] Persist optional mode drafts and improve cross-mode job history without losing privacy

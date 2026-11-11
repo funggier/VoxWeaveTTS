@@ -9,6 +9,7 @@ const MODES = Object.freeze([
   {id:"reader",label:"อ่านเอกสาร"},
   {id:"live",label:"อ่านไลฟ์สด"},
   {id:"discord",label:"Discord"},
+  {id:"discord_client",label:"Discord Client"},
   {id:"queue",label:"คิวและ Subtitle"},
   {id:"rules",label:"คำอ่านและกฎ"},
   {id:"settings",label:"ตั้งค่ากลาง"},

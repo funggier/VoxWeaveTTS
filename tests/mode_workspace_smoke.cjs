@@ -6,7 +6,7 @@ const vm=require("node:vm");
 async function test(){
   const source=fs.readFileSync("web/mode_workspace.js","utf8");
   const html=fs.readFileSync("web/index.html","utf8");
-  const modes=["studio","reader","live","discord","queue","rules","settings"];
+  const modes=["studio","reader","live","discord","discord_client","queue","rules","settings"];
   for(const name of modes){
     assert.match(html,new RegExp('data-mode-view="'+name+'"'));
     assert.match(html,new RegExp('data-mode-target="'+name+'"'));
@@ -130,6 +130,6 @@ async function test(){
   assert.ok(app.guard("settings"));
   app.dispose();
   assert.equal(app.owned,false);
-  console.log("PASS: 7 isolated text workspaces, shared global controls, immediate audio suspension, server ownership, stale-tab broadcast/poll and exclusive OBS");
+  console.log("PASS: 8 isolated text workspaces, shared global controls, immediate audio suspension, server ownership, stale-tab broadcast/poll and exclusive OBS");
 }
 test().catch(e=>{console.error(e);process.exitCode=1;});

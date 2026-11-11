@@ -12,6 +12,12 @@ InputAdapters (Novel/Markdown, Discord, YouTube, external)
 → Audio Output and Speech Events
 → Subtitle Overlay / Event API / Consumers
 
+## Discord Client RPC Channel Isolation (v0.3.0.dev12)
+
+The discord_client_rpc.py adapter uses the official Windows named-pipe Discord Desktop RPC protocol, with size-bounded JSON frames, user-consented OAuth for rpc/messages.read, and a channel-specific MESSAGE_CREATE subscription. The payload parser independently checks the channel_id on each event, skipping other rooms, edits, bots and webhooks. SourceManager treats discord_client as a single active workspace source with the same bounded queue/moderation and ephemeral credential model. No user token, client cache, screen scraping or packet interception is used.
+
+An approved Discord application or tester entitlement is required. The protocol is unit tested with fake IPC responses; connection to a real authorized Discord Desktop account is pending. See [Discord Client Reader](DISCORD_CLIENT_READER_TH.md).
+
 ## Official Live Source Input Layer (v0.3.0.dev11)
 
 source_adapters.py implements bounded official HTTPS GET adapters for YouTube Live Chat and Discord Bot REST channel messages using Python's standard library, fixed official hosts and no redirects; source_manager.py owns an opt-in worker, exclusive active-mode ownership checks, first-page baseline, 512-ID dedup window, configurable filters, bounded 40-message pending queue and sanitized rate-limit/backoff. No credentials are returned by the source APIs or written to disk.

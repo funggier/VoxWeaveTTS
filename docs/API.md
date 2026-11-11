@@ -65,6 +65,14 @@ FastThaiG2P uses stochastic ONNX operations. To ensure a fixed seed reproduces b
 
 The existing browser-side JSON editors support pretty-printing (preserving Rule order), JSON syntax/top-level-shape validation, safe quick-entry of arbitrary Unicode/quoted/backslash-containing literal text, local JSON import/export, and explicit persistent server save/reload. Rules must remain a JSON array and Pronunciations a JSON object. The text API performs complete rule validation during processing; formatting alone is not a semantic rule validator. See [Thai JSON setup](PRONUNCIATION_JSON_TH.md).
 
+## Discord Desktop Client RPC Room Reader (v0.3.0.dev12)
+
+New workspace mode is discord_client. POST /v1/modes/activate with mode discord_client establishes exclusive playback ownership. POST /v1/sources/start for this mode requires source_id equal to a selected Discord text Channel ID (16–22 digit Snowflake) and credential object with client_id, client_secret, redirect_uri. Existing source stop/drain/status endpoints and intent headers remain unchanged.
+
+The adapter connects to the official Discord Desktop IPC, requests user authorization for rpc and messages.read, exchanges the returned code with Discord OAuth, authenticates and issues SUBSCRIBE for MESSAGE_CREATE with args.channel_id equal to the selected room. Each dispatch is filtered again by channel_id. Other channels never enter the TTS queue; no old messages or edit events are requested.
+
+The account connection remains subject to Discord's RPC app/tester approval and is unverified with real account credentials. See [Discord Client Reader](DISCORD_CLIENT_READER_TH.md).
+
 ## Read-only YouTube / Discord Source Inputs (v0.3.0.dev11)
 
 - POST /v1/sources/start: JSON {mode:"live"|"discord",mode_token,source_id,credential,filters:{blocked_words,max_chars}} with X-VoxWeaveTTS-Intent: start-live-source. Credential optional if VOXWEAVE_YOUTUBE_API_KEY / VOXWEAVE_DISCORD_BOT_TOKEN set in the server environment. Current owner required; credentials never returned or persisted.

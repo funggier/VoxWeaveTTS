@@ -1,10 +1,10 @@
 # VoxWeaveTTS — โหมดการทำงานอิสระและการตั้งค่ากลาง
 
-> v0.3.0.dev11 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord มีตัวรับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง
+> v0.3.0.dev12 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord มีตัวรับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง
 
 ## โครงสร้าง
 
-แต่ละโหมดมีช่องข้อความ ตัวเล่นเสียง งานเสียง และ UI สำหรับงานของตนเอง โดยไม่ใช้ช่องข้อความของโหมดอื่นร่วมกัน แต่ใช้ TTS Engine, Model, Voice, Speed, Gain, Pitch, Bass, Treble, Formant Preserve, Voice Preset, Seed, Rules และ Pronunciations **ส่วนกลาง** ร่วมกัน
+แต่ละโหมด (รวม Discord Client สำหรับเลือก Channel ID) มีช่องข้อความ ตัวเล่นเสียง งานเสียง และ UI สำหรับงานของตนเอง โดยไม่ใช้ช่องข้อความของโหมดอื่นร่วมกัน แต่ใช้ TTS Engine, Model, Voice, Speed, Gain, Pitch, Bass, Treble, Formant Preserve, Voice Preset, Seed, Rules และ Pronunciations **ส่วนกลาง** ร่วมกัน
 
 ค่าส่วนกลางมีผลกับงานใหม่ ไม่ย้อนเปลี่ยน WAV ที่สร้างไว้แล้ว ข้อความที่พิมพ์อยู่ใน Browser Memory ของโหมดนั้นและไม่เขียนลง Disk โดยอัตโนมัติ
 
@@ -54,6 +54,12 @@ Token นี้ใช้เพื่อจัดการสิทธิ์เ�
 - POST /v1/playback/event: เมื่อเปิด Workspace Controller แล้วต้องมี mode + mode_token ที่ตรงกับโหมดที่ Active
 - GET /v1/settings/global-voice: อ่านค่ากลาง Engine/Voice/Speed/DSP ที่บันทึก
 - POST /v1/settings/global-voice: JSON {engine_id,voice_id,speed,voice_controls,expected_revision} กับ Header X-VoxWeaveTTS-Intent: save-global-voice; บันทึกแบบ Atomic และป้องกัน Revision ขัดแย้ง
+
+## Discord Client — เลือกห้องข้อความของบัญชีผู้ใช้
+
+เพิ่ม Workspace ลำดับที่ 8 คือ **Discord Client** ต่างจาก Discord Bot Reader ตรงที่ใช้ Local Discord Desktop RPC ด้วยแอปที่ได้รับสิทธิ์และผู้ใช้ยินยอม (rpc + messages.read) โดยเลือก Channel ID ของห้องที่ต้องการติดตามหนึ่งห้อง ข้อความจากห้องอื่นไม่เข้าคิว และสามารถเปลี่ยนห้องโดยแก้ ID แล้วเชื่อมใหม่ โปรแกรมยังใช้ Engine/Voice/Rules ส่วนกลางและ Overlay เดียวกันเช่นเดิม ไม่ใช้ User Token หรือ Self-bot
+
+ข้อจำกัด: ต้องได้รับสิทธิ์ RPC จาก Discord สำหรับแอปหรือบัญชีผู้ทดสอบก่อน; ยังไม่ได้ตรวจการเชื่อมกับบัญชีจริง ดู [Discord Client Reader](DISCORD_CLIENT_READER_TH.md)
 
 ## Live / Discord: Official Read-Only Inputs
 

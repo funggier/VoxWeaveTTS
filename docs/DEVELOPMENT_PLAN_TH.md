@@ -124,6 +124,8 @@ M0 Foundation ──> M1 Thai TTS Audio ──> M2 Voice Studio / Long Text
 
 ## 6. M3 — Speech Coordinator, Queue และ Event Contract
 
+**เพิ่มใน v0.3.0.dev12:** เพิ่ม Discord Client Reader แยกแท็บจาก Discord Bot โดยกำหนด Channel ID ของห้องที่ต้องการอ่านได้ รับเฉพาะ MESSAGE_CREATE จากห้องดังกล่าวผ่าน Official Local RPC ที่ต้องได้รับสิทธิ์ rpc + messages.read และผู้ใช้ยืนยันตัวตนเอง (ดู [DISCORD_CLIENT_READER_TH.md](DISCORD_CLIENT_READER_TH.md)) ยังไม่ทดสอบบัญชีจริง
+
 **เพิ่มใน v0.3.0.dev11:** Official Read-Only YouTube Live/Discord REST Input Adapters ที่ผู้ใช้กดเชื่อมด้วย API Key/Bot Token เอง มีตัวกรอง, Dedup, Backpressure, Retry/Rate Limit, Auto-read แบบ Opt-in และหยุดรับทันทีเมื่อเปลี่ยนโหมด ยังไม่ผ่านการทดสอบกับบัญชีจริง (ดู [LIVE_INPUT_ADAPTERS_TH.md](LIVE_INPUT_ADAPTERS_TH.md)).
 
 **เพิ่มใน v0.3.0.dev10:** แยก UI เป็น 7 Workspace ที่มีข้อความและตัวเล่นเสียงแยกกัน โดยใช้ Engine/Voice/Speed/DSP/Seed/Rules/Pronunciations ส่วนกลาง, บันทึกค่ากลางแบบ Atomic พร้อม Revision และกำหนดสิทธิ์เล่นเสียงเพียงโหมดเดียวต่อ Server ด้วย Token/SSE; มี Live/Discord เป็นข้อความทดลองก่อนทำ Adapter จริง (ดู [WORKSPACE_MODES_TH.md](WORKSPACE_MODES_TH.md)).

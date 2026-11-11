@@ -1,0 +1,51 @@
+# Discord Client Reader — เลือกห้อง Discord ที่ต้องการอ่าน
+
+> v0.3.0.dev12 — Discord Desktop Official Local RPC · ต้องได้รับอนุญาต · ยังไม่ได้ทดสอบกับบัญชีจริง
+
+## ความสามารถ
+
+Discord Client Reader เป็นแท็บแยกจาก Discord Bot และใช้ Discord Desktop ที่ผู้ใช้เข้าสู่ระบบไว้ตามปกติ โดยรับเฉพาะข้อความใหม่ในห้องที่ผู้ใช้ระบุด้วย **Channel ID** ไม่ต้องเชิญ Bot เข้า Server ที่ต้องการ
+
+โปรแกรมใช้ Official Local RPC ตามขั้นตอน HANDSHAKE → AUTHORIZE (ขอสิทธิ์ rpc + messages.read) → OAuth Code Exchange → AUTHENTICATE → SUBSCRIBE MESSAGE_CREATE เฉพาะ Channel ID ที่เลือก
+
+**สำคัญ:** Discord จำกัดสิทธิ์ Local RPC สำหรับแอปที่ได้รับอนุมัติหรือบัญชีที่อยู่ในรายชื่อผู้ทดสอบที่ได้รับอนุญาต และการอ่านข้อความจาก Client Channels ต้องได้รับสิทธิ์ messages.read อย่างชัดเจน
+
+## วิธีกำหนดห้อง
+
+1. เปิด Discord Desktop ตามปกติ
+2. ไปที่ Settings → Advanced → เปิด Developer Mode
+3. คลิกขวาที่ห้องข้อความที่ต้องการ → Copy Channel ID
+4. เปิด VoxWeaveTTS → แท็บ Discord Client
+5. วาง Channel ID ที่ช่อง **Channel ID ของห้องที่ต้องการอ่าน**
+6. ระบุ Discord Application Client ID, Client Secret และ Registered OAuth Redirect URI ของแอปที่มีสิทธิ์ RPC
+7. กด **เชื่อมและสมัครรับห้องนี้** และยืนยันสิทธิ์ใน Discord หาก Discord แสดงหน้าต่างอนุญาต
+8. เมื่อเชื่อมสำเร็จ ข้อความใหม่จากห้องนี้เท่านั้นจะเข้าสู่รายการข้อความ ผู้ใช้เลือกอ่านเองหรือเปิด Auto-read ได้
+
+**เปลี่ยนห้อง:** กรอก Channel ID ใหม่และกดเชื่อมอีกครั้ง ระบบจะหยุดการรับจากห้องเดิมและล้างคิวข้อความเก่าที่ค้างอยู่ก่อนสมัครรับห้องใหม่
+
+การระบุ Channel ID ไม่ได้ให้สิทธิ์อ่านข้อความในห้องที่คุณไม่มีสิทธิ์เข้าถึง ต้องเป็นห้องที่ Discord อนุญาตจริง
+
+## พฤติกรรมและข้อจำกัด
+
+- รับเฉพาะ MESSAGE_CREATE ที่ channel_id ตรงกับห้องที่เลือก ไม่อ่านข้อความจากห้องอื่น
+- ไม่อ่านประวัติย้อนหลัง ไม่อ่าน Edit/Delete ไม่ดูดข้อมูลผู้ใช้อื่นโดยไม่ได้รับสิทธิ์
+- ไม่ใช้ Discord User Token, Self-bot, การอ่านคุกกี้, Internal API, Scraping หรือดักจับ Network Traffic
+- ข้ามข้อความจาก Bot/Webhook และกรองข้อความตาม Blacklist/ความยาว/ลิงก์
+- Auto-read **ปิดเป็นค่าเริ่มต้น** ต้องเลือกเปิดเอง
+- ใช้ Engine, Voice, Speed/DSP, Seed, Rules และ Pronunciations ส่วนกลาง
+- ใช้ OBS Overlay เดียวกับโหมดอื่น เมื่อเปลี่ยนแท็บจะหยุดการเล่นและการรับข้อความทันที
+- Application Client Secret ส่งผ่าน HTTP Loopback ไปยัง Python Process เพื่อแลก OAuth Code ผ่าน Official Discord OAuth Endpoint และเก็บในหน่วยความจำชั่วคราวเท่านั้น ไม่บันทึกลง Disk หรือ GitHub
+- หากแอปยังไม่ได้รับสิทธิ์ RPC จะไม่สามารถอ่านอัตโนมัติแบบไม่มี Bot ได้ ให้ใช้ Discord Bot Reader หรือข้อความทดลองระหว่างรอการอนุมัติ
+
+## ผลทดสอบ
+
+Unit Tests ตรวจ RPC Binary Framing, การขอ Scope, OAuth Mock, การสมัครรับห้องเดียว, การแยกข้อความคนละห้อง, การกรอง Bot/Webhook และสิทธิ์ Active Workspace ครบโดยใช้ Fake RPC Transport
+
+ยังไม่ยืนยันการเชื่อมจริงกับ Discord Desktop ภายใต้แอปที่ได้รับอนุญาตของผู้ใช้
+
+เอกสารทางการ:
+- [Discord RPC](https://discord.com/developers/docs/topics/rpc)
+- [OAuth2 Scopes](https://discord.com/developers/docs/topics/oauth2#shared-resources-oauth2-scopes)
+- [Discord Developer Portal](https://discord.com/developers/applications)
+
+ดู [Workspace Modes](WORKSPACE_MODES_TH.md), [Live Input Adapters](LIVE_INPUT_ADAPTERS_TH.md) และ [API](API.md).

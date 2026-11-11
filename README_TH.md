@@ -2,7 +2,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev11** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
+**สถานะปัจจุบัน: Engine-Neutral Reader Preview v0.3.0.dev12** — มี Local API, Text Processor, Engine Registry, Voice Studio และ **ระบบคิวเตรียมเสียงที่ใช้ร่วมกับ FastThaiG2P/MakHam** พร้อมสร้าง WAV ภาษาไทยจริงได้บนเครื่องที่ติดตั้งโมเดลและ Runtime มี Speed/Gain/Pitch/EQ แบบ Native/DSP แต่ยัง **ไม่มี** Voice Cloning, การฝึกโมเดล, Native Formant/Emotion, Audio Streaming/Hardware Playback Clock, Discord/YouTube, Word-Level Subtitle Sync หรือ Portable EXE
 
 ## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
 
@@ -22,6 +22,12 @@
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
 
+## Discord Client Reader — เลือกห้องที่ต้องการอ่านโดยไม่เชิญ Bot
+
+เพิ่มแท็บ **Discord Client** แยกจาก Discord Bot สามารถระบุ Channel ID ของห้องที่ต้องการอ่านโดยเฉพาะได้ และรับเฉพาะข้อความใหม่จากห้องนั้นผ่าน Official Discord Desktop Local RPC (เมื่อได้รับสิทธิ์จาก Discord) พร้อมตัวกรองและตัวเลือกอ่านข้อความอัตโนมัติที่ปิดไว้เป็นค่าเริ่มต้น
+
+ต้องมี Discord Desktop และ Discord Developer Application ที่ได้รับสิทธิ์ RPC หรืออยู่ในรายชื่อผู้ทดสอบ รวมถึงผู้ใช้ยินยอมให้แอปใช้สิทธิ์ rpc + messages.read โดยตรง ไม่มีการใช้ User Token แบบ Self-bot; ยังไม่ได้ทดสอบกับบัญชีจริง คู่มือ: [Discord Client Reader](docs/DISCORD_CLIENT_READER_TH.md)
+
 ## เชื่อมอ่านข้อความจาก YouTube Live และ Discord (ทดลอง)
 
 โหมด **อ่านไลฟ์สด** และ **Discord** รองรับการรับข้อความใหม่จาก **Official API แบบอ่านอย่างเดียว** แล้ว โดยใช้ YouTube Data API v3 API Key หรือ Discord Bot Token ที่ผู้ใช้เป็นเจ้าของและได้รับอนุญาต กดเชื่อมต่อในโหมดนั้นจึงเริ่มทำงาน คีย์/โทเค็นจะอยู่ในหน่วยความจำชั่วคราว ไม่บันทึกลงดิสก์หรือ Git
@@ -30,7 +36,7 @@
 
 **หมายเหตุ:** โค้ด Official API และการทดสอบจำลองพร้อมแล้ว แต่ยังไม่ได้ยืนยันกับ Live/Discord จริงเพราะยังไม่มี Credentials ของผู้ใช้ และเป็น REST Polling ไม่ใช่ Push แบบ Latency ต่ำ คู่มือ: [Live/Discord Inputs](docs/LIVE_INPUT_ADAPTERS_TH.md)
 
-## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.3.0.dev11)
+## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.3.0.dev12)
 
 หน้าตาใหม่แบ่งเป็น **สร้างเสียง, อ่านเอกสาร, ไลฟ์สด, Discord, คิว/Subtitle, คำอ่านและกฎ, ตั้งค่ากลาง** โดยแต่ละโหมดมีข้อความและตัวเล่นของตัวเอง เมื่อเปลี่ยนแท็บเสียงและการอ่านอัตโนมัติของโหมดเดิมจะหยุดทันที มีโหมดที่ได้รับสิทธิ์ส่งเสียงไป OBS ได้เพียงโหมดเดียว แม้เปิดหลายแท็บ
 

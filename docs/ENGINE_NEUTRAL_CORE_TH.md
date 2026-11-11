@@ -75,6 +75,10 @@ Queue ยังเก็บอยู่ใน RAM เท่านั้น แ�
 
 เมื่อ Browser เล่น WAV จริง จะรายงาน HTMLMediaElement.currentTime ไปยัง playback_state.py เพื่อเลือก Subtitle จาก Segment ที่ผ่านกฎกรองและให้ OBS Browser Source ดึงได้ที่ /overlay โดยไม่ต้องโหลดโมเดลในระบบเล่นเสียงและไม่ถือว่า Speech Job ready คือเริ่มเล่นแล้ว ดู [คู่มือ Playback/OBS](PLAYBACK_OVERLAY_TH.md)
 
+## Discord Client Reader
+
+เพิ่ม Discord Desktop RPC Adapter สำหรับสมาชิกในห้องข้อความ Discord ที่ได้รับอนุญาต โดยเลือก Channel ID หนึ่งห้อง ใช้ระบบ Voice/Engine/Rules ส่วนกลาง และ Single OBS Overlay เหมือนเดิม การยืนยันสิทธิ์ต้องผ่าน Discord Official RPC และ messages.read ไม่ใช้ Self-bot (ดู [DISCORD_CLIENT_READER_TH.md](DISCORD_CLIENT_READER_TH.md))
+
 ## Official Live / Discord Input Adapters
 
 SourceManager รับเฉพาะข้อความจาก API ทางการ YouTube Live Chat / Discord Bot ที่ผู้ใช้ตั้งค่าเอง เป็นการเชื่อมต่อแบบอ่านอย่างเดียว แยกจาก Engine Registry และ SpeechCoordinator ส่งข้อความผ่านคิวแบบ Bounded และใช้ค่า Engine/Voice/Rules ส่วนกลาง. การสลับ Workspace ยกเลิกการรับข้อความและ Auto-read ไม่ทำลายเสียงที่สร้างไว้ในโหมดอื่น (ดู [Live Input](LIVE_INPUT_ADAPTERS_TH.md)).

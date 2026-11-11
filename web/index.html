@@ -82,6 +82,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" class="mode-nav-button" data-mode-target="reader" aria-pressed="false">อ่านเอกสาร</button>
 <button type="button" class="mode-nav-button" data-mode-target="live" aria-pressed="false">อ่านไลฟ์สด</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord" aria-pressed="false">Discord</button>
+<button type="button" class="mode-nav-button" data-mode-target="discord_client" aria-pressed="false">Discord Client</button>
 <button type="button" class="mode-nav-button" data-mode-target="queue" aria-pressed="false">คิวและ Subtitle</button>
 <button type="button" class="mode-nav-button" data-mode-target="rules" aria-pressed="false">คำอ่านและกฎ</button>
 <button type="button" class="mode-nav-button" data-mode-target="settings" aria-pressed="false">ตั้งค่ากลาง</button></nav>
@@ -225,6 +226,52 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <audio id="discordAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="discordSubtitle" class="mode-subtitle" role="status"></div>
 <a id="discordDownload" style="display:none" download="VoxWeaveTTS.wav">ดาวน์โหลด WAV</a>
+</section></div>
+<div class="mode-view" data-mode-view="discord_client" hidden><section class="panel" style="margin-top:0">
+<h2>อ่านห้อง Discord ด้วยบัญชีผู้ใช้ (Local RPC)</h2>
+<p class="small"><strong>เลือกห้องได้:</strong> กำหนด Channel ID ของห้องข้อความที่ต้องการรับเฉพาะห้องนั้น ไม่ต้องเชิญ Bot เข้า Server · จำเป็นต้องใช้ Discord Desktop พร้อม Discord Developer Application ที่ได้รับสิทธิ์ RPC หรือบัญชีทดสอบ และอนุญาต <code>rpc</code> + <code>messages.read</code> ในหน้าต่าง Discord อย่างชัดเจน · ไม่ใช้ User Token / Self-bot</p>
+<label for="discordClientText">ข้อความของโหมด Discord Client (แก้ไขเองได้)</label>
+<textarea id="discordClientText" placeholder="เลือกข้อความจากห้อง Discord หรือพิมพ์ข้อความเพื่อทดลองอ่าน"></textarea>
+<div class="voice-grid">
+<button type="button" id="discordClientSubmit">สร้างเสียง</button>
+<button type="button" id="discordClientPlay">เล่นเสียงที่สร้าง</button>
+<button type="button" id="discordClientStop">หยุดเสียง</button>
+</div>
+<details class="source-connector" open>
+<summary>เชื่อม Discord Desktop RPC — เลือกห้องที่จะอ่าน</summary>
+<p class="small">เป็นการเชื่อมต่อแบบสมัครรับ MESSAGE_CREATE ของห้องเดียวที่เลือก ไม่อ่านข้อความเก่า ไม่อ่านห้องอื่น และไม่ใช้การอ่านหน้าจอหรือดึงข้อมูล Discord Client ภายในโดยไม่ได้รับอนุญาต</p>
+<div class="voice-grid">
+<div><label for="discordClientFeedSourceId">Channel ID ของห้องที่ต้องการอ่าน</label>
+<input id="discordClientFeedSourceId" type="text" inputmode="numeric" autocomplete="off" placeholder="ตัวเลข Channel ID 16–22 หลัก" required></div>
+<div><label for="discordClientFeedAppId">Discord Application Client ID</label>
+<input id="discordClientFeedAppId" type="text" inputmode="numeric" autocomplete="off" placeholder="Client ID ของแอปที่ได้รับสิทธิ์ RPC"></div>
+</div>
+<div class="voice-grid">
+<div><label for="discordClientFeedAppSecret">Application Client Secret (ชั่วคราว)</label>
+<input id="discordClientFeedAppSecret" type="password" autocomplete="new-password" placeholder="ไม่บันทึกลงดิสก์"></div>
+<div><label for="discordClientFeedRedirect">Registered OAuth Redirect URI</label>
+<input id="discordClientFeedRedirect" type="text" autocomplete="off" placeholder="http://127.0.0.1:PORT/callback"></div>
+</div>
+<div class="voice-grid">
+<div><label for="discordClientFeedBlocked">คำที่กรองออก (คั่นด้วยจุลภาค)</label>
+<input id="discordClientFeedBlocked" type="text" placeholder="คำไม่เหมาะสม, สแปม"></div>
+<div><label for="discordClientFeedMaxChars">ความยาวข้อความสูงสุด</label>
+<input id="discordClientFeedMaxChars" type="number" min="20" max="280" value="240"></div>
+<label style="display:flex;align-items:center;gap:7px">
+<input id="discordClientFeedAuto" type="checkbox" style="width:auto">อ่านข้อความใหม่อัตโนมัติ (ปิดเป็นค่าเริ่มต้น)
+</label>
+</div>
+<div class="voice-grid">
+<button id="discordClientFeedStart" type="button">เชื่อมและสมัครรับห้องนี้</button>
+<button id="discordClientFeedStop" type="button">หยุดรับข้อความ</button>
+</div>
+<p id="discordClientFeedStatus" class="small" role="status">ยังไม่เชื่อมต่อ · ต้องได้รับสิทธิ์ Discord RPC ก่อน หากยังไม่ได้รับสิทธิ์สามารถพิมพ์ข้อความทดลองด้านบนได้</p>
+<ol id="discordClientFeedItems" class="source-message-list"></ol>
+</details>
+<p id="discordClientStatus" class="small" role="status">รอข้อความหรือพิมพ์เพื่อทดลองอ่าน</p>
+<audio id="discordClientAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
+<div id="discordClientSubtitle" class="mode-subtitle" role="status"></div>
+<a id="discordClientDownload" download="VoxWeaveTTS-discord-client.wav" style="display:none">ดาวน์โหลด WAV</a>
 </section></div>
 <div class="mode-view" data-mode-view="queue" hidden><section class="panel" style="margin-top:18px">
 <h2>คิวเสียงและแก้เวลา Subtitle</h2>
@@ -411,8 +458,10 @@ const el = id => document.getElementById(id);
 let modeRuntime = null;
 let liveMode = null;
 let discordMode = null;
+let discordClientMode = null;
 let liveFeed = null;
 let discordFeed = null;
+let discordClientFeed = null;
 let studioGeneration = 0;
 let studioJobId = null;
 let studioReadyJob = null;
@@ -1533,8 +1582,10 @@ function suspendAllPlayback(){
   queueAudio.pause();
   liveFeed?.suspend();
   discordFeed?.suspend();
+  discordClientFeed?.suspend();
   liveMode?.suspend();
   discordMode?.suspend();
+  discordClientMode?.suspend();
 }
 function restoreModeAudio(mode){
   // Unsaved global Engine/DSP edits remain in memory across mode changes.
@@ -1547,31 +1598,34 @@ function restoreModeAudio(mode){
     });
   }else if(mode==="live")liveMode?.resume();
   else if(mode==="discord")discordMode?.resume();
+  else if(mode==="discord_client")discordClientMode?.resume();
 }
 if(typeof VoxModeInputs!=="undefined"){
-  for(const mode of ["live","discord"]){
+  for(const mode of ["live","discord","discord_client"]){
     const instance=VoxModeInputs.attach({
       mode,el,clockLibrary:VoxPlaybackClock,report:sendPlaybackReport,
       getSpeechPayload:buildSpeechPayload,
       guard:id=>!modeRuntime || modeRuntime.guard(id)
     });
     if(mode==="live")liveMode=instance;
-    else discordMode=instance;
+    else if(mode==="discord")discordMode=instance;
+    else discordClientMode=instance;
   }
 }
 if(typeof VoxSourceFeed!=="undefined"){
-  for(const mode of ["live","discord"]){
-    const inputMode=mode==="live"?liveMode:discordMode;
+  for(const mode of ["live","discord","discord_client"]){
+    const inputMode=mode==="live"?liveMode:(mode==="discord"?discordMode:discordClientMode);
     const feed=VoxSourceFeed.attach({
       mode,el,
       credentials:id=>modeRuntime.credentials(id),
       guard:id=>Boolean(modeRuntime?.guard(id)),
       onMessage:(entry,automatic)=>inputMode.receiveIncoming(entry,automatic),
-      onPick:entry=>{el(mode+"Text").value=entry.text;},
+      onPick:entry=>{el((mode==="discord_client"?"discordClient":mode)+"Text").value=entry.text;},
       onStop:()=>inputMode.clearAutoQueue(),
     });
     if(mode==="live")liveFeed=feed;
-    else discordFeed=feed;
+    else if(mode==="discord")discordFeed=feed;
+    else discordClientFeed=feed;
   }
 }
 if(typeof VoxWorkspaceModes!=="undefined"){

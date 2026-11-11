@@ -69,7 +69,7 @@ class WorkspaceModeTests(unittest.TestCase):
         with self.assertRaises(InputError):
             modes.activate("unknown",playback)
         self.assertEqual(modes.snapshot()["active_mode"],"discord")
-        self.assertEqual(len(MODES),7)
+        self.assertEqual(len(MODES),8)
 
     def test_mode_change_notifies_sse_revision(self):
         playback=PlaybackState()

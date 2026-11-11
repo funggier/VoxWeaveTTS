@@ -410,6 +410,8 @@ class Handler(BaseHTTPRequestHandler):
                         "live_connectors": True,
                         "youtube_live_polling": True,
                         "discord_bot_rest_polling": True,
+                        "discord_client_rpc_channel_selection": True,
+                        "discord_client_rpc_account_verified": False,
                         "live_credentials_persisted": False,
                         "exclusive_workspace_modes": True,
                         "workspace_mode_sse": True,

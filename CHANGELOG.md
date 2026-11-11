@@ -2,6 +2,14 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev12 — Discord Desktop Client Reader with selectable room (2026-11-11)
+
+- Added a dedicated Discord Client Reader workspace for a user's own Discord Desktop account, separate from the Discord Bot Reader.
+- Supports explicit text-channel selection by Discord Channel ID. Official Local RPC subscribes to MESSAGE_CREATE only for the selected channel, validates every event's channel_id again, and filters unrelated rooms, edits, bots, webhooks and blocked messages.
+- Implemented consent-based Discord IPC HANDSHAKE, AUTHORIZE with rpc + messages.read, OAuth code exchange on the official Discord endpoint, AUTHENTICATE and bounded SUBSCRIBE. No user tokens, self-bots, browser cookie inspection, internal APIs, screen scraping or packet interception.
+- Reader uses centralized Engine/Voice/DSP/Rules and the single active playback/OBS overlay; changing mode stops source and audio. Credentials are temporary, and automatic reading is opt-in.
+- Added mock IPC protocol and room-selection tests. Actual user-account connection remains unverified until Discord RPC application/tester permissions and explicit consent are available.
+
 ## 0.3.0.dev11 — Official YouTube Live/Discord read-only message adapters (2026-11-11)
 
 - Added opt-in read-only Official API source adapters for YouTube Live Chat (liveChatMessages.list with liveChatId or video ID, nextPageToken, pollingIntervalMillis) and Discord Bot REST channel message polling (after Snowflake ID, rate-limit Retry-After). Initial API history is deliberately skipped.

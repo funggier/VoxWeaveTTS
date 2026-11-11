@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 from .mode_state import ModeConflict, ModeState
 from .processing import InputError
+from .discord_client_rpc import DiscordClientRPCAdapter
 from .source_adapters import (
     DiscordChannelAdapter, PollResult, SourceFailure, SourceMessage,
     YouTubeLiveAdapter,
@@ -65,11 +66,13 @@ class _Session:
 class SourceManager:
     def __init__(self, *,
                  youtube_factory: Callable[..., Any] = YouTubeLiveAdapter,
-                 discord_factory: Callable[..., Any] = DiscordChannelAdapter):
+                 discord_factory: Callable[..., Any] = DiscordChannelAdapter,
+                 client_factory: Callable[..., Any] = DiscordClientRPCAdapter):
         self._lock = threading.RLock()
         self._session: _Session | None = None
         self._youtube_factory = youtube_factory
         self._discord_factory = discord_factory
+        self._client_factory = client_factory
 
     @staticmethod
     def _validate_policy(value: object) -> tuple[tuple[str, ...], int]:
@@ -104,7 +107,7 @@ class SourceManager:
         return not any(blocked in folded for blocked in session.block_words)
 
     def _authorized(self, mode: Any, token: Any, mode_state: ModeState) -> None:
-        if mode not in ("live", "discord") or not mode_state.is_owner(mode, token):
+        if mode not in ("live", "discord", "discord_client") or not mode_state.is_owner(mode, token):
             raise ModeConflict("source monitor requires the active mode owner token")
 
     def start(self, data: dict[str, Any], mode_state: ModeState) -> dict[str, Any]:
@@ -114,18 +117,22 @@ class SourceManager:
         self._authorized(mode, token, mode_state)
         source_id = data.get("source_id")
         secret = data.get("credential")
-        if secret is None or secret == "":
+        if mode != "discord_client" and (secret is None or secret == ""):
             variable = ("VOXWEAVE_YOUTUBE_API_KEY" if mode == "live"
                         else "VOXWEAVE_DISCORD_BOT_TOKEN")
             secret = os.environ.get(variable, "")
         blocked, max_chars = self._validate_policy(data.get("filters"))
         if mode == "live":
             adapter = self._youtube_factory(source_id, secret)
-        else:
+        elif mode == "discord":
             adapter = self._discord_factory(source_id, secret)
+        else:
+            adapter = self._client_factory(source_id, secret)
         session = _Session(
             mode, token, source_id.strip(), adapter, blocked, max_chars,
         )
+        if hasattr(adapter, "set_cancel"):
+            adapter.set_cancel(session.cancelled)
         with self._lock:
             # Do not replace another mode's source for a stale owner.
             self._authorized(mode, token, mode_state)
@@ -142,6 +149,11 @@ class SourceManager:
     def _cancel_unlocked(self) -> None:
         if self._session is not None:
             self._session.cancelled.set()
+            if hasattr(self._session.adapter, "close"):
+                try:
+                    self._session.adapter.close()
+                except OSError:
+                    pass
             self._session.pending.clear()
             self._session = None
 
@@ -157,8 +169,8 @@ class SourceManager:
             return {"state": "stopped", "pending": 0}
 
     def status(self, mode: str) -> dict[str, Any]:
-        if mode not in ("live", "discord"):
-            raise InputError("source mode must be live or discord")
+        if mode not in ("live", "discord", "discord_client"):
+            raise InputError("source mode must be live, discord or discord_client")
         with self._lock:
             s = self._session
             if s is None or s.mode != mode:
@@ -217,7 +229,8 @@ class SourceManager:
                         session.info = "live broadcast ended"
                         session.next_poll_seconds = 0
                         break
-                    delay = min(3600, max(5, batch.delay_seconds))
+                    delay = (min(2, max(.1, batch.delay_seconds)) if session.mode == "discord_client"
+                             else min(3600, max(5, batch.delay_seconds)))
                     session.next_poll_seconds = delay
                 backoff = 5
             except SourceFailure as exc:
@@ -244,3 +257,8 @@ class SourceManager:
                 backoff = min(120, backoff * 2)
             session.cancelled.wait(delay)
         session.cancelled.set()
+        if hasattr(session.adapter, "close"):
+            try:
+                session.adapter.close()
+            except OSError:
+                pass
