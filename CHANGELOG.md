@@ -2,6 +2,15 @@
 
 All versions here describe development snapshots; no portable binary or GitHub Release is implied.
 
+## 0.3.0.dev14 — Default-on live reading and RPC connection diagnostics (2026-11-12)
+
+- Enabled the automatic-read checkbox by default for YouTube Live, Discord Bot, and Discord Client. External sources still require explicit Connect, and users may disable the checkbox at any time. Mode/room changes stop the previous source and clear speech queues while preserving the user's checkbox preference.
+- Added safe Discord RPC connection-stage diagnostics: named pipe, handshake, waiting for permission, OAuth code exchange, authentication and channel subscription. An accepted source-start HTTP request is no longer described as a completed connection.
+- Tolerate idle reads while the Discord permission dialog remains open, with a bounded 90-second consent period. Incomplete RPC frames remain fatal to prevent desynchronization.
+- Expose only allowlisted RPC error hints and connection-phase names, not user data, tokens, or raw provider messages.
+- Clarified that an OAuth2 URL Generator flow does not connect a Discord Desktop RPC session. Use the app's Connect control; the registered redirect URI must match the URI shown in the actual authorization dialog, including any path.
+- Local Python and Node regression tests cover the changes. Live, authorized Discord channel subscription is not yet verified.
+
 ## 0.3.0.dev13 — Discord Client RPC disconnect safety (2026-11-11)
 
 - Distinguished idle RPC reads from partial-frame timeouts; partial frames are now terminal rather than silently returning with a corrupted frame boundary.

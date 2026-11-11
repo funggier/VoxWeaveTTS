@@ -27,6 +27,16 @@ CHANNEL_ID = re.compile(r"[0-9]{16,22}\Z")
 MAX_FRAME = 65536
 HANDSHAKE, FRAME, CLOSE, PING, PONG = 0, 1, 2, 3, 4
 
+# Show only documented, non-sensitive Discord RPC diagnostics. Never display
+# raw OAuth tokens, authorization codes, payloads, or arbitrary error messages.
+RPC_ERROR_HINTS = {
+    4000: "invalid RPC payload", 4002: "invalid RPC command",
+    4004: "invalid RPC event", 4005: "invalid channel ID or access",
+    4006: "RPC permission denied; check approved app/tester and messages.read",
+    4007: "invalid application Client ID", 4008: "invalid application origin",
+    4009: "invalid or expired OAuth token", 5000: "Discord OAuth authorization error",
+}
+
 
 def validate_channel_id(value: object) -> str:
     if not isinstance(value, str) or not CHANNEL_ID.fullmatch(value.strip()):
@@ -223,6 +233,7 @@ class DiscordClientRPCAdapter:
         self._subscribed = False
         self._connected = False
         self._terminal = False
+        self.phase = "not_connected"
 
     def set_cancel(self, cancel: threading.Event) -> None:
         self._cancel = cancel
@@ -236,6 +247,7 @@ class DiscordClientRPCAdapter:
         self._secret = ""
         self._subscribed = False
         self._connected = False
+        self.phase = "disconnected"
         if self._pipe:
             self._pipe.close()
             self._pipe = None
@@ -249,7 +261,14 @@ class DiscordClientRPCAdapter:
         if not self._pipe:
             raise SourceFailure("Discord RPC unavailable", retry_after=5)
         opcode, size = parse_frame_header(self._pipe.read_exact(8,self._cancel,timeout))
-        raw = self._pipe.read_exact(size,self._cancel,timeout)
+        try:
+            raw = self._pipe.read_exact(size,self._cancel,timeout)
+        except SourceFailure as exc:
+            # A header has already been consumed; a timeout in its body would
+            # otherwise leave the stream unsafely positioned for another read.
+            if not exc.fatal:
+                raise SourceFailure("Discord RPC incomplete frame body; reconnect", fatal=True) from None
+            raise
         try:
             data = json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
@@ -264,9 +283,16 @@ class DiscordClientRPCAdapter:
         if event is not None:
             obj["evt"] = event
         self._pipe.write(frame_packet(FRAME,obj))
-        deadline=time.monotonic()+35
+        # The user may need to accept an in-app permission dialog. Idle reads
+        # do not abort the authorization window, but malformed frames do.
+        deadline=time.monotonic()+(90 if cmd=="AUTHORIZE" else 35)
         while time.monotonic()<deadline and not self._cancel.is_set():
-            opcode,payload=self._read_frame(timeout=min(5,max(.2,deadline-time.monotonic())))
+            try:
+                opcode,payload=self._read_frame(timeout=min(5,max(.2,deadline-time.monotonic())))
+            except SourceFailure as exc:
+                if not exc.fatal and str(exc)=="Discord RPC response timed out":
+                    continue
+                raise
             if opcode==PING:
                 self._pipe.write(frame_packet(PONG,payload))
                 continue
@@ -274,33 +300,42 @@ class DiscordClientRPCAdapter:
                 raise SourceFailure("Discord RPC closed connection",fatal=True)
             if payload.get("nonce")==nonce:
                 if payload.get("evt")=="ERROR" or payload.get("cmd")=="ERROR":
-                    raise SourceFailure("Discord RPC command refused; verify app permission and user consent",
-                                        fatal=True)
+                    details = payload.get("data")
+                    code = details.get("code") if isinstance(details, dict) else None
+                    hint = RPC_ERROR_HINTS.get(code, "command rejected") if type(code) is int else "command rejected"
+                    raise SourceFailure(f"Discord RPC {cmd}: {hint}", fatal=True)
                 return payload
         raise SourceFailure("Discord RPC authorization timed out",fatal=True)
 
     def _connect(self) -> None:
+        self.phase = "opening_discord_pipe"
         self._pipe = self._pipe_factory()
+        self.phase = "handshake"
         self._pipe.write(frame_packet(HANDSHAKE,{"v":1,"client_id":self.client_id}))
         opcode,response = self._read_frame(timeout=7)
-        if opcode!=FRAME or response.get("evt")=="ERROR":
-            raise SourceFailure("Discord Desktop rejected RPC handshake",fatal=True)
+        if opcode!=FRAME or response.get("evt")!="READY":
+            raise SourceFailure("Discord Desktop rejected RPC handshake; check Client ID",fatal=True)
+        self.phase = "awaiting_discord_consent"
         auth = self._command("AUTHORIZE",{
             "client_id":self.client_id,"scopes":["rpc","messages.read"],
         })
         code = auth.get("data",{}).get("code")
         if not isinstance(code,str) or not code:
             raise SourceFailure("Discord RPC requires explicit user consent",fatal=True)
+        self.phase = "exchanging_oauth_code"
         token=self._exchange(self.client_id,self._secret,self.redirect_uri,code)
+        self.phase = "authenticating"
         authenticated=self._command("AUTHENTICATE",{"access_token":token})
         permissions=authenticated.get("data",{}).get("scopes",[])
         if not isinstance(permissions,list) or not {"rpc","messages.read"}.issubset(permissions):
             raise SourceFailure("Discord RPC missing messages.read permission",fatal=True)
         # Explicitly limit the subscription to the selected room.
+        self.phase = "subscribing_channel"
         self._command("SUBSCRIBE",{"channel_id":self.channel_id},
                       event="MESSAGE_CREATE")
         self._subscribed=True
         self._connected=True
+        self.phase = "subscribed"
         self._secret=""  # no longer needed after consent/token exchange
 
     def poll(self) -> PollResult:

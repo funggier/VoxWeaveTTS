@@ -1,6 +1,6 @@
 # VoxWeaveTTS — โหมดการทำงานอิสระและการตั้งค่ากลาง
 
-> v0.3.0.dev13 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord มีตัวรับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง
+> v0.3.0.dev14 (Local Preview) · ระบบหลายโหมดและ OBS เดียว · Live/Discord มีตัวรับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง
 
 ## โครงสร้าง
 
@@ -63,7 +63,7 @@ Token นี้ใช้เพื่อจัดการสิทธิ์เ�
 
 ## Live / Discord: Official Read-Only Inputs
 
-เพิ่ม YouTube liveChatMessages.list และ Discord Bot REST Channel Messages Polling โดยผู้ใช้กรอก Credentials ชั่วคราวหรือใช้ Environment Variable ด้วยตนเอง โหมดเหล่านี้ยังรองรับการทดลองพิมพ์ข้อความโดยไม่เชื่อมบัญชี และปิด Auto-read เป็นค่าเริ่มต้น
+เพิ่ม YouTube liveChatMessages.list และ Discord Bot REST Channel Messages Polling โดยผู้ใช้กรอก Credentials ชั่วคราวหรือใช้ Environment Variable ด้วยตนเอง โหมดเหล่านี้ยังรองรับการทดลองพิมพ์ข้อความโดยไม่เชื่อมบัญชี และเปิด Auto-read เป็นค่าเริ่มต้น แต่ยังต้องกดเชื่อมต่อแหล่งข้อความเอง
 
 การใช้ Official API ต้องมีสิทธิ์และ Credentials ที่ถูกต้อง; ยังไม่ได้ยืนยันด้วยบัญชี Live/Discord จริง โหมดเหล่านี้ไม่มีการส่งข้อความกลับผู้ให้บริการ รองรับการอ่านทีละข้อความหลังตรวจกรอง และหยุด Source Worker ทันทีเมื่อเปลี่ยนโหมด อ่านรายละเอียด [คู่มือ Live Input](LIVE_INPUT_ADAPTERS_TH.md)
 

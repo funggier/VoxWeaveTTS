@@ -71,7 +71,7 @@ New workspace mode is discord_client. POST /v1/modes/activate with mode discord_
 
 The adapter connects to the official Discord Desktop IPC, requests user authorization for rpc and messages.read, exchanges the returned code with Discord OAuth, authenticates and issues SUBSCRIBE for MESSAGE_CREATE with args.channel_id equal to the selected room. Each dispatch is filtered again by channel_id. Other channels never enter the TTS queue; no old messages or edit events are requested.
 
-The account connection remains subject to Discord's RPC app/tester approval and is unverified with real account credentials. See [Discord Client Reader](DISCORD_CLIENT_READER_TH.md).
+The account connection remains subject to Discord's RPC app/tester approval and is unverified with real account credentials. GET /v1/sources/status?mode=discord_client and source drain status expose safe connection_phase values, but no OAuth tokens or raw Discord responses. See [Discord Client Reader](DISCORD_CLIENT_READER_TH.md).
 
 ## Read-only YouTube / Discord Source Inputs (v0.3.0.dev11)
 
@@ -80,7 +80,7 @@ The account connection remains subject to Discord's RPC app/tester approval and 
 - POST /v1/sources/drain: JSON {mode,mode_token,limit:1..20}, X-VoxWeaveTTS-Intent: drain-live-source. Returns bounded messages and status only for active owner.
 - POST /v1/sources/stop: JSON {mode,mode_token}, X-VoxWeaveTTS-Intent: stop-live-source. Clears the source queue; switching workspace stops source automatically.
 - All source POST requests require Content-Type: application/json. Auth/ownership failures return HTTP 409; invalid fields return HTTP 400; missing intent 403; wrong content type 415.
-- YouTube first page establishes baseline and is not read. Subsequent pages use API nextPageToken/pollingIntervalMillis and require an API Key; Discord uses a Bot Token to poll Channel Messages after the latest Snowflake ID, obeying route rate-limit headers. Opt-in auto-read is OFF until enabled on the UI. No back-channel publishing or data persistence.
+- YouTube first page establishes baseline and is not read. Subsequent pages use API nextPageToken/pollingIntervalMillis and require an API Key; Discord uses a Bot Token to poll Channel Messages after the latest Snowflake ID, obeying route rate-limit headers. Auto-read defaults ON after an explicit source connection but can be switched off in the UI. No back-channel publishing or data persistence.
 
 See [Live Input Adapters](LIVE_INPUT_ADAPTERS_TH.md). Adapters are mocked-tested; external account test not yet completed.
 

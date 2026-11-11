@@ -81,7 +81,7 @@ async function main(){
  assert.equal(requested[0].headers["X-VoxWeaveTTS-Intent"],"start-live-source");
  assert.equal(requested[1].headers["X-VoxWeaveTTS-Intent"],"drain-live-source");
  assert.equal(received.length,2);
- assert.ok(received.every(x=>x.auto),"auto-read is explicit opt-in");
+ assert.ok(received.every(x=>x.auto),"auto-read starts after user clicks Connect");
  assert.equal(el("liveFeedItems").children.length,2);
  const latest=el("liveFeedItems").children[0];
  assert.equal(latest.children[1].textContent,"<img src=x onerror=alert(1)>");
@@ -92,7 +92,7 @@ async function main(){
  feed.suspend();
  assert.equal(feed.connected,false);
  assert.equal(timer,null);
- assert.equal(el("liveFeedAuto").checked,false);
+ assert.equal(el("liveFeedAuto").checked,true,"tab suspension stops source but preserves auto-read preference");
  assert.ok(stopped.length>=2);
  assert.ok(!JSON.stringify(feed.visible).includes("temporary-token-never-persist"));
  active=true;
@@ -102,6 +102,6 @@ async function main(){
  await feed.stop();
  assert.equal(requested.at(-1).path,"/v1/sources/stop");
  assert.equal(requested.at(-1).headers["X-VoxWeaveTTS-Intent"],"stop-live-source");
- console.log("PASS: live source consent, temporary credential clearing, mode ownership, manual selection, safe textContent rendering, opt-in auto-read and stop");
+ console.log("PASS: live source manual Connect, temporary credential clearing, owner checks, safe rendering and default-on auto-read with manual opt-out");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

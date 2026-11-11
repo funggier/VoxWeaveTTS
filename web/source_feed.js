@@ -1,10 +1,22 @@
-/* Consent-first local Live/Discord read-only connectors.
+/* Local Live/Discord read-only connectors.
  * Credentials go via loopback POST to the in-memory Python poller only.
- * Text is rendered with textContent, never HTML. Auto-read is opt-in.
+ * Text is rendered with textContent, never HTML. Auto-read defaults on, but
+ * never starts a provider connection before the user clicks Connect.
  */
 (function(root){
 "use strict";
 const MAX_VISIBLE=25;
+const RPC_PHASE_NAMES={
+  not_connected:"ยังไม่ได้เชื่อม",
+  opening_discord_pipe:"กำลังค้นหา Discord Desktop",
+  handshake:"กำลังเริ่ม RPC Handshake",
+  awaiting_discord_consent:"รอยืนยันสิทธิ์จากหน้าต่าง Discord Desktop",
+  exchanging_oauth_code:"กำลังแลก OAuth Code",
+  authenticating:"กำลังตรวจสิทธิ์ OAuth",
+  subscribing_channel:"กำลังสมัครรับข้อความจากห้องที่เลือก",
+  subscribed:"สมัครรับข้อความจากห้องสำเร็จ",
+  disconnected:"ตัดการเชื่อมต่อแล้ว",
+};
 function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
   if(!["live","discord","discord_client"].includes(mode))throw Error("invalid source mode");
   const prefix=mode==="discord_client"?"discordClient":mode;
@@ -55,14 +67,15 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     if(!response.ok)throw Error(result.error||"source operation failed");
     return result;
   }
-  function localSuspend({clearAuto=true}={}){
+  function localSuspend(){
     generation++;
     connected=false;
     inFlight=false;
     if(timer!==null){clearInterval(timer);timer=null;}
     get("FeedStart").disabled=false;
     get("FeedStop").disabled=true;
-    if(clearAuto)get("FeedAuto").checked=false;
+    // Preserve the user-selected checkbox across reconnects and tab changes.
+    // Suspension still cancels the source worker and drops queued speech.
     onStop?.();
     // Keep displayed messages as a temporary read-only history in this tab,
     // but never continue polling/autoreading after it loses mode ownership.
@@ -82,9 +95,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     // Switch room without leaving the previous source running if the new
     // room/credentials fail: unsubscribe/stop before trying the new room.
     const previousOwner=connected?credentials(mode):null;
-    // Selecting a new Discord Client room must never inherit auto-read consent
-    // from an earlier room. The user opts in again after reconnecting.
-    localSuspend({clearAuto:mode==="discord_client"});
+    localSuspend();
     if(previousOwner){
       try{await api("stop",previousOwner);}
       catch{/* stale-owner server activation will also stop the old source */}
@@ -104,7 +115,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
       if(ticket!==generation||!guard(mode))return;
       connected=true;
       get("FeedStop").disabled=false;
-      message("เชื่อมต่อแล้ว · ข้อความเก่าก่อนเริ่มเชื่อมต่อจะไม่ถูกอ่าน");
+      message("เริ่มกระบวนการเชื่อมต่อแล้ว · รอตรวจสอบสิทธิ์และสมัครรับข้อความจากผู้ให้บริการ");
       timer=setInterval(()=>poll().catch(error=>message(String(error.message||error))),1200);
       await poll();
       return result;
@@ -134,22 +145,22 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
         }
       }
       render();
+      const phase=status.connection_phase ? " · "+(RPC_PHASE_NAMES[status.connection_phase]||"กำลังตรวจสอบสถานะ Discord RPC") : "";
       message(
-        "API: "+status.state+
+        "API: "+status.state+phase+
         " · รับ "+(status.received||0)+
         " · กรอง/ล้นคิว "+(status.discarded||0)+
         " · รออ่าน "+(status.pending||0)+
         " · รอบถัดไป "+Math.round(status.next_poll_seconds||0)+"s"+
-        (status.state==="error" ? " · "+status.info : "")
+        (["error","connecting","retrying"].includes(status.state) ? " · "+status.info : "")
       );
       if(status.state==="ended"||status.state==="error"){
         connected=false;
         if(timer!==null){clearInterval(timer);timer=null;}
         get("FeedStart").disabled=false;
         get("FeedStop").disabled=true;
-        // The source cannot supply more messages. Do not read a stale
-        // auto-queue after an authorization or transport failure.
-        get("FeedAuto").checked=false;
+        // Clear pending speech after an authorization or transport failure.
+        // Preserve the checkbox choice for the next explicit connection.
         onStop?.();
       }
     }catch(error){

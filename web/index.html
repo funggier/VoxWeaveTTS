@@ -174,7 +174,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <input type="text" id="liveFeedBlocked" placeholder="คำหยาบ, สแปม"></div>
 <div><label for="liveFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="liveFeedMaxChars" min="20" max="280" value="240"></div>
-<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedAuto" style="width:auto">อ่านข้อความใหม่อัตโนมัติ (Opt-in)</label>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
 </div>
 <div class="voice-grid">
 <button type="button" id="liveFeedStart">เชื่อมต่อ API</button>
@@ -213,7 +213,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <input type="text" id="discordFeedBlocked" placeholder="คำหยาบ, สแปม"></div>
 <div><label for="discordFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="discordFeedMaxChars" min="20" max="280" value="240"></div>
-<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedAuto" style="width:auto">อ่านข้อความใหม่อัตโนมัติ (Opt-in)</label>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
 </div>
 <div class="voice-grid">
 <button type="button" id="discordFeedStart">เชื่อมต่อ API</button>
@@ -250,7 +250,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="discordClientFeedAppSecret">Application Client Secret (ชั่วคราว)</label>
 <input id="discordClientFeedAppSecret" type="password" autocomplete="new-password" placeholder="ไม่บันทึกลงดิสก์"></div>
 <div><label for="discordClientFeedRedirect">Registered OAuth Redirect URI</label>
-<input id="discordClientFeedRedirect" type="text" autocomplete="off" placeholder="http://127.0.0.1:PORT/callback"></div>
+<input id="discordClientFeedRedirect" type="text" autocomplete="off" placeholder="http://127.0.0.1:8765"></div>
 </div>
 <div class="voice-grid">
 <div><label for="discordClientFeedBlocked">คำที่กรองออก (คั่นด้วยจุลภาค)</label>
@@ -258,7 +258,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="discordClientFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input id="discordClientFeedMaxChars" type="number" min="20" max="280" value="240"></div>
 <label style="display:flex;align-items:center;gap:7px">
-<input id="discordClientFeedAuto" type="checkbox" style="width:auto">อ่านข้อความใหม่อัตโนมัติ (ปิดเป็นค่าเริ่มต้น)
+<input id="discordClientFeedAuto" type="checkbox" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)
 </label>
 </div>
 <div class="voice-grid">

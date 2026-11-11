@@ -4,6 +4,9 @@ const fs=require("node:fs");
 const vm=require("node:vm");
 async function main(){
   const html=fs.readFileSync("web/index.html","utf8");
+  for(const prefix of ["live","discord","discordClient"]){
+    assert.match(html,new RegExp('<input[^>]*id="'+prefix+'FeedAuto"[^>]*checked'));
+  }
   for(const suffix of ["Text","Submit","Play","Stop","Audio",
     "FeedSourceId","FeedAppId","FeedAppSecret","FeedRedirect","FeedMaxChars",
     "FeedBlocked","FeedAuto","FeedStart","FeedStop","FeedItems","FeedStatus"]){
@@ -72,11 +75,12 @@ async function main(){
   el("discordClientFeedAppSecret").value="secret-for-test-only-123";
   el("discordClientFeedRedirect").value="http://127.0.0.1:8765/callback";
   el("discordClientFeedMaxChars").value="240";
+  el("discordClientFeedAuto").checked=true; // HTML checked default
   await source.start();
   assert.equal(source.connected,true);
   assert.equal(el("discordClientFeedAppSecret").value,"","do not retain secret in form");
   assert.equal(audioInput.length,1);
-  assert.equal(audioInput[0].auto,false,"auto-read must be OFF by default");
+  assert.equal(audioInput[0].auto,true,"auto-read defaults ON after manual Connect");
   assert.equal(el("discordClientFeedItems").children.length,1);
   assert.equal(el("discordClientFeedItems").children[0].children[1].textContent,"ห้องที่เลือก");
   el("discordClientFeedItems").children[0].children[2].events.click();
@@ -87,8 +91,8 @@ async function main(){
   el("discordClientFeedAuto").checked=true;
   el("discordClientFeedAppSecret").value="secret-for-test-only-123";
   await source.start();
-  assert.equal(el("discordClientFeedAuto").checked,false,
-    "changing Discord rooms must require a new auto-read opt-in");
+  assert.equal(el("discordClientFeedAuto").checked,true,
+    "changing Discord rooms preserves user-selected auto-read preference");
   assert.equal(starts,2);
   const relevant=requests.filter(x=>["/v1/sources/start","/v1/sources/stop"].includes(x.path));
   assert.deepEqual(relevant.slice(0,3).map(x=>x.path),[
@@ -99,15 +103,15 @@ async function main(){
   failed=true;
   await source.poll();
   assert.equal(source.connected,false,"terminal RPC error must stop client polling");
-  assert.equal(el("discordClientFeedAuto").checked,false,"disable auto-read on RPC error");
+  assert.equal(el("discordClientFeedAuto").checked,true,"preserve preference on RPC error; queue is cleared");
   assert.equal(ticker,null,"terminal RPC error must clear the poll timer");
   assert.ok(stopCallbacks>0,"terminal RPC error must clear auto-read queue");
   assert.ok(el("discordClientFeedStatus").textContent.includes("reconnect"));
   active=false;source.suspend();
   assert.equal(source.connected,false);
   assert.equal(ticker,null);
-  assert.equal(el("discordClientFeedAuto").checked,false);
+  assert.equal(el("discordClientFeedAuto").checked,true);
   assert.ok(requests.every(x=>!x.payload.user_token&&!x.payload.browser_cookie));
-  console.log("PASS: Discord Client selectable Channel ID, consent-based app credential, no saved secret, selected-room message UI, auto-read off and mode suspension");
+  console.log("PASS: Discord Client selectable Channel ID, scoped subscription, safe temporary credentials, default-on auto-read, preference retention, terminal error handling and mode suspension");
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

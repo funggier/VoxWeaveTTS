@@ -153,6 +153,7 @@ class ClientRPCProtocolTests(unittest.TestCase):
         self.assertEqual(mock.commands[2]["evt"],"MESSAGE_CREATE")
         self.assertEqual(exchanges[0][3],"code-from-user-consent")
         self.assertEqual(client._secret,"")
+        self.assertEqual(client.phase,"subscribed")
         mock.queue(FRAME,dispatch(OTHER,"ห้ามเข้าคิว"))
         self.assertEqual(client.poll().messages,())
         mock.queue(FRAME,dispatch(CHANNEL,"อ่านได้ครับ"))
@@ -197,6 +198,61 @@ class ClientRPCProtocolTests(unittest.TestCase):
         self.assertEqual(client._secret, "")
         self.assertFalse(client._cancel.is_set())
         client.close()
+
+    def test_delayed_discord_consent_does_not_fail_on_empty_idle_frames(self):
+        from voxweavetts.source_adapters import SourceFailure
+        class DelayedAuthorize(MockPipe):
+            def __init__(self):
+                super().__init__()
+                self.pending_authorize = b""
+                self.empty_reads = 0
+            def write(self, packet):
+                super().write(packet)
+                if self.commands and self.commands[-1]["cmd"] == "AUTHORIZE":
+                    self.pending_authorize = bytes(self.buffer)
+                    self.buffer.clear()
+            def read_exact(self, length, cancel, timeout=20):
+                if self.pending_authorize:
+                    if self.empty_reads < 2:
+                        self.empty_reads += 1
+                        raise SourceFailure("Discord RPC response timed out", retry_after=5)
+                    self.buffer.extend(self.pending_authorize)
+                    self.pending_authorize = b""
+                return super().read_exact(length, cancel, timeout)
+        mock = DelayedAuthorize()
+        client = DiscordClientRPCAdapter(
+            CHANNEL, CREDS, pipe_factory=lambda: mock,
+            exchange=lambda *args: "approved-rpc-token-value",
+        )
+        self.assertFalse(client.poll().messages)
+        self.assertEqual(mock.empty_reads, 2)
+        self.assertEqual(client.phase, "subscribed")
+        client.close()
+
+    def test_discord_permission_error_uses_safe_code_not_raw_server_message(self):
+        from voxweavetts.source_adapters import SourceFailure
+        mock = MockPipe()
+        original_write = mock.write
+        def denied(packet):
+            original_write(packet)
+            if mock.commands and mock.commands[-1]["cmd"] == "AUTHORIZE":
+                mock.buffer.clear()
+                mock.queue(FRAME, {
+                    "cmd": "AUTHORIZE", "evt": "ERROR",
+                    "nonce": mock.commands[-1]["nonce"],
+                    "data": {"code": 4006, "message": "private-secret-must-not-appear"},
+                })
+        mock.write = denied
+        client = DiscordClientRPCAdapter(
+            CHANNEL, CREDS, pipe_factory=lambda: mock,
+            exchange=lambda *args: "approved-rpc-token-value",
+        )
+        with self.assertRaises(SourceFailure) as error:
+            client.poll()
+        self.assertTrue(error.exception.fatal)
+        self.assertIn("approved app/tester", str(error.exception))
+        self.assertNotIn("private-secret", str(error.exception))
+        self.assertTrue(mock.closed)
 
     def test_idle_timeout_keeps_authorized_channel_alive(self):
         mock = MockPipe()
@@ -264,6 +320,7 @@ class ClientRPCProtocolTests(unittest.TestCase):
             self.assertEqual(status["state"], "error")
             self.assertIn("reconnect", status["info"])
             self.assertEqual(status["next_poll_seconds"], 0)
+            self.assertEqual(status["connection_phase"], "disconnected")
         finally:
             manager.stop_all()
 

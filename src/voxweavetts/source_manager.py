@@ -60,6 +60,9 @@ class _Session:
             "polls": self.polls,
             "next_poll_seconds": self.next_poll_seconds,
             "temporary_credentials": True,
+            **({"connection_phase": self.adapter.phase}
+               if self.mode == "discord_client" and isinstance(getattr(self.adapter, "phase", None), str)
+               else {}),
         }
 
 
@@ -208,7 +211,9 @@ class SourceManager:
                         break
                     session.polls += 1
                     session.state = "running"
-                    session.info = "official API connected"
+                    session.info = ("Discord Desktop RPC subscribed to selected room"
+                                    if session.mode == "discord_client"
+                                    else "official API connected")
                     for item in batch.messages:
                         if item.message_id in session.seen:
                             session.duplicates += 1
