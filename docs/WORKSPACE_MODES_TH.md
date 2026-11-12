@@ -1,78 +1,69 @@
-# VoxWeaveTTS — โหมดการทำงานอิสระและการตั้งค่ากลาง
+# VoxWeaveTTS — ช่องทางทำงานพร้อมกันและเสียงอิสระ
 
-> v0.4.1 (Windows Portable) · ระบบหลายโหมดและ OBS เดียว · YouTube Live/Discord Bot รับ Official API แบบอ่านอย่างเดียวแต่ยังไม่ได้ทดสอบบัญชีจริง (Discord Client RPC ผู้ใช้ยืนยันว่าใช้งานได้แล้ว)
+> v0.4.2.dev1 (Development) · YouTube LIVE, TikTok LIVE, Discord, Studio, Document Reader
 
-## โครงสร้าง
+รุ่น GitHub Portable v0.4.1 ยังเป็นโครงสร้างแบบสลับโหมดเดิม ระบบพร้อมกันนี้อยู่ในรุ่นพัฒนาใหม่
 
-แต่ละโหมด (รวม Discord Client สำหรับเลือก Channel ID) มีช่องข้อความ ตัวเล่นเสียง งานเสียง และ UI สำหรับงานของตนเอง โดยไม่ใช้ช่องข้อความของโหมดอื่นร่วมกัน แต่ใช้ TTS Engine, Model, Voice, Speed, Gain, Pitch, Bass, Treble, Formant Preserve, Voice Preset, Seed, Rules และ Pronunciations **ส่วนกลาง** ร่วมกัน
+## การทำงานพร้อมกัน
 
-ค่าส่วนกลางมีผลกับงานใหม่ ไม่ย้อนเปลี่ยน WAV ที่สร้างไว้แล้ว ข้อความที่พิมพ์อยู่ใน Browser Memory ของโหมดนั้นและไม่เขียนลง Disk โดยอัตโนมัติ
+การคลิกเลือกแท็บเป็นเพียงการเปลี่ยนหน้า ไม่หยุดเสียง ไม่ตัด Live Source และไม่ล้างคิวของแท็บอื่น:
 
-## โหมดที่มี
+- หลังจากผู้ใช้กดเชื่อมต่อแต่ละช่องทางด้วยตนเอง YouTube LIVE, Discord Bot, Discord Client และ TikTok LIVE สามารถรับข้อความพร้อมกันได้
+- ระหว่าง Live Reader รับข้อความ ผู้ใช้กลับไปพิมพ์และสร้างเสียงใน Studio หรืออ่านเอกสารได้
+- ชื่อแท็บเดิม อ่านไลฟ์สด / อ่านจากไลฟ์สด เปลี่ยนเป็น **YouTube LIVE** โดยไม่เปลี่ยน Mode ID ภายใน หรือโปรไฟล์ JSON เดิม
+- แต่ละช่องทางมีรายการข้อความและคิวรอของตัวเอง จำกัดจำนวนเพื่อไม่ให้กินหน่วยความจำเกินความจำเป็น
 
-| โหมด | เครื่องมือ | สถานะ |
-|---|---|---|
-| สร้างเสียง | ข้อความเฉพาะโหมด, สร้าง/ฟัง/ดาวน์โหลด WAV, Subtitle | ใช้งานได้ |
-| อ่านเอกสาร | TXT/Markdown, แก้ข้อความในช่วง, เลือกบท, Bookmark, Auto-next, Subtitle | ใช้งานได้ |
-| อ่านไลฟ์สด | ข้อความจำลอง Live Chat, สร้าง WAV, เล่น/หยุด, Subtitle | ทดลอง Local หรือรับ Official API เมื่อมี Credentials |
-| Discord | ข้อความจำลอง Discord, สร้าง WAV, เล่น/หยุด, Subtitle, Discord Bot REST | ทดลอง Local หรือรับ Official API เมื่อมี Credentials |
-| คิวและ Subtitle | ข้อความของคิว, WAV Jobs, Waveform และ Manual Alignment JSON | ใช้งานได้ |
-| คำอ่านและกฎ | Rules/Pronunciations JSON, ตรวจ/แก้/เพิ่ม/นำเข้า/บันทึก/ทดลองคำอ่าน | ค่ากลาง |
-| ตั้งค่ากลาง | Engine/Voice/Speed/DSP/Seed/Voice Preset และบันทึก/โหลดค่า | ค่ากลาง |
+## นโยบายคิวเสียงกลาง
 
-การคลิกแท็บในหน้าเว็บจะ **พักเสียงเก่าทันที** และยกเลิกการอ่านอัตโนมัติของ Document Reader โดยไม่ล้างข้อความที่กำลังแก้
+แถบบนของเว็บมีตัวเลือก คิวเสียงทุกโหมด:
 
-## การตั้งค่ากลางที่บันทึกถาวร
+1. **เล่นทีละเสียง (ไม่ซ้อน)** — ค่าเริ่มต้น: รับข้อความและสร้าง WAV หลายช่องทางได้ แต่รอให้เสียงจากช่องทางก่อนเล่นจบ/หยุดก่อนเริ่มเสียงถัดไป
+2. **เล่นพร้อมกัน (เสียงซ้อนได้)** — เมื่อ WAV แต่ละช่องพร้อม เบราว์เซอร์อนุญาตให้เสียงจากคนละช่องทางเล่นพร้อมกันได้ แต่ภายใน Live Channel เดียวกันยังอ่านตาม FIFO
 
-1. ไปที่โหมด ตั้งค่ากลาง (หรือปุ่ม ตั้งค่ากลาง ด้านบน)
-2. เลือก Engine/Voice และปรับ Speed, Gain, Pitch, Bass, Treble, Formant Preserve
-3. กด บันทึก Engine และค่าปรับเสียงเป็นค่ากลาง เพื่อบันทึกลง data/settings/global-voice.json (Git Ignore)
-4. ครั้งต่อไปจะโหลดค่ากลางกลับมาใช้; เมื่อเปิดหลายแท็บจะตรวจ Revision ไม่ให้เขียนทับกันโดยเงียบ ๆ
-5. Seed, Voice Presets, JSON Rules และ Pronunciations ยังคงใช้ปุ่มบันทึกแบบเดิมในแต่ละส่วน แต่เป็นข้อมูลส่วนกลางของทุกโหมดเช่นกัน
+การเปลี่ยนจากเล่นซ้อนกลับเป็นเล่นทีละเสียงจะไม่ตัดเสียงที่เริ่มไปแล้ว เสียงใหม่รอจนกว่าทุกเสียงที่กำลังเล่นจบ
+ค่าที่เลือกบันทึกไว้ใน data/settings/mode-voices.json ภายใน Portable
 
-ยังไม่มีการดาวน์โหลดโมเดลจากการเปลี่ยน Engine อัตโนมัติ ถ้าโมเดลที่บันทึกไม่พร้อม โปรแกรมจะเลือก Engine ที่พร้อมแทนโดยแจ้งสถานะ
+การเล่น WAV พร้อมกันไม่ได้แปลว่าระบบสร้างเสียง CPU ONNX หลายงานพร้อมกัน การสังเคราะห์ยังต้องผ่านคิวทรัพยากรกลาง
 
-## สิทธิ์เล่นเสียง: Single Active Workspace
+## Engine, Model, Voice และ DSP แยกช่องทาง
 
-หนึ่ง Local Server มีโหมดที่มีสิทธิ์เล่นเสียงและส่ง Subtitle ไป OBS เพียงโหมดเดียว
+แต่ละ Workspace ที่สร้างเสียงมีแผง เสียงเฉพาะช่องทาง สำหรับเลือก Engine/Model, Voice, Speed, Gain, Pitch, Bass, Treble และ Formant Preserve
 
-- เมื่อสลับแท็บ โปรแกรมจะพัก Audio Element ทั้งหมดและหยุด Auto-Next ภายใน Browser ก่อนรอ HTTP
-- POST /v1/modes/activate ออก Token ใหม่สำหรับโหมดนั้น และล้าง Subtitle ของโหมดเก่าทันที
-- รายงาน POST /v1/playback/event ต้องส่ง mode และ mode_token ที่เพิ่งได้รับ มิฉะนั้น HTTP 409 และไม่อัปเดต Subtitle
-- Browser อื่น/แท็บอื่นจะได้รับ Event ผ่าน Local SSE /v1/modes/stream; มี BroadcastChannel และ Polling ประมาณ 1.2 วินาทีเป็นทางสำรอง
-- OBS ใช้ Overlay เดิมช่องเดียวที่ /overlay (หรือระบุ mode=segment, estimated, activity, manual เพื่อเลือกรูปแบบ Subtitle) โดยแสดงเฉพาะ PlaybackState ของโหมดปัจจุบัน
-- โหมดใหม่จะ **ไม่เล่นเสียงเองอัตโนมัติ** ต้องสั่ง Play ในโหมดนั้นก่อน
-- ถ้ามีการสร้างเสียงด้วย CPU อยู่แล้ว การหยุดเสียง/Subtitle ไม่ได้หมายความว่า CPU Model Inference จะถูกยุติกลางคำทันที; ระบบพยายามยกเลิกงานและทิ้งผลที่มาช้าไม่ให้เล่น
+- การแก้ไขในแผงมีผลทันทีต่อข้อความ **ใหม่ที่ยังไม่เริ่มสร้างเสียง** รวมถึงข้อความ Live ที่รอคิวอยู่
+- ข้อความที่สร้าง WAV ไปแล้วหรือกำลังเล่นจะคงเสียงเดิม ไม่เปลี่ยนย้อนหลัง
+- ปุ่ม บันทึกเสียงของช่องทางนี้ บันทึกค่าแยกกันตาม Mode ในไฟล์ data/settings/mode-voices.json
+- หน้า Settings เป็นแหล่ง **ค่าเริ่มต้น** ของแต่ละช่องทาง ยังใช้ Rules/Pronunciations/Seed และ Model Packages ร่วมกันได้
+- หากโมเดลที่บันทึกไว้ไม่พร้อม โปรแกรมใช้ Engine ที่พร้อมแทนชั่วคราวและแจ้งสถานะ โดยไม่ดาวน์โหลดโมเดลโดยอัตโนมัติ
 
-Token นี้ใช้เพื่อจัดการสิทธิ์เล่นใน Local Loopback UI ไม่ใช่การยืนยันตัวตนเพื่อเปิด API สู่ LAN/Internet
+## OBS Subtitle เมื่อมีเสียงซ้อน
 
-## API
+- ระบบ Backend ติดตาม Playback Clock ของแต่ละช่องทางแยกกัน
+- API /v1/playback/state ส่ง active_modes และ subtitles_by_mode ให้ระบบอื่นสร้าง Overlay หลายช่องในอนาคต
+- OBS Overlay เดิมยังแสดง Subtitle หลักชุดเดียว โดยเลือกเสียงที่เริ่มเล่นล่าสุดและยังไม่จบ เมื่อเสียงนั้นจบจะกลับไปยังเสียงอื่นที่ยังเล่นอยู่
+- การเปิดแท็บใหม่ไม่รีเซ็ต Clock/Subtitle ของแท็บอื่น
+- หาก Browser Tab อีกอันขอสิทธิ์เข้าควบคุม Mode เดียวกัน โปรแกรมยุติแหล่งรับของ Mode นั้นเท่านั้น ไม่หยุดช่องทางอื่น
 
-- GET /v1/modes/state: สถานะโหมดปัจจุบันและ Revision โดยไม่เปิดเผย Token
-- POST /v1/modes/activate: JSON {"mode":"reader"} พร้อม Header X-VoxWeaveTTS-Intent: activate-mode; ตอบ mode_token และ Revision
-- GET /v1/modes/stream: SSE event=workspace แจ้งการเปลี่ยนโหมด (ไม่มี Token)
-- POST /v1/playback/event: เมื่อเปิด Workspace Controller แล้วต้องมี mode + mode_token ที่ตรงกับโหมดที่ Active
-- GET /v1/settings/global-voice: อ่านค่ากลาง Engine/Voice/Speed/DSP ที่บันทึก
-- POST /v1/settings/global-voice: JSON {engine_id,voice_id,speed,voice_controls,expected_revision} กับ Header X-VoxWeaveTTS-Intent: save-global-voice; บันทึกแบบ Atomic และป้องกัน Revision ขัดแย้ง
+## API และความปลอดภัย
 
-## Discord Client — เลือกห้องข้อความของบัญชีผู้ใช้
+GET /v1/modes/state — Revision และสิทธิ์ของแต่ละโหมดโดยไม่เปิด Token
 
-เพิ่ม Workspace ลำดับที่ 8 คือ **Discord Client** ต่างจาก Discord Bot Reader ตรงที่ใช้ Local Discord Desktop RPC ด้วยแอปที่ได้รับสิทธิ์และผู้ใช้ยินยอม (rpc + messages.read) โดยเลือก Channel ID ของห้องที่ต้องการติดตามหนึ่งห้อง ข้อความจากห้องอื่นไม่เข้าคิว และสามารถเปลี่ยนห้องโดยแก้ ID แล้วเชื่อมใหม่ โปรแกรมยังใช้ Engine/Voice/Rules ส่วนกลางและ Overlay เดียวกันเช่นเดิม ไม่ใช้ User Token หรือ Self-bot
+POST /v1/modes/activate — ขอ Token เฉพาะ Mode นั้น การสลับกลับไป Mode ที่เคยเปิดใน Browser เดิมไม่ต้องขอใหม่
 
-ข้อจำกัด: ต้องได้รับสิทธิ์ RPC จาก Discord สำหรับแอปหรือบัญชีผู้ทดสอบก่อน; ยังไม่ได้ตรวจการเชื่อมกับบัญชีจริง ดู [Discord Client Reader](DISCORD_CLIENT_READER_TH.md)
+GET /v1/settings/mode-voices — นโยบายคิวเสียงและค่าเสียงทุก Mode
 
-## Live / Discord: Official Read-Only Inputs
+POST /v1/settings/mode-voices — บันทึก Mode Voice หรือ mode=__policy__ พร้อม Header X-VoxWeaveTTS-Intent: save-mode-voice และ Revision
 
-เพิ่ม YouTube liveChatMessages.list และ Discord Bot REST Channel Messages Polling โดยผู้ใช้กรอก Credentials ชั่วคราวหรือใช้ Environment Variable ด้วยตนเอง โหมดเหล่านี้ยังรองรับการทดลองพิมพ์ข้อความโดยไม่เชื่อมบัญชี และเปิด Auto-read เป็นค่าเริ่มต้น แต่ยังต้องกดเชื่อมต่อแหล่งข้อความเอง
+GET /v1/playback/state — Playback หลัก และสถานะรายโหมด
 
-การใช้ Official API ต้องมีสิทธิ์และ Credentials ที่ถูกต้อง; ยังไม่ได้ยืนยันด้วยบัญชี Live/Discord จริง โหมดเหล่านี้ไม่มีการส่งข้อความกลับผู้ให้บริการ รองรับการอ่านทีละข้อความหลังตรวจกรอง และหยุด Source Worker ทันทีเมื่อเปลี่ยนโหมด อ่านรายละเอียด [คู่มือ Live Input](LIVE_INPUT_ADAPTERS_TH.md)
+ไม่ควรเปิด Local API พอร์ต 8765 ให้เข้าถึงจากอินเทอร์เน็ตโดยไม่มี Authentication
 
-## สิ่งที่ยังไม่รองรับ
+## ข้อจำกัด
 
-- การทดสอบ Official API กับบัญชีที่ได้รับอนุญาตจริง และ Low-Latency Gateway/StreamList
-- Automatic Word/Syllable Forced Alignment ที่ตรวจ License ครบ
-- การบันทึกข้อความ Draft ของแต่ละโหมดข้าม Browser Restart
-- การตรวจสิทธิ์แบบ Login สำหรับ API ข้ามเครื่อง
-- รับประกันหยุด CPU Inference ที่กำลังรันได้ทันทีเมื่อสลับโหมด
+- ยังต้องทดสอบหลายแหล่ง Live พร้อมกันกับบัญชี YouTube/Discord/TikFinity จริง เครื่องพัฒนาทดสอบผ่านข้อมูลจำลอง
+- Firefox/Chrome อาจบล็อก Auto-play จนกว่าจะคลิกหน้าเว็บก่อน
+- เมื่อเลือกโหมดเล่นซ้อน OBS Overlay เดิมยังแสดง Subtitle หลักเพียงชุดเดียว (API มีข้อมูลเสียงรายช่องทาง)
+- การอ่าน Discord Bot และ YouTube ผ่าน REST Polling ไม่ใช่ Gateway/Push ต่ำกว่า 1 วินาที
+- เมื่อตั้ง Engine/DSP ที่ต้องใช้ FFmpeg แต่โปรแกรมไม่มี FFmpeg การสร้างเสียงอาจล้มเหลวตามข้อจำกัดของ Engine
+- ไม่ได้รองรับหลายบัญชี/หลายห้องซ้ำกันภายในโหมดเดียวกันในรุ่นนี้
 
-ดู [API](API.md), [Architecture](ARCHITECTURE.md), [Engine-neutral Core](ENGINE_NEUTRAL_CORE_TH.md) และ [Commercial License Policy](COMMERCIAL_LICENSE_POLICY_TH.md).
+ดู [Live Inputs](LIVE_INPUT_ADAPTERS_TH.md), [Model Packages](MODEL_PACKAGES_TH.md), [Architecture](ARCHITECTURE.md)

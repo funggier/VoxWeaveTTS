@@ -19,6 +19,7 @@ async function main(){
   };
   const reports=[],payloads=[],created=[],clockCalls=[],cancelled=[];
   let current="live", renderCount=0;
+  const voiceByMode={live:"youtube-voice-model",discord:"discord-voice-v1",tiktok:"tiktok-voice"};
   const blobUrl=new Set();
   const sandbox={
     window:{},JSON,URL:{
@@ -67,7 +68,7 @@ async function main(){
   const attach=mode=>sandbox.window.VoxModeInputs.attach({
     mode,el:get,clockLibrary:library,
     report:(payload,m)=>reports.push({payload,mode:m}),
-    getSpeechPayload:text=>({text,engine_id:"shared-engine"}),
+    getSpeechPayload:(text,selectedMode)=>({text,engine_id:voiceByMode[selectedMode]}),
     guard:mode=>mode===current,
   });
   const live=attach("live");
@@ -77,6 +78,7 @@ async function main(){
   await live.submit();
   assert.equal(payloads[0].text,"ข้อความจากไลฟ์");
   assert.equal(payloads[0].source,"youtube-live");
+  assert.equal(payloads[0].engine_id,"youtube-voice-model");
   assert.equal(get("liveAudio").style.display,"block");
   assert.equal(get("liveSubtitle").textContent,"ทดสอบ");
   await get("livePlay").events.click();
@@ -105,10 +107,13 @@ async function main(){
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads[2].text,"ข้อความใหม่หนึ่ง");
   assert.equal(payloads[2].source_message_id,"discord-m1");
+  assert.equal(payloads[2].engine_id,"discord-voice-v1");
   assert.equal(payloads.length,3,"only one auto job starts before playback ends");
+  voiceByMode.discord="discord-voice-v2"; // updated while m2 is still queued
   get("discordAudio").paused=true;
   get("discordAudio").events.ended();
   await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads[3].engine_id,"discord-voice-v2");
   assert.equal(payloads[3].text,"ข้อความใหม่สอง");
   get("discordAudio").paused=true;
   get("discordAudio").events.ended();
@@ -142,6 +147,6 @@ async function main(){
   assert.equal(tiktok.pendingAuto,0);
   tiktok.suspend();
   assert.equal(get("tiktokAudio").paused,true);
-  console.log("PASS: independent Live/Discord/TikTok drafts, shared global TTS, serial playback and exclusive mode ownership");
+  console.log("PASS: independent Live/Discord/TikTok drafts, shared global TTS, mode-local voice switching for next queued sentence");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

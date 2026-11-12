@@ -34,6 +34,7 @@ from .presets import load_presets, save_preset
 from .text_settings import load_all as load_text_settings, load_section as load_text_section, save_section as save_text_section, SettingsConflict
 from .reading_progress import load_position, save_position, clear_position, ProgressConflict
 from .playback_state import PlaybackState, PlaybackConflict, StreamFull
+from .playback_hub import PlaybackHub
 from .mode_state import ModeState, ModeConflict, MODES
 from .source_manager import SourceManager
 from .profile_export import (save_source_profile_dialog, SaveDialogBusy,
@@ -45,6 +46,7 @@ from .model_packages import (
 from .manual_alignment import timing_metrics
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
+from .mode_voice_settings import load_workspace_settings, save_workspace_settings
 from .speech_coordinator import (
     SpeechCoordinator, QueueFull, JobMissing, JobNotReady, AlignmentConflict, EVENT_SCHEMA_VERSION,
 )
@@ -56,7 +58,7 @@ GLOBAL_VOICE_SETTINGS = PROJECT_ROOT / "data" / "settings" / "global-voice.json"
 _SETTINGS_LOCK = threading.RLock()
 _COORDINATOR_LOCK = threading.Lock()
 _COORDINATOR: SpeechCoordinator | None = None
-_PLAYBACK_STATE = PlaybackState()
+_PLAYBACK_STATE = PlaybackHub()
 _MODE_LOCK = threading.Lock()
 _SOURCE_LOCK = threading.Lock()
 
@@ -424,7 +426,10 @@ class Handler(BaseHTTPRequestHandler):
                         "discord_client_rpc_channel_selection": True,
                         "discord_client_rpc_account_verified": False,
                         "live_credentials_persisted": False,
-                        "exclusive_workspace_modes": True,
+                        "exclusive_workspace_modes": False,
+                        "concurrent_workspace_modes": True,
+                        "multi_source_playback": True,
+                        "workspace_voice_overrides": True,
                         "workspace_mode_sse": True,
                         "shared_voice_settings": True,
                         "persistent_global_voice_defaults": True,
@@ -480,6 +485,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(404, {"error": "speech job not found"})
                 except JobNotReady:
                     self.send_json(409, {"error": "speech audio is not ready"})
+            elif route == "/v1/settings/mode-voices":
+                self.send_json(200, load_workspace_settings())
             elif route == "/v1/settings/global-voice":
                 self.send_json(200, _read_global_voice())
             elif route == "/v1/settings/synthesis":
@@ -701,6 +708,23 @@ class Handler(BaseHTTPRequestHandler):
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
             return
+        if route == "/v1/settings/mode-voices":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-mode-voice":
+                self.reject_unread_post(403, {"error": "explicit voice-setting intent required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "voice settings require JSON"})
+                return
+            try:
+                data = self._read_json(max_bytes=12_000)
+                self.send_json(200, save_workspace_settings(data))
+            except InputError:
+                self.send_json(400, {"error": "invalid mode voice settings"})
+            except ValueError:
+                self.send_json(409, {"error": "mode voice settings were updated elsewhere"})
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid mode voice settings"})
+            return
         if route == "/v1/settings/global-voice":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-global-voice":
                 self.reject_unread_post(403, {"error": "missing global voice settings intent"})
@@ -728,9 +752,9 @@ class Handler(BaseHTTPRequestHandler):
                 activated = self._mode_state().activate(
                     data.get("mode"), self._playback_state()
                 )
-                # A mode change revokes any prior Live/Discord reader and
-                # drops source messages not yet reviewed by the current owner.
-                self._source_manager().stop_all()
+                # A different tab claiming this specific workspace revokes
+                # only its old source. Other modes keep receiving messages.
+                self._source_manager().stop_mode(data.get("mode"))
                 self.send_json(200, activated)
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})

@@ -1,8 +1,8 @@
-"""Exclusive local playback ownership shared by all engine-neutral work modes.
+"""Independent workspace ownership: switching tabs does not interrupt sources.
 
-Changing a mode invalidates previous owner tokens and immediately clears the
-single local OBS/PlaybackState. UI tabs are independent; TTS configuration and
-pronunciation settings remain global. This is not authentication for LAN use.
+Each active mode has its own token, so two connected browser tabs cannot
+silently claim the same source; distinct sources can run concurrently. Tokens
+are ephemeral and are never returned in status or SSE snapshots.
 """
 from __future__ import annotations
 
@@ -16,15 +16,16 @@ MODES = ("studio", "reader", "queue", "live", "tiktok", "discord", "discord_clie
 
 
 class ModeConflict(Exception):
-    """A stale tab or non-active mode attempted to publish audio playback."""
+    """A stale mode token attempted to mutate that mode or report playback."""
 
 
 class ModeState:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._active = "studio"
-        self._token: str | None = None
+        self._tokens: dict[str, str] = {}
         self._revision = 0
+        self._changes: dict[str, int] = {}
         self._changed = threading.Condition(self._lock)
         self._watchers = 0
         self._watcher_limit = 12
@@ -34,7 +35,10 @@ class ModeState:
             return {
                 "active_mode": self._active,
                 "revision": self._revision,
-                "exclusive_playback": True,
+                "exclusive_playback": False,
+                "concurrent_sources": True,
+                "changed_mode": max(self._changes, key=self._changes.get) if self._changes else None,
+                "mode_revisions": dict(self._changes),
                 "modes": list(MODES),
             }
 
@@ -44,12 +48,12 @@ class ModeState:
         with self._lock:
             self._revision += 1
             self._active = mode
-            self._token = secrets.token_hex(16)
-            # Hold ownership lock through invalidating the overlay so a
-            # racing stale report cannot repopulate captions after switching.
-            playback_state.reset()
+            self._tokens[mode] = secrets.token_hex(16)
+            self._changes[mode] = self._revision
+            # No playback reset: other sources must keep running and reporting
+            # their actual playback clocks when a mode gains focus.
             self._changed.notify_all()
-            return {**self.snapshot(), "mode_token": self._token}
+            return {**self.snapshot(), "mode_token": self._tokens[mode]}
 
     def subscribe(self) -> None:
         with self._lock:
@@ -77,19 +81,22 @@ class ModeState:
     def is_owner(self, mode: object, token: object) -> bool:
         with self._lock:
             return (
-                self._revision > 0 and isinstance(mode, str)
-                and isinstance(token, str)
-                and mode == self._active
-                and self._token is not None
-                and secrets.compare_digest(self._token, token)
+                isinstance(mode, str) and isinstance(token, str)
+                and mode in self._tokens
+                and secrets.compare_digest(self._tokens[mode], token)
             )
 
     def report(self, payload: dict[str, Any], ready_job: Any,
                playback_state: Any) -> dict[str, Any]:
         with self._lock:
-            if self._revision > 0 and (
-                payload.get("mode") != self._active
-                or payload.get("mode_token") != self._token
+            # Preserve the legacy loopback-only reporting path until a
+            # browser first registers workspace capabilities.
+            if self._tokens and not self.is_owner(
+                payload.get("mode"), payload.get("mode_token")
             ):
-                raise ModeConflict("playback owner changed; activate current mode again")
+                raise ModeConflict("playback owner changed for this workspace")
+            if getattr(playback_state, "supports_modes", False):
+                return playback_state.report(
+                    payload, ready_job=ready_job,
+                    workspace=payload.get("mode") or "studio")
             return playback_state.report(payload, ready_job=ready_job)

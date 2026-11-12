@@ -181,6 +181,9 @@ class ManagerTests(unittest.TestCase):
         with self.assertRaises(ModeConflict):
             self.manager.drain({**base,"mode_token":"0"*32},self.modes)
         self.modes.activate("studio",self.playback)
+        self.assertTrue(self.modes.is_owner("live",base["mode_token"]))
+        self.manager.drain(base,self.modes)  # Other tab/Studio cannot stop LIVE.
+        self.modes.activate("live",self.playback)
         with self.assertRaises(ModeConflict):
             self.manager.drain(base,self.modes)
         self.manager.stop_all()
@@ -250,18 +253,20 @@ class SourceHTTPTests(unittest.TestCase):
             time.sleep(.01)
         drained=self.post("/v1/sources/drain",{**payload,"limit":4},"drain-live-source")
         self.assertEqual(len(drained["messages"]),4)
-        # Re-enter source, then switch workspace: server must stop polling,
-        # discard buffered messages and reject the old owner's token.
+        # Switching to Settings must not disconnect YouTube LIVE. Only
+        # reclaiming YouTube itself from another tab invalidates its token.
         restarted=self.post("/v1/sources/start",payload,"start-live-source")
         self.assertEqual(restarted["mode"],"live")
         changed=self.post("/v1/modes/activate",{"mode":"settings"},"activate-mode")
         self.assertEqual(changed["active_mode"],"settings")
+        self.assertNotEqual(self.server.source_manager.status("live")["state"],"idle")
+        self.post("/v1/sources/drain",payload,"drain-live-source")
+        refreshed=self.post("/v1/modes/activate",{"mode":"live"},"activate-mode")
         self.assertEqual(self.server.source_manager.status("live")["state"],"idle")
         with self.assertRaises(HTTPError) as stale:
             self.post("/v1/sources/drain",payload,"drain-live-source")
         self.assertEqual(stale.exception.code,409)
         stale.exception.close()
-        refreshed=self.post("/v1/modes/activate",{"mode":"live"},"activate-mode")
         payload["mode_token"]=refreshed["mode_token"]
         self.post("/v1/sources/start",payload,"start-live-source")
         stopped=self.post("/v1/sources/stop",payload,"stop-live-source")

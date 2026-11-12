@@ -39,6 +39,7 @@ function el(id){
 }
 const scope={
   el,
+  modeVoiceController:null,
   window:{confirm(){return true;}},
   document:{createElement:create},
   engines:packages.map(x=>({id:x.engine_id,assets_ready:true,runtime_ready:true})),

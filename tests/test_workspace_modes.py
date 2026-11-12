@@ -37,7 +37,7 @@ class FakeCoordinator:
 
 
 class WorkspaceModeTests(unittest.TestCase):
-    def test_atomic_switch_stops_current_session_and_stale_reports(self):
+    def test_independent_mode_tokens_keep_other_playback_authorized(self):
         modes=ModeState()
         playback=PlaybackState()
         first=modes.activate("reader",playback)
@@ -54,21 +54,25 @@ class WorkspaceModeTests(unittest.TestCase):
         next_mode=modes.activate("discord",playback)
         self.assertEqual(next_mode["active_mode"],"discord")
         self.assertNotEqual(first["mode_token"],next_mode["mode_token"])
-        self.assertEqual(playback.snapshot()["state"],"idle")
-        self.assertEqual(playback.snapshot()["subtitle"],"")
+        self.assertEqual(playback.snapshot()["state"],"playing")
+        self.assertTrue(modes.is_owner("reader",first["mode_token"]))
+        self.assertEqual(modes.report(
+            {**payload,"sequence":2,"event":"progress"},None,playback)["state"],"playing")
         with self.assertRaises(ModeConflict):
-            modes.report({**payload,"sequence":2,"event":"progress"},None,playback)
-        with self.assertRaises(ModeConflict):
-            modes.report({**payload,"mode":"discord","sequence":2},None,playback)
-        self.assertEqual(playback.snapshot()["state"],"idle")
+            modes.report({**payload,"mode":"discord","sequence":3},None,playback)
         latest={
             **payload,"mode":"discord","mode_token":next_mode["mode_token"],
             "session_id":"c"*32,"sequence":1,
         }
         self.assertEqual(modes.report(latest,job(),playback)["state"],"playing")
+        # Re-activating a mode from another tab invalidates only its token.
+        modes.activate("reader",playback)
+        with self.assertRaises(ModeConflict):
+            modes.report({**payload,"sequence":4,"event":"progress"},None,playback)
+        self.assertTrue(modes.is_owner("discord",next_mode["mode_token"]))
         with self.assertRaises(InputError):
             modes.activate("unknown",playback)
-        self.assertEqual(modes.snapshot()["active_mode"],"discord")
+        self.assertEqual(modes.snapshot()["active_mode"],"reader")
         self.assertEqual(len(MODES),9)
         self.assertIn("tiktok", MODES)
 
@@ -77,8 +81,10 @@ class WorkspaceModeTests(unittest.TestCase):
         modes=ModeState()
         modes.activate("studio",playback)
         before=playback.snapshot()["revision"]
+        changed=modes.snapshot()["revision"]
         change=modes.activate("reader",playback)
-        self.assertGreater(playback.watch(before,timeout=0.02)["revision"],before)
+        self.assertEqual(playback.snapshot()["revision"],before)
+        self.assertGreater(modes.watch(changed,timeout=0.02)["revision"],changed)
         self.assertNotIn("mode_token",modes.snapshot())
 
 
@@ -107,7 +113,7 @@ class WorkspaceModeHTTPTests(unittest.TestCase):
         with urlopen(req,timeout=5) as response:
             return json.load(response)
 
-    def test_http_exclusive_playback_with_cross_mode_events(self):
+    def test_http_mode_navigation_keeps_unrelated_playback(self):
         initial=self.post("/v1/modes/activate",{"mode":"reader"},"activate-mode")
         self.assertEqual(initial["revision"],1)
         with urlopen(self.base+"/v1/modes/state",timeout=5) as response:
@@ -122,11 +128,13 @@ class WorkspaceModeHTTPTests(unittest.TestCase):
         moved=self.post("/v1/modes/activate",{"mode":"live"},"activate-mode")
         self.assertEqual(moved["active_mode"],"live")
         with urlopen(self.base+"/v1/playback/state",timeout=5) as response:
-            self.assertEqual(json.load(response)["subtitle"],"")
+            self.assertEqual(json.load(response)["subtitle"],"สวัสดีครับ")
+        self.assertEqual(self.post(
+            "/v1/playback/event",{**payload,"sequence":2,"event":"progress"},
+            "report-playback")["state"],"playing")
         for data in (
-            {**payload,"sequence":2,"event":"progress"},
-            {**payload,"mode":"live","sequence":2},
-            {**payload,"mode_token":moved["mode_token"],"sequence":2},
+            {**payload,"mode":"live","sequence":3},
+            {**payload,"mode_token":moved["mode_token"],"sequence":3},
         ):
             with self.subTest(data=data), self.assertRaises(HTTPError) as err:
                 self.post("/v1/playback/event",data,"report-playback")

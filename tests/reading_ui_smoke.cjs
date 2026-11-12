@@ -51,6 +51,7 @@ async function run(){
   const sandbox={
     el,window:{confirm:()=>true},console,TextDecoder,modeRuntime:null,
     VoxPlaybackClock:{attach:()=>({setSpeech(){},clear(){},update(){}})},
+    audioScheduler:{async play(audio){await audio.play();return true;}},
     setTimeout:(fn)=>{queueMicrotask(fn);return 1;},
     URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:()=>{}},
     buildSpeechPayload:()=>({engine_id:"makham-paradee-cpu",voice_id:"paradee_thai",

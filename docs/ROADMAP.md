@@ -5,7 +5,7 @@
 
 For the full rationale, detailed tasks, dependencies and acceptance tests, see [Project Vision (Thai)](PROJECT_VISION_TH.md), [Development Plan (Thai)](DEVELOPMENT_PLAN_TH.md), and [Requirements (Thai)](REQUIREMENTS_TH.md).
 
-**Status (v0.4.2.dev0 development):** Thai CPU WAV synthesis, a self-contained Windows portable executable, Web UI, source queues and browser-driven OBS subtitles are implemented. Voice cloning, model training, streaming TTS, hardware playback clocks and automatic word-level alignment remain planned.
+**Status (v0.4.2.dev1 development):** Thai CPU WAV synthesis, a self-contained Windows portable executable, Web UI, source queues and browser-driven OBS subtitles are implemented. Voice cloning, model training, streaming TTS, hardware playback clocks and automatic word-level alignment remain planned.
 
 ## Milestone 0 — Foundation (in repository)
 - [x] Project identity, public repository and MIT source license
@@ -94,6 +94,7 @@ Read [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md) for contract and current l
 ## Milestone 5 — Portable release
 - [x] Windows EXE launcher and self-contained Python/ONNX CPU runtime, no external Python for MakHam Thai TTS
 - [x] CPU-only MakHam Paradee inference and local cache/model paths tested in relocated portable folder; GPU support remains future
+- [x] Concurrent Live/Discord/TikTok workspaces, per-mode Engine/Voice/DSP and configurable serial/overlap audio playback with mode-aware OBS reports; authorized simultaneous real-live tests pending
 - [x] Multi-voice data-only .vwmodel manager and trusted Vachana ONNX adapter: 4 voices tested locally; package not publicly redistributed, license clearance and portable dependency bundling still pending
 - [ ] Test downloadable ZIP from an isolated extraction on Windows, publish hash and GitHub release; untouched clean-machine compatibility still requires external QA
 - [ ] Third-party license and redistribution audit

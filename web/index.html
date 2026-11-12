@@ -74,32 +74,38 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </head>
 <body>
 <main>
-<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Workspaces · Shared Engine & Rules</div></div><div class="pill">Local Studio 0.4.1</div></header>
-<div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละโหมดมีข้อความและการเล่นเสียงของตัวเอง · Engine, ค่าปรับเสียง และ Rules/Pronunciations ใช้ค่ากลาง · Live/Discord เลือกใช้ข้อความทดลองหรือเชื่อมต่อ API ทางการโดยใช้ข้อมูลบัญชีของคุณ (ปิดไว้จนกดเชื่อมต่อ)</div>
+<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Concurrent Workspaces · Per-channel Voices</div></div><div class="pill">Local Studio 0.4.2.dev1</div></header>
+<div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละช่องทางรับข้อความและเล่นเสียงได้พร้อมกัน แม้สลับแท็บ · Engine/Voice/Speed/DSP แยกตามช่องทางได้ ส่วน Rules/Pronunciations ยังคงใช้ร่วมกัน · ต้องกดเชื่อมต่อ Live/Discord เอง</div>
 <div class="app-workspace">
 <aside class="mode-sidebar" aria-label="โหมดการทำงาน">
 <div class="side-heading">WORKSPACES</div>
 <nav id="modeNav" class="mode-nav"><button type="button" class="mode-nav-button" data-mode-target="studio" aria-pressed="true">สร้างเสียง</button>
 <button type="button" class="mode-nav-button" data-mode-target="reader" aria-pressed="false">อ่านเอกสาร</button>
-<button type="button" class="mode-nav-button" data-mode-target="live" aria-pressed="false">อ่านไลฟ์สด</button>
+<button type="button" class="mode-nav-button" data-mode-target="live" aria-pressed="false">YouTube LIVE</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord" aria-pressed="false">Discord</button>
 <button type="button" class="mode-nav-button" data-mode-target="tiktok" aria-pressed="false">TikTok LIVE</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord_client" aria-pressed="false">Discord Client</button>
 <button type="button" class="mode-nav-button" data-mode-target="queue" aria-pressed="false">คิวและ Subtitle</button>
 <button type="button" class="mode-nav-button" data-mode-target="rules" aria-pressed="false">คำอ่านและกฎ</button>
 <button type="button" class="mode-nav-button" data-mode-target="settings" aria-pressed="false">ตั้งค่ากลาง</button></nav>
-<div class="side-help">เปิดใช้ทีละโหมด · เปลี่ยนโหมดแล้วเสียงก่อนหน้าจะหยุด · ตั้งค่า Engine/Voice/Rules จากส่วนกลาง</div>
+<div class="side-help">ทุกช่องทางทำงานพร้อมกันได้ · เปลี่ยนแท็บไม่หยุดอ่าน · เลือกเสียงและโมเดลของแต่ละช่องทางได้</div>
 </aside>
 <div class="mode-content">
 <div class="mode-topbar">
   <span id="modeTitle">สร้างเสียง</span>
+  <label for="audioPolicy" class="small">คิวเสียงทุกโหมด:</label>
+  <select id="audioPolicy" aria-label="รูปแบบการเล่นเสียงร่วมกัน">
+    <option value="serial">เล่นทีละเสียง (ไม่ซ้อน)</option>
+    <option value="overlap">เล่นพร้อมกัน (เสียงซ้อนได้)</option>
+  </select>
+  <span id="audioPolicyStatus" class="small" role="status"></span>
   <span id="modeOwnerStatus" class="small" role="status">กำลังเชื่อมระบบโหมด...</span>
   <button type="button" class="small-button" id="modeGlobalSettings">ตั้งค่ากลาง</button>
   <a href="/overlay" target="_blank" rel="noopener noreferrer">OBS Overlay</a>
 </div>
 <div class="mode-view" data-mode-view="studio">
 <section class="panel"><h2>สร้างเสียงจากข้อความ</h2>
-<p class="small">ข้อความของโหมดนี้เป็นอิสระจากเอกสาร คิว ไลฟ์สด และ Discord · เสียงและโมเดลอ้างอิงค่ากลาง</p>
+<p class="small">ข้อความของโหมดนี้เป็นอิสระจากเอกสาร คิว ไลฟ์สด และ Discord · เลือกเสียงและโมเดลเฉพาะ Studio ได้โดยไม่กระทบเสียงไลฟ์</p>
 <label for="message">ข้อความภาษาไทย</label>
 <textarea id="message">ชายหนุ่มกลายเป็นอมตะ และพูดคำต้องห้าม ก่อนหัวเราะ 55555</textarea>
 <button id="synthesize">สร้างเสียง WAV</button>
@@ -153,7 +159,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </section>
 </div>
 <div class="mode-view" data-mode-view="live" hidden><section class="panel" style="margin-top:0">
-<h2>อ่านจากไลฟ์สด</h2>
+<h2>YouTube LIVE</h2>
 <p class="small">โหมดนี้มีช่องข้อความและตัวเล่นเสียงของตัวเอง ใช้ Engine/เสียง/กฎคำอ่านส่วนกลาง · <strong>เชื่อม YouTube Live Chat API หรือ Discord Bot API ได้เมื่อให้สิทธิ์และข้อมูลเชื่อมต่อ</strong> สามารถทดสอบข้อความจำลองและขั้นตอนการอ่านได้ก่อนโดยไม่ต้องใช้บัญชี</p>
 <label for="liveText">ข้อความจาก Live Chat (ทดลองป้อนข้อความเอง)</label>
 <textarea id="liveText" placeholder="พิมพ์หรือวางข้อความเพื่อทดลองการอ่านในโหมดนี้"></textarea>
@@ -482,7 +488,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid" style="width:100%;padding:10px 0 15px">
 <button id="globalVoiceSave" type="button">บันทึก Engine และค่าปรับเสียงเป็นค่ากลาง</button>
 <button id="globalVoiceReload" type="button">โหลดค่ากลางอีกครั้ง</button>
-<span class="small" id="globalVoiceStatus" role="status">ค่ากลางใช้กับทุกโหมด เมื่อบันทึกแล้วจะโหลดกลับมาในครั้งถัดไป</span>
+<span class="small" id="globalVoiceStatus" role="status">ค่ากลางเป็นค่าเริ่มต้นของช่องทาง หากตั้งเสียงเฉพาะช่องทางจะใช้ค่านั้นแทน</span>
 </div>
 <div style="width:100%;border:1px solid #32425b;border-radius:10px;padding:14px">
 <h2>Voice Studio — ปรับเสียงละเอียด</h2>
@@ -517,9 +523,11 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 </section>
 </div>
-<p class="small mode-footer">Single active workspace · กฎคำอ่านและ Voice Settings ใช้ร่วมกัน · OBS Overlay เป็นช่องเดียวของทุกโหมด · Live/Discord เลือกข้อความจำลองหรือ Official API แบบอ่านอย่างเดียว</p>
+<p class="small mode-footer">Independent concurrent workspaces · กฎคำอ่านและ Voice Settings ใช้ร่วมกัน · OBS Overlay เป็นช่องเดียวของทุกโหมด · Live/Discord เลือกข้อความจำลองหรือ Official API แบบอ่านอย่างเดียว</p>
 </div></div>
 </main>
+<script src="/audio_scheduler.js"></script>
+<script src="/mode_voice_settings.js"></script>
 <script src="/mode_workspace.js"></script>
 <script src="/mode_inputs.js"></script>
 <script src="/source_feed.js"></script>
@@ -529,6 +537,10 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <script>
 "use strict";
 const el = id => document.getElementById(id);
+const audioScheduler=VoxAudioScheduler.attach({
+  audios:[...document.querySelectorAll("audio")],policy:"serial",
+});
+let modeVoiceController=null;
 let modeRuntime = null;
 let liveMode = null;
 let discordMode = null;
@@ -906,6 +918,7 @@ el("modelPackageInstall").addEventListener("click",async()=>{
     }
     await loadModelPackages();
     await loadEngines();
+    modeVoiceController?.refreshEngines();
     const engineId="model-"+result.package_id+"-"+result.version.replaceAll(".","_");
     if(engines.some(x=>x.id===engineId&&x.assets_ready&&x.runtime_ready)){
       el("engineSelect").value=engineId;
@@ -963,7 +976,7 @@ el("globalVoiceSave").addEventListener("click",async()=>{
     const data=await response.json();
     if(!response.ok)throw Error(data.error||"บันทึกค่ากลางไม่สำเร็จ");
     globalVoiceRevision=data.revision;
-    el("globalVoiceStatus").textContent="บันทึก Engine/Voice/DSP เป็นค่ากลางแล้ว · ทุกโหมดใช้การตั้งค่านี้ (Revision "+data.revision+")";
+    el("globalVoiceStatus").textContent="บันทึก Engine/Voice/DSP ค่าเริ่มต้นแล้ว · แต่ละช่องทางสามารถตั้งค่าแยกได้ (Revision "+data.revision+")";
   }catch(error){el("globalVoiceStatus").textContent=String(error.message||error);}
 });
 el("globalVoiceReload").addEventListener("click",()=>{
@@ -1028,7 +1041,13 @@ el("applyPreset").addEventListener("click",()=>{
   el("seed").value=preset.seed;
   el("presetStatus").textContent="โหลด Preset "+preset.name+" แล้ว (กดสร้างเสียงเพื่อฟัง)";
 });
-loadEngines().then(loadGlobalVoiceSettings).catch(e=>{el("engineStatus").textContent=String(e.message||e)});
+loadEngines().then(loadGlobalVoiceSettings).then(async()=>{
+  const preferences=await modeVoiceController?.load();
+  if(preferences?.policy){
+    el("audioPolicy").value=preferences.policy;
+    audioScheduler.setPolicy(preferences.policy);
+  }
+}).catch(e=>{el("engineStatus").textContent=String(e.message||e)});
 loadPresets().catch(e=>{el("presetStatus").textContent=String(e.message||e)});
 
 const seedValue = () => {
@@ -1116,11 +1135,7 @@ const readerClock=VoxPlaybackClock.attach(
       " วินาที · "+state;
   }
 );
-// Only one local audio source can own the public subtitle overlay at a time.
-readerAudio.addEventListener("play",()=>{
-  const other=el("queueAudio");
-  if (!other.paused) other.pause();
-});
+// Playback concurrency is managed by VoxAudioScheduler.
 
 
 function readerFeedback(message) {
@@ -1244,7 +1259,7 @@ async function readerPlayChunk(index) {
   if(generation!==readingGeneration)return;
   const chunk=currentReaderChunk();
   if(!chunk || chunk.index!==index)throw new Error("ช่วงข้อความไม่ตรงกับตำแหน่ง");
-  const body=buildSpeechPayload();
+  const body=buildSpeechPayload(undefined,"reader");
   body.text=el("readerChunkPreview").value;
   body.source="document";
   // Do not dedupe replays of an already completed passage.
@@ -1274,7 +1289,7 @@ async function readerPlayChunk(index) {
       el("readerPause").disabled=false;
       readerFeedback("เสียงช่วง "+(index+1)+" พร้อมแล้ว · การจดตำแหน่งจะเกิดเมื่อเล่นเสียงจนจบ");
       try {
-        await readerAudio.play();
+        await audioScheduler.play(readerAudio);
       }catch {
         readerFeedback("Browser ไม่อนุญาต Auto-play · กด Play ที่แถบเสียงเพื่ออ่านช่วง "+(index+1));
       }
@@ -1345,7 +1360,7 @@ el("readerStart").addEventListener("click",()=>{
 el("readerPause").addEventListener("click",async()=>{
   if(!readerReading)return;
   if(readerAudio.paused){
-    try{await readerAudio.play();}catch(error){readerFeedback(String(error.message||error));}
+    try{await audioScheduler.play(readerAudio);}catch(error){readerFeedback(String(error.message||error));}
   }else readerAudio.pause();
 });
 el("readerStop").addEventListener("click",async()=>{
@@ -1517,7 +1532,7 @@ el("readerQueueChunk").addEventListener("click", async () => {
   if (!chosen) return;
   el("readerQueueChunk").disabled=true;
   try {
-    const payload = buildSpeechPayload();
+    const payload = buildSpeechPayload(undefined,"reader");
     payload.text = el("readerChunkPreview").value;
     payload.source = "document";
     await submitQueuePayload(payload);
@@ -1527,15 +1542,42 @@ el("readerQueueChunk").addEventListener("click", async () => {
   finally {el("readerQueueChunk").disabled=false;}
 });
 
-const buildSpeechPayload = (text = el("message").value) => ({
-  text,
-  rules: parseConfigJson("rule"),
-  pronunciations: parseConfigJson("pron"),
-  engine_id: el("engineSelect").value,
-  voice_id: el("voiceSelect").value,
-  speed: readNumber("speed"),
-  voice_controls: readVoiceControls(),
-  seed: seedValue()
+const buildSpeechPayload = (text = el("message").value, mode="studio") => {
+  const payload={
+    text,
+    rules:parseConfigJson("rule"),
+    pronunciations:parseConfigJson("pron"),
+    engine_id:el("engineSelect").value,
+    voice_id:el("voiceSelect").value,
+    speed:readNumber("speed"),
+    voice_controls:readVoiceControls(),
+    seed:seedValue(),
+  };
+  // Snapshot current settings when a TTS job is requested, NOT when a
+  // message is received. Changes therefore affect the next unread sentence,
+  // while an already rendered WAV keeps its original voice.
+  const selected=modeVoiceController?.settingsFor(mode);
+  if(selected)Object.assign(payload,selected);
+  return payload;
+};
+modeVoiceController=VoxModeVoiceSettings.attach({
+  document,engines:()=>engines,
+  getDefault:()=>({
+    engine_id:el("engineSelect").value,voice_id:el("voiceSelect").value,
+    speed:readNumber("speed"),voice_controls:readVoiceControls(),
+  }),
+});
+el("audioPolicy").addEventListener("change",async()=>{
+  const policy=el("audioPolicy").value;
+  audioScheduler.setPolicy(policy);
+  el("audioPolicyStatus").textContent="กำลังบันทึก...";
+  try{
+    await modeVoiceController.savePolicy(policy);
+    el("audioPolicyStatus").textContent="บันทึกแล้ว";
+  }catch{
+    el("audioPolicyStatus").textContent=
+      "บันทึกไม่สำเร็จ แต่การเลือกมีผลในหน้านี้";
+  }
 });
 let latestQueuedId = null;
 let jobPollTimer = null;
@@ -1554,9 +1596,7 @@ const queueClock=VoxPlaybackClock.attach(
       " วินาที · "+state;
   }
 );
-queueAudio.addEventListener("play",()=>{
-  if(!readerAudio.paused)readerAudio.pause();
-});
+// Queue playback uses the shared scheduler.
 const manualEditor=VoxManualAlignment.attach({
   el,player:queueAudio,getJobId:()=>latestQueuedId,
   onSaved:(updatedJob)=>queueClock.setSpeech(updatedJob.speech_id,updatedJob.audio)
@@ -1633,7 +1673,7 @@ async function submitQueuePayload(payload) {
 }
 el("queueSubmit").addEventListener("click", async () => {
   el("queueSubmit").disabled=true;
-  try { await submitQueuePayload(buildSpeechPayload(el("queueText").value)); }
+  try { await submitQueuePayload(buildSpeechPayload(el("queueText").value,"queue")); }
   catch(err){el("queueMessage").textContent=String(err.message||err);}
   finally {el("queueSubmit").disabled=false;}
 });
@@ -1730,7 +1770,7 @@ el("synthesize").addEventListener("click", async () => {
     el("downloadAudio").style.display="inline-block";
     el("audioStatus").textContent="สร้าง WAV สำเร็จ · พร้อมฟังและแสดง Subtitle บน OBS ("+audio.size+" bytes)";
     if(shouldPlay){
-      try{await studioAudio.play();}
+      try{await audioScheduler.play(studioAudio);}
       catch{/* User may click Play manually when browser blocks autoplay. */}
     }
   }catch(error){
@@ -1790,6 +1830,8 @@ if(typeof VoxModeInputs!=="undefined"){
     const instance=VoxModeInputs.attach({
       mode,el,clockLibrary:VoxPlaybackClock,report:sendPlaybackReport,
       getSpeechPayload:buildSpeechPayload,
+      playAudio:audio=>audioScheduler.play(audio),
+      cancelAudio:audio=>audioScheduler.cancel(audio),
       guard:id=>!modeRuntime || modeRuntime.guard(id),
       onMessageState:(id,state)=>{
         const feed=mode==="live"?liveFeed:(mode==="discord"?discordFeed:(mode==="tiktok"?tiktokFeed:discordClientFeed));
@@ -1823,7 +1865,17 @@ if(typeof VoxWorkspaceModes!=="undefined"){
   modeRuntime=VoxWorkspaceModes.attach({
     document,
     stopLocal:suspendAllPlayback,
-    onActive:restoreModeAudio,
+    onLostMode:mode=>{
+      const streams={live:[liveFeed,liveMode],discord:[discordFeed,discordMode],
+        discord_client:[discordClientFeed,discordClientMode],
+        tiktok:[tiktokFeed,tiktokMode]};
+      if(streams[mode]){
+        streams[mode][0]?.suspend();
+        streams[mode][1]?.suspend();
+      }else if(mode==="reader")stopReaderPlayback().catch(()=>{});
+      else if(mode==="studio"){studioGeneration++;studioAudio.pause();}
+      else if(mode==="queue"){stopJobPoll();queueAudio.pause();}
+    },
     onError:message=>{el("modeOwnerStatus").textContent=message;}
   });
   modeRuntime.startMonitor();

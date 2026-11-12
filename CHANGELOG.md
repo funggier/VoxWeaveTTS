@@ -2,6 +2,16 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## 0.4.2.dev1 — Concurrent workspaces, per-mode voices and selectable audio policy (development, 2026-11-12)
+
+- Rename generic Live Reader navigation/title to **YouTube LIVE**, retaining the existing live-mode ID and saved connection profiles.
+- Replace single-active workspace ownership with per-mode ephemeral authorization and independent YouTube/Discord source sessions; browser TikFinity continues when users change tabs.
+- Add Engine/Model, Voice, Speed and DSP controls in every speech workspace. Updates apply to the next TTS job, never rewrite an already rendered WAV. Preferences persist in data/settings/mode-voices.json.
+- Add a global audio policy: **serial FIFO** (no overlapping audio, default) or **overlap** (allow simultaneous playback of different workspaces). Already-playing audio is not stopped when the policy changes.
+- Support concurrent browser audio clocks and mode-specific subtitle snapshots; existing OBS overlay continues to show one primary caption.
+- Expand Python and JS regression tests for multi-source connections, safe per-mode tokens, independent voice controls, persistent settings and both audio queue policies.
+- Development preview only: Windows Portable Release v0.4.1 remains unchanged; simultaneous provider accounts have not been live-verified.
+
 ## 0.4.2.dev0 — Data-only model packages and multiple Thai voices (in development, 2026-11-12)
 
 - Introduced a versioned .vwmodel ZIP format with strict JSON Manifest: supported Engine Adapter, package ID/version, voices, per-file size/SHA-256, source revision, SPDX license claim/attribution/review status and declared runtime dependencies.

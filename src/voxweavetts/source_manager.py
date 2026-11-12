@@ -1,4 +1,4 @@
-"""One bounded opt-in source monitor for the one active VoxWeaveTTS mode.
+"""Independent bounded opt-in YouTube/Discord source monitors per workspace.
 
 Credentials never leave this manager through status, logs or exceptions.
 Backend polling is read-only. Browser playback (with a real HTMLMediaElement)
@@ -76,7 +76,7 @@ class SourceManager:
                  discord_factory: Callable[..., Any] = DiscordChannelAdapter,
                  client_factory: Callable[..., Any] = DiscordClientRPCAdapter):
         self._lock = threading.RLock()
-        self._session: _Session | None = None
+        self._sessions: dict[str, _Session] = {}
         self._youtube_factory = youtube_factory
         self._discord_factory = discord_factory
         self._client_factory = client_factory
@@ -141,10 +141,10 @@ class SourceManager:
         if hasattr(adapter, "set_cancel"):
             adapter.set_cancel(session.cancelled)
         with self._lock:
-            # Do not replace another mode's source for a stale owner.
+            # Reconnecting one channel never interrupts the other providers.
             self._authorized(mode, token, mode_state)
-            self._cancel_unlocked()
-            self._session = session
+            self._cancel_unlocked(mode)
+            self._sessions[mode] = session
             thread = threading.Thread(
                 target=self._run, args=(session, mode_state),
                 name="VoxWeaveTTS-"+mode+"-source", daemon=True,
@@ -153,34 +153,42 @@ class SourceManager:
             thread.start()
             return session.public()
 
-    def _cancel_unlocked(self) -> None:
-        if self._session is not None:
-            self._session.cancelled.set()
-            if hasattr(self._session.adapter, "close"):
+    def _cancel_unlocked(self, mode: str | None = None) -> None:
+        targets = (list(self._sessions) if mode is None else [mode])
+        for target in targets:
+            session = self._sessions.pop(target, None)
+            if session is None:
+                continue
+            session.cancelled.set()
+            if hasattr(session.adapter, "close"):
                 try:
-                    self._session.adapter.close()
+                    session.adapter.close()
                 except OSError:
                     pass
-            self._session.pending.clear()
-            self._session = None
+            session.pending.clear()
+
+    def stop_mode(self, mode: str) -> None:
+        """Revoke only the source belonging to a newly claimed workspace."""
+        with self._lock:
+            self._cancel_unlocked(mode)
 
     def stop_all(self) -> None:
-        """Called on every mode activation and server shutdown."""
+        """Called only during server shutdown, not during tab switches."""
         with self._lock:
             self._cancel_unlocked()
 
     def stop(self, data: dict[str, Any], mode_state: ModeState) -> dict[str, Any]:
         self._authorized(data.get("mode"), data.get("mode_token"), mode_state)
         with self._lock:
-            self._cancel_unlocked()
+            self._cancel_unlocked(data["mode"])
             return {"state": "stopped", "pending": 0}
 
     def status(self, mode: str) -> dict[str, Any]:
         if mode not in ("live", "discord", "discord_client"):
             raise InputError("source mode must be live, discord or discord_client")
         with self._lock:
-            s = self._session
-            if s is None or s.mode != mode:
+            s = self._sessions.get(mode)
+            if s is None:
                 return {"mode": mode, "state": "idle", "pending": 0,
                         "received": 0, "discarded": 0, "duplicates": 0,
                         "temporary_credentials": True}
@@ -193,8 +201,8 @@ class SourceManager:
         if type(limit) is not int or not 1 <= limit <= 20:
             raise InputError("source message drain limit must be 1..20")
         with self._lock:
-            s = self._session
-            if s is None or s.mode != mode or s.owner_token != token:
+            s = self._sessions.get(mode)
+            if s is None or s.owner_token != token:
                 raise ModeConflict("source monitor is not running in this workspace")
             messages = []
             for _ in range(min(limit, len(s.pending))):
@@ -209,7 +217,7 @@ class SourceManager:
             try:
                 batch: PollResult = session.adapter.poll()
                 with self._lock:
-                    if self._session is not session or session.cancelled.is_set():
+                    if self._sessions.get(session.mode) is not session or session.cancelled.is_set():
                         break
                     if not mode_state.is_owner(session.mode, session.owner_token):
                         break
@@ -247,7 +255,7 @@ class SourceManager:
                 backoff = 5
             except SourceFailure as exc:
                 with self._lock:
-                    if self._session is not session or session.cancelled.is_set():
+                    if self._sessions.get(session.mode) is not session or session.cancelled.is_set():
                         break
                     session.state = "error" if exc.fatal else "retrying"
                     # Never expose a raw exception containing API secrets.

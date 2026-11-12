@@ -498,6 +498,10 @@ class ClientRPCProtocolTests(unittest.TestCase):
             results=manager.drain({**args,"limit":1},modes)
             self.assertEqual(results["messages"][0]["text"],"สวัสดี")
             modes.activate("studio",playback)
+            manager.drain({**args,"limit":1},modes)
+            # Reclaiming Discord Client, not switching Studio, invalidates
+            # its previous owner token.
+            modes.activate("discord_client",playback)
             with self.assertRaises(ModeConflict):
                 manager.drain({**args,"limit":1},modes)
             manager.stop_all()

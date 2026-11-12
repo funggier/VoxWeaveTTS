@@ -38,6 +38,8 @@ jobs:
           node tests/manual_alignment_ui_smoke.cjs
           node tests/waveform_editor_smoke.cjs
           node tests/mode_workspace_smoke.cjs
+          node tests/audio_scheduler_smoke.cjs
+          node tests/mode_voices_smoke.cjs
           node tests/mode_inputs_smoke.cjs
           node tests/tiktok_live_smoke.cjs
           node tests/model_packages_ui_smoke.cjs

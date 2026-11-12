@@ -4,14 +4,15 @@
  */
 (function(root){
 "use strict";
-function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState}){
+function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState,
+                 playAudio=async audio=>{await audio.play();return true;},cancelAudio=()=>{}}){
   if(!["live","discord","discord_client","tiktok"].includes(mode))throw Error("unknown source mode");
   const prefix=mode==="discord_client"?"discordClient":mode;
   const get=id=>el(prefix+id);
   const audio=get("Audio");
   let generation=0, jobId=null, lastReady=null, wavUrl=null;
-  // One controller is created per source mode. All three provider types use
-  // exactly the same serial queue; there is no cross-mode audio overlap.
+  // Each source owns its pending messages; shared scheduler controls whether
+  // the resulting WAVs play serially across modes or may overlap.
   const MAX_WAITING=12;
   const incoming=[];
   let autoBusy=false, activeIncoming=null, queueEpoch=0, overflow=0;
@@ -44,6 +45,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     wavUrl=null;
   }
   function stop({discard=false}={}){
+    cancelAudio(audio);
     generation++;
     clock.clear();
     audio.pause();
@@ -83,7 +85,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     get("Submit").disabled=true;
     feedback("กำลังสร้างเสียงของโหมด "+mode+"...");
     try{
-      const body=getSpeechPayload(text);
+      const body=getSpeechPayload(text,mode);
       body.source=mode==="live"?"youtube-live":mode==="tiktok"?"tiktok-live":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
@@ -121,7 +123,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           feedback("เสียงพร้อม · กด Play เพื่ออ่านข้อความของโหมดนี้");
           if(autoPlay){
             try{
-              await audio.play();
+              const started=await playAudio(audio);
+              if(!started)return false;
               if(activeIncoming && activeIncoming.message_id===messageId)
                 mark(activeIncoming,"reading");
             }
@@ -207,7 +210,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   get("Play").addEventListener("click",async()=>{
     if(!guard(mode)){feedback("โหมดนี้ไม่ได้ควบคุมเสียงอยู่ กรุณาเปิดโหมดอีกครั้ง");return;}
     if(!lastReady){feedback("กรุณาสร้าง WAV ก่อนกดเล่น");return;}
-    try{await audio.play();}
+    try{await playAudio(audio);}
     catch(error){feedback("Browser เล่นเสียงไม่สำเร็จ: "+String(error.message||error));}
   });
   get("Submit").addEventListener("click",()=>submit().catch(e=>feedback(String(e.message||e))));
