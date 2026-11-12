@@ -36,6 +36,37 @@ class PresetFolderTests(unittest.TestCase):
                 self.assertEqual(presets.load_presets(),[saved])
                 self.assertTrue(all(file.parent==directory for file in paths))
 
+    def test_optional_model_preset_stays_listed_before_model_install(self):
+        from voxweavetts.processing import InputError
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            directory = root / "presets"
+            directory.mkdir()
+            missing = {
+                "name": "Voice from another computer",
+                "engine_id": "model-optional-voice-1_0_0",
+                "voice_id": "speaker_f",
+                "speed": 2.35,
+                "voice_controls": {"gain_db": 0.05},
+            }
+            (directory / "other-pc.json").write_text(
+                json.dumps(missing), encoding="utf-8"
+            )
+            (directory / "malformed.json").write_text(
+                json.dumps({**missing, "name": "Unsafe", "engine_id": "../bad"}),
+                encoding="utf-8"
+            )
+            with patch.object(presets, "PRESETS_DIR", directory), patch.object(
+                presets, "PRESETS_FILE", root / "old.json"
+            ):
+                entries = presets.load_presets()
+                self.assertEqual(len(entries), 1)
+                self.assertEqual(entries[0]["name"], missing["name"])
+                self.assertEqual(entries[0]["engine_id"], missing["engine_id"])
+                self.assertEqual(entries[0]["speed"], 2.35)
+                with self.assertRaises(InputError):
+                    presets.save_preset(missing)  # Do not save invalid engine selections.
+
     def test_existing_legacy_presets_remain_readable_and_new_file_overrides(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)

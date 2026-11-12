@@ -24,20 +24,32 @@ PRESETS_DIR = ROOT / "presets"
 PRESETS_FILE = ROOT / "data" / "presets" / "voice-presets.json"
 _LOCK = threading.RLock()
 _NAME = re.compile(r"[\w \-\u0e00-\u0e7f]{1,50}\Z", re.UNICODE)
+_ENGINE_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,95}\Z")
+_VOICE_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,99}\Z")
 MAX_PRESETS = 64
 MAX_FILE_BYTES = 16_384
 
 
-def validate_preset(raw: Any) -> dict[str, Any]:
+def validate_preset(raw: Any, *, allow_unavailable: bool = False) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise InputError("preset must be a JSON object")
     name = raw.get("name")
     if not isinstance(name, str) or not _NAME.fullmatch(name) or not name.strip():
         raise InputError("preset name must be 1–50 characters without special paths")
     engine_id = raw.get("engine_id")
-    info = get_engine_info(engine_id)
-    voice_id = raw.get("voice_id", info.voice_id)
-    if voice_id not in info.voice_ids:
+    if not isinstance(engine_id, str) or not _ENGINE_ID.fullmatch(engine_id):
+        raise InputError("invalid preset engine_id")
+    try:
+        info = get_engine_info(engine_id)
+    except InputError:
+        if not allow_unavailable:
+            raise
+        # Portable preset files can arrive before their optional model pack.
+        # Keep them visible, but never synthesize with an unavailable engine.
+        info = None
+    voice_id = raw.get("voice_id", info.voice_id if info else None)
+    if (not isinstance(voice_id, str) or not _VOICE_ID.fullmatch(voice_id)
+        or (info is not None and voice_id not in info.voice_ids)):
         raise InputError("preset voice_id is not supported by engine")
     speed = raw.get("speed", 1.0)
     if type(speed) not in (int, float) or not math.isfinite(speed) or not 0.6 <= speed <= 5.0:
@@ -72,7 +84,7 @@ def _load_unlocked() -> list[dict[str, Any]]:
         if not isinstance(parsed, list) or len(parsed) > MAX_PRESETS:
             raise InputError("invalid legacy voice presets")
         for item in parsed:
-            valid = validate_preset(item)
+            valid = validate_preset(item, allow_unavailable=True)
             found[valid["name"]] = valid
     if PRESETS_DIR.is_dir():
         files = [file for file in PRESETS_DIR.iterdir()
@@ -86,7 +98,7 @@ def _load_unlocked() -> list[dict[str, Any]]:
                 continue
             try:
                 doc = json.loads(file.read_text(encoding="utf-8-sig"))
-                valid = validate_preset(doc)
+                valid = validate_preset(doc, allow_unavailable=True)
             except (OSError, ValueError, TypeError):
                 continue  # A broken user file must not hide every good preset.
             found[valid["name"]] = valid

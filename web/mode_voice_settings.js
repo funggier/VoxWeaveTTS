@@ -47,6 +47,7 @@ function attach({document,engines,getDefault}){
       if(installed().some(x=>x.id===oldEngine))ui.engine.value=oldEngine;
       rebuildVoices(mode,oldVoice);
     }
+    refreshPresetOptions();
   }
   function set(mode,profile){
     const ui=controls.get(mode);
@@ -97,7 +98,9 @@ function attach({document,engines,getDefault}){
       const placeholder=create("option","เลือก Voice Preset");placeholder.value="";
       ui.presetSelect.appendChild(placeholder);
       for(const preset of presets){
-        const option=create("option",preset.name);option.value=preset.name;
+        const ready=installed().some(info=>info.id===preset.engine_id);
+        const label=ready?preset.name:preset.name+" (ต้องติดตั้งโมเดล: "+preset.engine_id+")";
+        const option=create("option",label);option.value=preset.name;
         ui.presetSelect.appendChild(option);
       }
       if(presets.some(p=>p.name===previous))ui.presetSelect.value=previous;

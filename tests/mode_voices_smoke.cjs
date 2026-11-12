@@ -30,6 +30,7 @@ const document={
   },
 };
 let revision=0,posts=[];
+let presetData=[];
 const voices=[
   {id:"makham-paradee-cpu",label:"MakHam",voice_id:"paradee_thai",
    voices:[{id:"paradee_thai",label:"Paradee"}],assets_ready:true,runtime_ready:true},
@@ -45,7 +46,7 @@ const overrides={
   live:{...defaults,engine_id:"vachana-cpu",voice_id:"th_f_1",speed:1.1},
 };
 global.fetch=async(path,options)=>{
-  if(path==="/v1/presets")return{ok:true,async json(){return{presets:[]};}};
+  if(path==="/v1/presets")return{ok:true,async json(){return{presets:presetData};}};
   assert.equal(path,"/v1/settings/mode-voices");
   if(!options?.method)return{ok:true,async json(){return{
     revision,policy:"serial",modes:overrides,
@@ -86,6 +87,36 @@ async function main(){
   assert.equal(posts[1].mode,"__policy__");
   assert.equal(posts[1].settings,"overlap");
   assert.equal(revision,2);
-  console.log("PASS: independent 7-mode engine/voice/speed/DSP and persisted playback policy");
+  // Presets copied from a different machine stay visible even before their
+  // optional model pack has been installed.
+  const pendingModel="model-optional-thai-1_0_0";
+  presetData=[{
+    name:"Portable Voice",engine_id:pendingModel,voice_id:"speaker_f",
+    speed:1.25,seed:100,voice_controls:defaults.voice_controls,
+  }];
+  await manager.loadPresets();
+  const presetArea=all[5];
+  const presetGrid=presetArea.children[2];
+  const presetSelect=presetGrid.children[2].children[1];
+  const applyButton=presetGrid.children[3];
+  assert.equal(presetSelect.options[1].value,"Portable Voice");
+  assert.match(presetSelect.options[1].textContent,/model-optional-thai/);
+  presetSelect.value="Portable Voice";
+  applyButton.handlers.click();
+  assert.match(all[4].textContent,/Model Package/);
+  assert.equal(manager.read("live").engine_id,"vachana-cpu",
+    "an unavailable model cannot overwrite the current voice");
+  voices.push({
+    id:pendingModel,label:"Optional Thai",voice_id:"speaker_f",
+    voices:[{id:"speaker_f",label:"Speaker F"}],
+    assets_ready:true,runtime_ready:true,
+  });
+  manager.refreshEngines();
+  assert.equal(presetSelect.options[1].textContent,"Portable Voice");
+  presetSelect.value="Portable Voice";
+  applyButton.handlers.click();
+  assert.equal(manager.read("live").engine_id,pendingModel);
+  assert.equal(manager.read("live").voice_id,"speaker_f");
+  console.log("PASS: independent voices, portable presets with missing models, model activation and serial/overlap policy");
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
