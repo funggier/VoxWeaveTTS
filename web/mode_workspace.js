@@ -128,7 +128,7 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
     for(const button of document.querySelectorAll("[data-mode-target]"))
       button.addEventListener("click",()=>select(
         button.getAttribute("data-mode-target")).catch(()=>{}));
-    get("modeGlobalSettings").addEventListener("click",
+    get("modeGlobalSettings")?.addEventListener("click",
       ()=>select("settings").catch(()=>{}));
     render();
     select("studio").catch(()=>{});

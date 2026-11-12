@@ -16,6 +16,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   const MAX_WAITING=12;
   const incoming=[];
   let autoBusy=false, activeIncoming=null, queueEpoch=0, overflow=0;
+  let autoPaused=false; // temporary playback error; never alters user preference
   function mark(item,state){
     if(item?.message_id != null)onMessageState?.(String(item.message_id),state);
   }
@@ -147,7 +148,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
   }
   async function pumpIncoming(){
-    if(autoBusy||!guard(mode)||!get("FeedAuto").checked)return;
+    if(autoBusy||autoPaused||!guard(mode)||!get("FeedAuto").checked)return;
     // Wait for the current manual or automatic WAV to finish.
     if(!audio.paused&&!audio.ended)return;
     const next=incoming.shift();
@@ -163,18 +164,18 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       if(!played){
         // Do not pretend a generated WAV was actually read if autoplay fails.
         clearAutoQueue({includeActive:true});
-        get("FeedAuto").checked=false;
+        autoPaused=true;
         feedback("อ่านอัตโนมัติหยุดชั่วคราว · ตรวจสิทธิ์เล่นเสียงใน Browser แล้วเปิดใหม่");
       }
     }catch(error){
       if(ticket!==queueEpoch)return;
       clearAutoQueue({includeActive:true});
-      get("FeedAuto").checked=false;
+      autoPaused=true;
       feedback(String(error.message||error));
     }
   }
   function receiveIncoming(msg,autoRead){
-    if(!autoRead||!guard(mode)||typeof msg?.text!=="string")return "manual";
+    if(!autoRead||autoPaused||!guard(mode)||typeof msg?.text!=="string")return "manual";
     if(incoming.length>=MAX_WAITING){
       // Never silently evict an earlier unread message. New overflow is
       // skipped, and the UI marks it as such instead of claiming it was read.
@@ -194,10 +195,16 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   audio.addEventListener("error",()=>{
     if(!activeIncoming)return;
     clearAutoQueue({includeActive:true});
-    get("FeedAuto").checked=false;
-    feedback("เกิดข้อผิดพลาดขณะเล่นเสียง · หยุดคิวอัตโนมัติแล้ว");
+    autoPaused=true;
+    feedback("เสียงมีข้อผิดพลาด · พักการอ่านชั่วคราว แต่ยังเก็บค่าอ่านอัตโนมัติไว้");
   });
   get("FeedAuto").addEventListener("change",()=>{
+    autoPaused=false;
+    if(get("FeedAuto").checked)pumpIncoming();
+  });
+  get("AutoRetry")?.addEventListener("click",()=>{
+    autoPaused=false;
+    feedback("กำลังลองอ่านข้อความอัตโนมัติต่อ...");
     if(get("FeedAuto").checked)pumpIncoming();
   });
   function resume(){
@@ -216,11 +223,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   get("Submit").addEventListener("click",()=>submit().catch(e=>feedback(String(e.message||e))));
   get("Stop").addEventListener("click",()=>{
     clearAutoQueue({includeActive:true});
-    get("FeedAuto").checked=false;
+    autoPaused=true;
     stop({discard:true});
-    feedback("หยุดอ่านในโหมดนี้แล้ว · หากต้องการอ่านอัตโนมัติให้เปิดตัวเลือกอีกครั้ง");
+    feedback("หยุดเสียงของโหมดนี้แล้ว · ค่าอ่านอัตโนมัติยังคงเดิม กดลองอ่านต่อเมื่อพร้อม");
   });
   return {stop,suspend,resume,submit,receiveIncoming,clearAutoQueue,
+          get autoPaused(){return autoPaused;},
           get pendingAuto(){return incoming.length;},
           get skippedOverflow(){return overflow;},
           get jobId(){return jobId;}};

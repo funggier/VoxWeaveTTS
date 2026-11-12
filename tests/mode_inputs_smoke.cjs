@@ -147,6 +147,26 @@ async function main(){
   assert.equal(tiktok.pendingAuto,0);
   tiktok.suspend();
   assert.equal(get("tiktokAudio").paused,true);
+  // Playback failures and Stop MUST NOT silently change the user's stored
+  // preference. They pause the automatic reader until explicit retry.
+  current="discord";
+  get("discordFeedAuto").checked=true;
+  assert.equal(discord.receiveIncoming({message_id:"err1",text:"Error candidate"},true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  get("discordAudio").events.error();
+  assert.equal(discord.autoPaused,true);
+  assert.equal(get("discordFeedAuto").checked,true,
+    "audio error must not mutate auto-read checkbox");
+  assert.equal(discord.receiveIncoming({message_id:"err2",text:"While paused"},true),"manual");
+  get("discordAutoRetry").events.click();
+  assert.equal(discord.autoPaused,false);
+  assert.equal(get("discordFeedAuto").checked,true);
+  assert.equal(discord.receiveIncoming({message_id:"err3",text:"After retry"},true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  get("discordStop").events.click();
+  assert.equal(discord.autoPaused,true);
+  assert.equal(get("discordFeedAuto").checked,true,
+    "Stop pauses source speech but preserves automatic reader preference");
   console.log("PASS: independent Live/Discord/TikTok drafts, shared global TTS, mode-local voice switching for next queued sentence");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

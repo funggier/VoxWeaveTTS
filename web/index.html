@@ -74,7 +74,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </head>
 <body>
 <main>
-<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Concurrent Workspaces · Per-channel Voices</div></div><div class="pill">Local Studio 0.4.2.dev1</div></header>
+<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Concurrent Workspaces · Per-channel Voices</div></div><div class="pill">Local Studio 0.4.2.dev2</div></header>
 <div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละช่องทางรับข้อความและเล่นเสียงได้พร้อมกัน แม้สลับแท็บ · Engine/Voice/Speed/DSP แยกตามช่องทางได้ ส่วน Rules/Pronunciations ยังคงใช้ร่วมกัน · ต้องกดเชื่อมต่อ Live/Discord เอง</div>
 <div class="app-workspace">
 <aside class="mode-sidebar" aria-label="โหมดการทำงาน">
@@ -87,12 +87,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" class="mode-nav-button" data-mode-target="discord_client" aria-pressed="false">Discord Client</button>
 <button type="button" class="mode-nav-button" data-mode-target="queue" aria-pressed="false">คิวและ Subtitle</button>
 <button type="button" class="mode-nav-button" data-mode-target="rules" aria-pressed="false">คำอ่านและกฎ</button>
-<button type="button" class="mode-nav-button" data-mode-target="settings" aria-pressed="false">ตั้งค่ากลาง</button></nav>
+<button type="button" class="mode-nav-button" data-mode-target="settings" aria-pressed="false">ตั้งค่า</button></nav>
 <div class="side-help">ทุกช่องทางทำงานพร้อมกันได้ · เปลี่ยนแท็บไม่หยุดอ่าน · เลือกเสียงและโมเดลของแต่ละช่องทางได้</div>
 </aside>
 <div class="mode-content">
 <div class="mode-topbar">
-  <span id="modeTitle">สร้างเสียง</span>
+  <span id="modeTitle" hidden>สร้างเสียง</span>
   <label for="audioPolicy" class="small">คิวเสียงทุกโหมด:</label>
   <select id="audioPolicy" aria-label="รูปแบบการเล่นเสียงร่วมกัน">
     <option value="serial">เล่นทีละเสียง (ไม่ซ้อน)</option>
@@ -100,7 +100,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
   </select>
   <span id="audioPolicyStatus" class="small" role="status"></span>
   <span id="modeOwnerStatus" class="small" role="status">กำลังเชื่อมระบบโหมด...</span>
-  <button type="button" class="small-button" id="modeGlobalSettings">ตั้งค่ากลาง</button>
+
   <a href="/overlay" target="_blank" rel="noopener noreferrer">OBS Overlay</a>
 </div>
 <div class="mode-view" data-mode-view="studio">
@@ -183,6 +183,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="liveFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="liveFeedMaxChars" min="20" max="280" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<button type="button" class="small-button" id="liveAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 <div><label for="liveFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="liveFeedKeepRead" min="0" max="100" value="20"></div>
 </div>
 <div class="voice-grid">
@@ -224,6 +225,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="tiktokFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="tiktokFeedMaxChars" min="20" max="280" value="240"></div>
 <div><label for="tiktokFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="tiktokFeedKeepRead" min="0" max="100" value="20"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<button type="button" class="small-button" id="tiktokAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 </div>
 <div class="voice-grid">
 <button type="button" id="tiktokFeedStart">เชื่อม TikFinity</button>
@@ -269,6 +271,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="discordFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="discordFeedMaxChars" min="20" max="280" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<button type="button" class="small-button" id="discordAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 <div><label for="discordFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="discordFeedKeepRead" min="0" max="100" value="20"></div>
 </div>
 <div class="voice-grid">
@@ -323,6 +326,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <label style="display:flex;align-items:center;gap:7px">
 <input id="discordClientFeedAuto" type="checkbox" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)
 </label>
+<button type="button" class="small-button" id="discordClientAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 <div><label for="discordClientFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input id="discordClientFeedKeepRead" type="number" min="0" max="100" value="20"></div>
 </div>
 <div class="voice-grid">
@@ -467,14 +471,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 </div>
 <div class="mode-view" data-mode-view="settings" hidden><section class="panel" style="margin-top:18px">
-<h2>การตั้งค่าเสียงและโมเดลส่วนกลาง</h2>
-<p class="small">การเลือก Engine, เสียงพูด, Preset, Speed, EQ, Seed และการตั้งค่าคำอ่านใช้ร่วมกันทุกโหมด · เปลี่ยนที่นี่มีผลกับงานเสียงใหม่จากทุกโหมด</p>
-<p class="small">แต่ละ Engine อาจออกเสียงคำสั้นอย่าง “ฮ่า” ได้ต่างกัน การเปลี่ยน Seed ไม่ใช่การแก้การออกเสียงที่เชื่อถือได้ หากอ่านผิดสามารถปรับ Rules/Pronunciations ในส่วนข้อความด้านบนได้โดยตรง</p>
-<div style="display:flex;gap:14px;align-items:end;flex-wrap:wrap">
-<div class="voice-grid">
-<div><label for="engineSelect">TTS Engine</label><select id="engineSelect"><option value="fastthaig2p-cpu">กำลังโหลด Engine…</option></select></div>
-<div><label for="voiceSelect">เสียงผู้พูด</label><select id="voiceSelect"><option value="thai_som">thai_som</option></select></div>
-</div>
+<h2>จัดการ Model Packages</h2>
+<p class="small">ติดตั้งโมเดลและเสียงเพิ่มเติม ดูแหล่งที่มาและลิขสิทธิ์ และถอนการติดตั้งแพ็กเกจที่ไม่ต้องการได้ที่นี่</p>
 <details style="width:100%;margin:12px 0;border:1px solid #32425b;border-radius:10px;padding:12px">
 <summary>จัดการ Model Packages (ติดตั้งหลายโมเดล / หลายเสียง)</summary>
 <p class="small">เลือกไฟล์ .vwmodel เพื่อติดตั้งโมเดลแบบแยกจากโปรแกรม ติดตั้งหลายชุดและหลายเวอร์ชันพร้อมกันได้ โดยไม่รันโค้ดจากแพ็กเกจ ตรวจ SHA-256 ก่อนติดตั้ง และแสดงข้อมูลไลเซนส์ของแต่ละชุด</p>
@@ -484,6 +482,17 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p id="modelPackageStatus" class="small" role="status">กำลังโหลดแพ็กเกจ...</p>
 <ul id="modelPackageList" style="padding-left:22px"></ul>
 </details>
+</section></div>
+<div id="legacyVoiceControls" hidden aria-hidden="true"><section class="panel" style="margin-top:18px">
+<h2>การตั้งค่าเสียงและโมเดลส่วนกลาง</h2>
+<p class="small">การเลือก Engine, เสียงพูด, Preset, Speed, EQ, Seed และการตั้งค่าคำอ่านใช้ร่วมกันทุกโหมด · เปลี่ยนที่นี่มีผลกับงานเสียงใหม่จากทุกโหมด</p>
+<p class="small">แต่ละ Engine อาจออกเสียงคำสั้นอย่าง “ฮ่า” ได้ต่างกัน การเปลี่ยน Seed ไม่ใช่การแก้การออกเสียงที่เชื่อถือได้ หากอ่านผิดสามารถปรับ Rules/Pronunciations ในส่วนข้อความด้านบนได้โดยตรง</p>
+<div style="display:flex;gap:14px;align-items:end;flex-wrap:wrap">
+<div class="voice-grid">
+<div><label for="engineSelect">TTS Engine</label><select id="engineSelect"><option value="makham-paradee-cpu">กำลังโหลด Engine…</option></select></div>
+<div><label for="voiceSelect">เสียงผู้พูด</label><select id="voiceSelect"><option value="thai_som">thai_som</option></select></div>
+</div>
+
 <div style="width:100%;margin:12px 0"><p id="engineStatus" class="small">กำลังตรวจสอบ Engine และอุปกรณ์...</p><p id="dspStatus" class="small">ตรวจสอบตัวปรับเสียง...</p></div>
 <div class="voice-grid" style="width:100%;padding:10px 0 15px">
 <button id="globalVoiceSave" type="button">บันทึก Engine และค่าปรับเสียงเป็นค่ากลาง</button>
@@ -493,11 +502,11 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div style="width:100%;border:1px solid #32425b;border-radius:10px;padding:14px">
 <h2>Voice Studio — ปรับเสียงละเอียด</h2>
 <p class="small">ใช้ Slider หรือตัวเลขเพื่อปรับค่าเดียวกันได้ · Speed เป็นความสามารถของ Engine ส่วนระดับเสียง, EQ และ Pitch เป็นการปรับไฟล์เสียงภายหลัง</p>
-<div class="voice-row"><label for="speed">ความเร็วพูด</label><input type="range" id="slider-speed" min="0.6" max="1.5" step="0.05" value="1"><input type="number" id="speed" min="0.6" max="1.5" step="0.05" value="1"><span class="small">×</span></div>
-<div class="voice-row"><label for="gain_db">ความดัง</label><input type="range" id="slider-gain_db" min="-18" max="12" step="0.5" value="0"><input type="number" id="gain_db" min="-18" max="12" step="0.5" value="0"><span class="small">dB</span></div>
-<div class="voice-row"><label for="pitch_semitones">เสียงสูงต่ำ</label><input type="range" id="slider-pitch_semitones" min="-4" max="4" step="0.25" value="0"><input type="number" id="pitch_semitones" min="-4" max="4" step="0.25" value="0"><span class="small">st</span></div>
-<div class="voice-row"><label for="bass_db">ความทุ้ม (Bass)</label><input type="range" id="slider-bass_db" min="-12" max="12" step="0.5" value="0"><input type="number" id="bass_db" min="-12" max="12" step="0.5" value="0"><span class="small">dB</span></div>
-<div class="voice-row"><label for="treble_db">ความใส (Treble)</label><input type="range" id="slider-treble_db" min="-12" max="12" step="0.5" value="0"><input type="number" id="treble_db" min="-12" max="12" step="0.5" value="0"><span class="small">dB</span></div>
+<div class="voice-row"><label for="speed">ความเร็วพูด</label><input type="range" id="slider-speed" min="0.6" max="5" step="0.01" value="1"><input type="number" id="speed" min="0.6" max="5" step="0.01" value="1"><span class="small">×</span></div>
+<div class="voice-row"><label for="gain_db">ความดัง</label><input type="range" id="slider-gain_db" min="-18" max="12" step="0.01" value="0"><input type="number" id="gain_db" min="-18" max="12" step="0.01" value="0"><span class="small">dB</span></div>
+<div class="voice-row"><label for="pitch_semitones">เสียงสูงต่ำ</label><input type="range" id="slider-pitch_semitones" min="-4" max="4" step="0.01" value="0"><input type="number" id="pitch_semitones" min="-4" max="4" step="0.01" value="0"><span class="small">st</span></div>
+<div class="voice-row"><label for="bass_db">ความทุ้ม (Bass)</label><input type="range" id="slider-bass_db" min="-12" max="12" step="0.01" value="0"><input type="number" id="bass_db" min="-12" max="12" step="0.01" value="0"><span class="small">dB</span></div>
+<div class="voice-row"><label for="treble_db">ความใส (Treble)</label><input type="range" id="slider-treble_db" min="-12" max="12" step="0.01" value="0"><input type="number" id="treble_db" min="-12" max="12" step="0.01" value="0"><span class="small">dB</span></div>
 <label><input id="formant_preserve" type="checkbox" checked> รักษา Formant ขณะปรับ Pitch (ไม่ใช่ปรับ Formant โดยอิสระ)</label>
 <button id="resetControls" type="button">รีเซ็ตค่าปรับเสียง</button>
 </div>

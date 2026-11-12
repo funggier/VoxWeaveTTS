@@ -14,6 +14,7 @@ from voxweavetts import speech
 from voxweavetts.model_packages import (
     FORMAT, ModelPackageError, make_package, install_model_package,
     installed_packages, remove_model_package, engine_id_for, validate_manifest,
+    create_fastthai_manifest,
 )
 
 
@@ -95,6 +96,38 @@ class ModelPackagesTests(unittest.TestCase):
             with self.assertRaises(ModelPackageError):
                 install_model_package(archive, base=Path(temp) / "installed")
             self.assertFalse((Path(temp) / "evil.py").exists())
+
+    def test_fastthai_kokoro_pack_is_independent_of_vachana(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            source=root/"fast"
+            source.mkdir()
+            (source/"voices").mkdir()
+            (source/"config.json").write_text('{"lang":"th"}',encoding="utf-8")
+            (source/"kokoro_thai.onnx").write_bytes(b"k"*4096)
+            (source/"voices"/"thai_som.npy").write_bytes(b"n"*2048)
+            manifest=create_fastthai_manifest(source)
+            self.assertEqual(manifest["engine_adapter"],"fastthaig2p-kokoro-v1")
+            self.assertEqual(manifest["sample_rate"],24000)
+            archive=root/"fastthai.vwmodel"
+            make_package(source,manifest,archive)
+            install_model_package(archive,base=root/"packages")
+            self.assertEqual(len(installed_packages(base=root/"packages")),1)
+            with patch.object(speech,"installed_packages",
+                              lambda:installed_packages(base=root/"packages")):
+                speech.refresh_engine_registry()
+                try:
+                    info=speech.get_engine_info(engine_id_for(manifest))
+                    self.assertEqual(info.voice_ids,("thai_som",))
+                    self.assertTrue(info.capabilities["seed_control"])
+                    self.assertTrue(info.assets_ready)
+                    self.assertEqual(info.commercial_status,"review_required")
+                    engine=speech.create_voice_engine(info.id,seed=42)
+                    self.assertEqual(engine.seed,42)
+                    self.assertEqual(engine.voicepack_name,"voices/thai_som.npy")
+                    self.assertEqual(engine.model_dir,root/"packages"/"fastthaig2p-thai-som"/"0.3.0")
+                finally:
+                    speech.refresh_engine_registry()
 
     def test_corruption_sha_rejected_and_atomic(self):
         with tempfile.TemporaryDirectory() as temp:

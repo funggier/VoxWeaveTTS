@@ -31,7 +31,7 @@ _VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\
 _VOICE = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{0,63}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _EXTENSIONS = frozenset((".onnx", ".json", ".npy", ".txt", ".md"))
-_ADAPTERS = frozenset(("vachana-onnx-v1",))
+_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1"))
 _LOCK = threading.RLock()
 _DIALOG_LOCK = threading.Lock()
 
@@ -119,7 +119,8 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         raise ModelPackageError("this engine adapter is not supported")
     if not isinstance(manifest["title"], str) or not 1 <= len(manifest["title"]) <= 100:
         raise ModelPackageError("invalid model title")
-    if manifest["language"] != "th" or type(manifest["sample_rate"]) is not int or manifest["sample_rate"] != 22_050:
+    expected_rate = 22_050 if manifest["engine_adapter"] == "vachana-onnx-v1" else 24_000
+    if manifest["language"] != "th" or type(manifest["sample_rate"]) is not int or manifest["sample_rate"] != expected_rate:
         raise ModelPackageError("unsupported sample rate/language for this adapter")
     lic = manifest["license"]
     if not isinstance(lic, dict) or set(lic) != {"spdx", "url", "attribution", "review_status"}:
@@ -141,7 +142,8 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         or any(not isinstance(x, str) or not re.fullmatch(r"[A-Za-z0-9_.<>!=,-]{1,100}", x) for x in deps)):
         raise ModelPackageError("invalid dependency declaration")
     voices = manifest["voices"]
-    if not isinstance(voices, list) or not 1 <= len(voices) <= 32:
+    if (not isinstance(voices, list) or not 1 <= len(voices) <= 32
+        or (manifest["engine_adapter"] == "fastthaig2p-kokoro-v1" and len(voices) != 1)):
         raise ModelPackageError("model needs one or more voices")
     seen_voices: set[str] = set()
     seen_paths: set[str] = set()
@@ -155,7 +157,8 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         if not isinstance(voice["label"], str) or not 1 <= len(voice["label"]) <= 110:
             raise ModelPackageError("invalid voice label")
         asset = _relative_asset(voice["asset"])
-        if not asset.startswith("voices/") or not asset.endswith(".onnx") or asset.lower() in seen_paths:
+        required_extension = ".onnx" if manifest["engine_adapter"] == "vachana-onnx-v1" else ".npy"
+        if not asset.startswith("voices/") or not asset.endswith(required_extension) or asset.lower() in seen_paths:
             raise ModelPackageError("invalid or repeated voice weight file")
         seen_paths.add(asset.lower())
     files = manifest["files"]
@@ -173,7 +176,8 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
             raise ModelPackageError("invalid or repeated model file")
         file_index[path.lower()] = entry
         total += entry["size"]
-    if total > PACKAGE_LIMIT or "speaker_config.json" not in file_index:
+    required_files = ("speaker_config.json",) if manifest["engine_adapter"] == "vachana-onnx-v1" else ("config.json", "kokoro_thai.onnx")
+    if total > PACKAGE_LIMIT or not all(name in file_index for name in required_files):
         raise ModelPackageError("model exceeds size limit or has no speaker config")
     for voice in voices:
         if voice["asset"].lower() not in file_index or file_index[voice["asset"].lower()]["size"] < 1024:
@@ -369,6 +373,69 @@ def create_vachana_manifest(source: Path) -> dict[str, Any]:
     return validate_manifest(manifest)
 
 
+
+def create_fastthai_manifest(source: Path) -> dict[str, Any]:
+    """Metadata for a local FastThaiG2P/Kokoro Thai Som ONNX model pack.
+
+    The source license is declared Apache-2.0; the weight/dataset rights
+    remain review_required. This function never uploads model data.
+    """
+    source = Path(source)
+    names = ("config.json", "kokoro_thai.onnx", "voices/thai_som.npy")
+    files = []
+    for name in names:
+        file = source / name
+        if not file.is_file():
+            raise ModelPackageError("missing FastThaiG2P model asset: " + name)
+        with file.open("rb") as handle:
+            digest = hashlib.file_digest(handle, "sha256").hexdigest()
+        files.append({"path": name, "sha256": digest, "size": file.stat().st_size})
+    return validate_manifest({
+        "format": FORMAT, "format_version": FORMAT_VERSION,
+        "package_id": "fastthaig2p-thai-som", "version": "0.3.0",
+        "title": "FastThaiG2P Kokoro Thai - Som",
+        "engine_adapter": "fastthaig2p-kokoro-v1",
+        "language": "th", "sample_rate": 24000,
+        "voices": [{"id": "thai_som", "label": "Thai Som",
+                    "asset": "voices/thai_som.npy"}],
+        "files": files,
+        "license": {
+            "spdx": "Apache-2.0",
+            "url": "https://github.com/awslabs/FastThaiG2P",
+            "attribution": "FastThaiG2P by Charin Polpanumas / AWS; independently verify Kokoro model weights and dataset rights",
+            "review_status": "review_required",
+        },
+        "source": {
+            "url": "https://github.com/awslabs/FastThaiG2P/releases/tag/v0.3.0",
+            "revision": "v0.3.0",
+        },
+        "dependencies": ["pythaitts", "onnxruntime", "numpy"],
+    })
+
+
+def pack_local_fastthai(source: Path, output: Path) -> Path:
+    """Stage existing locally owned model files into the data-only layout."""
+    temp_base = ROOT / "cache" / "temp"
+    temp_base.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="voxweavetts-fastthai-pack-", dir=temp_base) as temp:
+        stage = Path(temp)
+        for original, target_name in (
+            ("config.json", "config.json"),
+            ("kokoro_thai.onnx", "kokoro_thai.onnx"),
+            ("thai_som.npy", "voices/thai_som.npy"),
+        ):
+            original_file = Path(source) / original
+            if not original_file.is_file():
+                raise ModelPackageError("missing local FastThai model: " + original)
+            target = stage / target_name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                os.link(original_file, target)
+            except OSError:
+                shutil.copy2(original_file, target)
+        return make_package(stage, create_fastthai_manifest(stage), output)
+
+
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="VoxWeaveTTS model packages")
@@ -383,6 +450,10 @@ def main() -> None:
     build.add_argument("--source", type=Path, default=ROOT / "models" / "vachana")
     build.add_argument("--output", type=Path, default=ROOT / "dist" / "ModelPackages" /
                        "VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel")
+    fast = actions.add_parser("pack-fastthai")
+    fast.add_argument("--source", type=Path, default=ROOT / "models" / "fastthaig2p")
+    fast.add_argument("--output", type=Path, default=ROOT / "dist" / "ModelPackages" /
+                      "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel")
     args = parser.parse_args()
     try:
         if args.action == "install":
@@ -399,6 +470,9 @@ def main() -> None:
             manifest = create_vachana_manifest(args.source)
             print("Built", make_package(args.source, manifest, args.output))
             print("Rights status:", manifest["license"]["review_status"])
+        elif args.action == "pack-fastthai":
+            print("Built", pack_local_fastthai(args.source, args.output))
+            print("Rights status: review_required - not cleared for redistribution")
     except (ModelPackageError, OSError, zipfile.BadZipFile) as exc:
         parser.exit(2, "Model package operation failed: " + str(exc) + "\n")
 

@@ -1,6 +1,6 @@
 # VoxWeaveTTS — ช่องทางทำงานพร้อมกันและเสียงอิสระ
 
-> v0.4.2.dev1 (Development) · YouTube LIVE, TikTok LIVE, Discord, Studio, Document Reader
+> v0.4.2.dev2 (Development) · YouTube LIVE, TikTok LIVE, Discord, Studio, Document Reader
 
 รุ่น GitHub Portable v0.4.1 ยังเป็นโครงสร้างแบบสลับโหมดเดิม ระบบพร้อมกันนี้อยู่ในรุ่นพัฒนาใหม่
 
@@ -27,12 +27,13 @@
 
 ## Engine, Model, Voice และ DSP แยกช่องทาง
 
-แต่ละ Workspace ที่สร้างเสียงมีแผง เสียงเฉพาะช่องทาง สำหรับเลือก Engine/Model, Voice, Speed, Gain, Pitch, Bass, Treble และ Formant Preserve
+แต่ละ Workspace ที่สร้างเสียงมีแผงปรับเสียงและโมเดลแบบละเอียด มี Slider และช่องตัวเลขสำหรับ Engine/Model, Voice, Speed x0.60–x5.00, Gain, Pitch, Bass, Treble (ความละเอียด 0.01), Formant Preserve และ Seed ซึ่งต้องเป็นจำนวนเต็ม
 
 - การแก้ไขในแผงมีผลทันทีต่อข้อความ **ใหม่ที่ยังไม่เริ่มสร้างเสียง** รวมถึงข้อความ Live ที่รอคิวอยู่
 - ข้อความที่สร้าง WAV ไปแล้วหรือกำลังเล่นจะคงเสียงเดิม ไม่เปลี่ยนย้อนหลัง
 - ปุ่ม บันทึกเสียงของช่องทางนี้ บันทึกค่าแยกกันตาม Mode ในไฟล์ data/settings/mode-voices.json
-- หน้า Settings เป็นแหล่ง **ค่าเริ่มต้น** ของแต่ละช่องทาง ยังใช้ Rules/Pronunciations/Seed และ Model Packages ร่วมกันได้
+- Preset ของแต่ละช่องทางสามารถบันทึกและโหลดผ่านโฟลเดอร์ `presets/` ในโปรแกรม โดยมีไฟล์ `.json` แยกต่อ Preset และกดรีเฟรช Dropdown ได้เมื่อคัดลอกไฟล์จากเครื่องอื่นมาใส่
+- หน้า **ตั้งค่า** แสดงเฉพาะการจัดการ Model Packages ส่วนค่าเสียงละเอียดอยู่ในแต่ละช่องทาง ค่ากลางเก่าถูกอ่านเป็นค่าเริ่มต้นเพื่อรองรับการตั้งค่าเดิม โดยยังใช้ Rules/Pronunciations ร่วมกันได้
 - หากโมเดลที่บันทึกไว้ไม่พร้อม โปรแกรมใช้ Engine ที่พร้อมแทนชั่วคราวและแจ้งสถานะ โดยไม่ดาวน์โหลดโมเดลโดยอัตโนมัติ
 
 ## OBS Subtitle เมื่อมีเสียงซ้อน

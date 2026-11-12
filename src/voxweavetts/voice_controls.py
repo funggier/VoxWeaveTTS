@@ -19,8 +19,8 @@ from .processing import InputError
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTROL_FIELDS = {
-    "gain_db": {"label": "ความดัง", "min": -18.0, "max": 12.0, "step": 0.5, "default": 0.0, "unit": "dB", "kind": "post_dsp"},
-    "pitch_semitones": {"label": "ระดับเสียงสูงต่ำ", "min": -4.0, "max": 4.0, "step": 0.25, "default": 0.0, "unit": "semitones", "kind": "post_dsp"},
+    "gain_db": {"label": "ความดัง", "min": -18.0, "max": 12.0, "step": 0.01, "default": 0.0, "unit": "dB", "kind": "post_dsp"},
+    "pitch_semitones": {"label": "ระดับเสียงสูงต่ำ", "min": -4.0, "max": 4.0, "step": 0.01, "default": 0.0, "unit": "semitones", "kind": "post_dsp"},
     "bass_db": {"label": "เสียงทุ้ม", "min": -12.0, "max": 12.0, "step": 0.5, "default": 0.0, "unit": "dB", "kind": "post_dsp"},
     "treble_db": {"label": "เสียงแหลม", "min": -12.0, "max": 12.0, "step": 0.5, "default": 0.0, "unit": "dB", "kind": "post_dsp"},
 }
@@ -37,8 +37,8 @@ def ffmpeg_path() -> str | None:
 
 def control_schema() -> dict[str, Any]:
     return {
-        "speed": {"label": "ความเร็วการพูด", "min": 0.6, "max": 1.5,
-                  "step": 0.05, "default": 1.0, "unit": "x", "kind": "engine_native"},
+        "speed": {"label": "ความเร็วการพูด", "min": 0.6, "max": 5.0,
+                  "step": 0.01, "default": 1.0, "unit": "x", "kind": "engine_native"},
         "post": CONTROL_FIELDS,
         "formant_preserve": {"label": "รักษาเนื้อเสียงเมื่อปรับ Pitch",
                              "kind": "post_dsp", "default": True},

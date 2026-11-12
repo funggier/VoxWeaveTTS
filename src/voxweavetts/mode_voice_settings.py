@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .processing import InputError
-from .speech import get_engine_info, validate_speech_request
+from .speech import get_engine_info, validate_speech_request, validate_seed, DEFAULT_SEED
 from .voice_controls import validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,7 +25,7 @@ _LOCK = threading.RLock()
 
 
 def validate_voice_profile(raw: Any) -> dict[str, Any]:
-    if not isinstance(raw, dict) or set(raw) != {"engine_id", "voice_id", "speed", "voice_controls"}:
+    if not isinstance(raw, dict) or not {"engine_id","voice_id","speed","voice_controls"} <= set(raw) or set(raw) - {"engine_id","voice_id","speed","voice_controls","seed"}:
         raise InputError("invalid workspace voice settings")
     engine_id = raw["engine_id"]
     info = get_engine_info(engine_id)
@@ -36,6 +36,7 @@ def validate_voice_profile(raw: Any) -> dict[str, Any]:
     return {
         "engine_id": engine_id, "voice_id": voice_id,
         "speed": float(speed), "voice_controls": controls,
+        "seed": validate_seed(raw.get("seed", DEFAULT_SEED)),
     }
 
 

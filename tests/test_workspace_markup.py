@@ -68,8 +68,9 @@ class WorkspaceMarkupTests(unittest.TestCase):
             ("discordClientFeedSourceId","discord_client"),
             ("queueText","queue"),("queueAudio","queue"),
             ("rule","rules"),("pron","rules"),
-            ("engineSelect","settings"),("voiceSelect","settings"),
-            ("globalVoiceSave","settings"),
+            ("engineSelect",None),("voiceSelect",None),
+            ("globalVoiceSave",None),
+            ("modelPackageInstall","settings"),
         ):
             with self.subTest(name=name):
                 self.assertIn(name,parser.ids)

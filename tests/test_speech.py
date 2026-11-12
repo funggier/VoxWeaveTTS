@@ -15,7 +15,7 @@ class ConstantEngine:
 
     def generate(self, text, speed):
         assert text
-        assert 0.6 <= speed <= 1.5
+        assert 0.6 <= speed <= 5.0
         return struct.pack("<h", 2000) * 1000
 
 
@@ -53,7 +53,7 @@ class SpeechTests(unittest.TestCase):
 
     def test_invalid_controls(self):
         p = process_text("สวัสดี")
-        for speed in [-1, 0, 2, "fast", True]:
+        for speed in [-1, 0, 5.01, "fast", True, float("nan"), float("inf")]:
             with self.assertRaises(InputError):
                 render_wav(p, speed=speed, engine=ConstantEngine())
         with self.assertRaises(InputError):

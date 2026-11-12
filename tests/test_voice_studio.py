@@ -90,8 +90,8 @@ class VoiceStudioTests(unittest.TestCase):
 
     def test_preset_json_is_stored_private_with_safe_names(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(
-            presets, "PRESETS_FILE", Path(tmp) / "data" / "presets" / "voice-presets.json"
-        ):
+            presets, "PRESETS_DIR", Path(tmp) / "presets"
+        ), patch.object(presets, "PRESETS_FILE", Path(tmp) / "legacy.json"):
             saved = presets.save_preset({
                 "name": "นิยายเสียงนุ่ม",
                 "engine_id": PARADEE_ENGINE_ID,
@@ -160,8 +160,8 @@ class VoiceStudioServerTests(unittest.TestCase):
 
     def test_presets_round_trip_and_header_protection(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(
-            presets, "PRESETS_FILE", Path(tmp)/"presets.json"
-        ):
+            presets, "PRESETS_DIR", Path(tmp) / "presets"
+        ), patch.object(presets, "PRESETS_FILE", Path(tmp)/"legacy.json"):
             payload=json.dumps({
                 "name":"โปรไฟล์ทดสอบ", "engine_id":PARADEE_ENGINE_ID,
                 "speed":1.15, "voice_controls":{"pitch_semitones":1}

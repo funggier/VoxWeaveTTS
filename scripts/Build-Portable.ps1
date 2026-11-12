@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.4.1', [switch]$SkipZip)
+param([string]$Version = '0.4.2.dev2', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -50,7 +50,7 @@ foreach ($name in @('paradee_thai_int8.onnx','config.json')) {
   if (!(Test-Path $from)) {throw "Missing approved MakHam model file: $name"}
   Copy-Item $from (Join-Path $modelDir $name) -Force
 }
-foreach ($dir in @('models\fastthaig2p','cache\temp','cache\torch',
+foreach ($dir in @('presets','models\packages','models\fastthaig2p','cache\temp','cache\torch',
                    'cache\huggingface','voices','output','logs','data\settings',
                    'data\reading','data\filters','data\dictionaries',
                    'data\presets','data\profiles','config')) {
@@ -68,6 +68,7 @@ $notice=@(
   "Authors: PyThaiNLP / Wannaphong Phatthiyaphaibun; Paradee / Sahil Mahendrakar",
   "Third-party Python package license metadata/files are in runtime/python/Lib/site-packages/*dist-info/.",
   "User-generated speech, recordings and chat messages have their own rights.",
+  "Only MakHam Paradee weights are bundled. Other models are optional .vwmodel packages.",
   "FastThaiG2P 325MB model, personal voices and private local settings are NOT bundled."
 )
 $notice | Set-Content (Join-Path $stage 'THIRD_PARTY_NOTICES.txt') -Encoding UTF8

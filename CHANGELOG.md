@@ -2,6 +2,16 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## 0.4.2.dev2 — Detailed per-mode voices, portable presets and model packages (development, 2026-11-12)
+
+- Fixed automatic live reading being silently disabled by speech synthesis errors, browser autoplay denial, audio failures or Stop. Temporary failures now pause the queue without changing the Auto-read checkbox; each source offers a Retry Auto-read button. Manual checkbox changes and explicit profile import choices remain authoritative.
+- Settings is now dedicated to Model Packages. Removed the redundant top-bar Settings button, renamed the menu to ตั้งค่า, and moved precise voice controls into every speech mode.
+- Added 0.01-step sliders and number fields for speed (x0.60–x5.00), gain, pitch, bass, treble, plus formant and integer seed. MakHam and packaged FastThaiG2P accept x5, but effective speech-duration change remains engine dependent.
+- Individual Voice Presets are now saved as JSON files under the program-local presets/ folder. Files copied into this folder appear in the preset dropdown after refresh, and legacy presets are still readable.
+- Added FastThaiG2P/Kokoro Thai Som as an optional .vwmodel package, alongside Vachana Four Voices. Both packages are tested locally but their weights are not redistributed publicly pending license/provenance review.
+- Windows Portable builds bundle only MakHam Paradee voice model weights, with empty models/packages/ and presets/ directories for user additions.
+- Added preset directory/migration, auto-read preference, package adapter and precision regression tests. The published v0.4.1 release remains unchanged.
+
 ## 0.4.2.dev1 — Concurrent workspaces, per-mode voices and selectable audio policy (development, 2026-11-12)
 
 - Rename generic Live Reader navigation/title to **YouTube LIVE**, retaining the existing live-mode ID and saved connection profiles.

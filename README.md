@@ -4,17 +4,21 @@
 
 > **Windows portable release v0.4.1:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency YouTube/Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
-## Model packages (v0.4.2.dev1, development only)
+## Model packages (v0.4.2.dev2, development only)
 
 VoxWeaveTTS now has a data-only .vwmodel format for optional fixed-voice model packs. One pack specifies its compatible trusted engine adapter, version, multiple selectable voices, SHA-256 checksums, upstream model source, license claim and dependency metadata. The Windows local manager can install multiple packs/versions side by side and remove them independently; no model-supplied Python code runs.
 
 The Vachana Thai four-voice ONNX adapter was verified with real Thai WAVs from a locally installed model package, alongside existing MakHam. The Vachana pack is not publicly redistributed while model/dataset licensing is still under review. This work is **not yet included in the v0.4.1 portable release**; Vachana runtime dependencies are currently in the developer environment. [Thai package guide](docs/MODEL_PACKAGES_TH.md).
 
-## Concurrent workspaces and independent voices (v0.4.2.dev1, development only)
+## Concurrent workspaces and independent voices (v0.4.2.dev2, development only)
 
 YouTube LIVE (renamed from the earlier generic Live Reader), TikTok LIVE, Discord Bot and Discord Client are independent source sessions. Switching to Studio, Document Reader or another workspace no longer stops connected readers. Every speech workspace has its own Engine/Model, Voice, Speed and DSP controls with portable per-mode settings. The shared scheduler offers **serial** speech (no overlapping audio, default) or **overlap** (simultaneous playback). New settings apply to the next TTS job; an already rendered WAV is not re-synthesized. The OBS API reports active source subtitles individually, although the default overlay still shows one primary caption.
 
 This is not yet in the published v0.4.1 ZIP. Live multi-provider testing with authorized real accounts is pending; offline concurrent-source and scheduler tests pass. See [Thai mode guide](docs/WORKSPACE_MODES_TH.md).
+
+## Developer update v0.4.2.dev2
+
+The Settings workspace is now dedicated to Model Package management; the top Settings shortcut has been removed. Each speech workspace offers 0.01-step sliders, numerical voice tuning, speed up to x5, seed and independent presets. Folder-based `.json` voice presets live at `presets/` and are re-discovered from the dropdown refresh control; legacy presets remain readable. Automatic reading preferences are no longer silently unchecked on audio errors or Stop; speech pauses with a retry action instead. Only MakHam Paradee weights are bundled into Windows Portable; Vachana (four voices) and FastThaiG2P Thai Som are supported as separate, locally tested `.vwmodel` packs whose rights remain under review and are not publicly redistributed.
 
 ## Goals
 

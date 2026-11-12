@@ -16,7 +16,8 @@ import zipfile
 from pathlib import Path
 
 repo = Path(__file__).resolve().parents[1]
-archive = repo / "dist" / "VoxWeaveTTS-v0.4.1-portable.zip"
+version = os.environ.get("VOXWEAVE_PORTABLE_VERSION", "0.4.1")
+archive = repo / "dist" / f"VoxWeaveTTS-v{version}-portable.zip"
 assert archive.is_file(), "no release ZIP"
 sha = hashlib.sha256(archive.read_bytes()).hexdigest().upper()
 print("ZIP_SHA256", sha, flush=True)
@@ -30,7 +31,7 @@ with zipfile.ZipFile(archive) as z:
     assert "VoxWeaveTTS/LICENSE" in files
     assert "VoxWeaveTTS/THIRD_PARTY_NOTICES.txt" in files
     assert "VoxWeaveTTS/models/makham-paradee/paradee_thai_int8.onnx" in files
-    user_directories = ("data/", "voices/", "cache/", "output/", "logs/")
+    user_directories = ("data/", "voices/", "cache/", "output/", "logs/", "presets/", "models/packages/")
     assert not any(
         name.startswith("VoxWeaveTTS/" + directory) and not name.endswith("/")
         for directory in user_directories for name in files
@@ -82,7 +83,7 @@ with zipfile.ZipFile(archive) as z:
                 try:
                     with urllib.request.urlopen(base + "/v1/status", timeout=1) as response:
                         state = json.load(response)
-                    if state["version"] == "0.4.1":
+                    if state["version"] == version:
                         ready = True
                         break
                 except (OSError, ValueError):

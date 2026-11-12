@@ -6,6 +6,7 @@ remain here for backward compatibility and will be split into packages later.
 from __future__ import annotations
 
 import io
+import math
 import threading
 import wave
 from pathlib import Path
@@ -214,16 +215,22 @@ class FastThaiG2PEngine:
     sample_rate = SAMPLE_RATE
     _lock = threading.Lock()
 
-    def __init__(self, seed: int = DEFAULT_SEED):
+    def __init__(self, seed: int = DEFAULT_SEED, *,
+                 model_dir: Path = MODEL_DIR, engine_id: str = ENGINE_ID,
+                 voicepack_name: str = "thai_som.npy"):
         self.seed = validate_seed(seed)
+        self.model_dir = Path(model_dir)
+        self.voicepack_name = voicepack_name
+        self.id = engine_id
         self._native: Any = None
 
     def _get_native(self) -> Any:
         if self._native is None:
-            if not assets_ready():
-                raise EngineUnavailable(
-                    "FastThaiG2P model files are missing; run scripts/Install-ThaiEngine.ps1"
-                )
+            source = self.model_dir
+            voicepack = source / self.voicepack_name
+            if not all(path.is_file() for path in
+                       (source / "kokoro_thai.onnx", voicepack, source / "config.json")):
+                raise EngineUnavailable("FastThaiG2P model package assets are missing")
             if not runtime_ready():
                 raise EngineUnavailable(
                     "PyThaiTTS ONNX dependencies are not installed in the selected Python runtime"
@@ -233,9 +240,9 @@ class FastThaiG2PEngine:
             # IMPORTANT: seed the runtime BEFORE creating the ONNX session.
             ort.set_seed(self.seed)
             self._native = TTS(
-                model_path=MODEL_DIR / ASSETS["model"],
-                voicepack_path=MODEL_DIR / ASSETS["voicepack"],
-                config_path=MODEL_DIR / ASSETS["config"],
+                model_path=self.model_dir / "kokoro_thai.onnx",
+                voicepack_path=voicepack,
+                config_path=self.model_dir / "config.json",
                 device="cpu",
                 intra_op_threads=4,
                 speed=1.0,
@@ -359,28 +366,38 @@ def refresh_engine_registry() -> None:
 def _register_model_packages(registry: EngineRegistry) -> None:
     """A package selects an existing adapter, never imports package code."""
     for manifest, model_dir in installed_packages():
-        if manifest["engine_adapter"] != "vachana-onnx-v1":
+        if manifest["engine_adapter"] not in ("vachana-onnx-v1", "fastthaig2p-kokoro-v1"):
             continue
         engine_id = engine_id_for(manifest)
         voices = tuple((entry["id"], entry["label"]) for entry in manifest["voices"])
         label = manifest["title"] + " · " + manifest["version"]
         commercial = manifest["license"]["review_status"]
+        adapter = manifest["engine_adapter"]
         def description(engine_id=engine_id, voices=voices, model_dir=model_dir,
-                        label=label, commercial=commercial, manifest=manifest):
+                        label=label, commercial=commercial, manifest=manifest,
+                        adapter=adapter):
             ready = all((model_dir / file["path"]).is_file() and
                         (model_dir / file["path"]).stat().st_size == file["size"]
                         for file in manifest["files"])
-            flags = dict(_vachana_descriptor().capabilities)
+            is_vachana = adapter == "vachana-onnx-v1"
+            flags = dict(_vachana_descriptor().capabilities if is_vachana
+                         else engine_info().capabilities)
             return EngineInfo(
                 id=engine_id, label=label, language="th",
                 voice_id=voices[0][0], voice_options=voices,
-                sample_rate=VACHANA_RATE, assets_ready=ready,
-                runtime_ready=vachana_runtime_ready(), capabilities=flags,
+                sample_rate=VACHANA_RATE if is_vachana else SAMPLE_RATE,
+                assets_ready=ready,
+                runtime_ready=vachana_runtime_ready() if is_vachana else runtime_ready(),
+                capabilities=flags,
                 commercial_status=commercial,
             )
         voice_assets = {voice["id"]: voice["asset"] for voice in manifest["voices"]}
         def create(seed: int, engine_id=engine_id, model_dir=model_dir,
-                   voices=voices, voice_assets=voice_assets):
+                   voices=voices, voice_assets=voice_assets, adapter=adapter):
+            if adapter == "fastthaig2p-kokoro-v1":
+                return FastThaiG2PEngine(
+                    seed=seed, model_dir=model_dir, engine_id=engine_id,
+                    voicepack_name=voice_assets[voices[0][0]])
             return VachanaEngine(model_dir=model_dir, engine_id=engine_id,
                                  voices=voices, voice_assets=voice_assets)
         registry.register(engine_id, describe=description, create=create)
@@ -440,8 +457,8 @@ def _chunks(text: str, limit: int = 110) -> list[str]:
 
 def validate_speech_request(plan: dict[str, Any], speed: float, voice_id: str,
                             engine_id: str = ENGINE_ID) -> None:
-    if type(speed) not in (int, float) or not 0.6 <= speed <= 1.5:
-        raise InputError("speed must be a number from 0.6 to 1.5")
+    if type(speed) not in (int, float) or not math.isfinite(speed) or not 0.6 <= speed <= 5.0:
+        raise InputError("speed must be a finite number from 0.6 to 5.0")
     info = get_engine_info(engine_id)
     if voice_id not in info.voice_ids:
         raise InputError(f"voice_id is not available in selected engine {engine_id}")
@@ -527,7 +544,7 @@ def render_wav(
     return audio_buffer.getvalue(), {
         "engine_id": engine.id,
         "voice_id": voice_id,
-        "seed": seed if engine_id == ENGINE_ID else None,
+        "seed": seed if get_engine_info(engine_id).capabilities.get("seed_control") else None,
         "voice_controls": controls,
         "sample_rate": rate,
         "duration_ms": round(frames * 1000 / rate),

@@ -45,6 +45,7 @@ const overrides={
   live:{...defaults,engine_id:"vachana-cpu",voice_id:"th_f_1",speed:1.1},
 };
 global.fetch=async(path,options)=>{
+  if(path==="/v1/presets")return{ok:true,async json(){return{presets:[]};}};
   assert.equal(path,"/v1/settings/mode-voices");
   if(!options?.method)return{ok:true,async json(){return{
     revision,policy:"serial",modes:overrides,
@@ -71,7 +72,7 @@ async function main(){
   const grid=all[2];
   const engine=grid.children[0].children[1];
   const voice=grid.children[1].children[1];
-  const speed=grid.children[2].children[1];
+  const speed=grid.children[2].children[2];
   assert.equal(engine.value,"vachana-cpu");
   voice.value="th_m_2";speed.value="1.35";
   const next=manager.read("live");

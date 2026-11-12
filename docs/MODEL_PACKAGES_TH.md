@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Model Packages (.vwmodel)
 
-สถานะ: ต้นแบบสำหรับพัฒนา v0.4.2.dev0 ยังไม่ใช่ Model Store สาธารณะ
+สถานะ: ต้นแบบสำหรับพัฒนา v0.4.2.dev2 ยังไม่ใช่ Model Store สาธารณะ
 
 ## แนวคิด
 
@@ -83,6 +83,12 @@ Runtime: vachanatts==0.0.7, onnxruntime, pythainlp, ssg
 ไลเซนส์ใน Manifest ระบุ MIT ตามข้อมูลจากแหล่งเผยแพร่ แต่ review_status = review_required ยังไม่ได้รับรองสิทธิ์เชิงพาณิชย์ของน้ำหนักโมเดล/ข้อมูลฝึกทั้งหมด ดังนั้นไฟล์แพ็กเกจนี้สร้างไว้ทดลองในเครื่อง ไม่ได้เผยแพร่ลง GitHub Release สาธารณะ
 
 Windows Portable Release v0.4.1 เดิมอาจยังไม่มี Runtime Dependencies ของ Vachana ครบ แพ็กเกจอย่างเดียวจึงไม่รับประกันว่ารุ่นนั้นจะสร้างเสียงได้ ต้องใช้รุ่นโปรแกรมที่มี Adapter และ Dependencies รองรับ
+
+## FastThaiG2P Thai Som เป็นแพ็กเกจแยก
+
+สามารถสร้างแพ็กเกจจากโมเดล FastThaiG2P ที่มีอยู่ใน `models/fastthaig2p/` ด้วยคำสั่ง `python -m voxweavetts.model_packages pack-fastthai` จะได้ไฟล์ `dist/ModelPackages/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel` สำหรับติดตั้งแยกผ่าน Model Package Manager โดยใช้ Engine Adapter `fastthaig2p-kokoro-v1` และไฟล์ ONNX + Voicepack .npy
+
+ทดสอบสร้าง WAV ไทยได้ทั้งที่ x1 และ x5 จากแพ็กเกจที่ติดตั้งแล้ว ขณะที่ **Portable หลักบันเดิลเฉพาะน้ำหนัก MakHam Paradee** ไม่รวม FastThaiG2P หรือ Vachana ทั้งสองแพ็กเกจยังระบุ `review_required` จึงไม่เผยแพร่ไฟล์น้ำหนักสาธารณะก่อนตรวจสิทธิ์โมเดล/ข้อมูลฝึก
 
 ## ความปลอดภัยและลิขสิทธิ์
 

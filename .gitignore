@@ -34,6 +34,8 @@ data/*
 data/dictionaries/
 data/filters/
 data/presets/
+presets/*
+!presets/.gitkeep
 data/profiles/
 data/settings/
 *.wav
