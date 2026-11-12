@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.4.3', [switch]$SkipZip)
+param([string]$Version = '0.4.4.dev0', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -7,6 +7,8 @@ $site=Join-Path $root '.venv\Lib\site-packages'
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework/v4.0.30319/csc.exe'
 if (!(Test-Path $venv) -or !(Test-Path $compiler)) {throw 'Windows build prerequisites missing'}
 if (!(Test-Path (Join-Path $site 'onnxruntime')) -or !(Test-Path (Join-Path $site 'pythaitts'))) {throw 'TTS runtime prerequisites missing'}
+& $venv -c 'import grpc,google.protobuf'
+if ($LASTEXITCODE -ne 0) {throw 'YouTube streamList requires grpcio and protobuf in the build venv'}
 $pythonHome=(& $venv -c 'import sys; print(sys.base_prefix)').Trim()
 if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $pythonHome 'LICENSE.txt'))) {throw 'Python runtime not found'}
 
@@ -62,6 +64,8 @@ $notice=@(
   "VoxWeaveTTS: MIT; see LICENSE.",
   "Bundled Python 3.11: PSF license; see runtime/python/LICENSE.txt.",
   "PyThaiTTS 1.0.0: Apache-2.0; https://pypi.org/project/PyThaiTTS/",
+  "grpcio: Apache-2.0; https://github.com/grpc/grpc",
+  "Google Protocol Buffers: BSD-3-Clause; https://github.com/protocolbuffers/protobuf",
   "MakHam Paradee INT8 model: Apache-2.0; https://huggingface.co/pythainlp/MakHamTTS",
   "Model SHA256: $hash",
   "Training dataset credit: https://huggingface.co/datasets/pythainlp/MakHamTTS-dataset",

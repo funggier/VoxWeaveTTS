@@ -465,6 +465,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         " · รับ "+(status.received||0)+
         " · กรอง/ล้นคิว "+(status.discarded||0)+
         " · รออ่าน "+(status.pending||0)+
+        (status.transport==="streamList"?" · YouTube streamList":status.transport==="polling"?" · YouTube REST": "")+
         " · รอบถัดไป "+Math.round(status.next_poll_seconds||0)+"s"+
         (["error","connecting","retrying"].includes(status.state) ? " · "+status.info : "")
       );

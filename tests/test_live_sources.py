@@ -54,7 +54,7 @@ class AdapterTests(unittest.TestCase):
         second=a.poll()
         self.assertEqual([x.message_id for x in second.messages],["new1","new2"])
         self.assertEqual(second.messages[0].text,"สวัสดีครับ 🧑🏽‍💻")
-        self.assertEqual(second.delay_seconds,9)
+        self.assertEqual(second.delay_seconds,30)  # quota-friendly REST fallback
         self.assertIn("pageToken=page2",seen[1][0])
         self.assertEqual(seen[0][1],{})
 
@@ -94,6 +94,200 @@ class AdapterTests(unittest.TestCase):
                     self.assertIn(hint,str(failure.exception))
                     self.assertNotIn("SECRET_API_KEY",str(failure.exception))
                     self.assertNotIn("SECRET_BOT_TOKEN",str(failure.exception))
+
+    def test_youtube_stream_frames_and_resume_cursor_without_rest_polling(self):
+        created=[]
+        class Stream:
+            def __init__(self,frames):
+                self.frames=iter(frames)
+                self.closed=False
+            def __next__(self):
+                return next(self.frames)
+            def close(self):
+                self.closed=True
+        def connect(chat_id,key,cursor):
+            self.assertEqual(chat_id,"Cg0K_livechat_id")
+            self.assertEqual(key,"test_api_key_12345")
+            created.append(cursor)
+            if not cursor:
+                return Stream([
+                    {"nextPageToken":"cursor1","items":[{"id":"history",
+                     "snippet":{"type":"textMessageEvent",
+                     "textMessageDetails":{"messageText":"OLD"}}}]},
+                    {"nextPageToken":"cursor2","items":[
+                        {"id":"new","snippet":{"type":"textMessageEvent",
+                          "textMessageDetails":{"messageText":"สวัสดีครับ"}},
+                         "authorDetails":{"displayName":"ผู้ชม"}},
+                        {"id":"not-text","snippet":{"type":"superChatEvent"}},
+                    ]},
+                ])
+            return Stream([
+                {"nextPageToken":"cursor3","items":[
+                    {"id":"after-reconnect","snippet":{"type":"textMessageEvent",
+                     "textMessageDetails":{"messageText":"กลับมาแล้ว"}}}
+                ]},
+            ])
+        def deny_rest(*args):
+            self.fail("streamList must not call liveChatMessages.list")
+        a=YouTubeLiveAdapter("Cg0K_livechat_id","test_api_key_12345",
+                             fetcher=deny_rest,stream_factory=connect)
+        self.assertEqual(a.transport,"streamList")
+        first=a.poll()
+        self.assertEqual(first.messages,())
+        self.assertEqual(first.delay_seconds,0)
+        second=a.poll()
+        self.assertEqual([item.text for item in second.messages],["สวัสดีครับ"])
+        self.assertEqual(second.messages[0].author,"ผู้ชม")
+        with self.assertRaises(SourceFailure) as lost:
+            a.poll()
+        self.assertFalse(lost.exception.fatal)
+        self.assertEqual(a.page_token,"cursor2")
+        third=a.poll()
+        self.assertEqual([msg.message_id for msg in third.messages],["after-reconnect"])
+        self.assertEqual(created,[None,"cursor2"])
+        a.close()
+
+    def test_youtube_stream_resource_exhausted_not_silently_polling(self):
+        class ResourceExhausted(Exception):
+            def code(self):
+                from types import SimpleNamespace
+                return SimpleNamespace(name="RESOURCE_EXHAUSTED")
+            def __str__(self):
+                return "SECRET_API_KEY and noisy internal server info"
+        class FailedStream:
+            def __next__(self):
+                raise ResourceExhausted()
+            def close(self):pass
+        a=YouTubeLiveAdapter("Cg0K_livechat_id","test_api_key_12345",
+                             stream_factory=lambda *_:FailedStream())
+        with self.assertRaises(SourceFailure) as failure:
+            a.poll()
+        self.assertEqual(a.transport,"streamList")
+        self.assertTrue(failure.exception.fatal)
+        self.assertIn("automatic reconnect stopped",str(failure.exception))
+        self.assertNotIn("SECRET_API_KEY",str(failure.exception))
+
+    def test_google_quota_reasons_stop_requests_without_disclosing_error_body(self):
+        for reason in ("quotaExceeded","dailyLimitExceeded","dailyLimitExceededUnreg"):
+            with self.subTest(reason=reason):
+                url="https://www.googleapis.com/youtube/v3/videos?key=SECRET_API_KEY"
+                body=json.dumps({"error":{"errors":[
+                    {"reason":reason,"message":"SECRET_API_KEY"}]}}).encode()
+                error=HTTPError(url,403,"forbidden",{},io.BytesIO(body))
+                with patch("voxweavetts.source_adapters.build_opener") as opener:
+                    opener.return_value.open.side_effect=error
+                    with self.assertRaises(SourceFailure) as failure:
+                        _fetch_json(url,{})
+                self.assertTrue(failure.exception.fatal)
+                self.assertIn(reason,str(failure.exception))
+                self.assertIn("automatic requests stopped",str(failure.exception))
+                self.assertNotIn("SECRET_API_KEY",str(failure.exception))
+        url="https://www.googleapis.com/youtube/v3/liveChat/messages?key=SECRET_API_KEY"
+        body=json.dumps({"error":{"errors":[{"reason":"rateLimitExceeded"}]}}).encode()
+        error=HTTPError(url,403,"forbidden",{},io.BytesIO(body))
+        with patch("voxweavetts.source_adapters.build_opener") as opener:
+            opener.return_value.open.side_effect=error
+            with self.assertRaises(SourceFailure) as failure:
+                _fetch_json(url,{})
+        self.assertFalse(failure.exception.fatal)
+        self.assertGreaterEqual(failure.exception.retry_after,120)
+
+    def test_stream_wire_subset_uses_official_field_numbers_and_keeps_key_out_of_url(self):
+        try:
+            from voxweavetts.youtube_stream import _wire_types, StreamConnection
+            import google.protobuf  # noqa: F401
+        except ImportError:
+            self.skipTest("Protobuf is optional in stdlib-only CI")
+
+        request_type,response_type=_wire_types()
+        request=request_type(live_chat_id="Cg0K_chat_id",
+                             part=["snippet","authorDetails"],
+                             page_token="resume_here")
+        expected=request_type.FromString(request.SerializeToString())
+        self.assertEqual(expected.page_token,"resume_here")
+        self.assertEqual(list(expected.part),["snippet","authorDetails"])
+        frame=response_type(next_page_token="next-token")
+        row=frame.items.add()
+        row.id="message-123"
+        row.snippet.type=1
+        row.snippet.text_message_details.message_text="สวัสดีชาวไทย"
+        row.author_details.display_name="ผู้ชม"
+        roundtrip=response_type.FromString(frame.SerializeToString())
+        self.assertEqual(roundtrip.next_page_token,"next-token")
+        self.assertEqual(roundtrip.items[0].snippet.text_message_details.message_text,
+                         "สวัสดีชาวไทย")
+        self.assertEqual(roundtrip.items[0].author_details.display_name,"ผู้ชม")
+
+        import sys
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        class FakeCall:
+            def __init__(self):
+                self.iterator=iter([frame])
+                self.cancelled=False
+            def __next__(self):
+                return next(self.iterator)
+            def cancel(self):
+                self.cancelled=True
+        call=FakeCall()
+        channel=Mock()
+        def unary_stream(method,request_serializer,response_deserializer):
+            self.assertEqual(method,
+                "/youtube.api.v3.V3DataLiveChatMessageService/StreamList")
+            self.assertEqual(response_deserializer(frame.SerializeToString()).items[0].id,
+                             "message-123")
+            def invoke(req,metadata,timeout):
+                self.assertEqual(req.live_chat_id,"Cg0K_chat_id")
+                self.assertEqual(req.page_token,"resume_here")
+                self.assertEqual(metadata,(("x-goog-api-key","SECRET_API_KEY"),))
+                self.assertEqual(timeout,1800)
+                self.assertNotIn("SECRET_API_KEY",method)
+                self.assertEqual(request_type.FromString(
+                    request_serializer(req)).page_token,"resume_here")
+                return call
+            return invoke
+        channel.unary_stream.side_effect=unary_stream
+        fake_grpc=SimpleNamespace(
+            secure_channel=Mock(return_value=channel),
+            ssl_channel_credentials=Mock(return_value=object()),
+        )
+        with patch.dict(sys.modules,{"grpc":fake_grpc}):
+            connection=StreamConnection("Cg0K_chat_id","SECRET_API_KEY","resume_here")
+            self.assertEqual(next(connection)["items"][0]["authorDetails"]["displayName"],
+                             "ผู้ชม")
+            self.assertEqual(next(iter([1])),1)
+            connection.close()
+            self.assertTrue(call.cancelled)
+            channel.close.assert_called_once()
+
+    def test_quota_failure_stops_source_worker_without_repeated_requests(self):
+        class QuotaAdapter:
+            attempts=0
+            def __init__(self,*args):
+                pass
+            def poll(self):
+                QuotaAdapter.attempts+=1
+                raise SourceFailure("YouTube quotaExceeded: automatic requests stopped",
+                                    fatal=True)
+        modes=ModeState()
+        token=modes.activate("live",PlaybackState())["mode_token"]
+        manager=SourceManager(youtube_factory=QuotaAdapter)
+        try:
+            manager.start({"mode":"live","mode_token":token,
+                           "source_id":"Cg0K_livechat_id",
+                           "credential":"SECRET_API_KEY"},modes)
+            deadline=time.monotonic()+2
+            while manager.status("live")["state"]=="connecting" and time.monotonic()<deadline:
+                time.sleep(.01)
+            status=manager.status("live")
+            self.assertEqual(status["state"],"error")
+            self.assertEqual(status["next_poll_seconds"],0)
+            self.assertIn("quotaExceeded",status["info"])
+            self.assertNotIn("SECRET_API_KEY",str(status))
+            time.sleep(.07)
+            self.assertEqual(QuotaAdapter.attempts,1)
+        finally:
+            manager.stop_all()
 
     def test_youtube_no_live_chat_is_hard_error(self):
         def get(*args):
@@ -234,6 +428,44 @@ class ManagerTests(unittest.TestCase):
             self.assertGreaterEqual(status["next_poll_seconds"],5)
             self.assertNotIn("SECRET_CREDENTIAL",str(status))
             self.assertTrue(manager._sessions["live"].thread.is_alive())
+        finally:
+            manager.stop_all()
+
+    def test_stream_mode_manager_uses_push_without_five_second_delay(self):
+        class FakePushStream:
+            transport="streamList"
+            polls=0
+            def __init__(self,*args):
+                self.cancelled=threading.Event()
+            def set_cancel(self,event):
+                self.cancelled=event
+            def poll(self):
+                self.polls+=1
+                if self.polls==1:
+                    return PollResult((SourceMessage("msg-stream","ผู้ชม","สวัสดี"),),0.0)
+                self.cancelled.wait(2)
+                raise SourceFailure("stream cancelled",fatal=True)
+            def close(self):
+                self.cancelled.set()
+        manager=SourceManager(youtube_factory=FakePushStream)
+        try:
+            manager.start({"mode":"live","mode_token":self.owner["mode_token"],
+                           "source_id":"Cg0K_livechat_id",
+                           "credential":"test_api_key_12345"},self.modes)
+            deadline=time.monotonic()+1
+            while time.monotonic()<deadline:
+                with manager._lock:
+                    stream=manager._sessions["live"].adapter
+                    status=manager.status("live")
+                if stream.polls>=2:
+                    break
+                time.sleep(.01)
+            self.assertGreaterEqual(stream.polls,2,
+                                    "gRPC push must not wait five seconds between frames")
+            self.assertEqual(status["transport"],"streamList")
+            self.assertEqual(status["next_poll_seconds"],0)
+            self.assertEqual(status["pending"],1)
+            self.assertIn("streamList",status["info"])
         finally:
             manager.stop_all()
 

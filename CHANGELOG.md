@@ -2,6 +2,14 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## 0.4.4.dev0 — YouTube Live gRPC streaming and quota protection (development, 13 November 2026)
+
+- Implemented official YouTube Live Chat `streamList` gRPC server-stream receiver with a small protobuf schema derived from the documented wire fields, continuation token resume and cancellation for source Stop/other-tab ownership changes.
+- Production auto-selects gRPC when `grpcio` and `protobuf` are available. REST `liveChatMessages.list` is a conservative fallback (minimum 30-second polling interval); both still have API quota costs. New Windows Portable builds require bundling the gRPC dependency and provide its license notice.
+- Read a fixed whitelist of official YouTube API error reasons from bounded error JSON without showing raw bodies or API keys; stop automatic requests on quota exhaustion, back off on short-term rate limits, and stop gRPC reconnects on ambiguous `RESOURCE_EXHAUSTED` for safety.
+- Show selected source transport (YouTube streamList or REST) in status without exposing credentials. Expanded offline tests for stream message order, baseline suppression, cursor resume, wire compatibility, quota guard and error sanitization. No live-user credential or real YouTube API call was made during the tests.
+- Development only: Published Windows Portable v0.4.3 is not automatically changed. Real-provider low-latency behavior still needs testing with a valid quota and authorized account.
+
 ## 0.4.3 — Live Source Owner Reconnection + Optional Model Downloads (13 November 2026)
 
 - Explicit Connect for YouTube LIVE/Discord Bot/Discord Client renews the mode-specific owner token. Fixes stale-owner rejection after local backend restart or another browser tab claims that workspace, without revoking unrelated modes.

@@ -16,6 +16,10 @@ YouTube LIVE (renamed from the earlier generic Live Reader), TikTok LIVE, Discor
 
 These concurrent-workspace features are included in the v0.4.2 ZIP. Simultaneous authorized real-account testing across all providers is still pending; offline source and scheduler tests pass. See [Thai mode guide](docs/WORKSPACE_MODES_TH.md).
 
+## Development 0.4.4.dev0: YouTube gRPC Live Chat streaming and quota guard
+
+YouTube LIVE now prefers the official `liveChatMessages.streamList` **gRPC** server stream with one connection and continuation tokens. The Windows Portable build must bundle `grpcio` and `protobuf`; ordinary Python installs can enable the optional `youtube-stream` extra. If gRPC is unavailable/unsupported, the adapter uses quota-conscious REST `liveChatMessages.list` polling with at least 30 seconds between calls. Known Google `quotaExceeded` / `dailyLimitExceeded` errors stop automatic retries, `rateLimitExceeded` triggers backoff, and raw error details/credentials are never exposed. The stream itself also costs quota when started. This is a local development change only; published v0.4.3 still uses REST and real-account streaming verification is pending.
+
 ## v0.4.3 hotfix: Source reconnect and model package assets
 
 An explicit YouTube LIVE / Discord Bot / Discord Client Connect now reclaims the owner token for that workspace, fixing a stale-token rejection after a backend restart or another browser tab takes control. HTTP 400/401/403/404 errors expose their category without exposing credentials. Provider-side invalid API keys, account access, and quotas still require separate fixes.

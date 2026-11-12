@@ -15,6 +15,14 @@
 
 ไม่ต้องลง Python, Node, GitHub CLI หรือโปรแกรมติดตั้งเพิ่มสำหรับฟังก์ชันสร้างเสียงพื้นฐาน ผู้ใช้ย้ายโฟลเดอร์ทั้งชุดไปไดรฟ์อื่นได้ และไฟล์โมเดล แคช ค่ากลางอยู่ภายในโฟลเดอร์โปรแกรม [คู่มือ Windows Portable](docs/PORTABLE.md) · [ไลเซนส์ส่วนประกอบ](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
 
+## รุ่นพัฒนาถัดไป — YouTube LIVE โควตาและ gRPC streamList (0.4.4.dev0)
+
+- เพิ่มรับข้อความผ่าน YouTube `liveChatMessages.streamList` (gRPC แบบรับข้อความต่อเนื่อง) เพื่อลด REST Polling ที่เปลือง Quota และกลับไปใช้ REST อย่างน้อยทุก 30 วินาทีเมื่อ gRPC ไม่พร้อมหรือ Server ไม่รองรับ
+- อ่าน Google API Error `reason` ที่ปลอดภัยเพื่อแยก `quotaExceeded`, `dailyLimitExceeded`, `rateLimitExceeded` โดย **หยุด API อัตโนมัติเมื่อโควตารายวันหมด** ไม่เปิดเผย API Key และไม่ Retry ซ้ำจนกว่าผู้ใช้จะ Connect เอง
+- `streamList` มีค่าใช้โควตาในการเปิดการเชื่อมต่อและยังต้องมีสิทธิ์เข้าถึง Live Chat การทดสอบส่วนนี้เป็นการจำลอง API เท่านั้น ยังไม่ทดสอบกับบัญชีจริงที่โควตาคงเหลือน้อย
+
+**หมายเหตุ:** รุ่น Development `0.4.4.dev0` ยังไม่ใช่ GitHub Portable Release; รุ่น `v0.4.3` ที่เผยแพร่ก่อนหน้านี้ยังใช้ REST Polling
+
 ## แก้ Connect และดาวน์โหลด Model Packages พร้อมโปรแกรม (v0.4.3)
 
 รุ่นนี้แก้ปัญหาการเชื่อมต่อที่แจ้ง `source monitor requires the active mode owner token` โดยเมื่อกด Connect จะขอ owner token ใหม่เฉพาะช่องทาง YouTube LIVE หรือ Discord ที่กำลังเลือก ส่วน HTTP 400/401/403/404 จะมีคำอธิบายแยกประเภทเพื่อช่วยตรวจ API Key, สิทธิ์ และช่อง Live/Discord ทั้งนี้ API Key ที่ไม่ถูกต้องหรือหมดโควตายังต้องแก้ที่ผู้ให้บริการ

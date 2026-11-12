@@ -14,11 +14,13 @@
 2. เปิดโหมด YouTube LIVE แล้วระบุ Video ID (11 ตัว) ของ Live ที่กำลังดำเนินอยู่ หรือระบุ liveChatId โดยตรง
 3. กรอก API Key ในช่องชั่วคราว หรือกำหนด Environment Variable ชื่อ VOXWEAVE_YOUTUBE_API_KEY ให้โปรเซสที่เปิดโปรแกรม
 4. เลือก Blacklist ของคำที่ไม่ต้องการและความยาวสูงสุด ก่อนกด เชื่อมต่อ API
-5. ระบบใช้ liveChatMessages.list; หน้าแรกตั้งเป็นจุดเริ่มต้นและไม่อ่านข้อความประวัติก่อนเชื่อมต่อ จากนั้นใช้ nextPageToken และ pollingIntervalMillis ของ API ในคำขอต่อไป
+5. รุ่นพัฒนา `0.4.4.dev0` ใช้ `liveChatMessages.streamList` ผ่าน gRPC เป็นหลัก ข้อมูลที่ได้ครั้งแรกถือเป็นประวัติเดิมและไม่ส่งเข้า TTS จากนั้นรับข้อความใหม่ที่ YouTube ส่งมาตามจริง โดยเก็บ `nextPageToken` เพื่อกลับมาอ่านต่อเมื่อเชื่อมต่อใหม่
 
-ข้อจำกัด: ใช้ REST Polling (อย่างน้อยประมาณ 5 วินาทีขึ้นไป) ไม่ใช่ streamList และมีค่าโควต้าการเรียก API ผู้ใช้ควรตรวจสิทธิ์และโควต้าของโครงการตัวเอง
+**รุ่นพัฒนา 0.4.4.dev0:** streamList ใช้ gRPC/Protocol Buffers (ต้องมี `grpcio` และ `protobuf` ใน Runtime) ไม่ใช่ REST หรือ SSE หาก gRPC ไม่พร้อมหรือ Server ไม่รองรับจึงกลับไป `liveChatMessages.list` แบบเว้นอย่างน้อย 30 วินาที (`pollingIntervalMillis` อาจกำหนดให้นานกว่า) ช่วยลดจำนวนคำขอแต่ **ไม่ทำให้โควตาเป็นศูนย์** เพราะเปิด streamList ใหม่และค้นหา Live Chat ID ยังใช้โควตา โค้ดยังไม่ถูกเผยแพร่ใน ZIP `v0.4.3`
 
-เอกสาร: https://developers.google.com/youtube/data/live/docs/liveChatMessages/list
+**ป้องกันหมดโควตา:** อ่านรหัส Google API Error ที่อนุญาต เช่น `quotaExceeded`, `dailyLimitExceeded`, `rateLimitExceeded`, `liveChatDisabled` โดยไม่แสดง Error Body/URL/API Key; เมื่อรายวันหมดจะหยุดเรียกอัตโนมัติทันทีจนกว่าผู้ใช้จะกด Connect อีกครั้ง ส่วน Rate Limit แบบชั่วคราวจะพักอย่างน้อย 120 วินาที สำหรับ gRPC `RESOURCE_EXHAUSTED` จะหยุดการเชื่อมต่ออัตโนมัติเช่นกันเพราะยังระบุไม่ได้แน่ชัดว่าเป็น Quota หรือ Rate Limit ต้องตรวจข้อมูล Google Cloud ก่อนลองใหม่
+
+เอกสาร: https://developers.google.com/youtube/v3/live/docs/liveChatMessages/streamList และ https://developers.google.com/youtube/v3/live/streaming-live-chat
 
 ## วิธีเชื่อม Discord
 

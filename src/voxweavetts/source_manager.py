@@ -60,6 +60,9 @@ class _Session:
             "polls": self.polls,
             "next_poll_seconds": self.next_poll_seconds,
             "temporary_credentials": True,
+            **({"transport": self.adapter.transport}
+               if self.mode == "live" and getattr(self.adapter, "transport", None)
+               in ("streamList", "polling") else {}),
             **({"connection_phase": self.adapter.phase}
                if self.mode == "discord_client" and isinstance(getattr(self.adapter, "phase", None), str)
                else {}),
@@ -225,7 +228,9 @@ class SourceManager:
                     session.state = "running"
                     session.info = ("Discord Desktop RPC subscribed to selected room"
                                     if session.mode == "discord_client"
-                                    else "official API connected")
+                                    else ("YouTube streamList connected"
+                                          if session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList"
+                                          else "official API connected"))
                     for item in batch.messages:
                         if item.message_id in session.seen:
                             session.duplicates += 1
@@ -249,8 +254,11 @@ class SourceManager:
                         session.info = "live broadcast ended"
                         session.next_poll_seconds = 0
                         break
-                    delay = (min(2, max(.1, batch.delay_seconds)) if session.mode == "discord_client"
-                             else min(3600, max(5, batch.delay_seconds)))
+                    delay = (0.0 if session.mode == "live" and
+                             getattr(session.adapter, "transport", "") == "streamList"
+                             else (min(2, max(.1, batch.delay_seconds))
+                                   if session.mode == "discord_client"
+                                   else min(3600, max(5, batch.delay_seconds))))
                     session.next_poll_seconds = delay
                 backoff = 5
             except SourceFailure as exc:

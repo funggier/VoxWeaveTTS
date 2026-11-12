@@ -13,6 +13,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from .youtube_stream import StreamConnection, StreamUnavailable, grpc_available
+
 from .processing import InputError
 
 MAX_API_RESPONSE = 512_000
@@ -31,6 +33,45 @@ class SourceFailure(Exception):
         self.retry_after = retry_after
 
 
+# Only enumerate documented, fixed diagnostic codes; NEVER echo Google's
+# error message or raw body, which may contain identifiers or an API key.
+_YOUTUBE_REASONS = frozenset((
+    "quotaExceeded", "dailyLimitExceeded", "dailyLimitExceededUnreg",
+    "rateLimitExceeded", "userRateLimitExceeded", "liveChatDisabled",
+    "liveChatEnded", "liveChatNotFound", "forbidden", "accessNotConfigured",
+    "keyInvalid", "ipRefererBlocked", "invalidPageToken",
+))
+_QUOTA_EXHAUSTED = frozenset((
+    "quotaExceeded", "dailyLimitExceeded", "dailyLimitExceededUnreg",
+))
+
+
+def _safe_youtube_reason(response: bytes) -> str | None:
+    try:
+        result = json.loads(response)
+        error = result.get("error", {})
+        errors = error.get("errors", []) if isinstance(error, dict) else []
+        reasons = [
+            entry.get("reason") for entry in errors[:8]
+            if isinstance(entry, dict)
+        ] if isinstance(errors, list) else []
+        for reason in reasons:
+            if isinstance(reason, str) and reason in _YOUTUBE_REASONS:
+                return reason
+        # Google's newer structured ErrorInfo can also carry a reason,
+        # but don't print arbitrary values from it.
+        details = error.get("details", []) if isinstance(error, dict) else []
+        if isinstance(details, list):
+            for entry in details[:8]:
+                if isinstance(entry, dict):
+                    reason = entry.get("reason")
+                    if isinstance(reason, str) and reason in _YOUTUBE_REASONS:
+                        return reason
+    except (ValueError, TypeError, AttributeError):
+        pass
+    return None
+
+
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
@@ -43,7 +84,7 @@ def _fetch_json(url: str, headers: dict[str, str],
         raise InputError("unsupported official source endpoint")
     request = Request(url, headers={
         "Accept": "application/json",
-        "User-Agent": "VoxWeaveTTS/0.3 live-readonly",
+        "User-Agent": "VoxWeaveTTS/0.4 live-readonly",
         **headers,
     })
     opener = build_opener(_NoRedirect())
@@ -81,6 +122,20 @@ def _fetch_json(url: str, headers: dict[str, str],
             404: "video/live chat/channel not found or not accessible",
         }[status] if status in (400, 401, 403, 404) else None
         if explanation:
+            reason = _safe_youtube_reason(exc.read(4096)) if service == "YouTube" else None
+            if reason in _QUOTA_EXHAUSTED:
+                raise SourceFailure(
+                    f"YouTube API HTTP {status}: {reason}; daily quota exhausted; "
+                    "automatic requests stopped until you reconnect after the reset",
+                    fatal=True,
+                ) from None
+            if reason in ("rateLimitExceeded", "userRateLimitExceeded"):
+                raise SourceFailure(
+                    f"YouTube API HTTP {status}: {reason}; backoff before retry",
+                    retry_after=120,
+                ) from None
+            if reason:
+                explanation = f"{reason}; {explanation}"
             raise SourceFailure(
                 f"{service} API HTTP {status}: {explanation}",
                 fatal=True,
@@ -124,10 +179,10 @@ def _normal_text(value: object, max_chars: int = 350) -> str:
 
 
 class YouTubeLiveAdapter:
-    """Public liveChatMessages.list; first page is used as history baseline."""
+    """Prefer official gRPC streamList; conservative REST polling as fallback."""
 
     def __init__(self, source_id: str, api_key: str,
-                 fetcher=_fetch_json) -> None:
+                 fetcher=_fetch_json, *, stream_factory=None) -> None:
         if not isinstance(source_id, str):
             raise InputError("liveChat ID or YouTube video ID required")
         source_id = source_id.strip()
@@ -143,6 +198,61 @@ class YouTubeLiveAdapter:
         self.page_token: str | None = None
         self.started = False
         self.resolved = False
+        # Unit tests with a fake REST fetcher retain existing REST behaviour.
+        # Production prefers server-pushed gRPC; install grpcio in Portable.
+        self.transport = ("streamList" if (stream_factory is not None or
+                          (fetcher is _fetch_json and grpc_available()))
+                          else "polling")
+        self._stream_factory = stream_factory or StreamConnection
+        self._stream = None
+
+    def close(self) -> None:
+        stream, self._stream = self._stream, None
+        if stream is not None and hasattr(stream, "close"):
+            stream.close()
+
+    def _stream_poll(self) -> PollResult:
+        if self._stream is None:
+            try:
+                self._stream = self._stream_factory(
+                    self.chat_id, self.api_key, self.page_token)
+            except StreamUnavailable:
+                self.transport = "polling"
+                return self._rest_poll()
+        try:
+            result = next(self._stream)
+        except StopIteration:
+            self.close()
+            raise SourceFailure("YouTube stream disconnected; reconnecting",
+                                retry_after=5) from None
+        except Exception as exc:
+            self.close()
+            # grpcio exceptions can carry URLs, tokens or server-debug text.
+            # Inspect only the fixed status enum name, never display details.
+            try:
+                name = exc.code().name
+            except (AttributeError, TypeError, ValueError):
+                name = ""
+            if name == "UNIMPLEMENTED":
+                self.transport = "polling"
+                return self._rest_poll()
+            if name in ("UNAUTHENTICATED", "PERMISSION_DENIED", "NOT_FOUND",
+                        "INVALID_ARGUMENT", "FAILED_PRECONDITION"):
+                raise SourceFailure(
+                    "YouTube streamList " + name + "; check API key or chat permissions",
+                    fatal=True,
+                ) from None
+            if name == "RESOURCE_EXHAUSTED":
+                raise SourceFailure(
+                    "YouTube streamList RESOURCE_EXHAUSTED: rate/quota limit; "
+                    "automatic reconnect stopped; check quota before connecting again",
+                    fatal=True,
+                ) from None
+            raise SourceFailure("YouTube gRPC stream interrupted; retry later",
+                                retry_after=15) from None
+        if not isinstance(result, dict):
+            raise SourceFailure("unexpected YouTube stream frame", retry_after=10)
+        return self._consume(result, stream=True)
 
     def _resolve_video(self) -> None:
         if not YT_VIDEO.fullmatch(self.chat_id):
@@ -165,6 +275,11 @@ class YouTubeLiveAdapter:
     def poll(self) -> PollResult:
         if not self.resolved:
             self._resolve_video()
+        if self.transport == "streamList":
+            return self._stream_poll()
+        return self._rest_poll()
+
+    def _rest_poll(self) -> PollResult:
         params = {
             "part": "snippet,authorDetails",
             "liveChatId": self.chat_id,
@@ -175,21 +290,29 @@ class YouTubeLiveAdapter:
             params["pageToken"] = self.page_token
         url = "https://www.googleapis.com/youtube/v3/liveChat/messages?" + urlencode(params)
         result, _ = self._fetcher(url, {})
+        return self._consume(result, stream=False)
+
+    def _consume(self, result: object, *, stream: bool) -> PollResult:
         if not isinstance(result, dict) or not isinstance(result.get("items"), list):
             raise SourceFailure("unexpected YouTube live chat response", retry_after=10)
         page = result.get("nextPageToken")
         if not isinstance(page, str) or not page:
-            raise SourceFailure("YouTube continuation token missing", retry_after=10)
-        self.page_token = page
+            if not result.get("offlineAt"):
+                raise SourceFailure("YouTube continuation token missing", retry_after=10)
+        else:
+            self.page_token = page
         interval = result.get("pollingIntervalMillis", 6000)
-        try:
-            delay = min(180, max(5, float(interval) / 1000))
-        except (ValueError, TypeError):
-            delay = 6.0
+        if stream:
+            delay = 0.0  # next() waits for a push; no REST polling timer
+        else:
+            try:
+                delay = min(3600, max(30, float(interval) / 1000))
+            except (ValueError, TypeError):
+                delay = 30.0
         baseline = not self.started
         self.started = True
         if baseline:
-            return PollResult((), delay)
+            return PollResult((), delay, online=not bool(result.get("offlineAt")))
         parsed: list[SourceMessage] = []
         for item in result["items"]:
             if not isinstance(item, dict):
