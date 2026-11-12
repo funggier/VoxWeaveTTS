@@ -149,6 +149,31 @@ class ServerTests(unittest.TestCase):
                 self.assertEqual(err.exception.code, 400)
                 err.exception.close()
 
+    def test_every_browser_script_tag_is_served(self):
+        """Catch missing static routes before users find the page unresponsive."""
+        import re
+        from urllib.error import HTTPError
+
+        with urlopen(self.base + "/", timeout=3) as response:
+            html = response.read().decode("utf-8")
+        paths = re.findall(r'<script\s+src="([^"]+)"', html)
+        self.assertGreaterEqual(len(paths), 8)
+        self.assertIn("/audio_scheduler.js", paths)
+        self.assertIn("/mode_voice_settings.js", paths)
+        for path in paths:
+            with self.subTest(path=path):
+                self.assertTrue(path.startswith("/"))
+                with urlopen(self.base + path, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertIn("javascript", response.headers.get("Content-Type", ""))
+                    body = response.read()
+                    self.assertGreater(len(body), 100)
+                    self.assertNotIn(b"<!doctype html>", body.lower())
+        with self.assertRaises(HTTPError) as error:
+            urlopen(self.base + "/not-in-static-allowlist.js", timeout=3)
+        self.assertEqual(error.exception.code, 404)
+        error.exception.close()
+
     def test_ui(self):
         with urlopen(self.base,timeout=3) as r:
             content=r.read().decode("utf-8")

@@ -10,6 +10,7 @@ The v0.4.0 release is the first distributable Windows portable bundle. Older dev
 - Add a global audio policy: **serial FIFO** (no overlapping audio, default) or **overlap** (allow simultaneous playback of different workspaces). Already-playing audio is not stopped when the policy changes.
 - Support concurrent browser audio clocks and mode-specific subtitle snapshots; existing OBS overlay continues to show one primary caption.
 - Expand Python and JS regression tests for multi-source connections, safe per-mode tokens, independent voice controls, persistent settings and both audio queue policies.
+- Fix an HTTP static-file allowlist omission that returned 404 for `audio_scheduler.js` and `mode_voice_settings.js`, preventing the page from registering any button handlers. Add a regression test that extracts every `<script src>` from the served HTML and asserts that its HTTP endpoint returns real JavaScript (not a 404). Verified in an isolated Chrome browser with working YouTube LIVE and Settings navigation and successful Thai WAV synthesis.
 - Development preview only: Windows Portable Release v0.4.1 remains unchanged; simultaneous provider accounts have not been live-verified.
 
 ## 0.4.2.dev0 — Data-only model packages and multiple Thai voices (in development, 2026-11-12)

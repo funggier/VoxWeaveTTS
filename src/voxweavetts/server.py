@@ -380,8 +380,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js"}:
-                name = ("source_feed.js" if route == "/source_feed.js" else
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js"}:
+                name = ("audio_scheduler.js" if route == "/audio_scheduler.js" else
+                        "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
+                        "source_feed.js" if route == "/source_feed.js" else
                         "mode_inputs.js" if route == "/mode_inputs.js" else
                         "mode_workspace.js" if route == "/mode_workspace.js" else
                         "waveform_editor.js" if route == "/waveform_editor.js" else
