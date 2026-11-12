@@ -68,7 +68,7 @@ const RPC_PHASE_NAMES={
   subscribed:"สมัครรับข้อความจากห้องสำเร็จ",
   disconnected:"ตัดการเชื่อมต่อแล้ว",
 };
-function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPreference}){
+function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPreference,onConnect}){
   if(!["live","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
   const prefix=mode==="discord_client"?"discordClient":mode;
   const get=id=>el(prefix+id);
@@ -380,7 +380,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     }
   }
   async function start(){
-    if(!guard(mode))throw Error("กรุณาเปิดโหมดนี้ก่อนเชื่อมต่อ");
+    if(!guard(mode) && (mode==="tiktok" || !onConnect))
+      throw Error("กรุณาเปิดโหมดนี้ก่อนเชื่อมต่อ");
     if(mode==="tiktok")return startTikTok();
     const channelId=get("FeedSourceId").value.trim();
     const temporaryCredential=mode==="discord_client" ? {
@@ -396,15 +397,19 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     // room/credentials fail: unsubscribe/stop before trying the new room.
     const previousOwner=connected?credentials(mode):null;
     localSuspend();
-    if(previousOwner){
+    // Explicit Connect will replace this source's ownership token. Do not
+    // attempt to stop using a stale token after a restart/another tab claim.
+    if(!onConnect && previousOwner){
       try{await api("stop",previousOwner);}
-      catch{/* stale-owner server activation will also stop the old source */}
+      catch{/* stale owner; backend will reject it safely */}
     }
     clearMessages();
     const ticket=++generation;
     get("FeedStart").disabled=true;
-    message("กำลังเชื่อมต่อ Official API แบบอ่านอย่างเดียว...");
+    message("กำลังตรวจสอบสิทธิ์ช่องทางและเชื่อมต่อ API...");
     try{
+      if(onConnect)await onConnect(mode);
+      if(ticket!==generation||!guard(mode))return;
       const result=await api("start",{
         ...credentials(mode),source_id:channelId,
         credential:temporaryCredential,

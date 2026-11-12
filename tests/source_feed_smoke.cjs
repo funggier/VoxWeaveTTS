@@ -36,7 +36,8 @@ async function main(){
  el("liveFeedMaxChars").value="240";
  el("liveFeedAuto").checked=true;
  let active=true;
- let timer=null;
+ let timer=null,claims=0;
+ let localToken="a".repeat(32),serverToken="stale-backend-token";
  const requested=[],selected=[],received=[],stopped=[];
  const sandbox={
    window:{},document:{createElement:createTag},JSON,Number,
@@ -46,10 +47,13 @@ async function main(){
      assert.equal(options.method,"POST");
      const payload=JSON.parse(options.body);
      requested.push({path,payload,headers:options.headers});
-     if(path==="/v1/sources/start")
+     if(path==="/v1/sources/start"){
+       if(payload.mode_token!==serverToken)
+         return{ok:false,status:409,async json(){return{error:"source monitor requires the active mode owner token"};}};
        return{ok:true,async json(){return{
          mode:"live",state:"connecting",source_id:payload.source_id,pending:0,
        };}};
+     }
      if(path==="/v1/sources/drain")return{
        ok:true,async json(){return{
          messages:[
@@ -68,7 +72,13 @@ async function main(){
  vm.runInContext(fs.readFileSync("web/source_feed.js","utf8"),sandbox);
  const feed=sandbox.window.VoxSourceFeed.attach({
    mode:"live",el,
-   credentials:mode=>({mode,mode_token:"ab".repeat(16)}),
+   credentials:mode=>({mode,mode_token:localToken}),
+   async onConnect(mode){
+     assert.equal(mode,"live");
+     ++claims;
+     localToken=claims.toString(16).padStart(32,"0");
+     serverToken=localToken;
+   },
    guard:()=>active,
    onMessage:(message,auto)=>received.push({message,auto}),
    onPick:message=>selected.push(message),
@@ -76,6 +86,7 @@ async function main(){
  });
  await feed.start();
  assert.equal(feed.connected,true);
+ assert.equal(claims,1,"explicit first Connect must refresh stale browser token");
  assert.equal(el("liveFeedCredential").value,"","credential removed from DOM");
  assert.equal(requested[0].payload.credential,"temporary-token-never-persist");
  assert.equal(requested[0].headers["X-VoxWeaveTTS-Intent"],"start-live-source");
@@ -96,8 +107,11 @@ async function main(){
  assert.ok(stopped.length>=2);
  assert.ok(!JSON.stringify(feed.visible).includes("temporary-token-never-persist"));
  active=true;
+ serverToken="simulated-server-restart";
  el("liveFeedAuto").checked=false;
  await feed.start();
+ assert.equal(claims,2,"explicit reconnect after server restart must renew token");
+ assert.equal(feed.connected,true);
  assert.ok(received.slice(-2).every(x=>!x.auto));
  await feed.stop();
  assert.equal(requested.at(-1).path,"/v1/sources/stop");

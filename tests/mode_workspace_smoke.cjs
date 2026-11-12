@@ -92,6 +92,12 @@ async function test(){
   assert.equal(activations.filter(x=>x==="live").length,1,
                "returning to live must not disconnect/reconnect the provider");
   assert.equal(app.credentials("studio").mode_token,first.mode_token);
+  const fresh=await app.reclaim("live");
+  assert.equal(activations.filter(x=>x==="live").length,2,
+               "explicit Connect must renew even when local owner exists");
+  assert.notEqual(fresh.mode_token,youTube.mode_token);
+  assert.equal(app.credentials("discord").mode_token,discord.mode_token,
+               "reclaiming YouTube must not change Discord owner");
   await app.select("tiktok");
   assert.ok(app.guard("discord"));
   assert.ok(app.guard("tiktok"));

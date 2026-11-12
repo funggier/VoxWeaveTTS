@@ -1,10 +1,10 @@
-# VoxWeaveTTS v0.4.2 — Windows Portable User Guide
+# VoxWeaveTTS v0.4.3 — Windows Portable User Guide
 
 **Status:** Windows 10/11 x64 portable release with concurrent Live/Discord workspaces, per-mode voice controls, queue policy, presets and model package management; not a voice-cloning suite. Tested with its relocated Python runtime and bundled MakHam Paradee CPU ONNX Thai voice. Other engines may require extra model packs and license review.
 
 ## Install and launch
 
-1. Download `VoxWeaveTTS-v0.4.2-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.2.
+1. Download `VoxWeaveTTS-v0.4.3-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.3.
 2. Extract the **whole folder** to a writable location, for example `T:\Apps\VoxWeaveTTS`. Never run the EXE from inside the ZIP.
 3. Double-click **VoxWeaveTTS.exe**. The small Windows launcher starts a local Python server, checks readiness, and opens your default browser (Firefox or Chrome). No Python, Node or system installation is needed.
 4. Keep the launcher window open. The studio is at http://127.0.0.1:8765 and OBS Browser Source may use http://127.0.0.1:8765/overlay.
@@ -42,6 +42,11 @@ All app-generated settings, output and cache paths are relative to the extracted
 
 The main Portable ZIP still bundles **MakHam Paradee only**. The separately downloadable [Vachana 4-Voice and FastThaiG2P Thai Som packages](https://github.com/funggier/VoxWeaveTTS/releases/tag/modelpacks-v0.4.2) include pinned-source SHA-256 checksums and embedded licenses/attributions. Rights are as declared upstream (Vachana MIT; FastThaiG2P Apache-2.0 and Som TTS dataset CC BY 4.0), **not an independent audit of every training voice/data right**. Both optional models were tested using the exact v0.4.2 Portable runtime, without changing the main ZIP. See [Model Pack Catalog](../model-packs/README_TH.md).
 
+## v0.4.3 reconnect fix and optional model downloads
+
+- Clicking Connect for YouTube LIVE or Discord now reclaims a fresh owner token for just that workspace after backend restarts or tab takeovers, without disconnecting unrelated channels.
+- HTTP 400/401/403/404 from YouTube or Discord now report categories to help diagnose credentials, quota, permissions or unavailable channels.
+- Vachana 4 Voices and FastThaiG2P Thai Som .vwmodel archives are separate assets on the v0.4.3 Release page alongside the Portable ZIP. They include original license and attribution documentation; MakHam remains the only bundled model.
 ## What changed in v0.4.2
 
 - All Live/Discord sources can stay connected while switching to other workspaces. Choose **serial** (one voice at a time) or **overlap** playback in the top bar.
@@ -87,7 +92,7 @@ The package **does not contain** personal recordings, login tokens, user-generat
 Compare the downloaded ZIP's SHA-256 with the hash in the GitHub Release notes. On PowerShell:
 
 ```powershell
-Get-FileHash .\VoxWeaveTTS-v0.4.2-portable.zip -Algorithm SHA256
+Get-FileHash .\VoxWeaveTTS-v0.4.3-portable.zip -Algorithm SHA256
 ```
 
 Source: https://github.com/funggier/VoxWeaveTTS

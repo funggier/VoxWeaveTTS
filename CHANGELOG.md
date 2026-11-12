@@ -2,6 +2,15 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## 0.4.3 — Live Source Owner Reconnection + Optional Model Downloads (13 November 2026)
+
+- Explicit Connect for YouTube LIVE/Discord Bot/Discord Client renews the mode-specific owner token. Fixes stale-owner rejection after local backend restart or another browser tab claims that workspace, without revoking unrelated modes.
+- YouTube/Discord API HTTP 400/401/403/404 now report actionable categories without exposing user credentials or provider response bodies.
+- Unexpected source-monitor exceptions retry safely instead of terminating the worker without useful status.
+- The v0.4.3 Release carries a Windows Portable ZIP (bundled MakHam), optional Vachana Thai 4-Voice and FastThaiG2P Thai Som model packages, and one SHA-256 checksum file for all three downloads.
+- All optional model packs retain the upstream license/attribution documents and source-pinned checksums; licenses are upstream declarations, not independent verification of training/voice rights.
+- Regression: Python 190 tests, JavaScript 17 suites. Real external provider account permissions/quotas remain outside local offline testing.
+
 ## Optional model-pack release modelpacks-v0.4.2 (13 November 2026)
 
 - Published optional `.vwmodel` assets for Vachana Thai (four voices; upstream declares MIT) and FastThaiG2P Kokoro Thai Som (upstream declares Apache-2.0; Som TTS dataset CC BY 4.0). The original Windows Portable v0.4.2 ZIP remains MakHam-only.

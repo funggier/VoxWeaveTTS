@@ -268,7 +268,7 @@ class SourceManager:
                 backoff = min(120, backoff * 2)
             except Exception:
                 with self._lock:
-                    if self._session is not session or session.cancelled.is_set():
+                    if self._sessions.get(session.mode) is not session or session.cancelled.is_set():
                         break
                     session.state = "retrying"
                     session.info = "unexpected source error; retry later"

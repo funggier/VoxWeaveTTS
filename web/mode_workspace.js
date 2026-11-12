@@ -91,6 +91,16 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
     serial=serial.catch(()=>{}).then(()=>issueActivation(mode));
     return serial.catch(error=>{if(active===mode)reportError(error);throw error;});
   }
+  function reclaim(mode){
+    if(!valid.has(mode))return Promise.reject(Error("Invalid workspace mode"));
+    if(active!==mode)return Promise.reject(Error("Select this workspace before connecting"));
+    // Only an explicit Connect action calls this: a browser may be holding
+    // a locally cached token from before server restart or another tab claim.
+    // Refreshing only the requested workspace intentionally revokes its
+    // former source, never unrelated connected channels.
+    serial=serial.catch(()=>{}).then(()=>issueActivation(mode));
+    return serial.then(()=>credentials(mode));
+  }
   function guard(mode){return owners.has(mode);}
   function credentials(mode){
     const token=owners.get(mode);
@@ -141,7 +151,7 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
     stopLocal?.();
   }
   return {
-    startMonitor,dispose,select,credentials,guard,
+    startMonitor,dispose,select,reclaim,credentials,guard,
     get activeMode(){return active;},
     get revision(){return revision;},
     get owned(){return owners.has(active);},

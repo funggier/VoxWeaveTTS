@@ -71,9 +71,18 @@ def _fetch_json(url: str, headers: dict[str, str],
             retry = min(3600, max(5, retry))
             raise SourceFailure("source rate limit; retry later",
                                 retry_after=retry) from None
-        if status in (400, 401, 403, 404):
+        # Report only the HTTP category, never Google's error body: it can
+        # contain sensitive API key or user/channel details.
+        service = "YouTube" if parsed.hostname == YT_HOST else "Discord"
+        explanation = {
+            400: "invalid request, channel ID or live chat ID",
+            401: "credentials missing, invalid or expired",
+            403: "access denied; check API enablement, key restrictions, quota and permissions",
+            404: "video/live chat/channel not found or not accessible",
+        }[status] if status in (400, 401, 403, 404) else None
+        if explanation:
             raise SourceFailure(
-                "source access rejected (check API key, channel ID, permissions or live status)",
+                f"{service} API HTTP {status}: {explanation}",
                 fatal=True,
             ) from None
         if 300 <= status < 400:

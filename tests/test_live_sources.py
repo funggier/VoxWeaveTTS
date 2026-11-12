@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import io
 import threading
 import time
 import unittest
@@ -15,7 +16,7 @@ from voxweavetts.mode_state import ModeState, ModeConflict
 from voxweavetts.playback_state import PlaybackState
 from voxweavetts.processing import InputError
 from voxweavetts.source_adapters import (
-    _normal_text, DiscordChannelAdapter, PollResult, SourceFailure,
+    _normal_text, _fetch_json, DiscordChannelAdapter, PollResult, SourceFailure,
     SourceMessage, YouTubeLiveAdapter,
 )
 from voxweavetts.source_manager import MAX_PENDING, SourceManager
@@ -70,6 +71,29 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(a.poll().messages,())
         self.assertEqual(a.chat_id,"Cg0K_real_chat_id")
         self.assertIn("liveChatId=Cg0K_real_chat_id",seen[-1])
+
+    def test_external_http_error_status_actionable_without_leaking_credentials(self):
+        for service,url in (
+            ("YouTube","https://www.googleapis.com/youtube/v3/videos?key=SECRET_API_KEY"),
+            ("Discord","https://discord.com/api/v10/channels/123456789012345678/messages"),
+        ):
+            for code,hint in ((400,"invalid request"),(401,"credentials"),
+                              (403,"access denied"),(404,"not found")):
+                with self.subTest(service=service,status=code):
+                    error=HTTPError(
+                        url,code,"bad request",{},
+                        io.BytesIO(b'{"error":"SECRET_API_KEY or SECRET_BOT_TOKEN"}'),
+                    )
+                    with patch("voxweavetts.source_adapters.build_opener") as opener:
+                        opener.return_value.open.side_effect=error
+                        with self.assertRaises(SourceFailure) as failure:
+                            _fetch_json(url,{"Authorization":"Bot SECRET_BOT_TOKEN"})
+                    self.assertTrue(failure.exception.fatal)
+                    self.assertIn(service,str(failure.exception))
+                    self.assertIn(f"HTTP {code}",str(failure.exception))
+                    self.assertIn(hint,str(failure.exception))
+                    self.assertNotIn("SECRET_API_KEY",str(failure.exception))
+                    self.assertNotIn("SECRET_BOT_TOKEN",str(failure.exception))
 
     def test_youtube_no_live_chat_is_hard_error(self):
         def get(*args):
@@ -144,6 +168,13 @@ class FakeRateLimitAdapter:
         raise SourceFailure("source rate limit; retry later",retry_after=65)
 
 
+class FakeUnexpectedAdapter:
+    def __init__(self,*args):
+        pass
+    def poll(self):
+        raise RuntimeError("fake transport failed with SECRET_CREDENTIAL")
+
+
 class ManagerTests(unittest.TestCase):
     def setUp(self):
         self.modes=ModeState()
@@ -188,6 +219,23 @@ class ManagerTests(unittest.TestCase):
             self.manager.drain(base,self.modes)
         self.manager.stop_all()
         self.assertEqual(self.manager.status("live")["state"],"idle")
+
+    def test_unexpected_source_exception_retries_without_worker_crash_or_secret_leak(self):
+        manager=SourceManager(youtube_factory=FakeUnexpectedAdapter)
+        try:
+            manager.start({"mode":"live","mode_token":self.owner["mode_token"],
+                           "source_id":"Cg0K_livechat_id",
+                           "credential":"test_api_key_12345"},self.modes)
+            deadline=time.monotonic()+2
+            while manager.status("live")["state"]=="connecting" and time.monotonic()<deadline:
+                time.sleep(.01)
+            status=manager.status("live")
+            self.assertEqual(status["state"],"retrying")
+            self.assertGreaterEqual(status["next_poll_seconds"],5)
+            self.assertNotIn("SECRET_CREDENTIAL",str(status))
+            self.assertTrue(manager._sessions["live"].thread.is_alive())
+        finally:
+            manager.stop_all()
 
     def test_source_rate_limit_does_not_spin(self):
         manager=SourceManager(youtube_factory=FakeRateLimitAdapter)

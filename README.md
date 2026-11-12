@@ -2,7 +2,7 @@
 
 **Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
 
-> **Windows portable release v0.4.2:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency YouTube/Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
+> **Windows portable release v0.4.3:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency YouTube/Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
 ## Model packages (v0.4.2)
 
@@ -15,6 +15,12 @@ Optional **Vachana Thai (4 voices)** and **FastThaiG2P Kokoro Thai Som (1 voice)
 YouTube LIVE (renamed from the earlier generic Live Reader), TikTok LIVE, Discord Bot and Discord Client are independent source sessions. Switching to Studio, Document Reader or another workspace no longer stops connected readers. Every speech workspace has its own Engine/Model, Voice, Speed and DSP controls with portable per-mode settings. The shared scheduler offers **serial** speech (no overlapping audio, default) or **overlap** (simultaneous playback). New settings apply to the next TTS job; an already rendered WAV is not re-synthesized. The OBS API reports active source subtitles individually, although the default overlay still shows one primary caption.
 
 These concurrent-workspace features are included in the v0.4.2 ZIP. Simultaneous authorized real-account testing across all providers is still pending; offline source and scheduler tests pass. See [Thai mode guide](docs/WORKSPACE_MODES_TH.md).
+
+## v0.4.3 hotfix: Source reconnect and model package assets
+
+An explicit YouTube LIVE / Discord Bot / Discord Client Connect now reclaims the owner token for that workspace, fixing a stale-token rejection after a backend restart or another browser tab takes control. HTTP 400/401/403/404 errors expose their category without exposing credentials. Provider-side invalid API keys, account access, and quotas still require separate fixes.
+
+[**Release v0.4.3**](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.3) offers the Windows Portable ZIP with bundled MakHam alongside **two separately selectable `.vwmodel` assets** (Vachana Thai Four Voices and FastThaiG2P Thai Som) and a SHA-256 checksum file. Both model packs retain upstream license notices, attribution and pinned source hashes. The upstream license declarations do not independently certify every training or voice right.
 
 ## New in release v0.4.2
 
@@ -34,7 +40,7 @@ The Settings workspace is now dedicated to Model Package management; the top Set
 
 ## Install and run — Windows 10/11 x64 portable
 
-1. Download `VoxWeaveTTS-v0.4.2-portable.zip` from GitHub Releases.
+1. Download `VoxWeaveTTS-v0.4.3-portable.zip` from GitHub Releases.
 2. Extract the **entire** ZIP to a writable folder, for example `T:\\Apps\\VoxWeaveTTS`. Do not run the EXE directly from inside the ZIP.
 3. Double-click `VoxWeaveTTS.exe`. It starts the local server and opens your default browser (Firefox or Chrome) at `http://127.0.0.1:8765/`.
 4. Select the available **MakHam Paradee** engine, enter Thai text and generate speech. Other modes include document reader, Discord Client, official chat inputs, pronunciation rules, source profile import/export and OBS subtitles.
