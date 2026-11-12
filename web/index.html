@@ -469,6 +469,15 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="engineSelect">TTS Engine</label><select id="engineSelect"><option value="fastthaig2p-cpu">กำลังโหลด Engine…</option></select></div>
 <div><label for="voiceSelect">เสียงผู้พูด</label><select id="voiceSelect"><option value="thai_som">thai_som</option></select></div>
 </div>
+<details style="width:100%;margin:12px 0;border:1px solid #32425b;border-radius:10px;padding:12px">
+<summary>จัดการ Model Packages (ติดตั้งหลายโมเดล / หลายเสียง)</summary>
+<p class="small">เลือกไฟล์ .vwmodel เพื่อติดตั้งโมเดลแบบแยกจากโปรแกรม ติดตั้งหลายชุดและหลายเวอร์ชันพร้อมกันได้ โดยไม่รันโค้ดจากแพ็กเกจ ตรวจ SHA-256 ก่อนติดตั้ง และแสดงข้อมูลไลเซนส์ของแต่ละชุด</p>
+<p class="small">คำเตือน: ไลเซนส์ที่ระบุในแพ็กเกจเป็นข้อมูลจากผู้เผยแพร่ ไม่ใช่การรับรองสิทธิ์เชิงพาณิชย์ Engine ของโมเดลต้องรองรับในโปรแกรมอยู่ก่อน</p>
+<button type="button" id="modelPackageInstall">ติดตั้ง Model Package (.vwmodel)</button>
+<button type="button" id="modelPackageRefresh">รีเฟรชรายการโมเดล</button>
+<p id="modelPackageStatus" class="small" role="status">กำลังโหลดแพ็กเกจ...</p>
+<ul id="modelPackageList" style="padding-left:22px"></ul>
+</details>
 <div style="width:100%;margin:12px 0"><p id="engineStatus" class="small">กำลังตรวจสอบ Engine และอุปกรณ์...</p><p id="dspStatus" class="small">ตรวจสอบตัวปรับเสียง...</p></div>
 <div class="voice-grid" style="width:100%;padding:10px 0 15px">
 <button id="globalVoiceSave" type="button">บันทึก Engine และค่าปรับเสียงเป็นค่ากลาง</button>
@@ -768,10 +777,18 @@ const setControl = (name,value) => {
 const selectedEngineInfo = () => engines.find(x=>x.id===el("engineSelect").value);
 const refreshSelectedEngine = () => {
   const info = selectedEngineInfo();
+  const previousVoice=el("voiceSelect").value;
   el("voiceSelect").replaceChildren();
   if (!info) return;
-  const option = document.createElement("option");
-  option.value=info.voice_id;option.textContent=info.voice_id;el("voiceSelect").append(option);
+  for(const voice of (Array.isArray(info.voices)&&info.voices.length
+                      ? info.voices:[{id:info.voice_id,label:info.voice_id}])){
+    const option=document.createElement("option");
+    option.value=voice.id;
+    option.textContent=voice.label||voice.id;
+    el("voiceSelect").append(option);
+  }
+  if((info.voices||[]).some(v=>v.id===previousVoice))
+    el("voiceSelect").value=previousVoice;
   const ready=info.assets_ready && info.runtime_ready;
   el("synthesize").disabled=!ready;
   el("engineStatus").textContent=ready
@@ -792,6 +809,7 @@ async function loadEngines(){
   engines=body.engines||[];controlSchema=body.control_schema||{};
   ffmpegReady=Boolean(controlSchema.ffmpeg_ready);
   const selector=el("engineSelect");
+  const previousEngine=selector.value;
   selector.replaceChildren();
   for (const info of engines){
     const option=document.createElement("option");
@@ -799,6 +817,7 @@ async function loadEngines(){
     option.textContent=info.label+(option.disabled?" (ยังไม่พร้อม)":"");
     selector.append(option);
   }
+  if(engines.some(x=>x.id===previousEngine&&x.assets_ready&&x.runtime_ready))selector.value=previousEngine;
   if (!selectedEngineInfo() || !selectedEngineInfo().assets_ready) {
     const first=engines.find(x=>x.assets_ready&&x.runtime_ready);
     if(first) selector.value=first.id;
@@ -809,6 +828,100 @@ async function loadEngines(){
   el("formant_preserve").disabled=!ffmpegReady;
   refreshSelectedEngine();
 }
+async function loadModelPackages(){
+  const response=await fetch("/v1/model-packages",{cache:"no-store"});
+  const body=await response.json();
+  if(!response.ok)throw Error("ไม่สามารถโหลดรายการแพ็กเกจได้");
+  const area=el("modelPackageList");
+  area.replaceChildren();
+  for(const item of (body.packages||[])){
+    const li=document.createElement("li");
+    const title=document.createElement("strong");
+    title.textContent=item.title+" v"+item.version;
+    const details=document.createElement("small");
+    details.style.display="block";
+    const names=(item.voices||[]).map(v=>v.label).join(", ");
+    details.textContent="Engine: "+item.engine_id+" · เสียง: "+names+
+      " · License: "+item.license.spdx+
+      " · ตรวจสิทธิ์: "+item.license.review_status+
+      " · Requires: "+(item.dependencies||[]).join(", ");
+    const source=document.createElement("a");
+    source.href=item.license.url;
+    source.target="_blank";source.rel="noopener noreferrer";
+    source.textContent="ดูแหล่งที่มา / ไลเซนส์";
+    const remove=document.createElement("button");
+    remove.type="button";remove.textContent="ถอนการติดตั้ง";
+    remove.style.marginLeft="12px";
+    remove.addEventListener("click",async()=>{
+      if(!window.confirm("ถอนแพ็กเกจ "+item.title+" v"+item.version+" ?"))return;
+      remove.disabled=true;
+      try{
+        const result=await fetch("/v1/model-packages/remove",{
+          method:"POST",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":"remove-model-package"},
+          body:JSON.stringify({package_id:item.package_id,version:item.version}),
+        });
+        const data=await result.json();
+        if(!result.ok||!data.removed)throw Error("ถอนการติดตั้งไม่สำเร็จ");
+        el("modelPackageStatus").textContent="ถอนแพ็กเกจ "+item.title+" แล้ว";
+        await loadModelPackages();
+        await loadEngines();
+      }catch{
+        el("modelPackageStatus").textContent="ไม่สามารถถอนแพ็กเกจได้";
+      }finally{remove.disabled=false;}
+    });
+    li.append(title,details,source,remove);
+    area.append(li);
+  }
+  if(!(body.packages||[]).length){
+    const li=document.createElement("li");
+    li.textContent="ยังไม่ได้ติดตั้ง Model Package เพิ่ม (โมเดลที่มากับโปรแกรมยังใช้งานได้)";
+    area.append(li);
+  }
+  el("modelPackageStatus").textContent="Model Packages ที่ติดตั้ง: "+
+    (body.packages||[]).length+" ชุด";
+}
+el("modelPackageRefresh").addEventListener("click",()=>{
+  loadModelPackages().then(loadEngines).catch(()=>{
+    el("modelPackageStatus").textContent="โหลดข้อมูลโมเดลไม่สำเร็จ";
+  });
+});
+el("modelPackageInstall").addEventListener("click",async()=>{
+  const button=el("modelPackageInstall");
+  button.disabled=true;
+  el("modelPackageStatus").textContent="เลือกไฟล์ .vwmodel ในหน้าต่าง Windows...";
+  try{
+    const response=await fetch("/v1/model-packages/install-local",{
+      method:"POST",
+      headers:{"Content-Type":"application/json",
+               "X-VoxWeaveTTS-Intent":"install-model-package"},
+      body:"{}",
+    });
+    const result=await response.json();
+    if(!response.ok)throw Error("แพ็กเกจไม่ผ่านการตรวจสอบหรือ Engine ยังไม่รองรับ");
+    if(result.cancelled){
+      el("modelPackageStatus").textContent="ยกเลิกการติดตั้งโมเดล";
+      return;
+    }
+    await loadModelPackages();
+    await loadEngines();
+    const engineId="model-"+result.package_id+"-"+result.version.replaceAll(".","_");
+    if(engines.some(x=>x.id===engineId&&x.assets_ready&&x.runtime_ready)){
+      el("engineSelect").value=engineId;
+      refreshSelectedEngine();
+      el("modelPackageStatus").textContent="ติดตั้งแล้วและเลือกโมเดล: "+engineId;
+    }else{
+      el("modelPackageStatus").textContent="ติดตั้งโมเดลแล้ว แต่ Engine Runtime ยังไม่พร้อม ตรวจ Dependencies";
+    }
+  }catch{
+    el("modelPackageStatus").textContent=
+      "ติดตั้งไม่สำเร็จ: ตรวจไฟล์ .vwmodel, SHA-256, License หรือ Engine ที่รองรับ";
+  }finally{button.disabled=false;}
+});
+loadModelPackages().catch(()=>{
+  el("modelPackageStatus").textContent="ไม่สามารถตรวจรายการ Model Packages ได้";
+});
 async function loadGlobalVoiceSettings(){
   const response=await fetch("/v1/settings/global-voice",{cache:"no-store"});
   const data=await response.json();
@@ -820,6 +933,7 @@ async function loadGlobalVoiceSettings(){
     if(available){
       el("engineSelect").value=settings.engine_id;
       refreshSelectedEngine();
+      if((available.voices||[]).some(v=>v.id===settings.voice_id))el("voiceSelect").value=settings.voice_id;
     }
     for(const key of controlKeys){
       const value=key==="speed" ? settings.speed : settings.voice_controls?.[key];
@@ -879,7 +993,7 @@ el("savePreset").addEventListener("click",async()=>{
     const info=selectedEngineInfo();if(!info)throw Error("กรุณาเลือก Engine");
     const body={
       name:el("presetName").value,
-      engine_id:info.id,voice_id:info.voice_id,
+      engine_id:info.id,voice_id:el("voiceSelect").value,
       speed:readNumber("speed"),
       seed:seedValue(),
       voice_controls:readVoiceControls()
@@ -905,6 +1019,7 @@ el("applyPreset").addEventListener("click",()=>{
   }
   el("engineSelect").value=preset.engine_id;
   refreshSelectedEngine();
+  if((target.voices||[]).some(v=>v.id===preset.voice_id))el("voiceSelect").value=preset.voice_id;
   el("presetName").value=preset.name;
   for(const [key,val] of Object.entries({...preset.voice_controls,speed:preset.speed})){
     if(controlKeys.includes(key))setControl(key,val);

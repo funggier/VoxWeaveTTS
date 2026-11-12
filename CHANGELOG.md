@@ -2,6 +2,17 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## 0.4.2.dev0 — Data-only model packages and multiple Thai voices (in development, 2026-11-12)
+
+- Introduced a versioned .vwmodel ZIP format with strict JSON Manifest: supported Engine Adapter, package ID/version, voices, per-file size/SHA-256, source revision, SPDX license claim/attribution/review status and declared runtime dependencies.
+- Added an atomic, local-only installer, separate installed-package folders per model/version, safe removal and Windows native picker triggered from the Web UI in both Firefox and Chrome. Packages cannot inject Python, DLL, EXE or scripts; ZIP traversal/symlink/unlisted files and hash mismatches fail closed.
+- Model Package Manager displays available packages, voices, licenses, review state, dependencies and removal controls. Installing/removing through the local UI refreshes Engine Registry; CLI supports list/install/remove and building a Vachana development pack.
+- Added multi-voice support to EngineInfo, Voice Studio selection, global-voice settings and presets. Existing single-voice engines remain compatible; one package becomes one separately selectable Engine with its own voice choices.
+- Added a trusted Vachana Thai VITS ONNX adapter for four fixed voices (two female, two male) using local weights only (no auto-download or package code execution).
+- Created and installed Vachana Four Voices v1.0.0 .vwmodel locally. Generated real Thai WAV from all four voices using the installed package path; the locally generated file is excluded from Git and public release pending rights review.
+- Package support is **not present in the existing v0.4.1 release**. The developer venv has Vachana dependencies; the v0.4.1 portable runtime is not guaranteed to contain them. License review_status stays review_required; an unverified SPDX declaration is not redistribution clearance.
+- Added model package integrity, multi-version isolation, HTTP origin/intent security and UI smoke regression tests. No third-party weight files are committed to the repository.
+
 ## 0.4.1 — TikTok LIVE via local TikFinity Event API (2026-11-12)
 
 - Added an independent TikTok LIVE workspace to Windows Portable, with the same global Thai TTS Engine, serial speech queue, OBS subtitle ownership, per-message read states and capped read-message history as Discord and YouTube.

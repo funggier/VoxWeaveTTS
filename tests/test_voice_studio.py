@@ -32,9 +32,9 @@ class FakeEngine:
 
 
 class VoiceStudioTests(unittest.TestCase):
-    def test_two_engine_descriptors_never_claim_voice_cloning(self):
+    def test_builtin_engine_descriptors_never_claim_voice_cloning(self):
         info = list_engine_info()
-        self.assertEqual([x.id for x in info], [ENGINE_ID, PARADEE_ENGINE_ID])
+        self.assertEqual([x.id for x in info][:3], [ENGINE_ID, PARADEE_ENGINE_ID, "vachana-cpu"])
         self.assertEqual(info[0].voice_id, "thai_som")
         self.assertEqual(info[1].voice_id, "paradee_thai")
         self.assertTrue(all(not item.capabilities["voice_cloning"] for item in info))
@@ -147,14 +147,16 @@ class VoiceStudioServerTests(unittest.TestCase):
         cls.server.server_close()
         cls.thread.join(timeout=3)
 
-    def test_engine_schema_and_two_voices(self):
+    def test_engine_schema_and_multivoice_registry(self):
         with urlopen(self.base+"/v1/engines",timeout=3) as response:
             data=json.load(response)
-        self.assertEqual(len(data["engines"]), 2)
+        self.assertGreaterEqual(len(data["engines"]), 3)
         self.assertIn("pitch_semitones",data["control_schema"]["post"])
         with urlopen(self.base+"/v1/voices",timeout=3) as response:
             voices=json.load(response)["voices"]
-        self.assertEqual([x["id"] for x in voices], ["thai_som","paradee_thai"])
+        self.assertEqual([x["id"] for x in voices][:2], ["thai_som","paradee_thai"])
+        self.assertTrue(all(x in [v["id"] for v in voices] for x in
+                            ["th_f_1", "th_f_2", "th_m_1", "th_m_2"]))
 
     def test_presets_round_trip_and_header_protection(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(

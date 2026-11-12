@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+import zipfile
+
 from . import __version__
 from .processing import InputError, process_text
 from .document_reader import prepare_document, MAX_DOCUMENT_REQUEST_BYTES
@@ -23,6 +25,7 @@ from .speech import (
     get_engine_info,
     DEFAULT_SEED,
     render_wav,
+    refresh_engine_registry,
     validate_seed,
     validate_speech_request,
 )
@@ -35,6 +38,10 @@ from .mode_state import ModeState, ModeConflict, MODES
 from .source_manager import SourceManager
 from .profile_export import (save_source_profile_dialog, SaveDialogBusy,
                              SaveDialogUnavailable)
+from .model_packages import (
+    installed_packages, engine_id_for, install_model_package_dialog,
+    remove_model_package, ModelPackageError, ModelPackageDialogUnavailable,
+)
 from .manual_alignment import timing_metrics
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
@@ -477,6 +484,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, _read_global_voice())
             elif route == "/v1/settings/synthesis":
                 self.send_json(200, {"seed": _read_seed()})
+            elif route == "/v1/model-packages":
+                self.send_json(200, {
+                    "packages": [{
+                        "package_id": m["package_id"], "version": m["version"],
+                        "title": m["title"], "engine_id": engine_id_for(m),
+                        "engine_adapter": m["engine_adapter"],
+                        "voices": m["voices"],
+                        "license": m["license"], "source": m["source"],
+                        "dependencies": m["dependencies"],
+                    } for m, _folder in installed_packages()]
+                })
             elif route == "/v1/engines":
                 self.send_json(200, {
                     "engines": [item.as_dict() for item in list_engine_info()],
@@ -485,10 +503,11 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/v1/voices":
                 self.send_json(200, {
                     "voices": [
-                        {"id": item.voice_id, "engine_id": item.id,
+                        {"id": voice["id"], "label": voice["label"], "engine_id": item.id,
                          "language": item.language, "voice_cloning": False,
                          "ready": item.assets_ready and item.runtime_ready}
                         for item in list_engine_info()
+                        for voice in item.as_dict()["voices"]
                     ]
                 })
             elif route == "/v1/presets":
@@ -535,6 +554,51 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         route = urlsplit(self.path).path
+        if route in ("/v1/model-packages/install-local", "/v1/model-packages/remove"):
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            expected_intent = ("install-model-package" if route.endswith("install-local")
+                               else "remove-model-package")
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != expected_intent):
+                self.reject_unread_post(403, {"error": "same-origin model operation required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "model operation requires JSON"})
+                return
+            try:
+                data = self._read_json(max_bytes=2048)
+                if route.endswith("install-local"):
+                    if data:
+                        raise ModelPackageError("unexpected install request")
+                    installed = install_model_package_dialog()
+                    if installed is None:
+                        self.send_json(200, {"cancelled": True})
+                        return
+                    refresh_engine_registry()
+                    self.send_json(200, {
+                        "installed": True, "package_id": installed["package_id"],
+                        "version": installed["version"],
+                    })
+                else:
+                    if set(data) != {"package_id", "version"}:
+                        raise ModelPackageError("invalid removal request")
+                    removed = remove_model_package(data["package_id"], data["version"])
+                    if removed:
+                        refresh_engine_registry()
+                    self.send_json(200, {"removed": removed})
+            except ModelPackageDialogUnavailable:
+                self.send_json(503, {"error": "Windows model selection dialog unavailable"})
+            except ModelPackageError:
+                self.send_json(400, {"error": "invalid model package, license metadata, or integrity check"})
+            except (ValueError, InputError, UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid model operation"})
+            except (OSError, zipfile.BadZipFile):
+                self.send_json(400, {"error": "could not verify the selected model package"})
+            return
         if route == "/v1/sources/save-profile":
             # JSON may contain a Bot Token or Client Secret. Browsers cannot
             # forge Origin or Sec-Fetch-Site; this endpoint requires same

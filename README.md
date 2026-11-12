@@ -4,6 +4,12 @@
 
 > **Windows portable release v0.4.1:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency YouTube/Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
+## Model packages (v0.4.2.dev0, development only)
+
+VoxWeaveTTS now has a data-only .vwmodel format for optional fixed-voice model packs. One pack specifies its compatible trusted engine adapter, version, multiple selectable voices, SHA-256 checksums, upstream model source, license claim and dependency metadata. The Windows local manager can install multiple packs/versions side by side and remove them independently; no model-supplied Python code runs.
+
+The Vachana Thai four-voice ONNX adapter was verified with real Thai WAVs from a locally installed model package, alongside existing MakHam. The Vachana pack is not publicly redistributed while model/dataset licensing is still under review. This work is **not yet included in the v0.4.1 portable release**; Vachana runtime dependencies are currently in the developer environment. [Thai package guide](docs/MODEL_PACKAGES_TH.md).
+
 ## Goals
 
 - Thai pronunciation overrides (e.g. `อมตะ`), with original subtitle spelling retained.

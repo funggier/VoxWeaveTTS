@@ -43,6 +43,13 @@ class EngineInfo:
     adapter_api_version: int = ADAPTER_API_VERSION
     # Distribution review status is not an endorsement of any model.
     commercial_status: str = "review_required"
+    # Optional list of selectable fixed voices (id, display label).
+    # The legacy voice_id remains the default and existing adapters unchanged.
+    voice_options: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def voice_ids(self) -> tuple[str, ...]:
+        return tuple(item[0] for item in self.voice_options) if self.voice_options else (self.voice_id,)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -50,6 +57,8 @@ class EngineInfo:
             "label": self.label,
             "language": self.language,
             "voice_id": self.voice_id,
+            "voices": [{"id": identifier, "label": label} for identifier, label in
+                       (self.voice_options or ((self.voice_id, self.voice_id),))],
             "sample_rate": self.sample_rate,
             "assets_ready": self.assets_ready,
             "runtime_ready": self.runtime_ready,
@@ -107,6 +116,12 @@ class EngineRegistry:
             raise ValueError("unsupported engine output sample rate")
         if not info.voice_id or not info.language:
             raise ValueError("engine must declare a voice and language")
+        if (info.voice_id not in info.voice_ids
+            or len(info.voice_ids) != len(set(info.voice_ids))
+            or len(info.voice_ids) > 64
+            or any(not voice or not label or len(voice) > 100 or len(label) > 120
+                   for voice, label in (info.voice_options or ((info.voice_id, info.voice_id),)))):
+            raise ValueError("invalid selectable voice list")
         if info.commercial_status not in {
             "review_required", "hold", "excluded", "cleared"
         }:

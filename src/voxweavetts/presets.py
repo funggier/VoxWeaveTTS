@@ -28,7 +28,7 @@ def validate_preset(raw: Any) -> dict[str, Any]:
     engine_id = raw.get("engine_id")
     info = get_engine_info(engine_id)
     voice_id = raw.get("voice_id", info.voice_id)
-    if voice_id != info.voice_id:
+    if voice_id not in info.voice_ids:
         raise InputError("preset voice_id is not supported by engine")
     speed = raw.get("speed", 1.0)
     if type(speed) not in (int, float) or not 0.6 <= speed <= 1.5:

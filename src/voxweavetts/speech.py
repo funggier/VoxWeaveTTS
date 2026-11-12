@@ -13,6 +13,7 @@ from typing import Any
 
 from .processing import InputError
 from .engine_contract import EngineInfo, EngineRegistry, VoiceEngine
+from .model_packages import installed_packages, engine_id_for
 from .voice_controls import apply_voice_controls, control_schema, ffmpeg_path, validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +23,15 @@ MIN_SIZES = {"model": 320_000_000, "voicepack": 500_000, "config": 100}
 ENGINE_ID = "fastthaig2p-cpu"
 PARADEE_ENGINE_ID = "makham-paradee-cpu"
 PARADEE_DIR = ROOT / "models" / "makham-paradee"
+VACHANA_ENGINE_ID = "vachana-cpu"
+VACHANA_DIR = ROOT / "models" / "vachana"
+VACHANA_RATE = 22_050
+VACHANA_VOICES = (
+    ("th_f_1", "หญิง 1 — Vachana"),
+    ("th_f_2", "หญิง 2 — Vachana"),
+    ("th_m_1", "ชาย 1 — Vachana"),
+    ("th_m_2", "ชาย 2 — Vachana"),
+)
 SAMPLE_RATE = 24_000
 MAX_SPEECH_CHARS = 500
 MAX_PLAN_SEGMENTS = 50
@@ -58,6 +68,45 @@ def paradee_assets_ready() -> bool:
         )
     except OSError:
         return False
+
+
+def vachana_assets_ready() -> bool:
+    """Only advertise the whole local test voice family when all files exist."""
+    try:
+        config = VACHANA_DIR / "speaker_config.json"
+        return (config.is_file() and config.stat().st_size > 1000
+                and all((VACHANA_DIR / "voices" / (voice + ".onnx")).is_file()
+                        and (VACHANA_DIR / "voices" / (voice + ".onnx")).stat().st_size > 60_000_000
+                        for voice, _ in VACHANA_VOICES))
+    except OSError:
+        return False
+
+
+def vachana_runtime_ready() -> bool:
+    try:
+        import importlib.util
+        return all(importlib.util.find_spec(m) for m in
+                   ("vachanatts", "onnxruntime", "numpy", "pythainlp", "ssg"))
+    except (ImportError, ValueError):
+        return False
+
+
+def _vachana_descriptor() -> EngineInfo:
+    capabilities = {
+        "speech": True, "speed": True, "seed_control": False,
+        "voice_cloning": False, "pitch": False, "formant": False,
+        "expressiveness": False, "streaming": False, "phoneme_dictionary": False,
+    }
+    capabilities.update(_built_in_dsp_flags())
+    return EngineInfo(
+        id=VACHANA_ENGINE_ID, label="Vachana Thai VITS — 4 voices (CPU ONNX)",
+        language="th", voice_id="th_f_1", voice_options=VACHANA_VOICES,
+        sample_rate=VACHANA_RATE, assets_ready=vachana_assets_ready(),
+        runtime_ready=vachana_runtime_ready(), capabilities=capabilities,
+        # Public model card says MIT, but full pack/third-party provenance
+        # remains under review: this is developer-only, not in portable ZIP.
+        commercial_status="hold",
+    )
 
 
 def _built_in_dsp_flags() -> dict[str, bool]:
@@ -235,8 +284,106 @@ class MakHamParadeeEngine:
             return _float32_to_pcm(self._native.generate(text))
 
 
+class VachanaEngine:
+    """Four selectable fixed voices, loaded only from trusted local ONNX files.
+
+    Do not use vachanatts.TTS wrapper: it transparently downloads remote model
+    files into the current working directory. This adapter must be offline.
+    """
+
+    id = VACHANA_ENGINE_ID
+    sample_rate = VACHANA_RATE
+    _lock = threading.RLock()
+
+    def __init__(self, *, model_dir: Path = VACHANA_DIR,
+                 engine_id: str = VACHANA_ENGINE_ID,
+                 voices: tuple[tuple[str, str], ...] = VACHANA_VOICES,
+                 voice_assets: dict[str, str] | None = None) -> None:
+        self.id = engine_id
+        self.model_dir = Path(model_dir)
+        self.voices = voices
+        self.voice_assets = voice_assets or {name: "voices/" + name + ".onnx" for name, _ in voices}
+        self.voice_id = voices[0][0]
+        self._voice: Any = None
+
+    def select_voice(self, voice_id: str) -> None:
+        if voice_id not in {item[0] for item in self.voices}:
+            raise InputError("unsupported Vachana voice")
+        if voice_id != self.voice_id:
+            self._voice = None
+        self.voice_id = voice_id
+
+    def generate(self, text: str, speed: float) -> bytes:
+        if not isinstance(text, str) or not text.strip():
+            return b""
+        with type(self)._lock:
+            if self._voice is None:
+                if not (self.model_dir / "speaker_config.json").is_file() or not all(
+                    (self.model_dir / "voices" / (identifier + ".onnx")).is_file()
+                    for identifier, _label in self.voices
+                ):
+                    raise EngineUnavailable("Vachana model pack is not installed")
+                if not vachana_runtime_ready():
+                    raise EngineUnavailable("VachanaTTS dependency not installed")
+                from vachanatts.voice import Voice
+                voice_path = self.model_dir / self.voice_assets[self.voice_id]
+                self._voice = Voice.load(
+                    model_path=voice_path,
+                    config_path=self.model_dir / "speaker_config.json",
+                    use_cuda=False,
+                )
+                if self._voice.config.sample_rate != self.sample_rate:
+                    raise SpeechFailure("Vachana sample rate did not match model metadata")
+            from vachanatts.config import SpeechConfig
+            settings = SpeechConfig(length_scale=1.0 / float(speed),
+                                    noise_scale=0.667, noise_w_scale=0.8)
+            chunks = [chunk.audio_int16_bytes
+                      for chunk in self._voice.synthesize(text, settings)]
+            result = b"".join(chunks)
+            if not result:
+                raise SpeechFailure("Vachana returned empty audio")
+            return result
+
+
 _REGISTRY_LOCK = threading.RLock()
 _REGISTRY: EngineRegistry | None = None
+
+
+def refresh_engine_registry() -> None:
+    """Re-scan trusted local model manifests after install/removal."""
+    global _REGISTRY
+    with _REGISTRY_LOCK:
+        _REGISTRY = None
+
+
+def _register_model_packages(registry: EngineRegistry) -> None:
+    """A package selects an existing adapter, never imports package code."""
+    for manifest, model_dir in installed_packages():
+        if manifest["engine_adapter"] != "vachana-onnx-v1":
+            continue
+        engine_id = engine_id_for(manifest)
+        voices = tuple((entry["id"], entry["label"]) for entry in manifest["voices"])
+        label = manifest["title"] + " · " + manifest["version"]
+        commercial = manifest["license"]["review_status"]
+        def description(engine_id=engine_id, voices=voices, model_dir=model_dir,
+                        label=label, commercial=commercial, manifest=manifest):
+            ready = all((model_dir / file["path"]).is_file() and
+                        (model_dir / file["path"]).stat().st_size == file["size"]
+                        for file in manifest["files"])
+            flags = dict(_vachana_descriptor().capabilities)
+            return EngineInfo(
+                id=engine_id, label=label, language="th",
+                voice_id=voices[0][0], voice_options=voices,
+                sample_rate=VACHANA_RATE, assets_ready=ready,
+                runtime_ready=vachana_runtime_ready(), capabilities=flags,
+                commercial_status=commercial,
+            )
+        voice_assets = {voice["id"]: voice["asset"] for voice in manifest["voices"]}
+        def create(seed: int, engine_id=engine_id, model_dir=model_dir,
+                   voices=voices, voice_assets=voice_assets):
+            return VachanaEngine(model_dir=model_dir, engine_id=engine_id,
+                                 voices=voices, voice_assets=voice_assets)
+        registry.register(engine_id, describe=description, create=create)
 
 
 def engine_registry() -> EngineRegistry:
@@ -257,6 +404,11 @@ def engine_registry() -> EngineRegistry:
                 PARADEE_ENGINE_ID, describe=_paradee_descriptor,
                 create=lambda seed: MakHamParadeeEngine(),
             )
+            registry.register(
+                VACHANA_ENGINE_ID, describe=_vachana_descriptor,
+                create=lambda seed: VachanaEngine(),
+            )
+            _register_model_packages(registry)
             _REGISTRY = registry
         return _REGISTRY
 
@@ -291,8 +443,8 @@ def validate_speech_request(plan: dict[str, Any], speed: float, voice_id: str,
     if type(speed) not in (int, float) or not 0.6 <= speed <= 1.5:
         raise InputError("speed must be a number from 0.6 to 1.5")
     info = get_engine_info(engine_id)
-    if voice_id != info.voice_id:
-        raise InputError(f"engine {engine_id} supports only voice_id={info.voice_id}; voice cloning not supported")
+    if voice_id not in info.voice_ids:
+        raise InputError(f"voice_id is not available in selected engine {engine_id}")
     segments = plan.get("segments")
     if not isinstance(segments, list) or len(segments) > MAX_PLAN_SEGMENTS:
         raise InputError(f"speech plan must have at most {MAX_PLAN_SEGMENTS} segments")
@@ -321,6 +473,11 @@ def render_wav(
     # A fresh model instance per speech job prevents its random state from
     # drifting between otherwise identical utterances.
     engine = engine if engine is not None else create_voice_engine(engine_id, seed=seed)
+    if len(get_engine_info(engine_id).voice_ids) > 1:
+        select_voice = getattr(engine, "select_voice", None)
+        if not callable(select_voice):
+            raise SpeechFailure("multi-voice adapter must implement select_voice")
+        select_voice(voice_id)
     rate = engine.sample_rate
     if rate < 8_000 or rate > 96_000:
         raise SpeechFailure("unsupported engine sample rate")

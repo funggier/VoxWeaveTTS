@@ -40,6 +40,7 @@ jobs:
           node tests/mode_workspace_smoke.cjs
           node tests/mode_inputs_smoke.cjs
           node tests/tiktok_live_smoke.cjs
+          node tests/model_packages_ui_smoke.cjs
           node tests/live_queue_retention_smoke.cjs
           node tests/source_settings_profile_smoke.cjs
           node tests/source_feed_smoke.cjs
