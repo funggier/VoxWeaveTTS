@@ -5,7 +5,7 @@
 
 For the full rationale, detailed tasks, dependencies and acceptance tests, see [Project Vision (Thai)](PROJECT_VISION_TH.md), [Development Plan (Thai)](DEVELOPMENT_PLAN_TH.md), and [Requirements (Thai)](REQUIREMENTS_TH.md).
 
-**Status (v0.4.3 released):** Thai CPU WAV synthesis, a self-contained Windows portable executable, Web UI, source queues and browser-driven OBS subtitles are implemented. Voice cloning, model training, streaming TTS, hardware playback clocks and automatic word-level alignment remain planned.
+**Status (v0.4.4 released):** Thai CPU WAV synthesis, a self-contained Windows portable executable, Web UI, source queues and browser-driven OBS subtitles are implemented. Voice cloning, model training, streaming TTS, hardware playback clocks and automatic word-level alignment remain planned.
 
 ## Milestone 0 — Foundation (in repository)
 - [x] Project identity, public repository and MIT source license

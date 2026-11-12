@@ -2,11 +2,11 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.4.3** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.4.4** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
 ## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
 
-1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.4.3-portable.zip`
+1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.4.4-portable.zip`
 2. แตก ZIP **ทั้งโฟลเดอร์** ไปยังที่เขียนไฟล์ได้ เช่น `T:\\Apps\\VoxWeaveTTS` อย่าเปิด EXE จากใน ZIP
 3. เปิด `VoxWeaveTTS.exe` จะมีหน้าต่างควบคุมและเปิด Browser เริ่มต้น (Firefox/Chrome) ไปที่ `http://127.0.0.1:8765/` อัตโนมัติ
 4. เลือก Engine **MakHam Paradee** แล้วทดลองพิมพ์ข้อความไทยและสร้าง WAV ได้โดยไม่ต้องโหลดโมเดลเพิ่มเติม
@@ -15,13 +15,13 @@
 
 ไม่ต้องลง Python, Node, GitHub CLI หรือโปรแกรมติดตั้งเพิ่มสำหรับฟังก์ชันสร้างเสียงพื้นฐาน ผู้ใช้ย้ายโฟลเดอร์ทั้งชุดไปไดรฟ์อื่นได้ และไฟล์โมเดล แคช ค่ากลางอยู่ภายในโฟลเดอร์โปรแกรม [คู่มือ Windows Portable](docs/PORTABLE.md) · [ไลเซนส์ส่วนประกอบ](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
 
-## รุ่นพัฒนาถัดไป — YouTube LIVE โควตาและ gRPC streamList (0.4.4.dev0)
+## YouTube LIVE โควตาและ gRPC streamList (v0.4.4)
 
 - เพิ่มรับข้อความผ่าน YouTube `liveChatMessages.streamList` (gRPC แบบรับข้อความต่อเนื่อง) เพื่อลด REST Polling ที่เปลือง Quota และกลับไปใช้ REST อย่างน้อยทุก 30 วินาทีเมื่อ gRPC ไม่พร้อมหรือ Server ไม่รองรับ
 - อ่าน Google API Error `reason` ที่ปลอดภัยเพื่อแยก `quotaExceeded`, `dailyLimitExceeded`, `rateLimitExceeded` โดย **หยุด API อัตโนมัติเมื่อโควตารายวันหมด** ไม่เปิดเผย API Key และไม่ Retry ซ้ำจนกว่าผู้ใช้จะ Connect เอง
 - `streamList` มีค่าใช้โควตาในการเปิดการเชื่อมต่อและยังต้องมีสิทธิ์เข้าถึง Live Chat การทดสอบส่วนนี้เป็นการจำลอง API เท่านั้น ยังไม่ทดสอบกับบัญชีจริงที่โควตาคงเหลือน้อย
 
-**หมายเหตุ:** รุ่น Development `0.4.4.dev0` ยังไม่ใช่ GitHub Portable Release; รุ่น `v0.4.3` ที่เผยแพร่ก่อนหน้านี้ยังใช้ REST Polling
+**ดาวน์โหลด:** [GitHub Release v0.4.4](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.4) รวม Windows Portable ที่มี gRPC Runtime, MakHam และ Model Packages เสริม Vachana/FastThaiG2P ให้เลือกโหลดแยก
 
 ## แก้ Connect และดาวน์โหลด Model Packages พร้อมโปรแกรม (v0.4.3)
 

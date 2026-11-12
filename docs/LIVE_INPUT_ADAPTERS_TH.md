@@ -14,9 +14,9 @@
 2. เปิดโหมด YouTube LIVE แล้วระบุ Video ID (11 ตัว) ของ Live ที่กำลังดำเนินอยู่ หรือระบุ liveChatId โดยตรง
 3. กรอก API Key ในช่องชั่วคราว หรือกำหนด Environment Variable ชื่อ VOXWEAVE_YOUTUBE_API_KEY ให้โปรเซสที่เปิดโปรแกรม
 4. เลือก Blacklist ของคำที่ไม่ต้องการและความยาวสูงสุด ก่อนกด เชื่อมต่อ API
-5. รุ่นพัฒนา `0.4.4.dev0` ใช้ `liveChatMessages.streamList` ผ่าน gRPC เป็นหลัก ข้อมูลที่ได้ครั้งแรกถือเป็นประวัติเดิมและไม่ส่งเข้า TTS จากนั้นรับข้อความใหม่ที่ YouTube ส่งมาตามจริง โดยเก็บ `nextPageToken` เพื่อกลับมาอ่านต่อเมื่อเชื่อมต่อใหม่
+5. รุ่นเผยแพร่ `v0.4.4` ใช้ `liveChatMessages.streamList` ผ่าน gRPC เป็นหลัก ข้อมูลที่ได้ครั้งแรกถือเป็นประวัติเดิมและไม่ส่งเข้า TTS จากนั้นรับข้อความใหม่ที่ YouTube ส่งมาตามจริง โดยเก็บ `nextPageToken` เพื่อกลับมาอ่านต่อเมื่อเชื่อมต่อใหม่
 
-**รุ่นพัฒนา 0.4.4.dev0:** streamList ใช้ gRPC/Protocol Buffers (ต้องมี `grpcio` และ `protobuf` ใน Runtime) ไม่ใช่ REST หรือ SSE หาก gRPC ไม่พร้อมหรือ Server ไม่รองรับจึงกลับไป `liveChatMessages.list` แบบเว้นอย่างน้อย 30 วินาที (`pollingIntervalMillis` อาจกำหนดให้นานกว่า) ช่วยลดจำนวนคำขอแต่ **ไม่ทำให้โควตาเป็นศูนย์** เพราะเปิด streamList ใหม่และค้นหา Live Chat ID ยังใช้โควตา โค้ดยังไม่ถูกเผยแพร่ใน ZIP `v0.4.3`
+**รุ่นเผยแพร่ v0.4.4:** streamList ใช้ gRPC/Protocol Buffers (ต้องมี `grpcio` และ `protobuf` ใน Runtime) ไม่ใช่ REST หรือ SSE หาก gRPC ไม่พร้อมหรือ Server ไม่รองรับจึงกลับไป `liveChatMessages.list` แบบเว้นอย่างน้อย 30 วินาที (`pollingIntervalMillis` อาจกำหนดให้นานกว่า) ช่วยลดจำนวนคำขอแต่ **ไม่ทำให้โควตาเป็นศูนย์** เพราะเปิด streamList ใหม่และค้นหา Live Chat ID ยังใช้โควตา รวมอยู่ใน ZIP `v0.4.4` แล้ว (รุ่นก่อนหน้า `v0.4.3` ยังใช้ REST)
 
 **ป้องกันหมดโควตา:** อ่านรหัส Google API Error ที่อนุญาต เช่น `quotaExceeded`, `dailyLimitExceeded`, `rateLimitExceeded`, `liveChatDisabled` โดยไม่แสดง Error Body/URL/API Key; เมื่อรายวันหมดจะหยุดเรียกอัตโนมัติทันทีจนกว่าผู้ใช้จะกด Connect อีกครั้ง ส่วน Rate Limit แบบชั่วคราวจะพักอย่างน้อย 120 วินาที สำหรับ gRPC `RESOURCE_EXHAUSTED` จะหยุดการเชื่อมต่ออัตโนมัติเช่นกันเพราะยังระบุไม่ได้แน่ชัดว่าเป็น Quota หรือ Rate Limit ต้องตรวจข้อมูล Google Cloud ก่อนลองใหม่
 

@@ -2,7 +2,7 @@
 
 **Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
 
-> **Windows portable release v0.4.3:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency YouTube/Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
+> **Windows portable release v0.4.4:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
 ## Model packages (v0.4.2)
 
@@ -16,9 +16,9 @@ YouTube LIVE (renamed from the earlier generic Live Reader), TikTok LIVE, Discor
 
 These concurrent-workspace features are included in the v0.4.2 ZIP. Simultaneous authorized real-account testing across all providers is still pending; offline source and scheduler tests pass. See [Thai mode guide](docs/WORKSPACE_MODES_TH.md).
 
-## Development 0.4.4.dev0: YouTube gRPC Live Chat streaming and quota guard
+## Release v0.4.4: YouTube gRPC Live Chat streaming and quota guard
 
-YouTube LIVE now prefers the official `liveChatMessages.streamList` **gRPC** server stream with one connection and continuation tokens. The Windows Portable build must bundle `grpcio` and `protobuf`; ordinary Python installs can enable the optional `youtube-stream` extra. If gRPC is unavailable/unsupported, the adapter uses quota-conscious REST `liveChatMessages.list` polling with at least 30 seconds between calls. Known Google `quotaExceeded` / `dailyLimitExceeded` errors stop automatic retries, `rateLimitExceeded` triggers backoff, and raw error details/credentials are never exposed. The stream itself also costs quota when started. This is a local development change only; published v0.4.3 still uses REST and real-account streaming verification is pending.
+YouTube LIVE now prefers the official `liveChatMessages.streamList` **gRPC** server stream with one connection and continuation tokens. The Windows Portable build must bundle `grpcio` and `protobuf`; ordinary Python installs can enable the optional `youtube-stream` extra. If gRPC is unavailable/unsupported, the adapter uses quota-conscious REST `liveChatMessages.list` polling with at least 30 seconds between calls. Known Google `quotaExceeded` / `dailyLimitExceeded` errors stop automatic retries, `rateLimitExceeded` triggers backoff, and raw error details/credentials are never exposed. The stream itself also costs quota when started. This is included in the published v0.4.4 Windows Portable ZIP. Local gRPC tests pass and the streaming code was user-tested; source-specific quotas, permissions, and real-account behavior remain dependent on Google. [Download v0.4.4 with optional model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.4).
 
 ## v0.4.3 hotfix: Source reconnect and model package assets
 
@@ -44,7 +44,7 @@ The Settings workspace is now dedicated to Model Package management; the top Set
 
 ## Install and run — Windows 10/11 x64 portable
 
-1. Download `VoxWeaveTTS-v0.4.3-portable.zip` from GitHub Releases.
+1. Download `VoxWeaveTTS-v0.4.4-portable.zip` from GitHub Releases.
 2. Extract the **entire** ZIP to a writable folder, for example `T:\\Apps\\VoxWeaveTTS`. Do not run the EXE directly from inside the ZIP.
 3. Double-click `VoxWeaveTTS.exe`. It starts the local server and opens your default browser (Firefox or Chrome) at `http://127.0.0.1:8765/`.
 4. Select the available **MakHam Paradee** engine, enter Thai text and generate speech. Other modes include document reader, Discord Client, official chat inputs, pronunciation rules, source profile import/export and OBS subtitles.
