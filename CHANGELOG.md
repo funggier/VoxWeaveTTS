@@ -1,6 +1,15 @@
 # Changelog
 
-All versions here describe development snapshots; no portable binary or GitHub Release is implied.
+The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
+
+## 0.4.0 — First Windows portable application release (2026-11-12)
+
+- Built a Windows 10/11 x64 portable ZIP with a self-contained Python 3.11 interpreter, standard library, ONNX inference dependencies, Web UI, Thai speech source, Windows `VoxWeaveTTS.exe` GUI launcher and diagnostic `Start-Console.cmd`. No end-user Python, Node, GitHub CLI or installation required.
+- The app launcher manages one loopback-only local server on port 8765, opens the system default browser (Firefox/Chrome supported) and stops the child server when its window closes. Does not alter Windows PATH, registry or services.
+- Included MakHam Paradee CPU INT8 model and its separately published Apache-2.0 license provenance/attributions for usable Thai WAV synthesis out of the box. The 325MB FastThaiG2P checkpoint, personal voice recordings, user data, caches, saved tokens and unpublished model packs are intentionally excluded.
+- Kept app-generated settings/models/caches/outputs under the movable extracted folder. Documented clean extraction, fallback console launcher, manual Discord RPC approval, model licensing, supported workflows and known limitations.
+- Added an automated portable runtime smoke test that validates the packaged Python interpreter and generates real Thai WAV from the bundled MakHam ONNX model. The downloadable ZIP has SHA-256 verification.
+- Known limitations: no voice cloning, model training, native GPU inference or independently audited third-party user-supplied voicepacks; YouTube Live / Discord Bot connections remain unverified with authorized real accounts. Use the included notice/license files before commercial redistribution.
 
 ## 0.3.0.dev19 — Select Export file location in Firefox and Chrome (2026-11-12)
 

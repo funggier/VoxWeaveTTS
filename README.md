@@ -1,8 +1,8 @@
 # VoxWeaveTTS
 
-**Portable Thai-first voice studio and real-time speech platform** — work in progress, currently at M1 CPU audio preview.
+**Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
 
-> **Current status (v0.3.0.dev19 cross-browser Save As and source profile preview):** local text processing and **real Thai WAV generation with two CPU ONNX Engines**, FastThaiG2P and MakHam Paradee, when the optional model/runtime are installed. **Voice cloning/fine-tuning, native expressive controls, live-account-verified YouTube Live/Discord Bot adapters (Discord Desktop RPC was user-confirmed), word/phoneme subtitle alignment, a native hardware Playback Clock, and a bundled Windows portable executable are NOT implemented.** The user confirmed working Discord Desktop RPC message reception on dev17; YouTube Live and Discord Bot adapters have not been verified using authorized live credentials. The preview now offers native Speed plus optional post-DSP Pitch, Gain, Bass and Treble.
+> **First distributable release v0.4.0:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency YouTube/Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
 ## Goals
 
@@ -13,7 +13,17 @@
 - Playback-clock-driven subtitle events for OBS Browser Source and external apps.
 - Windows portable ZIP: all settings, voice references and model caches under a movable root, without forced writes to the system drive.
 
-## Run the Thai audio preview (Windows)
+## Install and run — Windows 10/11 x64 portable
+
+1. Download `VoxWeaveTTS-v0.4.0-portable.zip` from GitHub Releases.
+2. Extract the **entire** ZIP to a writable folder, for example `T:\\Apps\\VoxWeaveTTS`. Do not run the EXE directly from inside the ZIP.
+3. Double-click `VoxWeaveTTS.exe`. It starts the local server and opens your default browser (Firefox or Chrome) at `http://127.0.0.1:8765/`.
+4. Select the available **MakHam Paradee** engine, enter Thai text and generate speech. Other modes include document reader, Discord Client, official chat inputs, pronunciation rules, source profile import/export and OBS subtitles.
+5. Close the desktop launcher window using **Stop & Exit** to terminate its private server. Keep it open while using the app.
+
+No separate Python, Node, GitHub CLI, service, admin install or cloud login is required for local speech. Windows .NET Framework 4.x is used by the tiny desktop launcher; if the EXE is blocked, try `Start-Console.cmd`. Models/user settings/caches stay within the extracted folder. For troubleshooting and legal notices, see [Windows Portable Guide](docs/PORTABLE.md).
+
+## Development setup (source checkout)
 
 1. Install `uv` and GitHub CLI (`gh`) for development setup. Run `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` in the project directory. The optional CPU engine and ~326 MB voice model are stored under the project root.
 2. Run `Start-Dev.cmd` (picks the local `.venv` Python first).
@@ -21,7 +31,7 @@
 4. Use `scripts/Generate-ThaiSample.ps1` while the local server is running to save `output/api_demo.wav`.
 5. Run `Test-Dev.cmd` for unit tests.
 
-The Python `.venv` is a developer environment, **not the final portable executable**. Offline synthesis works once the engine and model are installed.
+The Python `.venv` remains a developer environment; end users should use the portable ZIP and its bundled interpreter/model. Optional developer engines require separate license checks.
 
 ## Engine-neutral foundation (implemented preview)
 

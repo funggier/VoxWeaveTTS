@@ -167,7 +167,7 @@ def _coordinator_default() -> SpeechCoordinator:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "VoxWeaveTTS/0.3"
+    server_version = "VoxWeaveTTS/0.4"
 
     def _coordinator(self) -> SpeechCoordinator:
         # Tests can inject an isolated fake renderer into their HTTP server.

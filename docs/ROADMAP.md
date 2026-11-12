@@ -5,7 +5,7 @@
 
 For the full rationale, detailed tasks, dependencies and acceptance tests, see [Project Vision (Thai)](PROJECT_VISION_TH.md), [Development Plan (Thai)](DEVELOPMENT_PLAN_TH.md), and [Requirements (Thai)](REQUIREMENTS_TH.md).
 
-**Status:** The initial foundation processes text; M1 has a working fixed-voice Thai CPU WAV preview. Voice cloning, live audio streaming, synced subtitle events and Windows portable EXEs remain planned; unchecked items are not implemented.
+**Status (v0.4.0):** Thai CPU WAV synthesis, a self-contained Windows portable executable, Web UI, source queues and browser-driven OBS subtitles are implemented. Voice cloning, model training, streaming TTS, hardware playback clocks and automatic word-level alignment remain planned.
 
 ## Milestone 0 — Foundation (in repository)
 - [x] Project identity, public repository and MIT source license
@@ -36,7 +36,7 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Shared global Engine/Voice/Speed/DSP persistent configuration; Seed, Presets and Rules remain central
 - [x] Local Live/Discord text-input simulators with independent text and playback
 - [x] Discord Client room selection via explicit Channel ID and approved-app Local RPC architecture; subscribed events filter by selected room
-- [ ] Test authorized Discord Desktop RPC with an approved app/tester account and explicit messages.read consent; verify OAuth redirect and named-pipe behavior end to end
+- [x] Discord Desktop RPC receive messages confirmed by the user with authorized consent in dev17; broader cross-machine provider validation is still pending
 - [x] Official YouTube Live REST and Discord Bot REST read-only pollers with ephemeral credentials, dedupe, filters, bounded queues and opt-in sequential playback
 - [ ] Verify actual providers using authorized accounts, add low-latency YouTube streamList/Discord Gateway and advanced moderation/queue priority
 - [ ] Persist optional mode drafts and improve cross-mode job history without losing privacy
@@ -90,7 +90,7 @@ Read [Engine-Neutral Core](ENGINE_NEUTRAL_CORE_TH.md) for contract and current l
 - [ ] Stream offset calibration, cancellation and multi-consumer validation
 
 ## Milestone 5 — Portable release
-- [ ] Windows executable and runtime bundling, no external Python
-- [ ] GPU/CPU fallback verification, model portability and local caches
-- [ ] Clean Windows extraction test, ZIP, hashes and GitHub release
+- [x] Windows EXE launcher and self-contained Python/ONNX CPU runtime, no external Python for MakHam Thai TTS
+- [x] CPU-only MakHam Paradee inference and local cache/model paths tested in relocated portable folder; GPU support and further models remain future
+- [ ] Test downloadable ZIP from an isolated extraction on Windows, publish hash and GitHub release; untouched clean-machine compatibility still requires external QA
 - [ ] Third-party license and redistribution audit
