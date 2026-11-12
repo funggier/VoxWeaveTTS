@@ -8,6 +8,7 @@ const VOICE_MODES=Object.freeze([
   ["live","YouTube LIVE"],["tiktok","TikTok LIVE"],
   ["discord","Discord"],["discord_client","Discord Client"],
 ]);
+const SENDER_MODES=["live","tiktok","discord","discord_client"];
 const TUNING=[
   ["speed","ความเร็วในการอ่าน",0.60,5.00,1,"×"],
   ["gain_db","ความดัง",-18,12,0,"dB"],
@@ -264,8 +265,46 @@ function attach({document,engines,getDefault}){
     refreshEngines();
     for(const [mode] of controls)
       set(mode,data.modes?.[mode]||getDefault());
+    for(const mode of SENDER_MODES){
+      const prefix=mode==="discord_client"?"discordClient":mode;
+      const checkbox=document.getElementById?.(prefix+"FeedReadSender");
+      if(checkbox)checkbox.checked=data.sender_names?.[mode]===true;
+    }
     await loadPresets();
     return data;
+  }
+  async function saveSenderName(mode,enabled){
+    if(!SENDER_MODES.includes(mode)||typeof enabled!=="boolean")
+      throw Error("Invalid sender-name preference");
+    await (serial=serial.catch(()=>{}).then(async()=>{
+      const response=await fetch("/v1/settings/mode-voices",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",
+                 "X-VoxWeaveTTS-Intent":"save-mode-voice"},
+        body:JSON.stringify({
+          expected_revision:revision,mode:"__sender__",
+          settings:{source_mode:mode,enabled},
+        }),
+      });
+      const data=await response.json();
+      if(!response.ok)throw Error(data.error||"Could not save sender-name preference");
+      revision=data.revision;
+    }));
+  }
+  for(const mode of SENDER_MODES){
+    const prefix=mode==="discord_client"?"discordClient":mode;
+    const checkbox=document.getElementById?.(prefix+"FeedReadSender");
+    const status=document.getElementById?.(prefix+"FeedReadSenderStatus");
+    checkbox?.addEventListener("change",async()=>{
+      const desired=checkbox.checked;
+      if(status)status.textContent="กำลังบันทึก...";
+      try{
+        await saveSenderName(mode,desired);
+        if(status)status.textContent="บันทึกแล้ว";
+      }catch{
+        if(status)status.textContent="บันทึกไม่สำเร็จ · ค่ายังมีผลในหน้านี้";
+      }
+    });
   }
   async function savePolicy(policy){
     await (serial=serial.catch(()=>{}).then(async()=>{
@@ -280,7 +319,7 @@ function attach({document,engines,getDefault}){
       revision=data.revision;
     }));
   }
-  return {load,read,save,savePolicy,loadPresets,refreshEngines,
+  return {load,read,save,savePolicy,saveSenderName,loadPresets,refreshEngines,
           settingsFor:mode=>read(mode),
           get modes(){return [...controls.keys()];}};
 }

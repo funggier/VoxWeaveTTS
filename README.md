@@ -16,7 +16,10 @@ YouTube LIVE (renamed from the earlier generic Live Reader), TikTok LIVE, Discor
 
 This is not yet in the published v0.4.1 ZIP. Live multi-provider testing with authorized real accounts is pending; offline concurrent-source and scheduler tests pass. See [Thai mode guide](docs/WORKSPACE_MODES_TH.md).
 
-## Developer update v0.4.2.dev2
+## Developer update v0.4.2.dev3
+
+All four live source workspaces (YouTube LIVE, TikTok LIVE, Discord Bot and Discord Client) now have independent, portable **Read sender name before message** preferences, off by default. When enabled, new TTS jobs include the sender before the text; message history remains unchanged. Saved source profiles include the optional Boolean `read_sender_name`, while legacy files are still accepted. See [concurrent workspace guide](docs/WORKSPACE_MODES_TH.md).
+
 
 The Settings workspace is now dedicated to Model Package management; the top Settings shortcut has been removed. Each speech workspace offers 0.01-step sliders, numerical voice tuning, speed up to x5, seed and independent presets. Folder-based `.json` voice presets live at `presets/` and are re-discovered from the dropdown refresh control; legacy presets remain readable. Automatic reading preferences are no longer silently unchecked on audio errors or Stop; speech pauses with a retry action instead. Only MakHam Paradee weights are bundled into Windows Portable; Vachana (four voices) and FastThaiG2P Thai Som are supported as separate, locally tested `.vwmodel` packs whose rights remain under review and are not publicly redistributed.
 

@@ -21,6 +21,7 @@ SETTINGS_PATH = ROOT / "data" / "settings" / "mode-voices.json"
 VOICE_MODES = frozenset(("studio", "reader", "queue", "live", "tiktok",
                          "discord", "discord_client"))
 AUDIO_POLICIES = frozenset(("serial", "overlap"))
+SENDER_MODES = frozenset(("live", "tiktok", "discord", "discord_client"))
 _LOCK = threading.RLock()
 
 
@@ -43,20 +44,26 @@ def validate_voice_profile(raw: Any) -> dict[str, Any]:
 def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
     with _LOCK:
         if not path.is_file():
-            return {"revision": 0, "policy": "serial", "modes": {}}
+            return {"revision": 0, "policy": "serial", "modes": {}, "sender_names": {}}
         try:
             if path.stat().st_size > 48_000:
                 raise InputError("workspace settings file too large")
             doc = json.loads(path.read_text(encoding="utf-8-sig"))
         except (OSError, ValueError) as exc:
             raise InputError("invalid workspace voice settings file") from exc
-        if (not isinstance(doc, dict) or set(doc) != {"revision", "policy", "modes"}
+        if (not isinstance(doc, dict) or not {"revision", "policy", "modes"} <= set(doc)
+            or set(doc) - {"revision", "policy", "modes", "sender_names"}
             or type(doc["revision"]) is not int or doc["revision"] < 0
             or doc["policy"] not in AUDIO_POLICIES or not isinstance(doc["modes"], dict)
             or not set(doc["modes"]) <= VOICE_MODES):
             raise InputError("invalid saved workspace settings")
-        # Do not reject saved profiles solely because the model was removed.
-        return doc
+        sender_names = doc.get("sender_names", {})
+        if (not isinstance(sender_names, dict) or not set(sender_names) <= SENDER_MODES
+            or any(type(value) is not bool for value in sender_names.values())):
+            raise InputError("invalid saved sender-name settings")
+        # Previously saved mode-voices.json files are still accepted.
+        # Do not reject saved profiles solely because a model was removed.
+        return {**doc, "sender_names": dict(sender_names)}
 
 
 def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) -> dict[str, Any]:
@@ -66,12 +73,19 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
     if type(revision) is not int or revision < 0:
         raise InputError("invalid workspace settings revision")
     mode = data["mode"]
-    if mode != "__policy__" and mode not in VOICE_MODES:
+    if not isinstance(mode, str) or (mode not in ("__policy__", "__sender__") and mode not in VOICE_MODES):
         raise InputError("unknown voice workspace")
     if mode == "__policy__":
         value = data["settings"]
         if value not in AUDIO_POLICIES:
             raise InputError("unsupported audio playback policy")
+    elif mode == "__sender__":
+        value = data["settings"]
+        if (not isinstance(value, dict) or set(value) != {"source_mode", "enabled"}
+            or not isinstance(value["source_mode"], str)
+            or value["source_mode"] not in SENDER_MODES
+            or type(value["enabled"]) is not bool):
+            raise InputError("invalid sender-name preference")
     else:
         value = validate_voice_profile(data["settings"])
     with _LOCK:
@@ -81,9 +95,12 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
         next_doc = {
             "revision": revision + 1, "policy": current["policy"],
             "modes": dict(current["modes"]),
+            "sender_names": dict(current["sender_names"]),
         }
         if mode == "__policy__":
             next_doc["policy"] = value
+        elif mode == "__sender__":
+            next_doc["sender_names"][value["source_mode"]] = value["enabled"]
         else:
             next_doc["modes"][mode] = value
         path.parent.mkdir(parents=True, exist_ok=True)

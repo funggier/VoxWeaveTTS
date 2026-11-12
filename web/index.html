@@ -74,7 +74,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </head>
 <body>
 <main>
-<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Concurrent Workspaces · Per-channel Voices</div></div><div class="pill">Local Studio 0.4.2.dev2</div></header>
+<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Concurrent Workspaces · Per-channel Voices</div></div><div class="pill">Local Studio 0.4.2.dev3</div></header>
 <div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละช่องทางรับข้อความและเล่นเสียงได้พร้อมกัน แม้สลับแท็บ · Engine/Voice/Speed/DSP แยกตามช่องทางได้ ส่วน Rules/Pronunciations ยังคงใช้ร่วมกัน · ต้องกดเชื่อมต่อ Live/Discord เอง</div>
 <div class="app-workspace">
 <aside class="mode-sidebar" aria-label="โหมดการทำงาน">
@@ -183,6 +183,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="liveFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="liveFeedMaxChars" min="20" max="280" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนอ่านข้อความ</label>
+<span class="small" id="liveFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="liveAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 <div><label for="liveFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="liveFeedKeepRead" min="0" max="100" value="20"></div>
 </div>
@@ -225,6 +227,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="tiktokFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="tiktokFeedMaxChars" min="20" max="280" value="240"></div>
 <div><label for="tiktokFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="tiktokFeedKeepRead" min="0" max="100" value="20"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนอ่านข้อความ</label>
+<span class="small" id="tiktokFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="tiktokAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 </div>
 <div class="voice-grid">
@@ -271,6 +275,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="discordFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="discordFeedMaxChars" min="20" max="280" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนอ่านข้อความ</label>
+<span class="small" id="discordFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="discordAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 <div><label for="discordFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="discordFeedKeepRead" min="0" max="100" value="20"></div>
 </div>
@@ -326,6 +332,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <label style="display:flex;align-items:center;gap:7px">
 <input id="discordClientFeedAuto" type="checkbox" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)
 </label>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordClientFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนอ่านข้อความ</label>
+<span class="small" id="discordClientFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="discordClientAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 <div><label for="discordClientFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input id="discordClientFeedKeepRead" type="number" min="0" max="100" value="20"></div>
 </div>
@@ -1861,7 +1869,8 @@ if(typeof VoxSourceFeed!=="undefined"){
       credentials:id=>modeRuntime.credentials(id),
       guard:id=>Boolean(modeRuntime?.guard(id)),
       onMessage:(entry,automatic)=>inputMode.receiveIncoming(entry,automatic),
-      onPick:entry=>{el((mode==="discord_client"?"discordClient":mode)+"Text").value=entry.text;},
+      onPick:entry=>inputMode.pickMessage(entry),
+      onSenderPreference:(sourceMode,enabled)=>modeVoiceController.saveSenderName(sourceMode,enabled),
       onStop:()=>{inputMode.clearAutoQueue({includeActive:true});inputMode.stop({discard:true});},
     });
     if(mode==="live")liveFeed=feed;

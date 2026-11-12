@@ -41,6 +41,7 @@ jobs:
           node tests/audio_scheduler_smoke.cjs
           node tests/mode_voices_smoke.cjs
           node tests/mode_inputs_smoke.cjs
+          node tests/read_sender_names_smoke.cjs
           node tests/tiktok_live_smoke.cjs
           node tests/model_packages_ui_smoke.cjs
           node tests/live_queue_retention_smoke.cjs

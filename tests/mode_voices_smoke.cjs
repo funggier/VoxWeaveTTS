@@ -22,8 +22,13 @@ class Node{
 const views=new Map();
 for(const mode of ["studio","reader","queue","live","tiktok","discord","discord_client"])
   views.set(mode,new Node("div"));
+const senderFields=new Map();
 const document={
   createElement:tag=>new Node(tag),
+  getElementById:id=>{
+    if(!senderFields.has(id))senderFields.set(id,new Node("input"));
+    return senderFields.get(id);
+  },
   querySelector:selector=>{
     const match=selector.match(/^\[data-mode-view="([^"]+)"\]$/);
     return match?views.get(match[1]):null;
@@ -50,6 +55,7 @@ global.fetch=async(path,options)=>{
   assert.equal(path,"/v1/settings/mode-voices");
   if(!options?.method)return{ok:true,async json(){return{
     revision,policy:"serial",modes:overrides,
+    sender_names:{live:true,discord_client:true},
   };}};
   assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"save-mode-voice");
   const body=JSON.parse(options.body);
@@ -63,6 +69,10 @@ async function main(){
   const config=await manager.load();
   assert.equal(config.policy,"serial");
   assert.equal(manager.modes.length,7);
+  assert.equal(document.getElementById("liveFeedReadSender").checked,true);
+  assert.equal(document.getElementById("discordFeedReadSender").checked,false);
+  assert.equal(document.getElementById("tiktokFeedReadSender").checked,false);
+  assert.equal(document.getElementById("discordClientFeedReadSender").checked,true);
   assert.equal(manager.read("live").engine_id,"vachana-cpu");
   assert.equal(manager.read("discord").engine_id,"makham-paradee-cpu");
   assert.equal(manager.read("live").speed,1.1);
@@ -87,6 +97,18 @@ async function main(){
   assert.equal(posts[1].mode,"__policy__");
   assert.equal(posts[1].settings,"overlap");
   assert.equal(revision,2);
+  const discordName=document.getElementById("discordFeedReadSender");
+  discordName.checked=true;
+  await discordName.handlers.change();
+  assert.equal(posts[2].mode,"__sender__");
+  assert.equal(posts[2].settings.source_mode,"discord");
+  assert.equal(posts[2].settings.enabled,true);
+  await manager.saveSenderName("tiktok",false);
+  assert.equal(posts[3].settings.source_mode,"tiktok");
+  assert.equal(posts[3].settings.enabled,false);
+  assert.equal(revision,4);
+  assert.equal(document.getElementById("liveFeedReadSender").checked,true,
+    "changing Discord must not affect YouTube");
   // Presets copied from a different machine stay visible even before their
   // optional model pack has been installed.
   const pendingModel="model-optional-thai-1_0_0";

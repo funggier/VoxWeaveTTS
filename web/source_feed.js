@@ -12,7 +12,7 @@ const SETTINGS_FORMAT="voxweavetts.source-settings";
 const SETTINGS_VERSION=1;
 const MAX_SETTINGS_BYTES=16384;
 const SETTINGS_KEYS=new Set(["format","version","mode","source_id",
-                             "filters","auto_read","read_history_limit",
+                             "filters","auto_read","read_sender_name","read_history_limit",
                              "credential","client_id","client_secret","redirect_uri"]);
 function isRecord(value){
   return value!==null && typeof value==="object" && !Array.isArray(value);
@@ -33,6 +33,7 @@ function validateSettingsProfile(value,mode){
           && value.filters.max_chars>=20 && value.filters.max_chars<=280)))
     throw Error("ตัวกรองหรือจำนวนอักษรในไฟล์ไม่ถูกต้อง");
   if(typeof value.auto_read!=="boolean"
+     || ("read_sender_name" in value && typeof value.read_sender_name!=="boolean")
      || !(value.read_history_limit==="" || (Number.isInteger(value.read_history_limit)
           && value.read_history_limit>=0 && value.read_history_limit<=MAX_READ_KEEP)))
     throw Error("ค่าคิวเสียงหรือจำนวนประวัติไม่ถูกต้อง");
@@ -67,7 +68,7 @@ const RPC_PHASE_NAMES={
   subscribed:"สมัครรับข้อความจากห้องสำเร็จ",
   disconnected:"ตัดการเชื่อมต่อแล้ว",
 };
-function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
+function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPreference}){
   if(!["live","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
   const prefix=mode==="discord_client"?"discordClient":mode;
   const get=id=>el(prefix+id);
@@ -85,6 +86,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
       source_id:get("FeedSourceId").value,
       filters:{blocked_words:blocked,max_chars:max===""?"":Number(max)},
       auto_read:Boolean(get("FeedAuto").checked),
+      read_sender_name:Boolean(get("FeedReadSender")?.checked),
       read_history_limit:keep===""?"":Number(keep),
     };
     if(mode==="discord_client"){
@@ -162,6 +164,13 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
       get("FeedBlocked").value=data.filters.blocked_words;
       get("FeedMaxChars").value=String(data.filters.max_chars);
       get("FeedAuto").checked=data.auto_read;
+      if("read_sender_name" in data){
+        get("FeedReadSender").checked=data.read_sender_name;
+        // An imported profile updates the portable per-channel setting too.
+        try{await onSenderPreference?.(mode,data.read_sender_name);}catch{
+          get("FeedReadSenderStatus").textContent="ไม่สามารถบันทึกค่าอ่านชื่อผู้ส่งได้";
+        }
+      }
       get("FeedKeepRead").value=String(data.read_history_limit);
       if(mode==="discord_client"){
         get("FeedAppId").value=data.client_id;
@@ -313,7 +322,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     }else messageId="tiktok-"+generation+"-"+(++wsSequence);
     const user=isRecord(data.user)?data.user:{};
     const rawAuthor=[data.nickname,user.nickname,data.uniqueId,user.uniqueId]
-      .find(value=>typeof value==="string"&&value.trim())||"ผู้ชม";
+      .find(value=>typeof value==="string"&&value.trim())||"";
     const author=rawAuthor.replace(/[\u0000-\u001f\u007f]/g," ").slice(0,80);
     const item={message_id:messageId,author,text:value};
     wsMessages++;

@@ -2,6 +2,14 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## 0.4.2.dev3 — Independent per-source sender-name reading (development, 2026-11-12)
+
+- Added an independent **อ่านชื่อผู้ส่งก่อนอ่านข้อความ** checkbox for YouTube LIVE, TikTok LIVE, Discord Bot and Discord Client, default off. Preferences persist in portable `data/settings/mode-voices.json` with revision checks.
+- Enabled channels synthesize new messages as `sender พิมพ์ว่า text`; disabled channels speak the original text. The preference is sampled when each TTS job is submitted, so pending messages use the latest setting, without rewriting already-rendered WAV or modifying message history.
+- Picking a source message manually preserves its sender for speech, unless the user edits the draft. Missing sender names never trigger a fabricated name prefix.
+- Existing Source Settings v1 Export/Import supports an optional `read_sender_name` Boolean in both Chrome and Firefox Save As; legacy profiles without that property remain compatible.
+- Added Python API migration/validation and source-profile tests plus four-channel playback simulation smoke tests. Concurrent workspace and queue behavior remain unchanged.
+
 ## 0.4.2.dev2 — Detailed per-mode voices, portable presets and model packages (development, 2026-11-12)
 
 - Fixed automatic live reading being silently disabled by speech synthesis errors, browser autoplay denial, audio failures or Stop. Temporary failures now pause the queue without changing the Auto-read checkbox; each source offers a Retry Auto-read button. Manual checkbox changes and explicit profile import choices remain authoritative.

@@ -57,6 +57,20 @@ class SaveDialogFilesTests(unittest.TestCase):
                 self.assertEqual(restored, original["profile"])
                 self.assertEqual(len(list(target.parent.glob(".voxweave-profile-*.tmp"))), 0)
 
+    def test_sender_name_flag_roundtrips_in_all_source_profiles(self):
+        for mode in ("live", "discord", "discord_client", "tiktok"):
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory() as temp:
+                target=Path(temp)/"channel.json"
+                payload=request_for(mode)
+                payload["profile"]["read_sender_name"]=True
+                self.assertTrue(save_source_profile_dialog(
+                    payload,choose_path=lambda _:str(target)))
+                self.assertIs(json.loads(target.read_text(encoding="utf-8"))[
+                    "read_sender_name"],True)
+                # Legacy v1 files without this new optional setting still work.
+                legacy=request_for(mode)
+                self.assertTrue(validate_export_payload(legacy)[0])
+
     def test_cancel_does_not_create_file(self):
         with tempfile.TemporaryDirectory() as folder:
             self.assertFalse(save_source_profile_dialog(
@@ -70,6 +84,7 @@ class SaveDialogFilesTests(unittest.TestCase):
             {**valid, "filename": "VoxWeaveTTS-live-settings.json"},
             {**valid, "profile": {**valid["profile"], "mode": "other"}},
             {**valid, "profile": {**valid["profile"], "extra": "PRIVATE"}},
+            {**valid, "profile": {**valid["profile"], "read_sender_name": "true"}},
             {**valid, "profile": {**valid["profile"], "client_secret": "x" * 20_000}},
         ):
             with self.subTest(filename=bad["filename"]):

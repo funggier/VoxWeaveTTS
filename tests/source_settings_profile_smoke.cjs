@@ -12,7 +12,7 @@ const asFile=profile=>{
 
 async function verify(mode){
   const prefix=mode==="discord_client"?"discordClient":mode;
-  const elements=new Map(),pickerWrites=[],requests=[];
+  const elements=new Map(),pickerWrites=[],requests=[],senderImports=[];
   const browser={
     async showSaveFilePicker(options){
       if(browser.cancelSave){
@@ -75,6 +75,7 @@ async function verify(mode){
   const feed=sandbox.window.VoxSourceFeed.attach({
     mode,el,guard:()=>true,onStop(){},onMessage(){},
     credentials:()=>({mode,mode_token:"a".repeat(32)}),onPick(){},
+    async onSenderPreference(sourceMode,enabled){senderImports.push({sourceMode,enabled});},
   });
   const fields={
     FeedSourceId:mode==="live"?"  live-video-id ":"100000000000000001",
@@ -87,6 +88,7 @@ async function verify(mode){
   };
   for(const [suffix,value] of Object.entries(fields))el(prefix+suffix).value=value;
   el(prefix+"FeedAuto").checked=false;
+  el(prefix+"FeedReadSender").checked=true;
   const original=await feed.exportSettings();
   assert.ok(original,"Export should support all fields");
   assert.equal(requests.length,0,"Export must not send credentials via HTTP");
@@ -99,6 +101,7 @@ async function verify(mode){
   assert.equal(decoded.filters.blocked_words,fields.FeedBlocked);
   assert.equal(decoded.filters.max_chars,245);
   assert.equal(decoded.auto_read,false);
+  assert.equal(decoded.read_sender_name,true);
   assert.equal(decoded.read_history_limit,17);
   if(mode==="discord_client"){
     assert.equal(decoded.client_id,fields.FeedAppId);
@@ -111,7 +114,10 @@ async function verify(mode){
   }
   for(const key of Object.keys(fields))el(prefix+key).value="";
   el(prefix+"FeedAuto").checked=true;
+  el(prefix+"FeedReadSender").checked=false;
   assert.equal(await feed.importSettings(asFile(decoded)),true);
+  assert.equal(el(prefix+"FeedReadSender").checked,true);
+  assert.deepEqual(senderImports.at(-1),{sourceMode:mode,enabled:true});
   assert.equal(requests.length,0,"Import must never auto-connect");
   assert.equal(feed.connected,false);
   assert.equal(el(prefix+"FeedSourceId").value,fields.FeedSourceId);
@@ -125,6 +131,15 @@ async function verify(mode){
     assert.equal(el(prefix+"FeedRedirect").value,fields.FeedRedirect);
   }else assert.equal(el(prefix+"FeedCredential").value,fields.FeedCredential);
 
+  // Old exported source files have no sender field. They must import without
+  // silently changing the current, locally saved sender setting.
+  const legacy={...decoded};
+  delete legacy.read_sender_name;
+  el(prefix+"FeedReadSender").checked=false;
+  const previousSenderWrites=senderImports.length;
+  assert.equal(await feed.importSettings(asFile(legacy)),true);
+  assert.equal(el(prefix+"FeedReadSender").checked,false);
+  assert.equal(senderImports.length,previousSenderWrites);
   // Every editable field may be blank in an unfinished draft.
   for(const [key] of Object.entries(fields))el(prefix+key).value="";
   el(prefix+"FeedAuto").checked=true;
@@ -156,6 +171,7 @@ async function verify(mode){
     {...decoded,arbitrary_secret:"DO_NOT_ECHO"},
     {...decoded,filters:{blocked_words:[],max_chars:240}},
     {...decoded,auto_read:"true"},
+    {...decoded,read_sender_name:"true"},
     "{bad-json-private-DO_NOT_ECHO",
     "a".repeat(16385),
   ];

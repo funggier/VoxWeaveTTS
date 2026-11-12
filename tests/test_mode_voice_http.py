@@ -41,6 +41,61 @@ class ModeVoiceHTTPTests(unittest.TestCase):
             with error:
                 return error.code,json.load(error)
 
+    def test_sender_name_preferences_persist_independently_and_reject_bad_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target=Path(tmp)/"mode-voices.json"
+            with patch("voxweavetts.server.load_workspace_settings",
+                       side_effect=lambda:voice.load_workspace_settings(target)),patch(
+                "voxweavetts.server.save_workspace_settings",
+                side_effect=lambda data:voice.save_workspace_settings(data,target)
+            ):
+                with urlopen(self.base+"/v1/settings/mode-voices") as response:
+                    self.assertEqual(json.load(response)["sender_names"],{})
+                doc=None
+                for index, (mode, enabled) in enumerate((
+                    ("live", True), ("discord", False),
+                    ("discord_client", True), ("tiktok", True),
+                )):
+                    status,doc=self.post({
+                        "expected_revision":index,"mode":"__sender__",
+                        "settings":{"source_mode":mode,"enabled":enabled},
+                    })
+                    self.assertEqual(status,200)
+                self.assertEqual(doc["sender_names"],{
+                    "live": True, "discord": False, "discord_client": True, "tiktok": True,
+                })
+                with urlopen(self.base+"/v1/settings/mode-voices") as response:
+                    self.assertEqual(json.load(response)["sender_names"],doc["sender_names"])
+                before=voice.load_workspace_settings(target)
+                for settings in ({"source_mode":"unknown","enabled":True},
+                                 {"source_mode":"live","enabled":"true"},
+                                 {"source_mode":"discord","enabled":1}):
+                    status,_=self.post({
+                        "expected_revision":4,"mode":"__sender__","settings":settings,
+                    })
+                    self.assertEqual(status,400)
+                    self.assertEqual(voice.load_workspace_settings(target),before)
+                status,_=self.post({
+                    "expected_revision":3,"mode":"__sender__",
+                    "settings":{"source_mode":"live","enabled":False},
+                })
+                self.assertEqual(status,409)
+
+    def test_existing_voice_settings_without_sender_options_migrates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"old.json"
+            path.write_text(json.dumps({"revision":5,"policy":"serial","modes":{}}),
+                            encoding="utf-8")
+            previous=voice.load_workspace_settings(path)
+            self.assertEqual(previous["sender_names"],{})
+            saved=voice.save_workspace_settings({
+                "expected_revision":5,"mode":"__sender__",
+                "settings":{"source_mode":"discord","enabled":True},
+            },path)
+            self.assertEqual(saved["revision"],6)
+            self.assertEqual(voice.load_workspace_settings(path)["sender_names"],
+                             {"discord":True})
+
     def test_http_persists_policy_and_per_mode_without_crosswriting(self):
         with tempfile.TemporaryDirectory() as tmp:
             target=Path(tmp)/"voices.json"

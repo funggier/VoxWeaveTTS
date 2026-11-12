@@ -17,6 +17,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   const incoming=[];
   let autoBusy=false, activeIncoming=null, queueEpoch=0, overflow=0;
   let autoPaused=false; // temporary playback error; never alters user preference
+  let pickedMessage=null; // manual pick retains its author until text is edited
   function mark(item,state){
     if(item?.message_id != null)onMessageState?.(String(item.message_id),state);
   }
@@ -36,6 +37,20 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
   );
   function feedback(message){get("Status").textContent=message;}
+  function speechText(item,plainText){
+    if(!item || !get("FeedReadSender")?.checked)return plainText;
+    const author=typeof item.author==="string"
+      ? item.author.replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,80)
+      : "";
+    // Missing names should not synthesize a made-up sender.
+    return author ? author+" พิมพ์ว่า "+plainText : plainText;
+  }
+  function pickMessage(item){
+    if(!item || typeof item.text!=="string")return;
+    pickedMessage={author:item.author,text:item.text,message_id:item.message_id};
+    get("Text").value=item.text;
+  }
+  get("Text").addEventListener?.("input",()=>{pickedMessage=null;});
   function releaseAudio(){
     clock.clear();
     audio.pause();
@@ -87,6 +102,11 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     feedback("กำลังสร้างเสียงของโหมด "+mode+"...");
     try{
       const body=getSpeechPayload(text,mode);
+      // The checkbox is read at synthesis time, so pending messages use the
+      // latest choice. Source history / editable message text remain untouched.
+      const sender=autoPlay ? activeIncoming
+        : (pickedMessage?.text===text ? pickedMessage : null);
+      body.text=speechText(sender,text);
       body.source=mode==="live"?"youtube-live":mode==="tiktok"?"tiktok-live":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
@@ -157,6 +177,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     activeIncoming=next;
     autoBusy=true; // remains true until the audio "ended" event
     mark(next,"preparing");
+    pickedMessage=null;
     get("Text").value=next.text;
     try{
       const played=await submit({autoPlay:true,messageId:next.message_id});
@@ -227,7 +248,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     stop({discard:true});
     feedback("หยุดเสียงของโหมดนี้แล้ว · ค่าอ่านอัตโนมัติยังคงเดิม กดลองอ่านต่อเมื่อพร้อม");
   });
-  return {stop,suspend,resume,submit,receiveIncoming,clearAutoQueue,
+  return {stop,suspend,resume,submit,pickMessage,receiveIncoming,clearAutoQueue,
           get autoPaused(){return autoPaused;},
           get pendingAuto(){return incoming.length;},
           get skippedOverflow(){return overflow;},

@@ -48,7 +48,8 @@ def validate_export_payload(data: Any) -> tuple[str, str]:
         else frozenset() if mode == "tiktok"
         else frozenset(("credential",))
     )
-    if set(profile) != expected:
+    if (set(profile) not in (expected, expected | {"read_sender_name"})
+        or ("read_sender_name" in profile and type(profile["read_sender_name"]) is not bool)):
         raise ValueError("invalid settings fields")
     if not isinstance(profile.get("source_id"), str) or not isinstance(profile.get("auto_read"), bool):
         raise ValueError("invalid settings fields")
