@@ -2,11 +2,11 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.4.1** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.4.2** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
 ## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
 
-1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.4.1-portable.zip`
+1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.4.2-portable.zip`
 2. แตก ZIP **ทั้งโฟลเดอร์** ไปยังที่เขียนไฟล์ได้ เช่น `T:\\Apps\\VoxWeaveTTS` อย่าเปิด EXE จากใน ZIP
 3. เปิด `VoxWeaveTTS.exe` จะมีหน้าต่างควบคุมและเปิด Browser เริ่มต้น (Firefox/Chrome) ไปที่ `http://127.0.0.1:8765/` อัตโนมัติ
 4. เลือก Engine **MakHam Paradee** แล้วทดลองพิมพ์ข้อความไทยและสร้าง WAV ได้โดยไม่ต้องโหลดโมเดลเพิ่มเติม
@@ -15,15 +15,15 @@
 
 ไม่ต้องลง Python, Node, GitHub CLI หรือโปรแกรมติดตั้งเพิ่มสำหรับฟังก์ชันสร้างเสียงพื้นฐาน ผู้ใช้ย้ายโฟลเดอร์ทั้งชุดไปไดรฟ์อื่นได้ และไฟล์โมเดล แคช ค่ากลางอยู่ภายในโฟลเดอร์โปรแกรม [คู่มือ Windows Portable](docs/PORTABLE.md) · [ไลเซนส์ส่วนประกอบ](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
 
-## กำลังพัฒนา — Model Packages และหลายเสียง (v0.4.2.dev3)
+## Model Packages และหลายเสียง (v0.4.2)
 
 ระบบแพ็กเกจโมเดลแยกไฟล์ .vwmodel ออกจากตัวโปรแกรมหลัก ผู้ใช้สามารถติดตั้งหลายแพ็กเกจ/หลายเวอร์ชันพร้อมกันได้ และเลือกหลายเสียงภายใต้ Engine เดียว โดยไม่ทับโมเดลเดิม ใน Voice Studio มีตัวจัดการติดตั้ง/ถอนการติดตั้งและรายการไลเซนส์ SHA-256 กับ Dependencies รองรับ Firefox/Chrome ผ่านหน้าต่างเลือกไฟล์ของ Windows
 
 **ทดลองได้แล้ว:** Vachana Thai VITS 4 เสียง (หญิง 2 และชาย 2) สร้าง WAV ได้ครบจาก Model Package ที่ติดตั้งในโฟลเดอร์ models/packages พร้อมใช้งานร่วมกับ MakHam ที่มีอยู่แล้ว แต่ชุด Vachana เป็นไฟล์ทดสอบบนเครื่อง ยังไม่ได้เผยแพร่สาธารณะเนื่องจากต้องตรวจสิทธิ์ของน้ำหนักโมเดลและข้อมูลฝึกให้ครบ
 
-**ข้อจำกัด:** รุ่น GitHub Release ล่าสุด v0.4.1 ยังไม่มีระบบนี้ ผู้ใช้ต้องใช้โค้ดรุ่นพัฒนาหรือรอ Release ถัดไป โมเดลสถาปัตยกรรมใหม่ต้องมี Engine Adapter ที่รองรับอยู่ก่อน และ Dependencies ของ Vachana ใน Portable รุ่นเดิมอาจยังไม่ครบ [คู่มือ Model Packages](docs/MODEL_PACKAGES_TH.md)
+**ข้อจำกัด:** รุ่น v0.4.2 มีระบบจัดการ Model Packages แล้ว แต่บันเดิลเฉพาะ MakHam; โมเดล Vachana และ FastThaiG2P ต้องติดตั้งเป็นแพ็กเกจเพิ่มเติม และ Dependencies ของ Vachana บางส่วนอาจไม่อยู่ใน Portable นี้ การเผยแพร่น้ำหนักโมเดลเสริมยังรอตรวจสอบสิทธิ์ [คู่มือ Model Packages](docs/MODEL_PACKAGES_TH.md)
 
-## อัปเดตการใช้งานรุ่นพัฒนา 0.4.2.dev3
+## ฟีเจอร์ใหม่ในรุ่น 0.4.2
 
 - แต่ละช่องทาง YouTube LIVE, TikTok LIVE, Discord และ Discord Client มี Checkbox **อ่านชื่อผู้ส่งก่อนอ่านข้อความ** แยกกัน โดยปิดเป็นค่าเริ่มต้นเพื่อไม่เปลี่ยนพฤติกรรมเดิม เมื่อเปิดจะอ่านชื่อผู้ส่งก่อนเนื้อหาข้อความที่ได้รับจากช่องทางนั้น ชื่อผู้ส่งยังแสดงในประวัติไม่ว่าจะเปิดอ่านชื่อหรือไม่ และตัวเลือกจะบันทึกลง `data/settings/mode-voices.json` พร้อมรองรับ Export/Import โปรไฟล์ช่องทาง `.json` แบบเดิม (ไฟล์เก่าที่ไม่มีตัวเลือกนี้ยังนำเข้าได้)
 
@@ -52,7 +52,7 @@
 
 **ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
 
-## TikTok LIVE Reader — ผ่าน TikFinity Desktop (v0.4.1)
+## TikTok LIVE Reader — ผ่าน TikFinity Desktop (v0.4.2)
 
 เพิ่มแท็บ **TikTok LIVE** เพื่อรับเฉพาะคอมเมนต์สดผ่าน `ws://localhost:21213/` ซึ่งเป็น Local Event API ของ [TikFinity Desktop](https://tikfinity.zerody.one/) โดย **TikFinity ต้องเปิดอยู่บนคอมพิวเตอร์เดียวกัน** และเชื่อมกับบัญชีไลฟ์ที่ได้รับอนุญาต ผู้ใช้ไม่ต้องกรอกรหัสผ่านหรือคุกกี้ TikTok ใน VoxWeaveTTS
 
@@ -74,7 +74,7 @@
 
 **หมายเหตุ:** Discord Client RPC ได้รับการยืนยันการรับข้อความจริงโดยผู้ใช้แล้ว ส่วน YouTube Live และ Discord Bot มีโค้ดและชุดทดสอบจำลองแต่ยังไม่ได้ยืนยันกับบัญชีจริง และเป็น REST Polling ไม่ใช่ Push แบบ Latency ต่ำ คู่มือ: [Live/Discord Inputs](docs/LIVE_INPUT_ADAPTERS_TH.md)
 
-## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.4.1)
+## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.4.2)
 
 หน้าตาโปรแกรมแบ่งเป็น **สร้างเสียง, อ่านเอกสาร, YouTube LIVE, TikTok LIVE, Discord, Discord Client, คิว/Subtitle, คำอ่านและกฎ, ตั้งค่ากลาง** โดยแต่ละโหมดมีข้อความและตัวเล่นของตัวเอง การสลับแท็บไม่หยุดการอ่านหรือเสียงของโหมดอื่น สามารถรับ Live หลายช่องทางพร้อมกัน และเลือกได้ว่าจะเล่นเสียงทีละรายการหรือยอมให้เสียงซ้อนกัน
 

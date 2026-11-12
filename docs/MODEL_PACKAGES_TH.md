@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Model Packages (.vwmodel)
 
-สถานะ: ต้นแบบสำหรับพัฒนา v0.4.2.dev2 ยังไม่ใช่ Model Store สาธารณะ
+สถานะ: ระบบ Model Packages อยู่ในรุ่น v0.4.2 แล้ว แต่ยังไม่ใช่ Model Store สาธารณะ
 
 ## แนวคิด
 
@@ -82,7 +82,7 @@ Runtime: vachanatts==0.0.7, onnxruntime, pythainlp, ssg
 
 ไลเซนส์ใน Manifest ระบุ MIT ตามข้อมูลจากแหล่งเผยแพร่ แต่ review_status = review_required ยังไม่ได้รับรองสิทธิ์เชิงพาณิชย์ของน้ำหนักโมเดล/ข้อมูลฝึกทั้งหมด ดังนั้นไฟล์แพ็กเกจนี้สร้างไว้ทดลองในเครื่อง ไม่ได้เผยแพร่ลง GitHub Release สาธารณะ
 
-Windows Portable Release v0.4.1 เดิมอาจยังไม่มี Runtime Dependencies ของ Vachana ครบ แพ็กเกจอย่างเดียวจึงไม่รับประกันว่ารุ่นนั้นจะสร้างเสียงได้ ต้องใช้รุ่นโปรแกรมที่มี Adapter และ Dependencies รองรับ
+Windows Portable Release v0.4.2 มี Engine Adapter แต่ยังไม่รับประกันว่ามี Runtime Dependencies ของ Vachana ครบ การติดตั้งไฟล์ .vwmodel อย่างเดียวจึงไม่รับประกันว่าจะสร้างเสียงได้ ต้องมี Dependencies ที่รองรับด้วย
 
 ## FastThaiG2P Thai Som เป็นแพ็กเกจแยก
 

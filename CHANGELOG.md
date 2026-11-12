@@ -2,6 +2,22 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## 0.4.2 — Concurrent Live Channels, Voice Presets and Packaged Model Manager (2026-11-12)
+
+Windows 10/11 x64 Portable production release, consolidated from v0.4.2.dev0–dev3.
+The public ZIP bundles the licensed MakHam Paradee CPU ONNX voice only; Vachana and FastThaiG2P model weights remain unbundled pending redistribution/provenance review.
+
+- Read YouTube LIVE, TikTok LIVE, Discord Bot and Discord Client concurrently with independent workspace state, while freely navigating Studio and Document Reader.
+- Choose global serial (non-overlapping) or overlapping browser speech playback; use independent model/voice/speed/DSP settings for each workspace.
+- Control reading the sender's name separately in each Live/Discord channel, with stored portable settings and compatible Chrome/Firefox source-profile Export/Import.
+- Speed up to 5.00×, number fields/slider steps of 0.01 for speed and DSP, integer seed and per-workspace Voice Preset management in the top-level presets/ directory.
+- Install/remove data-only .vwmodel packages with manifest integrity validation, provenance, license claims and SHA-256 digests; installing packages does not execute model-provided source code.
+- Retain auto-read preference on audio/Auto-play errors and stop; use explicit Retry to unpause instead of silently clearing the preference.
+- Preserve old source settings/profiles/Voice Presets and maintain the documented limits on unverified live-provider access and subtitle alignment.
+- Release QA: Python tests 185 passed; JS smoke 17 suites passed; standalone Windows portable runtime/Thai WAV/HTTP generation verified.
+
+See docs/RELEASE_NOTES_0.4.2.md for installation and limitations.
+
 ## 0.4.2.dev3 — Independent per-source sender-name reading (development, 2026-11-12)
 
 - Added an independent **อ่านชื่อผู้ส่งก่อนอ่านข้อความ** checkbox for YouTube LIVE, TikTok LIVE, Discord Bot and Discord Client, default off. Preferences persist in portable `data/settings/mode-voices.json` with revision checks.

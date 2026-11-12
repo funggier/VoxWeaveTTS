@@ -1,10 +1,10 @@
-# VoxWeaveTTS v0.4.1 — Windows Portable User Guide
+# VoxWeaveTTS v0.4.2 — Windows Portable User Guide
 
-**Status:** first distributable Windows 10/11 x64 release, not a complete voice-cloning suite. Tested with its relocated Python runtime and bundled MakHam Paradee CPU ONNX Thai voice. Other engines may require extra model packs and license review.
+**Status:** Windows 10/11 x64 portable release with concurrent Live/Discord workspaces, per-mode voice controls, queue policy, presets and model package management; not a voice-cloning suite. Tested with its relocated Python runtime and bundled MakHam Paradee CPU ONNX Thai voice. Other engines may require extra model packs and license review.
 
 ## Install and launch
 
-1. Download `VoxWeaveTTS-v0.4.1-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.1.
+1. Download `VoxWeaveTTS-v0.4.2-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.2.
 2. Extract the **whole folder** to a writable location, for example `T:\Apps\VoxWeaveTTS`. Never run the EXE from inside the ZIP.
 3. Double-click **VoxWeaveTTS.exe**. The small Windows launcher starts a local Python server, checks readiness, and opens your default browser (Firefox or Chrome). No Python, Node or system installation is needed.
 4. Keep the launcher window open. The studio is at http://127.0.0.1:8765 and OBS Browser Source may use http://127.0.0.1:8765/overlay.
@@ -24,6 +24,8 @@ VoxWeaveTTS/
   web/                       Firefox/Chrome Web UI, OBS overlay
   models/makham-paradee/     Licensed MakHam INT8 model and config
   models/fastthaig2p/       Empty; Fast base model not bundled
+  models/packages/         Empty; optional .vwmodel packages installed by user
+  presets/                 Portable JSON voice presets (empty)
   data/                      Local settings, dictionaries, reading positions
   cache/                     Local temporary/model cache
   voices/                    Reserved for user-owned audio (empty)
@@ -35,6 +37,14 @@ VoxWeaveTTS/
 ```
 
 All app-generated settings, output and cache paths are relative to the extracted folder. The app binds to **127.0.0.1 only**. Do not forward port 8765 publicly: the local API does not provide remote authentication.
+
+## What changed in v0.4.2
+
+- All Live/Discord sources can stay connected while switching to other workspaces. Choose **serial** (one voice at a time) or **overlap** playback in the top bar.
+- Each workspace independently selects Engine/Voice, playback speed (x0.60–x5.00), gain/pitch/bass/treble (0.01 steps), Formant Preserve and seed; the next speech job picks up changes.
+- Voice Presets save as individual `.json` files in `presets/`; copied files show in each dropdown after refresh. Model packs install separately through **ตั้งค่า > Model Packages**.
+- YouTube LIVE, TikTok LIVE, Discord Bot and Discord Client each have an independent **อ่านชื่อผู้ส่งก่อนอ่านข้อความ** setting, off by default, exported with their source settings JSON. Audio failures pause auto-read instead of silently unchecking it.
+- Only MakHam Paradee weights are bundled. Vachana/FastThaiG2P packs are *not* attached to this public release pending complete redistribution-rights and dependency verification.
 
 ## TikTok LIVE (TikFinity Desktop required)
 
@@ -73,7 +83,7 @@ The package **does not contain** personal recordings, login tokens, user-generat
 Compare the downloaded ZIP's SHA-256 with the hash in the GitHub Release notes. On PowerShell:
 
 ```powershell
-Get-FileHash .\VoxWeaveTTS-v0.4.1-portable.zip -Algorithm SHA256
+Get-FileHash .\VoxWeaveTTS-v0.4.2-portable.zip -Algorithm SHA256
 ```
 
 Source: https://github.com/funggier/VoxWeaveTTS

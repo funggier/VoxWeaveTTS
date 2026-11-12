@@ -1,8 +1,8 @@
 # VoxWeaveTTS — ช่องทางทำงานพร้อมกันและเสียงอิสระ
 
-> v0.4.2.dev3 (Development) · YouTube LIVE, TikTok LIVE, Discord, Studio, Document Reader
+> v0.4.2 (Release) · YouTube LIVE, TikTok LIVE, Discord, Studio, Document Reader
 
-รุ่น GitHub Portable v0.4.1 ยังเป็นโครงสร้างแบบสลับโหมดเดิม ระบบพร้อมกันนี้อยู่ในรุ่นพัฒนาใหม่
+ระบบการทำงานหลายช่องทางพร้อมกันนี้อยู่ในรุ่น GitHub Portable v0.4.2 แล้ว
 
 ## การทำงานพร้อมกัน
 
