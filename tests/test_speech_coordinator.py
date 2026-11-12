@@ -156,13 +156,16 @@ class CoordinatorTests(unittest.TestCase):
 
     def test_audio_limit_and_expiration(self):
         c = SpeechCoordinator(fake_renderer, max_total_audio_bytes=1024,
-                              ttl_seconds=0.02)
+                              ttl_seconds=1.0)
         try:
             job = submit(c)
             self.assertEqual(c.wait(job["speech_id"])["state"], "failed")
             self.assertEqual(c.get(job["speech_id"])["error"],
                              "audio queue memory limit reached")
-            time.sleep(0.04)
+            # Simulate age instead of sleeping 20ms: scheduling on Windows CI
+            # can exceed that and prune the job before we assert its error.
+            with c._cv:
+                c._jobs[job["speech_id"]].created_mono -= 2.0
             with self.assertRaises(JobMissing):
                 c.get(job["speech_id"])
         finally:
