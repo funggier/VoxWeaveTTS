@@ -5,7 +5,7 @@
 
 For the full rationale, detailed tasks, dependencies and acceptance tests, see [Project Vision (Thai)](PROJECT_VISION_TH.md), [Development Plan (Thai)](DEVELOPMENT_PLAN_TH.md), and [Requirements (Thai)](REQUIREMENTS_TH.md).
 
-**Status (v0.4.0):** Thai CPU WAV synthesis, a self-contained Windows portable executable, Web UI, source queues and browser-driven OBS subtitles are implemented. Voice cloning, model training, streaming TTS, hardware playback clocks and automatic word-level alignment remain planned.
+**Status (v0.4.1):** Thai CPU WAV synthesis, a self-contained Windows portable executable, Web UI, source queues and browser-driven OBS subtitles are implemented. Voice cloning, model training, streaming TTS, hardware playback clocks and automatic word-level alignment remain planned.
 
 ## Milestone 0 — Foundation (in repository)
 - [x] Project identity, public repository and MIT source license
@@ -38,6 +38,8 @@ For the full rationale, detailed tasks, dependencies and acceptance tests, see [
 - [x] Discord Client room selection via explicit Channel ID and approved-app Local RPC architecture; subscribed events filter by selected room
 - [x] Discord Desktop RPC receive messages confirmed by the user with authorized consent in dev17; broader cross-machine provider validation is still pending
 - [x] Official YouTube Live REST and Discord Bot REST read-only pollers with ephemeral credentials, dedupe, filters, bounded queues and opt-in sequential playback
+- [x] TikTok LIVE via TikFinity Desktop localhost WebSocket bridge (chat-only), using shared Thai TTS/OBS queues and JSON settings profiles; no TikTok credentials in VoxWeaveTTS
+- [ ] Verify TikFinity/TikTok LIVE chat reception on an active authorized livestream; test browser event bridge against current TikFinity Desktop
 - [ ] Verify actual providers using authorized accounts, add low-latency YouTube streamList/Discord Gateway and advanced moderation/queue priority
 - [ ] Persist optional mode drafts and improve cross-mode job history without losing privacy
 - [x] Prevent arbitrary splitting of Thai continuous words in Estimated Subtitle; use explicit separators or keep full generated Segment

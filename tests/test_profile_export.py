@@ -30,7 +30,7 @@ def profile_for(mode: str) -> dict:
             "client_id": "", "client_secret": "TEST_PRIVATE_SECRET_NOT_FOR_REAL_USE",
             "redirect_uri": "http://127.0.0.1:8765",
         })
-    else:
+    elif mode != "tiktok":
         result["credential"] = "TEST_PRIVATE_CREDENTIAL_NOT_FOR_REAL_USE"
     return result
 
@@ -42,7 +42,7 @@ def request_for(mode: str) -> dict:
 
 class SaveDialogFilesTests(unittest.TestCase):
     def test_save_to_user_selected_folder_and_roundtrip_secrets(self):
-        for mode in ("live", "discord", "discord_client"):
+        for mode in ("live", "discord", "discord_client", "tiktok"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temp:
                 target = Path(temp) / "sub folder" / "settings.json"
                 target.parent.mkdir()

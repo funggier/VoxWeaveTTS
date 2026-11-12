@@ -2,7 +2,7 @@
 
 **Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
 
-> **First distributable release v0.4.0:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency YouTube/Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
+> **Windows portable release v0.4.1:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency YouTube/Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
 ## Goals
 
@@ -15,7 +15,7 @@
 
 ## Install and run — Windows 10/11 x64 portable
 
-1. Download `VoxWeaveTTS-v0.4.0-portable.zip` from GitHub Releases.
+1. Download `VoxWeaveTTS-v0.4.1-portable.zip` from GitHub Releases.
 2. Extract the **entire** ZIP to a writable folder, for example `T:\\Apps\\VoxWeaveTTS`. Do not run the EXE directly from inside the ZIP.
 3. Double-click `VoxWeaveTTS.exe`. It starts the local server and opens your default browser (Firefox or Chrome) at `http://127.0.0.1:8765/`.
 4. Select the available **MakHam Paradee** engine, enter Thai text and generate speech. Other modes include document reader, Discord Client, official chat inputs, pronunciation rules, source profile import/export and OBS subtitles.
@@ -57,6 +57,10 @@ When a generated WAV actually plays in the document reader or job queue player, 
 A dedicated Discord Client workspace can subscribe to new MESSAGE_CREATE events for one explicitly selected text-channel ID via the official Discord Desktop Local RPC. It uses an authorized Discord developer application, explicit user approval and rpc + messages.read scopes; no user-token self-bot or scraping. Channel IDs are checked for every incoming event and switching channels/modes stops the previous feed. Global Engine/Voice/Rules and the shared OBS Overlay remain unchanged.
 
 Discord restricts RPC access to approved apps or testers. The room selector and RPC protocol have offline tests, now use documented RPC AUTHORIZE arguments (client_id and scopes only), preserve the registered redirect URI for the token exchange, and expose safe OAuth error identifiers and failure-stage diagnostics; a live user-account connection has not yet been verified with approved real credentials. Switching rooms stops the old feed and speech queue but preserves the user-selected auto-read checkbox; if the RPC pipe closes or authorization fails, enter your app secret again and reconnect explicitly rather than relying on a stale session. The OAuth token HTTP request now sends an identifiable application User-Agent; without it, the default Python urllib User-Agent was observed to receive HTTP 403 on this machine. A local fake-credential request now reaches OAuth validation and receives HTTP 400 invalid_client; this is not proof of a successful authorized account connection. A separately opened OAuth2 URL Generator does not subscribe the desktop RPC session. Match the registered redirect URI with the exact URI displayed in Discord (for example `http://127.0.0.1:8765` versus `/callback`). [Discord Client Reader Guide (Thai)](docs/DISCORD_CLIENT_READER_TH.md).
+
+## TikTok LIVE comments — local TikFinity Desktop bridge (v0.4.1)
+
+TikTok does not document a general public LIVE chat API. The new independent **TikTok LIVE** workspace reads chat comments via TikFinity Desktop's local Event WebSocket (`ws://localhost:21213/`) from the same PC and reuses the global Thai TTS Engine, sequential speech queue, per-source filters, completed-message history, OBS captions and separate JSON settings profiles. TikFinity Desktop must be installed and connected to your own live stream; no TikTok username/password/cookie is handled by VoxWeaveTTS. Non-chat events such as gifts and likes are deliberately ignored. The connection uses TikFinity's local API but is not an official TikTok integration, and was tested offline only; see [Thai setup and known limitations](docs/TIKTOK_LIVE_TH.md).
 
 ## Official YouTube Live / Discord message inputs (opt-in preview)
 

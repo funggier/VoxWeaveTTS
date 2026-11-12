@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 MAX_PROFILE_EXPORT_BYTES = 16_384
 _SAVE_DIALOG_LOCK = threading.Lock()
-_ALLOWED_MODES = frozenset(("live", "discord", "discord_client"))
+_ALLOWED_MODES = frozenset(("live", "discord", "discord_client", "tiktok"))
 _COMMON_FIELDS = frozenset((
     "format", "version", "mode", "source_id", "filters", "auto_read",
     "read_history_limit",
@@ -45,6 +45,7 @@ def validate_export_payload(data: Any) -> tuple[str, str]:
         raise ValueError("unsupported settings profile")
     expected = _COMMON_FIELDS | (
         frozenset(("client_id", "client_secret", "redirect_uri")) if mode == "discord_client"
+        else frozenset() if mode == "tiktok"
         else frozenset(("credential",))
     )
     if set(profile) != expected:
@@ -54,12 +55,12 @@ def validate_export_payload(data: Any) -> tuple[str, str]:
     if not isinstance(profile.get("filters"), dict):
         raise ValueError("invalid settings filters")
     if not isinstance(filename, str) or not re.fullmatch(
-        r"VoxWeaveTTS-(?:live|discord|discord_client)-[A-Za-z0-9_-]{1,48}\.json", filename
+        r"VoxWeaveTTS-(?:live|discord|discord_client|tiktok)-[A-Za-z0-9_-]{1,48}\.json", filename
     ) or not filename.startswith(f"VoxWeaveTTS-{mode}-"):
         raise ValueError("invalid suggested filename")
     if not all(isinstance(profile.get(k), str) for k in
                (("client_id", "client_secret", "redirect_uri") if mode == "discord_client"
-                else ("credential",))):
+                else () if mode == "tiktok" else ("credential",))):
         raise ValueError("invalid credentials")
     payload = json.dumps(profile, ensure_ascii=False, indent=2) + "\n"
     if len(payload.encode("utf-8")) > MAX_PROFILE_EXPORT_BYTES:

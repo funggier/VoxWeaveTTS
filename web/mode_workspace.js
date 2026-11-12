@@ -7,6 +7,7 @@
 const MODES = Object.freeze([
   {id:"studio",label:"สร้างเสียง"},
   {id:"reader",label:"อ่านเอกสาร"},
+  {id:"tiktok",label:"TikTok LIVE"},
   {id:"live",label:"อ่านไลฟ์สด"},
   {id:"discord",label:"Discord"},
   {id:"discord_client",label:"Discord Client"},

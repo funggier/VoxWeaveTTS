@@ -2,6 +2,15 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## 0.4.1 — TikTok LIVE via local TikFinity Event API (2026-11-12)
+
+- Added an independent TikTok LIVE workspace to Windows Portable, with the same global Thai TTS Engine, serial speech queue, OBS subtitle ownership, per-message read states and capped read-message history as Discord and YouTube.
+- Connects to the TikFinity Desktop Local Event API (`ws://localhost:21213/`) through a browser WebSocket. Reads **chat comments only**; excludes gifts/likes/follows to prevent unintended speech and queue overload. No TikTok credentials, cookies, unofficial scraping libraries or packaged TikFinity software.
+- Restricts WebSocket targets to the documented local port on localhost/127.0.0.1; handles malformed events, duplicate message IDs, URLs, command messages, keyword filters, disconnects and source switches.
+- Added browser-compatible Export/Import settings profiles for TikTok without a credential field; Import never connects automatically.
+- Added offline fake TikFinity WebSocket tests, full shared TTS queue tests, Python workspace/markup tests, Firefox native Save As validation, and Thai installation/limitations documentation.
+- The local TikFinity endpoint was **not available on the test machine**, so actual TikTok LIVE comments remain unverified. A live stream and TikFinity Desktop are required for user-side verification.
+
 ## 0.4.0 — First Windows portable application release (2026-11-12)
 
 - Built a Windows 10/11 x64 portable ZIP with a self-contained Python 3.11 interpreter, standard library, ONNX inference dependencies, Web UI, Thai speech source, Windows `VoxWeaveTTS.exe` GUI launcher and diagnostic `Start-Console.cmd`. No end-user Python, Node, GitHub CLI or installation required.

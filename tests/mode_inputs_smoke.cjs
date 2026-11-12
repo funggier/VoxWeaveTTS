@@ -121,6 +121,27 @@ async function main(){
   assert.equal(discord.jobId,null);
   assert.equal(get("discordText").value,"ข้อความใหม่สอง");
   assert.ok(blobUrl.size<=1);
-  console.log("PASS: independent Live/Discord drafts, global engine payload, own audio clock, stop-on-switch and serial opt-in connected-source playback");
+  // TikTok uses the same serial audio queue but is a distinct playback
+  // owner and source, not a Discord/YouTube voice type.
+  current="tiktok";
+  const tiktok=attach("tiktok");
+  get("tiktokFeedAuto").checked=true;
+  const firstTik=tiktok.receiveIncoming({message_id:"tt1",text:"ข้อความ TikTok หนึ่ง"},true);
+  const secondTik=tiktok.receiveIncoming({message_id:"tt2",text:"ข้อความ TikTok สอง"},true);
+  assert.equal(firstTik,"queued");
+  assert.equal(secondTik,"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).source,"tiktok-live");
+  assert.equal(payloads.at(-1).text,"ข้อความ TikTok หนึ่ง");
+  assert.equal(payloads.at(-1).source_message_id,"tiktok-tt1");
+  assert.equal(tiktok.pendingAuto,1);
+  get("tiktokAudio").paused=true;
+  get("tiktokAudio").events.ended();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"ข้อความ TikTok สอง");
+  assert.equal(tiktok.pendingAuto,0);
+  tiktok.suspend();
+  assert.equal(get("tiktokAudio").paused,true);
+  console.log("PASS: independent Live/Discord/TikTok drafts, shared global TTS, serial playback and exclusive mode ownership");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

@@ -74,7 +74,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </head>
 <body>
 <main>
-<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Workspaces · Shared Engine & Rules</div></div><div class="pill">Local Studio 0.4</div></header>
+<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Workspaces · Shared Engine & Rules</div></div><div class="pill">Local Studio 0.4.1</div></header>
 <div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละโหมดมีข้อความและการเล่นเสียงของตัวเอง · Engine, ค่าปรับเสียง และ Rules/Pronunciations ใช้ค่ากลาง · Live/Discord เลือกใช้ข้อความทดลองหรือเชื่อมต่อ API ทางการโดยใช้ข้อมูลบัญชีของคุณ (ปิดไว้จนกดเชื่อมต่อ)</div>
 <div class="app-workspace">
 <aside class="mode-sidebar" aria-label="โหมดการทำงาน">
@@ -83,6 +83,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" class="mode-nav-button" data-mode-target="reader" aria-pressed="false">อ่านเอกสาร</button>
 <button type="button" class="mode-nav-button" data-mode-target="live" aria-pressed="false">อ่านไลฟ์สด</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord" aria-pressed="false">Discord</button>
+<button type="button" class="mode-nav-button" data-mode-target="tiktok" aria-pressed="false">TikTok LIVE</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord_client" aria-pressed="false">Discord Client</button>
 <button type="button" class="mode-nav-button" data-mode-target="queue" aria-pressed="false">คิวและ Subtitle</button>
 <button type="button" class="mode-nav-button" data-mode-target="rules" aria-pressed="false">คำอ่านและกฎ</button>
@@ -198,6 +199,45 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <a id="liveDownload" style="display:none" download="VoxWeaveTTS.wav">ดาวน์โหลด WAV</a>
 </section>
 </div>
+<div class="mode-view" data-mode-view="tiktok" hidden><section class="panel" style="margin-top:0">
+<h2>TikTok LIVE — อ่านคอมเมนต์สด</h2>
+<p class="small">รับคอมเมนต์จาก <a href="https://tikfinity.zerody.one/" target="_blank" rel="noopener noreferrer">TikFinity Desktop</a> ผ่าน Local WebSocket เท่านั้น ไม่ใช้รหัสผ่านหรือคุกกี้ TikTok ภายใน VoxWeaveTTS ต้องเปิด TikFinity บนเครื่องเดียวกันและให้ TikFinity เชื่อมกับไลฟ์ก่อน</p>
+<label for="tiktokText">ข้อความทดลอง TikTok LIVE (พิมพ์ได้แม้ไม่เชื่อม)</label>
+<textarea id="tiktokText" placeholder="พิมพ์ข้อความเพื่อทดลองเสียงและคำอ่าน"></textarea>
+<div class="voice-grid">
+<button type="button" id="tiktokSubmit">สร้างเสียงจากข้อความ</button>
+<button type="button" id="tiktokPlay">เล่นเสียงล่าสุด</button>
+<button type="button" id="tiktokStop">หยุดเสียง</button>
+</div>
+<details class="source-connector" open>
+<summary>เชื่อมต่อ TikFinity Desktop — Local Event API</summary>
+<p class="small">TikFinity ต้องเปิดอยู่และเชื่อมต่อ LIVE ของคุณแล้ว ขณะนี้อ่านเฉพาะเหตุการณ์ <code>chat</code> ไม่อ่านข้อความของขวัญ/ไลก์/ผู้ติดตาม และไม่รับ WebSocket นอกเครื่อง</p>
+<div class="voice-grid">
+<div><label for="tiktokFeedSourceId">Local WebSocket ของ TikFinity</label><input type="text" id="tiktokFeedSourceId" value="ws://localhost:21213/" autocomplete="off"></div>
+<div><label for="tiktokFeedBlocked">คำที่กรองออก (คั่นด้วยจุลภาค)</label><input type="text" id="tiktokFeedBlocked" placeholder="คำไม่เหมาะสม, สแปม"></div>
+<div><label for="tiktokFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="tiktokFeedMaxChars" min="20" max="280" value="240"></div>
+<div><label for="tiktokFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="tiktokFeedKeepRead" min="0" max="100" value="20"></div>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+</div>
+<div class="voice-grid">
+<button type="button" id="tiktokFeedStart">เชื่อม TikFinity</button>
+<button type="button" id="tiktokFeedStop">หยุดรับข้อความ</button>
+</div>
+<div class="voice-grid">
+<button type="button" id="tiktokFeedExport">Export / Save As (.json)</button>
+<button type="button" id="tiktokFeedImport">Import การตั้งค่า (.json)</button>
+<input type="file" id="tiktokFeedImportFile" accept=".json,application/json" hidden>
+</div>
+<p class="small">โปรไฟล์ TikTok ไม่ต้องใช้รหัสผ่าน TikTok สามารถ Import แล้วเติมช่องว่างและกดเชื่อมต่อเองได้ ไม่เชื่อมอัตโนมัติ</p>
+<p id="tiktokFeedStatus" class="small" role="status">ยังไม่เชื่อมต่อ TikFinity Desktop</p>
+<p id="tiktokFeedQueueStatus" class="small" role="status"></p>
+<ol id="tiktokFeedItems" class="source-message-list"></ol>
+</details>
+<p id="tiktokStatus" class="small" role="status">รอข้อความทดลองหรือเชื่อม TikFinity</p>
+<audio id="tiktokAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
+<div id="tiktokSubtitle" class="mode-subtitle" role="status"></div>
+<a id="tiktokDownload" style="display:none" download="VoxWeaveTTS-tiktok.wav">ดาวน์โหลด WAV</a>
+</section></div>
 <div class="mode-view" data-mode-view="discord" hidden><section class="panel" style="margin-top:0">
 <h2>อ่านจาก Discord</h2>
 <p class="small">โหมดนี้มีช่องข้อความและตัวเล่นเสียงของตัวเอง ใช้ Engine/เสียง/กฎคำอ่านส่วนกลาง · <strong>ยังไม่เชื่อม Live API / Discord Bot จริง</strong> สามารถทดสอบข้อความจำลองและขั้นตอนการอ่านได้ก่อนโดยไม่ต้องใช้บัญชี</p>
@@ -484,9 +524,11 @@ let modeRuntime = null;
 let liveMode = null;
 let discordMode = null;
 let discordClientMode = null;
+let tiktokMode = null;
 let liveFeed = null;
 let discordFeed = null;
 let discordClientFeed = null;
+let tiktokFeed = null;
 let studioGeneration = 0;
 let studioJobId = null;
 let studioReadyJob = null;
@@ -1608,9 +1650,11 @@ function suspendAllPlayback(){
   liveFeed?.suspend();
   discordFeed?.suspend();
   discordClientFeed?.suspend();
+  tiktokFeed?.suspend();
   liveMode?.suspend();
   discordMode?.suspend();
   discordClientMode?.suspend();
+  tiktokMode?.suspend();
 }
 function restoreModeAudio(mode){
   // Unsaved global Engine/DSP edits remain in memory across mode changes.
@@ -1624,26 +1668,28 @@ function restoreModeAudio(mode){
   }else if(mode==="live")liveMode?.resume();
   else if(mode==="discord")discordMode?.resume();
   else if(mode==="discord_client")discordClientMode?.resume();
+  else if(mode==="tiktok")tiktokMode?.resume();
 }
 if(typeof VoxModeInputs!=="undefined"){
-  for(const mode of ["live","discord","discord_client"]){
+  for(const mode of ["live","discord","discord_client","tiktok"]){
     const instance=VoxModeInputs.attach({
       mode,el,clockLibrary:VoxPlaybackClock,report:sendPlaybackReport,
       getSpeechPayload:buildSpeechPayload,
       guard:id=>!modeRuntime || modeRuntime.guard(id),
       onMessageState:(id,state)=>{
-        const feed=mode==="live"?liveFeed:(mode==="discord"?discordFeed:discordClientFeed);
+        const feed=mode==="live"?liveFeed:(mode==="discord"?discordFeed:(mode==="tiktok"?tiktokFeed:discordClientFeed));
         feed?.setMessageState(id,state);
       }
     });
     if(mode==="live")liveMode=instance;
     else if(mode==="discord")discordMode=instance;
+    else if(mode==="tiktok")tiktokMode=instance;
     else discordClientMode=instance;
   }
 }
 if(typeof VoxSourceFeed!=="undefined"){
-  for(const mode of ["live","discord","discord_client"]){
-    const inputMode=mode==="live"?liveMode:(mode==="discord"?discordMode:discordClientMode);
+  for(const mode of ["live","discord","discord_client","tiktok"]){
+    const inputMode=mode==="live"?liveMode:(mode==="discord"?discordMode:(mode==="tiktok"?tiktokMode:discordClientMode));
     const feed=VoxSourceFeed.attach({
       mode,el,
       credentials:id=>modeRuntime.credentials(id),
@@ -1654,6 +1700,7 @@ if(typeof VoxSourceFeed!=="undefined"){
     });
     if(mode==="live")liveFeed=feed;
     else if(mode==="discord")discordFeed=feed;
+    else if(mode==="tiktok")tiktokFeed=feed;
     else discordClientFeed=feed;
   }
 }

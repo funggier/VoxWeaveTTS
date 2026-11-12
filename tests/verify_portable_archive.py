@@ -16,7 +16,7 @@ import zipfile
 from pathlib import Path
 
 repo = Path(__file__).resolve().parents[1]
-archive = repo / "dist" / "VoxWeaveTTS-v0.4.0-portable.zip"
+archive = repo / "dist" / "VoxWeaveTTS-v0.4.1-portable.zip"
 assert archive.is_file(), "no release ZIP"
 sha = hashlib.sha256(archive.read_bytes()).hexdigest().upper()
 print("ZIP_SHA256", sha, flush=True)
@@ -82,7 +82,7 @@ with zipfile.ZipFile(archive) as z:
                 try:
                     with urllib.request.urlopen(base + "/v1/status", timeout=1) as response:
                         state = json.load(response)
-                    if state["version"] == "0.4.0":
+                    if state["version"] == "0.4.1":
                         ready = True
                         break
                 except (OSError, ValueError):

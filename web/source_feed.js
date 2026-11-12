@@ -43,6 +43,8 @@ function validateSettingsProfile(value,mode){
       throw Error("Client ID หรือ OAuth Redirect URI ในไฟล์ไม่ถูกต้อง");
   }else if("client_id" in value || "client_secret" in value || "redirect_uri" in value){
     throw Error("ไฟล์ตั้งค่ามีช่องข้อมูลของแหล่งอื่น");
+  }else if(mode==="tiktok"){
+    if("credential" in value)throw Error("ไฟล์ TikTok ไม่ต้องมี Credential");
   }else if(typeof value.credential!=="string" || value.credential.length>4096){
     throw Error("ค่าข้อมูลรับรองของแหล่งข้อความไม่ถูกต้อง");
   }
@@ -66,10 +68,12 @@ const RPC_PHASE_NAMES={
   disconnected:"ตัดการเชื่อมต่อแล้ว",
 };
 function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
-  if(!["live","discord","discord_client"].includes(mode))throw Error("invalid source mode");
+  if(!["live","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
   const prefix=mode==="discord_client"?"discordClient":mode;
   const get=id=>el(prefix+id);
   let timer=null, generation=0, connected=false, inFlight=false;
+  let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
+  const seen=new Set();
   let visible=[], overflow=0;
   function message(text){get("FeedStatus").textContent=String(text);}
   function buildSettingsProfile(){
@@ -87,7 +91,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
       data.client_id=get("FeedAppId").value;
       data.client_secret=get("FeedAppSecret").value;
       data.redirect_uri=get("FeedRedirect").value;
-    }else data.credential=get("FeedCredential").value;
+    }else if(mode!=="tiktok")data.credential=get("FeedCredential").value;
     return validateSettingsProfile(data,mode);
   }
   async function exportSettings(){
@@ -163,7 +167,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
         get("FeedAppId").value=data.client_id;
         get("FeedRedirect").value=data.redirect_uri;
         get("FeedAppSecret").value=data.client_secret;
-      }else get("FeedCredential").value=data.credential;
+      }else if(mode!=="tiktok")get("FeedCredential").value=data.credential;
       prune();render();
       message("โหลดการตั้งค่าครบทุกช่องแล้ว (รวมข้อมูลลับ) · ยังไม่เชื่อมต่ออัตโนมัติ");
       return true;
@@ -259,6 +263,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     connected=false;
     inFlight=false;
     if(timer!==null){clearInterval(timer);timer=null;}
+    if(socket){
+      const former=socket;socket=null;
+      former.onmessage=null;former.onopen=null;former.onclose=null;former.onerror=null;
+      former.close();
+    }
     get("FeedStart").disabled=false;
     get("FeedStop").disabled=true;
     // Preserve the user-selected checkbox across reconnects and tab changes.
@@ -268,8 +277,102 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     // but never continue polling/autoreading after it loses mode ownership.
     message("หยุดรับข้อความแล้วเมื่อเปลี่ยนโหมด · เชื่อมต่อใหม่เพื่อรับข้อความล่าสุด");
   }
+  function tikTokURL(value){
+    // TikFinity documents this local endpoint. Never allow a user-supplied
+    // source profile to create outbound WebSocket connections off the PC.
+    const url=value.trim();
+    if(!/^ws:\/\/(?:localhost|127\.0\.0\.1):21213\/?$/.test(url))
+      throw Error("กรุณาระบุ TikFinity WebSocket บนเครื่องนี้ (ws://localhost:21213/)");
+    return url;
+  }
+  function handleTikTokEvent(raw){
+    if(!connected||!guard(mode)||typeof raw!=="string"||raw.length>16384)return;
+    let frame;
+    try{frame=JSON.parse(raw);}catch{return;}
+    if(frame?.event!=="chat"||!isRecord(frame.data))return;
+    const data=frame.data;
+    if(typeof data.comment!=="string")return;
+    const value=data.comment.replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim();
+    const max=Number(get("FeedMaxChars").value);
+    const blocked=get("FeedBlocked").value.split(",").map(w=>w.trim().toLowerCase()).filter(Boolean);
+    if(!value||value.length>max||!Number.isInteger(max)
+       || /^[/!\\]/.test(value)||/(?:https?:\/\/|www\.)/i.test(value)
+       || blocked.some(word=>value.toLowerCase().includes(word))){
+      wsRejected++;
+      updateTikTokStatus();
+      return;
+    }
+    const rawId=data.messageUuid??data.msgId??data.id;
+    let messageId;
+    if((typeof rawId==="string"||typeof rawId==="number")
+        && /^[a-zA-Z0-9_-]{1,100}$/.test(String(rawId))){
+      messageId=String(rawId);
+      if(seen.has(messageId)){wsRejected++;updateTikTokStatus();return;}
+      seen.add(messageId);
+      if(seen.size>256)seen.delete(seen.values().next().value);
+    }else messageId="tiktok-"+generation+"-"+(++wsSequence);
+    const user=isRecord(data.user)?data.user:{};
+    const rawAuthor=[data.nickname,user.nickname,data.uniqueId,user.uniqueId]
+      .find(value=>typeof value==="string"&&value.trim())||"ผู้ชม";
+    const author=rawAuthor.replace(/[\u0000-\u001f\u007f]/g," ").slice(0,80);
+    const item={message_id:messageId,author,text:value};
+    wsMessages++;
+    const auto=Boolean(get("FeedAuto").checked);
+    const entry={...item,state:auto?"queued":"manual"};
+    visible.unshift(entry);
+    const accepted=onMessage(item,auto);
+    if(accepted==="skipped"){entry.state="skipped";overflow++;}
+    prune();render();
+    updateTikTokStatus();
+  }
+  function updateTikTokStatus(){
+    message("TikFinity: connected · รับ "+wsMessages+" · กรอง/ซ้ำ "+wsRejected+
+            " · คิวเสียง "+visible.filter(e=>e.state==="queued").length+
+            " · ล้นคิว "+overflow);
+  }
+  function startTikTok(){
+    const endpoint=tikTokURL(get("FeedSourceId").value);
+    const max=Number(get("FeedMaxChars").value);
+    if(get("FeedMaxChars").value.trim()===""||!Number.isInteger(max)||max<20||max>280)
+      throw Error("กรุณากำหนดความยาวข้อความสูงสุด 20–280 ก่อนเชื่อมต่อ");
+    if(typeof root.WebSocket!=="function")throw Error("Browser ไม่รองรับ WebSocket");
+    localSuspend();
+    clearMessages();
+    wsMessages=0;wsRejected=0;wsSequence=0;seen.clear();
+    const ticket=++generation;
+    get("FeedStart").disabled=true;
+    message("กำลังเชื่อม TikFinity Desktop บนเครื่องนี้...");
+    try{
+      const client=new root.WebSocket(endpoint);
+      socket=client;
+      client.onopen=()=>{
+        if(ticket!==generation||!guard(mode)){client.close();return;}
+        connected=true;
+        get("FeedStop").disabled=false;
+        updateTikTokStatus();
+      };
+      client.onmessage=event=>{
+        if(ticket!==generation||!guard(mode))return;
+        handleTikTokEvent(event.data);
+      };
+      client.onerror=()=>{
+        if(ticket===generation)message("เชื่อม TikFinity ไม่สำเร็จ · ตรวจสอบว่า TikFinity Desktop เปิดและเชื่อม LIVE แล้ว");
+      };
+      client.onclose=()=>{
+        if(ticket!==generation)return;
+        localSuspend();
+        message("TikFinity WebSocket ตัดการเชื่อมต่อแล้ว · เปิด TikFinity และกดเชื่อมอีกครั้ง");
+      };
+      return {state:"connecting",mode};
+    }catch{
+      localSuspend();
+      message("เปิด TikFinity WebSocket ไม่สำเร็จ");
+      throw Error("เชื่อม TikFinity ไม่สำเร็จ");
+    }
+  }
   async function start(){
     if(!guard(mode))throw Error("กรุณาเปิดโหมดนี้ก่อนเชื่อมต่อ");
+    if(mode==="tiktok")return startTikTok();
     const channelId=get("FeedSourceId").value.trim();
     const temporaryCredential=mode==="discord_client" ? {
       client_id:get("FeedAppId").value.trim(),
@@ -372,6 +475,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop}){
     }finally{if(ticket===generation)inFlight=false;}
   }
   async function stop(){
+    if(mode==="tiktok"){
+      localSuspend();
+      message("หยุดรับคอมเมนต์ TikTok LIVE แล้ว");
+      return;
+    }
     if(!guard(mode)){
       localSuspend();
       return;
