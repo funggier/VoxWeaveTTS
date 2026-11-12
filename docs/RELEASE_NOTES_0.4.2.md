@@ -25,7 +25,7 @@
 
 **บันเดิล MakHam Paradee เท่านั้น** พร้อมแหล่งที่มาและลิขสิทธิ์ใน `THIRD_PARTY_NOTICES.txt` และ `docs/COMMERCIAL_LICENSE_POLICY_TH.md`
 
-**ไม่มีโมเดล Vachana 4 Voices หรือ FastThaiG2P Kokoro Thai Som แนบใน GitHub Release นี้** แม้ระบบรับไฟล์ `.vwmodel` และได้ทดลองสร้างเสียงจากแพ็กเกจเหล่านั้นในเครื่องแล้ว แต่สิทธิ์/ที่มาของน้ำหนักโมเดลยังต้องตรวจให้ครบ และ Runtime Dependencies ของ Vachana อาจไม่ครบใน Portable นี้ จึงไม่ควรถือว่าติดตั้งแพ็กเกจแล้วใช้งานได้แน่นอนโดยไม่ตรวจ Dependencies
+**ไม่มีโมเดล Vachana 4 Voices หรือ FastThaiG2P Kokoro Thai Som แนบใน GitHub Release ของตัวโปรแกรมหลักนี้** แต่มี [Model Packages Release แยกให้ดาวน์โหลด](https://github.com/funggier/VoxWeaveTTS/releases/tag/modelpacks-v0.4.2) พร้อม License/NOTICE/Attribution แยกตามต้นทาง และการตรวจ SHA-256 แม้ระบบรับไฟล์ `.vwmodel` และได้ทดลองสร้างเสียงจากแพ็กเกจเหล่านั้นในเครื่องแล้ว แต่สิทธิ์/ที่มาของน้ำหนักโมเดลยังต้องตรวจให้ครบ และ Runtime Dependencies ของ Vachana อาจไม่ครบใน Portable นี้ จึงไม่ควรถือว่าติดตั้งแพ็กเกจแล้วใช้งานได้แน่นอนโดยไม่ตรวจ Dependencies
 
 **อย่าส่งไฟล์ Export โปรไฟล์การเชื่อมต่อสาธารณะ** หากมี API Key, Bot Token หรือ Application Client Secret เพราะระบบบันทึกตามที่กรอกเป็นข้อความธรรมดาใน JSON เพื่อให้ผู้ใช้ย้ายการตั้งค่าข้ามเครื่องได้
 

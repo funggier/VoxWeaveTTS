@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "project": "VoxWeaveTTS",
+  "release_tag": "modelpacks-v0.4.2",
+  "note": "Licenses are as declared at pinned upstream sources. VoxWeaveTTS has not independently certified all training data or voice rights. No warranty of commercial use or compatibility.",
+  "packages": [
+    {
+      "package_id": "vachana-thai-four-voices",
+      "version": "1.0.0",
+      "file": "VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
+      "size_bytes": 234436558,
+      "sha256": "c782818d6bc99f7da1e3540d308cedde20f41dc204d2b34ee002089a8057f5f3",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/modelpacks-v0.4.2/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
+      "engine_adapter": "vachana-onnx-v1",
+      "voices": [
+        "th_f_1",
+        "th_f_2",
+        "th_m_1",
+        "th_m_2"
+      ],
+      "upstream_source": "https://huggingface.co/VIZINTZOR/VachanaTTS",
+      "source_revision": "6fa5f03a26f8ec0c0e0582e9e6812efa84d38688",
+      "upstream_declared_license": "MIT",
+      "training_license": null,
+      "conditions": "Upstream model card declares MIT for the model repository; retain publisher/permission notice. Training data and voice rights were not independently audited.",
+      "review_status": "review_required",
+      "upstream_asset_sha256": {
+        "voices/th_f_1.onnx": "e87f6d6f825680118cc412f6f9da944bdece5ebe772769a14b2d8359a07c5bf1",
+        "voices/th_f_2.onnx": "9131b63ef9699e40f59b579be50cd32c688b86a73269394529248274883edb1c",
+        "voices/th_m_1.onnx": "c63bedc664d8a2c525181360f4dfa624d2940b3636de6caff141353f72d984bd",
+        "voices/th_m_2.onnx": "dbb7e73e093b5ba7b1bc0612c1a31a63e76874a1af3d0231bbf4ab68720cb837"
+      },
+      "embedded_notices": [
+        "legal/license.txt",
+        "legal/attribution.md"
+      ]
+    },
+    {
+      "package_id": "fastthaig2p-thai-som",
+      "version": "0.3.0",
+      "file": "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
+      "size_bytes": 302412020,
+      "sha256": "6aff293704ec5e9f25941eafb897b434c3be47f75eecd89aadc9cb6df9cc6016",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/modelpacks-v0.4.2/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
+      "engine_adapter": "fastthaig2p-kokoro-v1",
+      "voices": [
+        "thai_som"
+      ],
+      "upstream_source": "https://github.com/awslabs/FastThaiG2P/releases/tag/v0.3.0",
+      "source_revision": "v0.3.0",
+      "upstream_declared_license": "Apache-2.0",
+      "training_license": "CC-BY-4.0 (Som TTS dataset)",
+      "conditions": "FastThaiG2P repository is Apache-2.0 with upstream NOTICE; Thai Som training dataset declares CC BY 4.0 and must be attributed. Complete provenance/voice rights not independently audited.",
+      "review_status": "review_required",
+      "upstream_asset_sha256": {
+        "config.json": "ea8e1a52dd433e27d953255d2bf340fc754ec62a60686d112136c4eee603709f",
+        "kokoro_thai.onnx": "a41a5ea020919e47df03226aebe72a64833bc666dfd6eeca6744d8c248270038",
+        "voices/thai_som.npy": "bdec2300889bd5db59c81a4f0e1604c78124abf6096d6e84d4db1bbeef122240"
+      },
+      "embedded_notices": [
+        "legal/license.txt",
+        "legal/notice.txt",
+        "legal/attribution.md"
+      ]
+    }
+  ]
+}

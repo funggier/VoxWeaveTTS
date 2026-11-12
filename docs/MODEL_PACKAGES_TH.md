@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Model Packages (.vwmodel)
 
-สถานะ: ระบบ Model Packages อยู่ในรุ่น v0.4.2 แล้ว แต่ยังไม่ใช่ Model Store สาธารณะ
+สถานะ: โปรแกรมรองรับ .vwmodel ตั้งแต่ v0.4.2 · **แพ็กเกจทดลองที่เผยแพร่ต่อภายใต้สิทธิ์ต้นทาง** ดู [Model Packages Catalog](../model-packs/README_TH.md) และ [Manifest/Hash](../model-packs/catalog.json) · ไม่ใช่ Model Store ที่รับรองสิทธิ์ทั้งหมด
 
 ## แนวคิด
 
@@ -52,9 +52,9 @@
 - package_id: ชื่อแพ็กเกจที่ไม่ซ้ำ เช่น vachana-thai-four-voices
 - version: เลขเวอร์ชัน เช่น 1.0.0
 - title: ชื่อแสดงผลในโปรแกรม
-- engine_adapter: ขณะนี้รองรับ vachana-onnx-v1
+- engine_adapter: ขณะนี้รองรับ `vachana-onnx-v1` และ `fastthaig2p-kokoro-v1`
 - language, sample_rate: ภาษาและอัตราสุ่มเสียงที่ Adapter รองรับ
-- voices: รายชื่อ ID เสียง ชื่อแสดง และไฟล์ ONNX ของแต่ละเสียง
+- voices: รายชื่อ ID เสียง ชื่อแสดง และไฟล์ ONNX ของแต่ละเสียง (Vachana) หรือ `.npy` Voicepack (FastThaiG2P)
 - files: รายชื่อไฟล์จริงทุกไฟล์ พร้อมขนาดเป็นไบต์ และ SHA-256 แบบ 64 อักขระ
 - license: SPDX ID, URL แหล่งที่มาของไลเซนส์, เครดิต และ review_status
 - source: URL ผู้เผยแพร่โมเดลและ Revision
@@ -80,15 +80,15 @@
 แหล่งข้อมูล: https://huggingface.co/VIZINTZOR/VachanaTTS
 Runtime: vachanatts==0.0.7, onnxruntime, pythainlp, ssg
 
-ไลเซนส์ใน Manifest ระบุ MIT ตามข้อมูลจากแหล่งเผยแพร่ แต่ review_status = review_required ยังไม่ได้รับรองสิทธิ์เชิงพาณิชย์ของน้ำหนักโมเดล/ข้อมูลฝึกทั้งหมด ดังนั้นไฟล์แพ็กเกจนี้สร้างไว้ทดลองในเครื่อง ไม่ได้เผยแพร่ลง GitHub Release สาธารณะ
+ไลเซนส์ใน Manifest ระบุ **MIT ตาม Model Card ต้นทาง** และแพ็กเกจมี `legal/license.txt` / `legal/attribution.md` ให้เครดิตผู้เผยแพร่ ส่วน `review_required` หมายถึง **เราไม่ได้ตรวจสอบสิทธิ์ของข้อมูลฝึกและเสียงทั้งหมดโดยอิสระ** ไม่ใช่การเพิ่มเงื่อนไขห้ามแจกต่อจากที่ต้นทางประกาศ แพ็กเกจเสริมมีใน [Model Packages Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/modelpacks-v0.4.2) แยกจาก Portable หลัก
 
-Windows Portable Release v0.4.2 มี Engine Adapter แต่ยังไม่รับประกันว่ามี Runtime Dependencies ของ Vachana ครบ การติดตั้งไฟล์ .vwmodel อย่างเดียวจึงไม่รับประกันว่าจะสร้างเสียงได้ ต้องมี Dependencies ที่รองรับด้วย
+Windows Portable v0.4.2 มี Engine Adapter และ Runtime ที่ต้องตรวจสอบก่อนใช้งาน หากรายการ Engine แสดง Runtime ไม่พร้อม ต้องตรวจ Dependencies ตาม Manifest (ตัวติดตั้งโมเดลไม่รันโค้ดหรือ pip โดยอัตโนมัติ)
 
 ## FastThaiG2P Thai Som เป็นแพ็กเกจแยก
 
 สามารถสร้างแพ็กเกจจากโมเดล FastThaiG2P ที่มีอยู่ใน `models/fastthaig2p/` ด้วยคำสั่ง `python -m voxweavetts.model_packages pack-fastthai` จะได้ไฟล์ `dist/ModelPackages/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel` สำหรับติดตั้งแยกผ่าน Model Package Manager โดยใช้ Engine Adapter `fastthaig2p-kokoro-v1` และไฟล์ ONNX + Voicepack .npy
 
-ทดสอบสร้าง WAV ไทยได้ทั้งที่ x1 และ x5 จากแพ็กเกจที่ติดตั้งแล้ว ขณะที่ **Portable หลักบันเดิลเฉพาะน้ำหนัก MakHam Paradee** ไม่รวม FastThaiG2P หรือ Vachana ทั้งสองแพ็กเกจยังระบุ `review_required` จึงไม่เผยแพร่ไฟล์น้ำหนักสาธารณะก่อนตรวจสิทธิ์โมเดล/ข้อมูลฝึก
+ทดสอบสร้าง WAV ไทยได้ทั้งที่ x1 และ x5 จากแพ็กเกจที่ติดตั้งแล้ว ขณะที่ **Portable หลักบันเดิลเฉพาะน้ำหนัก MakHam Paradee** ไม่รวม FastThaiG2P หรือ Vachana แพ็กเกจ FastThaiG2P ระบุ Apache-2.0 พร้อมต้นฉบับ LICENSE/NOTICE และมีข้อมูลฝึก Som TTS ระบุ CC BY 4.0 โดยเราใส่เครดิตไว้ใน `legal/attribution.md` ไฟล์น้ำหนักเผยแพร่ใน [Model Packages Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/modelpacks-v0.4.2) ตามสิทธิ์ต้นทางที่ระบุ ส่วนสถานะ `review_required` คือยังไม่มีการรับรองสิทธิ์เสียง/ข้อมูลฝึกทุกส่วนโดยอิสระ
 
 ## ความปลอดภัยและลิขสิทธิ์
 

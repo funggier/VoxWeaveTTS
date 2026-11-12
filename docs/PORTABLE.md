@@ -38,6 +38,10 @@ VoxWeaveTTS/
 
 All app-generated settings, output and cache paths are relative to the extracted folder. The app binds to **127.0.0.1 only**. Do not forward port 8765 publicly: the local API does not provide remote authentication.
 
+## Optional Model Packages available separately
+
+The main Portable ZIP still bundles **MakHam Paradee only**. The separately downloadable [Vachana 4-Voice and FastThaiG2P Thai Som packages](https://github.com/funggier/VoxWeaveTTS/releases/tag/modelpacks-v0.4.2) include pinned-source SHA-256 checksums and embedded licenses/attributions. Rights are as declared upstream (Vachana MIT; FastThaiG2P Apache-2.0 and Som TTS dataset CC BY 4.0), **not an independent audit of every training voice/data right**. Both optional models were tested using the exact v0.4.2 Portable runtime, without changing the main ZIP. See [Model Pack Catalog](../model-packs/README_TH.md).
+
 ## What changed in v0.4.2
 
 - All Live/Discord sources can stay connected while switching to other workspaces. Choose **serial** (one voice at a time) or **overlap** playback in the top bar.

@@ -211,7 +211,7 @@ def install_model_package(archive: str | Path, *, base: Path = PACKAGES_DIR) -> 
         expected = {"manifest.json"} | {item["path"] for item in manifest["files"]}
         if {m.filename for m in members} != expected:
             raise ModelPackageError("ZIP files do not match the manifest")
-        file_info = {row["path"]: row for row in manifest["files"]}
+        file_info = {row["path"].lower(): row for row in manifest["files"]}
         for member in members:
             if member.is_dir() or stat.S_IFMT(member.external_attr >> 16) == stat.S_IFLNK:
                 raise ModelPackageError("model package cannot contain symlinks or folders")
@@ -329,14 +329,50 @@ def make_package(source: Path, manifest: dict[str, Any], output: Path) -> Path:
 
 
 
+def _legal_paths(source: Path) -> list[str]:
+    """Optional, data-only legal notices included in signed-by-manifest ZIP."""
+    notices = ("license.txt", "notice.txt", "attribution.md")
+    return ["legal/" + name for name in notices
+            if (source / "legal" / name).is_file()]
+
+
+def _stage_legal_notices(stage: Path, pack_name: str) -> None:
+    """Include verbatim upstream notices and separately explained provenance."""
+    origin = ROOT / "model-packs" / pack_name
+    if not origin.is_dir():
+        raise ModelPackageError("missing model package legal notices")
+    for name in ("LICENSE.txt", "NOTICE.txt", "ATTRIBUTION.md"):
+        file = origin / name
+        if not file.is_file():
+            if name == "NOTICE.txt" and pack_name == "vachana":
+                continue
+            raise ModelPackageError("missing legal notice: " + str(file))
+        # Lowercase ZIP member names for compatibility with the published
+        # v0.4.2 portable installer (which looks up normalized path keys).
+        out = stage / "legal" / name.lower()
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(file, out)
+
+
+def _hardlink_or_copy(original_file: Path, target: Path) -> None:
+    if not original_file.is_file():
+        raise ModelPackageError("missing local model asset: " + str(original_file))
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(original_file, target)
+    except OSError:
+        shutil.copy2(original_file, target)
+
+
 def create_vachana_manifest(source: Path) -> dict[str, Any]:
     """Produce metadata for locally downloaded Vachana voices.
 
-    License declaration is informational: full upstream rights require review.
+    License declaration follows pinned upstream model card; training-data and
+    speaker-rights provenance has not been independently audited.
     """
     source = Path(source)
     names = ("th_f_1", "th_f_2", "th_m_1", "th_m_2")
-    assets = ["speaker_config.json"] + ["voices/" + name + ".onnx" for name in names]
+    assets = ["speaker_config.json"] + ["voices/" + name + ".onnx" for name in names] + _legal_paths(source)
     files = []
     for name in assets:
         path = source.joinpath(*PurePosixPath(name).parts)
@@ -377,11 +413,12 @@ def create_vachana_manifest(source: Path) -> dict[str, Any]:
 def create_fastthai_manifest(source: Path) -> dict[str, Any]:
     """Metadata for a local FastThaiG2P/Kokoro Thai Som ONNX model pack.
 
-    The source license is declared Apache-2.0; the weight/dataset rights
-    remain review_required. This function never uploads model data.
+    Upstream repo declares Apache-2.0; Som TTS dataset declares CC BY 4.0.
+    Attribution notices ship in the resulting archive. Full provenance
+    remains review_required (not commercial-cleared by VoxWeaveTTS).
     """
     source = Path(source)
-    names = ("config.json", "kokoro_thai.onnx", "voices/thai_som.npy")
+    names = ("config.json", "kokoro_thai.onnx", "voices/thai_som.npy", *_legal_paths(source))
     files = []
     for name in names:
         file = source / name
@@ -413,6 +450,23 @@ def create_fastthai_manifest(source: Path) -> dict[str, Any]:
     })
 
 
+def pack_local_vachana(source: Path, output: Path) -> Path:
+    """Repack pinned upstream ONNX files plus machine-readable license notes."""
+    temp_base = ROOT / "cache" / "temp"
+    temp_base.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix="voxweavetts-vachana-pack-", dir=temp_base,
+    ) as temp:
+        stage = Path(temp)
+        for name in (
+            "speaker_config.json", "voices/th_f_1.onnx",
+            "voices/th_f_2.onnx", "voices/th_m_1.onnx", "voices/th_m_2.onnx",
+        ):
+            _hardlink_or_copy(Path(source) / name, stage / name)
+        _stage_legal_notices(stage, "vachana")
+        return make_package(stage, create_vachana_manifest(stage), output)
+
+
 def pack_local_fastthai(source: Path, output: Path) -> Path:
     """Stage existing locally owned model files into the data-only layout."""
     temp_base = ROOT / "cache" / "temp"
@@ -424,15 +478,8 @@ def pack_local_fastthai(source: Path, output: Path) -> Path:
             ("kokoro_thai.onnx", "kokoro_thai.onnx"),
             ("thai_som.npy", "voices/thai_som.npy"),
         ):
-            original_file = Path(source) / original
-            if not original_file.is_file():
-                raise ModelPackageError("missing local FastThai model: " + original)
-            target = stage / target_name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                os.link(original_file, target)
-            except OSError:
-                shutil.copy2(original_file, target)
+            _hardlink_or_copy(Path(source) / original, stage / target_name)
+        _stage_legal_notices(stage, "fastthaig2p")
         return make_package(stage, create_fastthai_manifest(stage), output)
 
 
@@ -467,12 +514,11 @@ def main() -> None:
                 print(m["package_id"], m["version"], len(m["voices"]), "voices",
                       m["license"]["spdx"], m["license"]["review_status"])
         elif args.action == "pack-vachana":
-            manifest = create_vachana_manifest(args.source)
-            print("Built", make_package(args.source, manifest, args.output))
-            print("Rights status:", manifest["license"]["review_status"])
+            print("Built", pack_local_vachana(args.source, args.output))
+            print("Rights status: review_required - see embedded legal/attribution.md")
         elif args.action == "pack-fastthai":
             print("Built", pack_local_fastthai(args.source, args.output))
-            print("Rights status: review_required - not cleared for redistribution")
+            print("Rights status: review_required - refer to included Apache/CC BY notices")
     except (ModelPackageError, OSError, zipfile.BadZipFile) as exc:
         parser.exit(2, "Model package operation failed: " + str(exc) + "\n")
 

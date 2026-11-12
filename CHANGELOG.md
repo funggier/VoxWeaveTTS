@@ -2,6 +2,13 @@
 
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
+## Optional model-pack release modelpacks-v0.4.2 (13 November 2026)
+
+- Published optional `.vwmodel` assets for Vachana Thai (four voices; upstream declares MIT) and FastThaiG2P Kokoro Thai Som (upstream declares Apache-2.0; Som TTS dataset CC BY 4.0). The original Windows Portable v0.4.2 ZIP remains MakHam-only.
+- Both archives embed SHA-256-indexed legal/license.txt, legal/attribution.md and, for FastThaiG2P, the unchanged upstream legal/notice.txt. Git tracks the catalog, checksum/source pinning and license documents, while the >500 MB model archives live as GitHub Release Assets instead of bloating Git history.
+- Verified all source weight digests against pinned upstream Revision/Release assets; tested both archives with the already-published v0.4.2 Portable runtime by installing and generating Thai WAV, then cleaning temporary data.
+- This is redistribution based on upstream license declarations, not a certification of commercial use, all voice rights or underlying training data. Existing installed package IDs/versions may need manual removal before replacement with notice-complete archives.
+
 ## 0.4.2 — Concurrent Live Channels, Voice Presets and Packaged Model Manager (2026-11-12)
 
 Windows 10/11 x64 Portable production release, consolidated from v0.4.2.dev0–dev3.
