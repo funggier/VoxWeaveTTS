@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Configurable emoji speech for YouTube and Discord
+## 0.5.1 — Configurable emoji speech for YouTube and Discord (14 November 2026)
 
 - Each YouTube LIVE (API/Browser) and Discord (Bot/Client) workspace can enable emoji reading and maintain an independent Unicode / custom-emoji pronunciation dictionary (up to 64 entries) in its existing portable source settings.
 - Only the text sent to TTS is transformed; chat history and manual source text remain unchanged. Longer emoji sequences are matched before shorter ones, without cascading replacement rules.
