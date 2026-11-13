@@ -9,10 +9,22 @@ const DISCORD_SHORT=/^:[A-Za-z0-9_-]{2,48}:$/;
 const DISCORD_FULL=/^<a?:[A-Za-z0-9_]{2,32}:[0-9]{5,22}>$/;
 const DISCORD_TOKEN=/^<a?:([A-Za-z0-9_]{2,32}):[0-9]{5,22}>/;
 const EMOJI=/[\p{Extended_Pictographic}\p{Regional_Indicator}\u20E3]/u;
+// Named emotes can arrive as plain labels (e.g. GGWP), not only Unicode
+// or :shortcodes:. Require an uppercase character to avoid arbitrary
+// lowercase prose being treated as an emote key.
+const NAMED_EMOTE=/^(?=.{2,48}$)(?=.*[A-Z])[A-Za-z][A-Za-z0-9_-]*$/;
+const WORD_EDGE=/[\p{L}\p{N}_:@#-]/u;
+function hasTokenBoundaries(text,start,length){
+  const before=start>0?String.fromCodePoint(text.codePointAt(start-(
+    start>=2&&/[\uDC00-\uDFFF]/.test(text[start-1])?2:1))):"";
+  const after=start+length<text.length
+    ?String.fromCodePoint(text.codePointAt(start+length)):"";
+  return !WORD_EDGE.test(before)&&!WORD_EDGE.test(after);
+}
 function validKey(key){
   return typeof key==="string" && key.length>0 &&
     [...key].length<=48 && !/[\u0000-\u001f\u007f\s]/u.test(key) &&
-    (DISCORD_SHORT.test(key)||DISCORD_FULL.test(key)||EMOJI.test(key));
+    (DISCORD_SHORT.test(key)||DISCORD_FULL.test(key)||NAMED_EMOTE.test(key)||EMOJI.test(key));
 }
 function validate(dictionary){
   if(!dictionary || typeof dictionary!=="object"||Array.isArray(dictionary))
@@ -21,7 +33,7 @@ function validate(dictionary){
   if(entries.length>MAX_RULES)throw Error("กำหนดคำอ่านอีโมจิได้สูงสุด 64 รายการต่อโหมด");
   const result={};
   for(const [key,value] of entries){
-    if(!validKey(key))throw Error("รายการไม่ใช่อีโมจิหรือรหัสอีโมจิ Discord: "+key.slice(0,40));
+    if(!validKey(key))throw Error("รายการไม่ใช่อีโมจิหรือชื่ออีโมจิ: "+key.slice(0,40));
     if(typeof value!=="string" || !value.trim() || [...value].length>60 ||
        /[\u0000-\u001f\u007f]/.test(value))
       throw Error("คำอ่านต้องมีข้อความและยาวไม่เกิน 60 ตัวอักษร");
@@ -37,7 +49,7 @@ function parseEditor(source){
     const line=raw.trim();
     if(!line)continue;
     const split=line.indexOf("=");
-    if(split<1)throw Error("แต่ละบรรทัดต้องเป็น อีโมจิ = คำอ่าน");
+    if(split<1)throw Error("แต่ละบรรทัดต้องเป็น อีโมจิหรือชื่ออีโมจิ = คำอ่าน");
     const key=line.slice(0,split).trim();
     const value=line.slice(split+1).trim();
     if(Object.prototype.hasOwnProperty.call(dictionary,key))
@@ -56,17 +68,27 @@ function replace(text,dictionary){
   let result="",i=0;
   while(i<text.length){
     let matched=null;
-    for(const [key,value] of entries){
-      if(text.startsWith(key,i)){matched={length:key.length,value};break;}
+    // Treat Discord markup as an atomic token. Never replace GGWP
+    // inside <:GGWP:id> just because a plain GGWP mapping exists.
+    const discord=DISCORD_TOKEN.exec(text.slice(i));
+    if(discord){
+      const exact=dictionary[discord[0]];
+      const byName=dictionary[":"+discord[1]+":"];
+      if(exact!==undefined || byName!==undefined)
+        matched={length:discord[0].length,
+                 value:exact!==undefined?exact:byName};
+      else{
+        result+=discord[0];
+        i+=discord[0].length;
+        continue;
+      }
     }
-    // Discord custom emojis contain a volatile ID. An optional :name:
-    // dictionary entry handles both static and animated versions.
     if(!matched){
-      const discord=DISCORD_TOKEN.exec(text.slice(i));
-      if(discord){
-        const name=":"+discord[1]+":";
-        if(Object.prototype.hasOwnProperty.call(dictionary,name))
-          matched={length:discord[0].length,value:dictionary[name]};
+      for(const [key,value] of entries){
+        if(text.startsWith(key,i) &&
+           (!NAMED_EMOTE.test(key)||hasTokenBoundaries(text,i,key.length))){
+          matched={length:key.length,value};break;
+        }
       }
     }
     if(matched){

@@ -42,6 +42,7 @@ DEFAULT_SPEECH_FORMAT = {
 
 
 _CUSTOM_EMOJI = re.compile(r"^(?::[A-Za-z0-9_-]{2,48}:|<a?:[A-Za-z0-9_]{2,32}:[0-9]{5,22}>)$")
+_NAMED_EMOTE = re.compile(r"^(?=.{2,48}$)(?=.*[A-Z])[A-Za-z][A-Za-z0-9_-]*$")
 
 
 def _valid_emoji_key(key: object) -> bool:
@@ -49,7 +50,7 @@ def _valid_emoji_key(key: object) -> bool:
         return False
     if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in key):
         return False
-    if _CUSTOM_EMOJI.fullmatch(key):
+    if _CUSTOM_EMOJI.fullmatch(key) or _NAMED_EMOTE.fullmatch(key):
         return True
     return any(0x1F000 <= ord(ch) <= 0x1FAFF or
                0x2600 <= ord(ch) <= 0x27BF or ord(ch) == 0x20E3 or

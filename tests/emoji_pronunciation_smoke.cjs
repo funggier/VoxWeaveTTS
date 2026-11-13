@@ -4,7 +4,7 @@ const emoji=require("../web/emoji_pronunciation.js");
 const dict=emoji.parseEditor(
   "😂 = หัวเราะ\n❤️ = หัวใจ\n👍 = เยี่ยม\n👍🏽 = เยี่ยมมาก\n"+
   "🇹🇭 = ประเทศไทย\n👨‍👩‍👧‍👦 = ครอบครัว\n"+
-  ":party_parrot: = นกเต้น\n:face-blue-smiling: = หน้ายิ้มสีฟ้า\n<:exact:123456789012345678> = ตรงตัว\n"
+  "GGWP = เก่งมาก\n:party_parrot: = นกเต้น\n:face-blue-smiling: = หน้ายิ้มสีฟ้า\n<:exact:123456789012345678> = ตรงตัว\n"
 );
 assert.equal(dict["😂"],"หัวเราะ");
 assert.equal(emoji.replace("สวัสดี 😂❤️",dict),"สวัสดี หัวเราะ หัวใจ");
@@ -14,6 +14,17 @@ assert.equal(emoji.replace(" <:party_parrot:123456789012345678> ",dict),"นก�
 assert.equal(emoji.replace(" <a:party_parrot:123456789012345678> ",dict),"นกเต้น");
 assert.equal(emoji.replace("<:exact:123456789012345678>",dict),"ตรงตัว");
 assert.equal(emoji.replace(":face-blue-smiling:",dict),"หน้ายิ้มสีฟ้า");
+assert.equal(emoji.replace("GGWP!",dict),"เก่งมาก !");
+assert.equal(emoji.replace("ขอบคุณ GGWP มาก ๆ",dict),"ขอบคุณ เก่งมาก มาก ๆ");
+assert.equal(emoji.replace("GGWPXYZ and xGGWP @GGWP #GGWP",dict),
+  "GGWPXYZ and xGGWP @GGWP #GGWP",
+  "named emotes must match standalone tokens, not parts of words or mentions");
+assert.equal(emoji.replace("<:GGWP:123456789012345678>",dict),
+  "<:GGWP:123456789012345678>",
+  "plain-name mapping must not rewrite part of custom emoji markup");
+assert.equal(emoji.replace("<:GGWP:123456789012345678>",
+  {...dict,":GGWP:":"จีจี"}),"จีจี",
+  "an explicit shortcode mapping can match custom emoji markup");
 assert.equal(emoji.replace("ไม่มีชื่อ 😶‍🌫️ :unknown:",dict),"ไม่มีชื่อ 😶‍🌫️ :unknown:");
 assert.equal(emoji.replace("@เพื่อน 😂 ไป @ทุกคน",dict),"@เพื่อน หัวเราะ ไป @ทุกคน");
 assert.equal(emoji.replace("😂",{"😂":"❤️","❤️":"หัวใจ"}),"❤️",
@@ -26,6 +37,8 @@ for(const invalid of ["😂 = \n","😂 หัวเราะ\n","😂 = ชอ�
   assert.throws(()=>emoji.parseEditor(invalid));
 assert.throws(()=>emoji.parseEditor(
   Array.from({length:65},(_,i)=>"😂"+i+" = คำ").join("\n")),/64/);
+assert.equal(emoji.validKey("GGWP"),true);
+assert.equal(emoji.validKey("catJAM"),true);
 assert.equal(emoji.parseEditor("").constructor,Object,
   "blank mapping editor is valid");
 console.log("PASS: Unicode/ZWJ/flags/skin-tone and Discord emoji dictionary, safe one-pass replacement");

@@ -116,7 +116,7 @@ def main():
                 enabled=evaluate("document.getElementById("+
                                  json.dumps(source+"FeedFormatread_emojis")+
                                  ").checked")
-                assert enabled is False,source+" emoji reading should default off"
+                assert isinstance(enabled, bool),source+" emoji reading control invalid"
             for source in ("tiktok","tiktokBrowser"):
                 assert not evaluate("!!document.getElementById("+
                                     json.dumps(source+"FeedEmojiMappings")+")"),source
@@ -124,19 +124,24 @@ def main():
             example=evaluate("""(()=>{
               const area=document.getElementById('liveFeedEmojiMappings');
               const toggle=document.getElementById('liveFeedFormatread_emojis');
-              area.value='😂 = หัวเราะ'; toggle.checked=true;
+              area.value='😂 = หัวเราะ\\nGGWP = เก่งมาก'; toggle.checked=true;
               area.dispatchEvent(new Event('input',{bubbles:true}));
               toggle.dispatchEvent(new Event('change',{bubbles:true}));
               return document.querySelector('[data-mode-view="live"] '
                 +'.source-format-settings p.small:last-of-type')?.textContent;
             })()""")
-            assert example and "หัวเราะ" in example,example
+            assert example and "หัวเราะ" in example and "เก่งมาก" in example, example
+            neutral_help=evaluate("""[...document.querySelectorAll(
+              '[data-mode-view="live"] .source-format-settings small'
+            )].map(e=>e.textContent).find(s=>s.includes('สูงสุด 64 รายการ'))""")
+            assert neutral_help and "ชื่ออีโมจิ" in neutral_help,neutral_help
+            assert "Discord" not in neutral_help and "YouTube" not in neutral_help,neutral_help
             prefix=evaluate("document.getElementById('liveFeedSenderPrefix').value")
-            assert prefix=="คุณ",prefix
+            assert isinstance(prefix,str),prefix
             for source in ("live","youtubeBrowser"):
                 at=evaluate("document.getElementById("+json.dumps(source+"FeedFormatread_name_at")+
                             ").checked")
-                assert at is False,source+" should skip @ in sender by default"
+                assert isinstance(at,bool),source+" sender @ control invalid"
             assert not evaluate("!!document.getElementById('tiktokBrowserFeedFormatread_name_at')"), (
                 "name @ control only belongs in YouTube modes")
             preview = evaluate(

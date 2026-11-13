@@ -189,7 +189,7 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                 side_effect=lambda data:voice.save_workspace_settings(data,target)
             ):
                 formats=(
-                    ("live", {"😂":"หัวเราะ","❤️":"หัวใจ"}),
+                    ("live", {"😂":"หัวเราะ","❤️":"หัวใจ","GGWP":"เก่งมาก"}),
                     ("youtube_browser", {"😂":"ขำ"}),
                     ("discord", {":party_parrot:":"นกเต้น"}),
                     ("discord_client", {"<a:wave:123456789012345678>":"โบกมือ"}),
@@ -202,6 +202,8 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                         "settings":{"source_mode":mode,"format":payload},
                     })
                     self.assertEqual(status,200)
+                self.assertEqual(doc["speech_formats"]["live"]["emoji_dictionary"]["GGWP"],
+                                 "เก่งมาก")
                 self.assertEqual(doc["speech_formats"]["live"]["emoji_dictionary"]["😂"],
                                  "หัวเราะ")
                 self.assertEqual(doc["speech_formats"]["youtube_browser"]["emoji_dictionary"]["😂"],

@@ -176,12 +176,12 @@ async function main(){
   }
   const apiEmoji=elementById("live","liveFeedEmojiMappings");
   elementById("live","liveFeedFormatread_emojis").checked=true;
-  apiEmoji.value="😂 = หัวเราะ\n❤️ = หัวใจ";
+  apiEmoji.value="😂 = หัวเราะ\n❤️ = หัวใจ\nGGWP = เก่งมาก";
   await manager.saveSpeechFormat("live");
   assert.equal(posts.at(-1).settings.source_mode,"live");
   assert.equal(posts.at(-1).settings.format.read_emojis,true);
   assert.deepEqual(posts.at(-1).settings.format.emoji_dictionary,
-    {"😂":"หัวเราะ","❤️":"หัวใจ"});
+    {"😂":"หัวเราะ","❤️":"หัวใจ","GGWP":"เก่งมาก"});
   assert.equal(manager.readSpeechFormat("youtube_browser").read_emojis,false,
     "YouTube Browser must not inherit API mappings");
   const discordEmoji=elementById("discord","discordFeedEmojiMappings");

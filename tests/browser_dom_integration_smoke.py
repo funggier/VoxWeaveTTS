@@ -25,7 +25,7 @@ def main():
             '<html><body><yt-live-chat-item-list-renderer><div id="items">'
             '<yt-live-chat-text-message-renderer id="msg-a"><span id="author-name">'
             'Tester</span><span id="message">สวัสดีครับ <img alt="😂"> '
-            '<img alt=":face-blue-smiling:"></span>'
+            '<img alt=":face-blue-smiling:"><img alt="GGWP">แล้วนะ</span>'
             '</yt-live-chat-text-message-renderer></div></yt-live-chat-item-list-renderer>'
             '</body></html>', encoding="utf-8")
         args = [find_chromium(), "--headless=new", "--disable-gpu",
@@ -63,7 +63,7 @@ def main():
                         break
                     time.sleep(0.2)
                 assert result["ready"] is True, result
-                assert result["items"][0]["text"] == "สวัสดีครับ 😂 :face-blue-smiling:", result
+                assert result["items"][0]["text"] == "สวัสดีครับ 😂 :face-blue-smiling: GGWP แล้วนะ", result
                 assert result["items"][0]["author"] == "Tester", result
             finally:
                 ws.close()

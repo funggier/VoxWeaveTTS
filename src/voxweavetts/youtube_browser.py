@@ -39,7 +39,11 @@ CHAT_SCRIPT = r"""(() => {
       if (node.nodeType === 3) { text += node.nodeValue || ""; return; }
       if (node.nodeType !== 1) return;
       if (node.tagName === "IMG") {
-        text += node.getAttribute("alt") || "";
+        const name = node.getAttribute("alt") || "";
+        // A named emoji (e.g. GGWP) must remain its own token even if the
+        // image touches adjacent text with no spaces in the DOM.
+        text += /^[A-Za-z][A-Za-z0-9_-]{1,47}$/.test(name)
+          ? " " + name + " " : name;
         return;
       }
       for (const child of node.childNodes) visit(child);

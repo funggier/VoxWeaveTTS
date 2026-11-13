@@ -362,9 +362,9 @@ function attach({document,engines,getDefault}){
       emojiEditor=create("textarea");
       emojiEditor.id=prefix+"FeedEmojiMappings";
       emojiEditor.rows=5;emojiEditor.maxLength=8192;
-      emojiEditor.placeholder="😂 = หัวเราะ\n❤️ = หัวใจ\n:party_parrot: = นกเต้น";
+      emojiEditor.placeholder="😂 = หัวเราะ\n❤️ = หัวใจ\nGGWP = เก่งมาก\n:party_parrot: = นกเต้น";
       const note=create("small",
-        "ใส่ อีโมจิ = คำอ่าน · สูงสุด 64 รายการ · รองรับ Discord <:ชื่อ:id> และ :ชื่อ: · คำที่ไม่ได้ตั้งค่าจะคงเดิม");
+        "ใส่ อีโมจิหรือชื่ออีโมจิ = คำอ่าน · สูงสุด 64 รายการ · เช่น 😂, GGWP, :party_parrot: · คำที่ไม่ได้ตั้งค่าจะคงเดิม");
       note.className="small";
       holder.append(caption,emojiEditor,note);
       panel.appendChild(holder);
@@ -389,7 +389,7 @@ function attach({document,engines,getDefault}){
       if(emojiEditor&&options.read_emojis){
         try{
           const dictionary=Emoji.parseEditor(emojiEditor.value);
-          shown=Emoji.replace(shown+" 😂❤️",dictionary);
+          shown=Emoji.replace(shown+" 😂❤️ GGWP",dictionary);
         }catch(error){
           preview.textContent="พจนานุกรมอีโมจิ: "+error.message;
           return;
