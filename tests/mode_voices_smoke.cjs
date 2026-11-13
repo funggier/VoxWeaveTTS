@@ -34,7 +34,7 @@ const document={
     return match?views.get(match[1]):null;
   },
 };
-let revision=0,posts=[];
+let revision=0,posts=[],speechFormats={};
 let presetData=[];
 const voices=[
   {id:"makham-paradee-cpu",label:"MakHam",voice_id:"paradee_thai",
@@ -55,13 +55,15 @@ global.fetch=async(path,options)=>{
   assert.equal(path,"/v1/settings/mode-voices");
   if(!options?.method)return{ok:true,async json(){return{
     revision,policy:"serial",modes:overrides,
-    sender_names:{live:true,discord_client:true},
+    sender_names:{live:true,discord_client:true},speech_formats:speechFormats,
   };}};
   assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"save-mode-voice");
   const body=JSON.parse(options.body);
   assert.equal(body.expected_revision,revision);
   revision++;
   posts.push(body);
+  if(body.mode==="__speech_format__")
+    speechFormats[body.settings.source_mode]=body.settings.format;
   return{ok:true,async json(){return{revision};}};
 };
 async function main(){
@@ -159,6 +161,46 @@ async function main(){
     "changing Browser @ does not change API @");
   assert.equal(manager.readSpeechFormat("tiktok_browser").sender_prefix,"ท่าน");
   assert.equal(manager.readSpeechFormat("tiktok").read_gifts,undefined);
+  for(const mode of ["live","youtube_browser","discord","discord_client"]){
+    const prefix=mode==="youtube_browser"?"youtubeBrowser":
+      mode==="discord_client"?"discordClient":mode;
+    const enabled=elementById(mode,prefix+"FeedFormatread_emojis");
+    const editor=elementById(mode,prefix+"FeedEmojiMappings");
+    assert.ok(enabled&&editor,"emoji editor must exist for "+mode);
+    assert.equal(enabled.checked,false,"default emoji setting must not alter existing speech");
+  }
+  for(const mode of ["tiktok","tiktok_browser"]){
+    const prefix=mode==="tiktok_browser"?"tiktokBrowser":"tiktok";
+    assert.equal(elementById(mode,prefix+"FeedFormatread_emojis"),null);
+    assert.equal(elementById(mode,prefix+"FeedEmojiMappings"),null);
+  }
+  const apiEmoji=elementById("live","liveFeedEmojiMappings");
+  elementById("live","liveFeedFormatread_emojis").checked=true;
+  apiEmoji.value="😂 = หัวเราะ\n❤️ = หัวใจ";
+  await manager.saveSpeechFormat("live");
+  assert.equal(posts.at(-1).settings.source_mode,"live");
+  assert.equal(posts.at(-1).settings.format.read_emojis,true);
+  assert.deepEqual(posts.at(-1).settings.format.emoji_dictionary,
+    {"😂":"หัวเราะ","❤️":"หัวใจ"});
+  assert.equal(manager.readSpeechFormat("youtube_browser").read_emojis,false,
+    "YouTube Browser must not inherit API mappings");
+  const discordEmoji=elementById("discord","discordFeedEmojiMappings");
+  discordEmoji.value=":party_parrot: = นกเต้น";
+  elementById("discord","discordFeedFormatread_emojis").checked=true;
+  await manager.saveSpeechFormat("discord");
+  assert.equal(manager.readSpeechFormat("discord").emoji_dictionary[":party_parrot:"],"นกเต้น");
+  assert.equal(manager.readSpeechFormat("discord_client").read_emojis,false);
+  await manager.load();
+  assert.equal(elementById("live","liveFeedEmojiMappings").value,apiEmoji.value);
+  assert.equal(elementById("discord","discordFeedEmojiMappings").value,discordEmoji.value);
+  assert.equal(elementById("live","liveFeedFormatread_emojis").checked,true);
+  assert.equal(elementById("discord","discordFeedFormatread_emojis").checked,true);
+  // Bad editor input is rejected without saving anything.
+  const count=posts.length;
+  apiEmoji.value="@ = เปลี่ยนทั้งข้อความ";
+  await manager.saveSpeechFormat("live");
+  assert.equal(posts.length,count,"invalid emoji mapping must not be persisted");
+  apiEmoji.value="😂 = หัวเราะ\\n❤️ = หัวใจ";
   // Presets copied from a different machine stay visible even before their
   // optional model pack has been installed.
   const pendingModel="model-optional-thai-1_0_0";

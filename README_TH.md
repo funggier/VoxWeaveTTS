@@ -4,6 +4,10 @@
 
 **รุ่นสำหรับใช้งาน Windows Portable v0.5.0** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
+## การอ่านอีโมจิแบบตั้งคำเอง (YouTube/Discord)
+
+โหมด **YouTube LIVE (API)**, **YouTube LIVE (Browser)**, **Discord** และ **Discord Client** มีตัวเลือก **อ่านอีโมจิด้วยคำที่กำหนดเอง** ในหัวข้อ **กำหนดการอ่านข้อความและข้อมูลพิเศษ** พร้อมพจนานุกรมแยกแต่ละโหมด เช่น `😂 = หัวเราะ`, `❤️ = หัวใจ`, `:party_parrot: = นกเต้น` รองรับอีโมจิ Unicode และรหัสอีโมจิ Discord แบบกำหนดเอง เริ่มต้นปิดเพื่อไม่เปลี่ยนการอ่านเดิม และบันทึกพร้อมการตั้งค่าโหมดใน `data/settings/mode-voices.json` [คู่มือการตั้งค่าอีโมจิ](docs/EMOJI_PRONUNCIATION_TH.md)
+
 ## โหมด LIVE รุ่น v0.5.0 และข้อจำกัด
 
 ใน Source Project แยกแท็บ YouTube เป็น **YouTube LIVE (Browser)** และ **YouTube LIVE (API)** โดย Tab API เดิมใช้รหัส `live` และค่าเดิมไม่เปลี่ยน ส่วน Tab Browser เป็นต้นแบบเปิดหน้าต่าง Chrome/Edge เฉพาะ Live Chat ผ่าน CDP แล้วส่งข้อความใหม่จาก DOM เข้า TTS/OBS Subtitle เดิมโดยไม่ใช้ YouTube Data API Key หรือ Quota ของ Data API **ยังไม่ยืนยันกับ YouTube LIVE จริงและไม่ใช่วิธีทางการของ YouTube** การเข้าถึงอัตโนมัติมีข้อจำกัดในเงื่อนไขของ YouTube โปรดตรวจสอบสิทธิ์ก่อนใช้ [คู่มือ YouTube Browser (ภาษาไทย)](docs/YOUTUBE_BROWSER_READER_TH.md)

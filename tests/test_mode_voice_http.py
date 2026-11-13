@@ -166,6 +166,8 @@ class ModeVoiceHTTPTests(unittest.TestCase):
             self.assertEqual(source["separator"],"กล่าวว่า")
             self.assertEqual(source["sender_prefix"],"คุณ")
             self.assertFalse(source["read_name_at"])
+            self.assertFalse(source["read_emojis"])
+            self.assertEqual(source["emoji_dictionary"], {})
             self.assertFalse(source["read_gifts"])
             self.assertTrue(source["read_badges"])
             self.assertFalse(source["read_name_emojis"])
@@ -176,6 +178,64 @@ class ModeVoiceHTTPTests(unittest.TestCase):
             },path)
             self.assertEqual(saved["revision"],8)
             self.assertEqual(saved["speech_formats"]["tiktok_browser"],source)
+
+    def test_source_local_emoji_dictionary_validates_and_persists(self):
+        from voxweavetts.mode_voice_settings import DEFAULT_SPEECH_FORMAT
+        with tempfile.TemporaryDirectory() as tmp:
+            target=Path(tmp)/"emoji-dictionary.json"
+            with patch("voxweavetts.server.load_workspace_settings",
+                       side_effect=lambda:voice.load_workspace_settings(target)),patch(
+                "voxweavetts.server.save_workspace_settings",
+                side_effect=lambda data:voice.save_workspace_settings(data,target)
+            ):
+                formats=(
+                    ("live", {"😂":"หัวเราะ","❤️":"หัวใจ"}),
+                    ("youtube_browser", {"😂":"ขำ"}),
+                    ("discord", {":party_parrot:":"นกเต้น"}),
+                    ("discord_client", {"<a:wave:123456789012345678>":"โบกมือ"}),
+                )
+                for revision,(mode,dictionary) in enumerate(formats):
+                    payload={**DEFAULT_SPEECH_FORMAT,
+                             "read_emojis":True,"emoji_dictionary":dictionary}
+                    status,doc=self.post({
+                        "expected_revision":revision,"mode":"__speech_format__",
+                        "settings":{"source_mode":mode,"format":payload},
+                    })
+                    self.assertEqual(status,200)
+                self.assertEqual(doc["speech_formats"]["live"]["emoji_dictionary"]["😂"],
+                                 "หัวเราะ")
+                self.assertEqual(doc["speech_formats"]["youtube_browser"]["emoji_dictionary"]["😂"],
+                                 "ขำ")
+                self.assertEqual(doc["speech_formats"]["discord"]["emoji_dictionary"],
+                                 {":party_parrot:":"นกเต้น"})
+                self.assertEqual(doc["speech_formats"]["discord_client"]["emoji_dictionary"],
+                                 {"<a:wave:123456789012345678>":"โบกมือ"})
+                self.assertFalse(doc["speech_formats"]["tiktok"]["read_emojis"]
+                                 if "tiktok" in doc["speech_formats"] else False)
+                self.assertTrue(voice.load_workspace_settings(target)
+                                ["speech_formats"]["live"]["read_emojis"])
+                old_revision=doc["revision"]
+                invalid=(
+                    {"read_emojis":"true"},
+                    {"emoji_dictionary":[]},
+                    {"emoji_dictionary":{"@":"คุณ"}},
+                    {"emoji_dictionary":{"hello":"พูด"}},
+                    {"emoji_dictionary":{"😂":""}},
+                    {"emoji_dictionary":{"😂":"ก"*61}},
+                    {"emoji_dictionary":{"😂":"เสียง\nผิด"}},
+                    {"emoji_dictionary":{"😂":"หัวเราะ", **{
+                        "😂"+str(i):"ขำ" for i in range(65)}}},
+                )
+                snapshot=voice.load_workspace_settings(target)
+                for override in invalid:
+                    with self.subTest(override=repr(override)[:80]):
+                        payload={**DEFAULT_SPEECH_FORMAT,**override}
+                        status,_=self.post({
+                            "expected_revision":old_revision,"mode":"__speech_format__",
+                            "settings":{"source_mode":"live","format":payload},
+                        })
+                        self.assertEqual(status,400)
+                        self.assertEqual(voice.load_workspace_settings(target),snapshot)
 
     def test_http_persists_policy_and_per_mode_without_crosswriting(self):
         with tempfile.TemporaryDirectory() as tmp:

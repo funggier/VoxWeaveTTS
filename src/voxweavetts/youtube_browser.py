@@ -30,6 +30,23 @@ CHAT_SCRIPT = r"""(() => {
   const list = document.querySelector("yt-live-chat-item-list-renderer #items");
   if (!list) return {ready:false, items:[]};
   const items = [...list.querySelectorAll("yt-live-chat-text-message-renderer")].slice(-100);
+  // Images in YouTube chat carry emoji text in alt attributes rather
+  // than textContent; preserve those tokens for the optional TTS dictionary.
+  const chatText = element => {
+    if (!element) return "";
+    let text = "";
+    const visit = node => {
+      if (node.nodeType === 3) { text += node.nodeValue || ""; return; }
+      if (node.nodeType !== 1) return;
+      if (node.tagName === "IMG") {
+        text += node.getAttribute("alt") || "";
+        return;
+      }
+      for (const child of node.childNodes) visit(child);
+    };
+    visit(element);
+    return text;
+  };
   return {ready:true, items: items.map(node => {
     let id = node.id || node.getAttribute("data-id") || node.getAttribute("data-vwtts-id");
     if (!id) {
@@ -39,7 +56,7 @@ CHAT_SCRIPT = r"""(() => {
       node.setAttribute("data-vwtts-id", id);
     }
     return {id, author:node.querySelector("#author-name")?.textContent || "",
-            text:node.querySelector("#message")?.textContent || ""};
+            text:chatText(node.querySelector("#message"))};
   })};
 })()"""
 

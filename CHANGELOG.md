@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Configurable emoji speech for YouTube and Discord
+
+- Each YouTube LIVE (API/Browser) and Discord (Bot/Client) workspace can enable emoji reading and maintain an independent Unicode / custom-emoji pronunciation dictionary (up to 64 entries) in its existing portable source settings.
+- Only the text sent to TTS is transformed; chat history and manual source text remain unchanged. Longer emoji sequences are matched before shorter ones, without cascading replacement rules.
+- YouTube Browser chat extraction includes emoji-image alt text for dictionary matching; GitHub-style/Discord shortcodes and custom Discord emoji IDs can be mapped.
+- Source-local controls are disabled by default, older JSON configurations migrate automatically, and the API validates and bounds saved dictionaries.
+
+
 ## 0.5.0 — Live readers, custom sender speech and chat-only TikTok Extension (13 November 2026)
 
 - Added separate YouTube LIVE (API) and experimental YouTube LIVE (Browser) tabs, and the TikTok LIVE (Extension) flow using a user-installed Chrome Manifest V3 extension with local pairing.

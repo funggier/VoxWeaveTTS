@@ -82,6 +82,10 @@ def main():
                 "liveFeedSeparator", "youtubeBrowserFeedSeparator",
                 "tiktokBrowserFeedSenderPrefix", "tiktokBrowserFeedSeparator",
                 "tiktokBrowserFeedFormatread_comments",
+                "liveFeedFormatread_emojis", "youtubeBrowserFeedFormatread_emojis",
+                "discordFeedFormatread_emojis", "discordClientFeedFormatread_emojis",
+                "liveFeedEmojiMappings", "youtubeBrowserFeedEmojiMappings",
+                "discordFeedEmojiMappings", "discordClientFeedEmojiMappings",
             )
             for element_id in required:
                 exists = evaluate("!!document.getElementById("
@@ -108,6 +112,25 @@ def main():
                              "tiktokBrowserFeedFormatread_gift_count",
                              "tiktokBrowserFeedFormatread_name_emojis"):
                 assert not evaluate("!!document.getElementById("+json.dumps(obsolete)+")"),obsolete
+            for source in ("live","youtubeBrowser","discord","discordClient"):
+                enabled=evaluate("document.getElementById("+
+                                 json.dumps(source+"FeedFormatread_emojis")+
+                                 ").checked")
+                assert enabled is False,source+" emoji reading should default off"
+            for source in ("tiktok","tiktokBrowser"):
+                assert not evaluate("!!document.getElementById("+
+                                    json.dumps(source+"FeedEmojiMappings")+")"),source
+            # Editing the browser DOM is safe: do not POST/save user settings.
+            example=evaluate("""(()=>{
+              const area=document.getElementById('liveFeedEmojiMappings');
+              const toggle=document.getElementById('liveFeedFormatread_emojis');
+              area.value='😂 = หัวเราะ'; toggle.checked=true;
+              area.dispatchEvent(new Event('input',{bubbles:true}));
+              toggle.dispatchEvent(new Event('change',{bubbles:true}));
+              return document.querySelector('[data-mode-view="live"] '
+                +'.source-format-settings p.small:last-of-type')?.textContent;
+            })()""")
+            assert example and "หัวเราะ" in example,example
             prefix=evaluate("document.getElementById('liveFeedSenderPrefix').value")
             assert prefix=="คุณ",prefix
             for source in ("live","youtubeBrowser"):

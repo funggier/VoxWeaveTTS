@@ -11,6 +11,8 @@ import tempfile
 import threading
 from pathlib import Path
 from typing import Any
+import re
+import unicodedata
 
 from .processing import InputError
 from .speech import get_engine_info, validate_speech_request, validate_seed, DEFAULT_SEED
@@ -25,8 +27,9 @@ SENDER_MODES = frozenset(("live", "youtube_browser", "tiktok", "tiktok_browser",
                           "discord", "discord_client"))
 SPEECH_FORMAT_KEYS = frozenset(("sender_prefix", "separator", "gift_separator", "read_comments",
                                "read_gifts", "read_levels", "read_ranks",
-                               "read_badges", "read_gift_count", "read_name_emojis", "read_name_at"))
-SPEECH_FORMAT_BOOL_KEYS = SPEECH_FORMAT_KEYS - {"sender_prefix", "separator", "gift_separator"}
+                               "read_badges", "read_gift_count", "read_name_emojis", "read_name_at",
+                               "read_emojis", "emoji_dictionary"))
+SPEECH_FORMAT_BOOL_KEYS = SPEECH_FORMAT_KEYS - {"sender_prefix", "separator", "gift_separator", "emoji_dictionary"}
 DEFAULT_SPEECH_FORMAT = {
     "sender_prefix": "คุณ", "separator": "พิมพ์ว่า",
     "gift_separator": "ส่งของขวัญ",
@@ -34,20 +37,46 @@ DEFAULT_SPEECH_FORMAT = {
     "read_levels": False, "read_ranks": False, "read_badges": False,
     "read_gift_count": True, "read_name_emojis": False,
     "read_name_at": False,
+    "read_emojis": False, "emoji_dictionary": {},
 }
 
 
+_CUSTOM_EMOJI = re.compile(r"^(?::[A-Za-z0-9_-]{2,48}:|<a?:[A-Za-z0-9_]{2,32}:[0-9]{5,22}>)$")
+
+
+def _valid_emoji_key(key: object) -> bool:
+    if not isinstance(key, str) or not 1 <= len(key) <= 48:
+        return False
+    if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in key):
+        return False
+    if _CUSTOM_EMOJI.fullmatch(key):
+        return True
+    return any(0x1F000 <= ord(ch) <= 0x1FAFF or
+               0x2600 <= ord(ch) <= 0x27BF or ord(ch) == 0x20E3 or
+               unicodedata.category(ch) == "So"
+               for ch in key)
+
+
 def validate_speech_format(raw: Any) -> dict[str, Any]:
-    # Keep loading old portable settings without exposing removed Gift options.
+    # Portable migration: settings from earlier versions omit emoji controls
+    # and may include removed Gift switches, which remain disabled.
     if not isinstance(raw, dict) or set(raw) - SPEECH_FORMAT_KEYS:
         raise InputError("invalid sender speech format")
     merged = {**DEFAULT_SPEECH_FORMAT, **raw}
+    dictionary = merged["emoji_dictionary"]
     if (any(type(merged[key]) is not bool for key in SPEECH_FORMAT_BOOL_KEYS)
         or any(not isinstance(merged[key], str) or len(merged[key]) > 60
                or any(ord(char) < 32 or ord(char) == 127 for char in merged[key])
-               for key in ("sender_prefix", "separator", "gift_separator"))):
+               for key in ("sender_prefix", "separator", "gift_separator"))
+        or not isinstance(dictionary, dict) or len(dictionary) > 64
+        or any(not _valid_emoji_key(key) or not isinstance(value, str)
+               or not value.strip() or len(value) > 60
+               or any(ord(ch) < 32 or ord(ch) == 127 for ch in value)
+               for key, value in dictionary.items())):
         raise InputError("invalid sender speech format")
     merged["read_gifts"] = False
+    merged["emoji_dictionary"] = {key: value.strip()
+                                  for key, value in dictionary.items()}
     return merged
 
 _LOCK = threading.RLock()
@@ -74,7 +103,7 @@ def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
         if not path.is_file():
             return {"revision": 0, "policy": "serial", "modes": {}, "sender_names": {}, "speech_formats": {}}
         try:
-            if path.stat().st_size > 48_000:
+            if path.stat().st_size > 96_000:
                 raise InputError("workspace settings file too large")
             doc = json.loads(path.read_text(encoding="utf-8-sig"))
         except (OSError, ValueError) as exc:

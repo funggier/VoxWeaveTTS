@@ -9,6 +9,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("unknown source mode");
   const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
   const get=id=>el(prefix+id);
+  const Emoji=root.VoxEmojiPronunciation ||
+    (typeof require==="function"?require("./emoji_pronunciation.js"):null);
   const audio=get("Audio");
   let generation=0, jobId=null, lastReady=null, wavUrl=null;
   // Each source owns its pending messages; shared scheduler controls whether
@@ -46,16 +48,25 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       const input=get("Feed"+field);
       return input?.type==="text"?String(input.value||"").trim().slice(0,60):fallback;
     };
+    const readEmojis=pick("read_emojis")===true;
+    let dictionary={};
+    if(readEmojis&&Emoji){
+      try{dictionary=Emoji.parseEditor(String(get("FeedEmojiMappings")?.value||""));}
+      catch{/* Ignore invalid unsaved edits rather than interrupting LIVE speech. */}
+    }
     return {
       sender_prefix:phrase("SenderPrefix","คุณ"),
       separator:phrase("Separator","พิมพ์ว่า"),
       read_comments:pick("read_comments")!==false,
       read_name_at:pick("read_name_at")===true,
+      read_emojis:readEmojis,emoji_dictionary:dictionary,
     };
   }
   function speechText(item,plainText){
-    if(!item)return plainText;
     const opts=readOptions();
+    const speakEmoji=value=>opts.read_emojis&&Emoji
+      ?Emoji.replace(value,opts.emoji_dictionary):value;
+    if(!item)return speakEmoji(plainText);
     const clean=value=>typeof value==="string"
       ?value.replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim()
       :"";
@@ -68,8 +79,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     // visible Unicode names, but do not inject level/rank/badge metadata.
     const salutation=author&&opts.sender_prefix&&!author.startsWith(opts.sender_prefix)
       ?opts.sender_prefix:"";
-    const named=author?[salutation,author].filter(Boolean).join(" "):"";
-    return [named,named?opts.separator:"",plainText].filter(Boolean).join(" ");
+    const named=author?[salutation,speakEmoji(author)].filter(Boolean).join(" "):"";
+    return [named,named?opts.separator:"",speakEmoji(plainText)].filter(Boolean).join(" ");
   }
   function pickMessage(item){
     if(!item || typeof item.text!=="string")return;

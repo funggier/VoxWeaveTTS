@@ -24,7 +24,8 @@ def main():
         html.write_text(
             '<html><body><yt-live-chat-item-list-renderer><div id="items">'
             '<yt-live-chat-text-message-renderer id="msg-a"><span id="author-name">'
-            'Tester</span><span id="message">สวัสดีครับ</span>'
+            'Tester</span><span id="message">สวัสดีครับ <img alt="😂"> '
+            '<img alt=":face-blue-smiling:"></span>'
             '</yt-live-chat-text-message-renderer></div></yt-live-chat-item-list-renderer>'
             '</body></html>', encoding="utf-8")
         args = [find_chromium(), "--headless=new", "--disable-gpu",
@@ -62,7 +63,7 @@ def main():
                         break
                     time.sleep(0.2)
                 assert result["ready"] is True, result
-                assert result["items"][0]["text"] == "สวัสดีครับ", result
+                assert result["items"][0]["text"] == "สวัสดีครับ 😂 :face-blue-smiling:", result
                 assert result["items"][0]["author"] == "Tester", result
             finally:
                 ws.close()

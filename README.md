@@ -4,6 +4,10 @@
 
 > **Windows portable release v0.5.0:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
+## Configurable emoji pronunciation (YouTube LIVE / Discord)
+
+YouTube LIVE (API/Browser) and Discord (Bot/Client) now have independent, opt-in emoji-to-speech dictionaries inside the source speech settings. Enter one Unicode or Discord custom emoji per line, e.g. `😂 = หัวเราะ` or `:party_parrot: = นกเต้น`; the mapping applies only to the synthesized text and not the original chat record. Disabled by default for existing users. YouTube Browser chat also includes emoji-image `alt` text when available so it can be mapped. [Thai setup guide](docs/EMOJI_PRONUNCIATION_TH.md).
+
 ## LIVE integrations in v0.5.0
 
 The source tree now has separate tabs **YouTube LIVE (Browser)** and **YouTube LIVE (API)**. The original API workspace keeps its `live` identifier and saved settings. The experimental Browser workspace starts an isolated Chrome/Edge chat-only window, reads new DOM text messages over local CDP, and routes them into the existing TTS/OBS queue without a YouTube Data API key or Data API quota. It has been tested against a local chat DOM fixture only, **not against authorized real YouTube LIVE chat**. Browser-based automated access is not officially supported and may violate YouTube's terms without prior permission. [Thai browser mode guide](docs/YOUTUBE_BROWSER_READER_TH.md).

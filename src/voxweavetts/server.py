@@ -412,9 +412,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js"}:
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js"}:
                 name = ("audio_scheduler.js" if route == "/audio_scheduler.js" else
                         "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
+                        "emoji_pronunciation.js" if route == "/emoji_pronunciation.js" else
                         "source_feed.js" if route == "/source_feed.js" else
                         "mode_inputs.js" if route == "/mode_inputs.js" else
                         "mode_workspace.js" if route == "/mode_workspace.js" else
@@ -778,7 +779,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.reject_unread_post(415, {"error": "voice settings require JSON"})
                 return
             try:
-                data = self._read_json(max_bytes=12_000)
+                data = self._read_json(max_bytes=24_576)
                 self.send_json(200, save_workspace_settings(data))
             except InputError:
                 self.send_json(400, {"error": "invalid mode voice settings"})

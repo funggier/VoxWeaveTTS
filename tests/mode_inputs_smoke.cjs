@@ -65,6 +65,7 @@ async function main(){
     },
   };
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync("web/emoji_pronunciation.js","utf8"),sandbox);
   vm.runInContext(code,sandbox);
   const attach=mode=>sandbox.window.VoxModeInputs.attach({
     mode,el:get,clockLibrary:library,
@@ -259,6 +260,60 @@ async function main(){
   },true),"queued");
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads.at(-1).text,"ท่าน @เพื่อน พิมพ์ว่า ตอบ @ผม ได้เลย");
-  console.log("PASS: mode-local prefix and sender-only @ toggles, untouched comment @, opt-in gifts");
+  get("youtubeBrowserAudio").paused=true;
+  get("youtubeBrowserAudio").events.ended();
+  get("youtubeBrowserFeedFormatread_emojis").checked=true;
+  get("youtubeBrowserFeedEmojiMappings").value="😂 = หัวเราะ\n❤️ = หัวใจ";
+  assert.equal(youtubeBrowser.receiveIncoming({
+    message_id:"yb-emoji",author:"@เพื่อน❤️",text:"สวัสดี 😂❤️ @ทุกคน 🥳"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,
+    "ท่าน @เพื่อน หัวใจ พิมพ์ว่า สวัสดี หัวเราะ หัวใจ @ทุกคน 🥳");
+  assert.equal(get("youtubeBrowserText").value,"สวัสดี 😂❤️ @ทุกคน 🥳",
+    "original source comment remains untouched in editable input");
+  get("youtubeBrowserAudio").paused=true;
+  get("youtubeBrowserAudio").events.ended();
+  get("youtubeBrowserFeedFormatread_emojis").checked=false;
+  assert.equal(youtubeBrowser.receiveIncoming({
+    message_id:"yb-emoji-off",author:"@เพื่อน❤️",text:"สวัสดี 😂❤️"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"ท่าน @เพื่อน❤️ พิมพ์ว่า สวัสดี 😂❤️");
+
+  current="discord";
+  get("discordAutoRetry").events.click();
+  get("discordAudio").paused=true;
+  get("discordAudio").events.ended();
+  get("discordFeedAuto").checked=true;
+  get("discordFeedReadSender").checked=true;
+  get("discordFeedSenderPrefix").value="คุณ";
+  get("discordFeedSeparator").value="พิมพ์ว่า";
+  get("discordFeedFormatread_emojis").checked=true;
+  get("discordFeedEmojiMappings").value=":party_parrot: = นกเต้น\n👍🏽 = เยี่ยมมาก";
+  assert.equal(discord.receiveIncoming({
+    message_id:"discord-emoji",author:"ผู้ชม",text:"เยี่ยม 👍🏽 <a:party_parrot:123456789012345678>"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"คุณ ผู้ชม พิมพ์ว่า เยี่ยม เยี่ยมมาก นกเต้น");
+  assert.equal(get("discordText").value,"เยี่ยม 👍🏽 <a:party_parrot:123456789012345678>");
+  get("discordAudio").paused=true;get("discordAudio").events.ended();
+
+  current="discord_client";
+  voiceByMode.discord_client="discord-client-voice";
+  const discordClient=attach("discord_client");
+  get("discordClientFeedAuto").checked=true;
+  get("discordClientFeedReadSender").checked=true;
+  get("discordClientFeedSenderPrefix").value="คุณ";
+  get("discordClientFeedSeparator").value="พิมพ์ว่า";
+  get("discordClientFeedEmojiMappings").value="😂 = ขำ";
+  get("discordClientFeedFormatread_emojis").checked=true;
+  assert.equal(discordClient.receiveIncoming({
+    message_id:"client-emoji",author:"เพื่อน",text:"😂 👍🏽"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"คุณ เพื่อน พิมพ์ว่า ขำ 👍🏽",
+    "Discord Client emoji rules are independent of Discord Bot");
+  console.log("PASS: YouTube/Discord emoji speech mapping and sender-only @, original chat preserved");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

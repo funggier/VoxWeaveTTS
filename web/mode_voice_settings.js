@@ -10,11 +10,14 @@ const VOICE_MODES=Object.freeze([
   ["discord","Discord"],["discord_client","Discord Client"],
 ]);
 const SENDER_MODES=["live","youtube_browser","tiktok","tiktok_browser","discord","discord_client"];
+const Emoji=root.VoxEmojiPronunciation ||
+  (typeof require==="function"?require("./emoji_pronunciation.js"):null);
 const DEFAULT_FORMAT=Object.freeze({
   sender_prefix:"คุณ",separator:"พิมพ์ว่า",
   read_comments:true,
   read_levels:false,read_ranks:false,read_badges:false,read_gift_count:true,
   read_name_emojis:false,read_name_at:false,
+  read_emojis:false,emoji_dictionary:{},
 });
 const FORMAT_BOOL_LABELS=[
   ["read_comments","อ่านข้อความแชท"],
@@ -342,6 +345,31 @@ function attach({document,engines,getDefault}){
       note.className="small";panel.appendChild(note);
       fields.read_name_at=box;
     }
+    // Unicode and Discord emoji dictionary is editable only in YouTube
+    // (API/Browser) and Discord (Bot/Client), independently per source.
+    const emojiEnabled=["live","youtube_browser","discord","discord_client"].includes(mode);
+    let emojiEditor=null;
+    if(emojiEnabled){
+      const holder=create("div");holder.style.marginTop="12px";
+      const label=create("label");label.style.display="flex";
+      label.style.alignItems="center";label.style.gap="8px";
+      const toggle=create("input");toggle.type="checkbox";
+      toggle.id=prefix+"FeedFormatread_emojis";
+      toggle.checked=false;
+      label.append(toggle,create("span","อ่านอีโมจิด้วยคำที่กำหนดเอง"));
+      holder.appendChild(label);
+      const caption=create("label","พจนานุกรมคำอ่านอีโมจิ (บรรทัดละหนึ่งรายการ)");
+      emojiEditor=create("textarea");
+      emojiEditor.id=prefix+"FeedEmojiMappings";
+      emojiEditor.rows=5;emojiEditor.maxLength=8192;
+      emojiEditor.placeholder="😂 = หัวเราะ\n❤️ = หัวใจ\n:party_parrot: = นกเต้น";
+      const note=create("small",
+        "ใส่ อีโมจิ = คำอ่าน · สูงสุด 64 รายการ · รองรับ Discord <:ชื่อ:id> และ :ชื่อ: · คำที่ไม่ได้ตั้งค่าจะคงเดิม");
+      note.className="small";
+      holder.append(caption,emojiEditor,note);
+      panel.appendChild(holder);
+      fields.read_emojis=toggle;
+    }
     const preview=create("p");
     preview.className="small";preview.style.marginTop="8px";
     const refreshPreview=()=>{
@@ -357,12 +385,23 @@ function attach({document,engines,getDefault}){
       const comment=options.read_comments
         ?[front,front?options.separator:"","สวัสดีครับ"].filter(Boolean).join(" ")
         :"(ปิดการอ่านคอมเมนต์)";
-      preview.textContent="ตัวอย่างแชท: "+comment;
+      let shown=comment;
+      if(emojiEditor&&options.read_emojis){
+        try{
+          const dictionary=Emoji.parseEditor(emojiEditor.value);
+          shown=Emoji.replace(shown+" 😂❤️",dictionary);
+        }catch(error){
+          preview.textContent="พจนานุกรมอีโมจิ: "+error.message;
+          return;
+        }
+      }
+      preview.textContent="ตัวอย่างแชท: "+shown;
     };
     for(const input of Object.values(fields)){
       input.addEventListener("input",refreshPreview);
       input.addEventListener("change",refreshPreview);
     }
+    emojiEditor?.addEventListener("input",refreshPreview);
     document.getElementById?.(prefix+"FeedReadSender")
       ?.addEventListener("change",refreshPreview);
     const button=create("button","บันทึกรูปแบบการอ่าน");
@@ -370,24 +409,29 @@ function attach({document,engines,getDefault}){
     const state=create("span","ค่าเริ่มต้น: อ่านเฉพาะคอมเมนต์");
     state.className="small";state.style.marginLeft="8px";
     panel.append(preview,button,state);
-    speechControls.set(mode,{fields,button,state,refreshPreview});
+    speechControls.set(mode,{fields,button,state,refreshPreview,emojiEditor});
     view.insertBefore(panel,view.firstChild);
     refreshPreview();
   }
   function readSpeechFormat(mode){
-    const fields=speechControls.get(mode)?.fields;
-    const config={...DEFAULT_FORMAT};
+    const ui=speechControls.get(mode);
+    const fields=ui?.fields;
+    const config={...DEFAULT_FORMAT,emoji_dictionary:{}};
     if(!fields)return config;
     for(const [key,input] of Object.entries(fields)){
       config[key]=["sender_prefix","separator"].includes(key)
         ?String(input.value??"").trim():Boolean(input.checked);
     }
+    if(ui.emojiEditor)
+      config.emoji_dictionary=root.VoxEmojiPronunciation.parseEditor(ui.emojiEditor.value);
     return config;
   }
   async function saveSpeechFormat(mode){
     const ui=speechControls.get(mode);
     if(!ui)return;
-    const format=readSpeechFormat(mode);
+    let format;
+    try{format=readSpeechFormat(mode);}
+    catch(error){ui.state.textContent=String(error.message||error);return;}
     if(["sender_prefix","separator"].some(key=>
       format[key].length>60||/[\u0000-\u001f\u007f]/.test(format[key]))){
       ui.state.textContent="คำเชื่อมไม่ถูกต้อง (สูงสุด 60 ตัวอักษร)";
@@ -435,6 +479,9 @@ function attach({document,engines,getDefault}){
             input.value=settings[field];
           else input.checked=Boolean(settings[field]);
         }
+        if(ui.emojiEditor)
+          ui.emojiEditor.value=Emoji.formatEditor(
+            settings.emoji_dictionary||{});
         ui.refreshPreview();
       }
     }

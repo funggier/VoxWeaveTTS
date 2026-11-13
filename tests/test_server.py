@@ -160,6 +160,7 @@ class ServerTests(unittest.TestCase):
         self.assertGreaterEqual(len(paths), 8)
         self.assertIn("/audio_scheduler.js", paths)
         self.assertIn("/mode_voice_settings.js", paths)
+        self.assertIn("/emoji_pronunciation.js", paths)
         for path in paths:
             with self.subTest(path=path):
                 self.assertTrue(path.startswith("/"))
