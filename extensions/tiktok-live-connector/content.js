@@ -130,47 +130,62 @@
     }
     return {rows:singleAuthorRows,authorNodes,method:"structured"};
   }
-  function commentTail(node,nameNode,author){
-    // Prefer the end of the *single message row*. In TikTok's two-line
-    // layout the first line holds level, badges and display name; the
-    // remaining line(s) are the user's comment, even when badge elements
-    // have classes that look like a comment selector.
-    const rawLines=(node.innerText||"").split(/\r?\n/)
-      .map(s=>s.replace(/\s+/g," ").trim()).filter(Boolean);
-    const authorLine=rawLines.findIndex(line=>line.includes(author));
-    if(authorLine>=0 && authorLine<rawLines.length-1){
-      const tail=rawLines.slice(authorLine+1).join(" ").trim();
-      if(tail && tail.length<=280)return tail;
-    }
-    // One-line/inline LIVE rows: choose the LAST explicit message element,
-    // and never use an element nested inside the nickname/badge header.
+  function commentTail(node,nameNode,author,meta){
+    // A LIVE header can wrap the nickname + "No. 2" on different DOM lines.
+    // Never assume every line AFTER the nickname is part of the comment.
+    // Prefer a dedicated message node or the final non-badge leaf, and use
+    // innerText only as a last-resort fallback.
     const messageNodes=[...(node.querySelectorAll?.(TEXT_SELECTOR)||[])];
     if(!messageNodes.length){
       const direct=node.querySelector?.(TEXT_SELECTOR);
       if(direct)messageNodes.push(direct);
     }
+    const isHeaderOrBadge=element=>
+      element===nameNode||nameNode.contains?.(element)
+      ||element.contains?.(nameNode)
+      ||element.closest?.('[data-e2e*="badge"],[data-e2e*="level"],'
+                          +'[data-e2e*="rank"],[class*="Badge"],'
+                          +'[class*="Level"],[class*="Rank"]');
     for(const element of messageNodes.reverse()){
-      if(element===nameNode||nameNode.contains?.(element))continue;
-      if(element.closest?.('[data-e2e*="badge"],[data-e2e*="level"],'
-                           +'[data-e2e*="rank"],[class*="Badge"],'
-                           +'[class*="Level"],[class*="Rank"]'))continue;
+      if(isHeaderOrBadge(element))continue;
       const text=(element.textContent||"").replace(/\s+/g," ").trim();
       if(text&&text!==author&&text.length<=280)return text;
     }
-    // When there is no dedicated text selector, use the final text leaf of
-    // the row, not its combined textContent (which includes header badges).
     const leaves=[...(node.querySelectorAll?.("span,p,div")||[])];
     for(const element of leaves.reverse()){
-      if(element===nameNode||nameNode.contains?.(element))continue;
+      if(isHeaderOrBadge(element))continue;
       if(element.querySelector?.("span,p,div"))continue;
       if(/badge|level|rank|icon/i.test(String(element.className||"")))continue;
-      if(element.closest?.('[data-e2e*="badge"],[data-e2e*="level"],'
-                           +'[data-e2e*="rank"],[class*="Badge"],'
-                           +'[class*="Level"],[class*="Rank"]'))continue;
       const text=(element.textContent||"").replace(/\s+/g," ").trim();
       if(text&&text!==author&&text.length<=280)return text;
     }
-    return "";
+
+    // Last resort: TikTok can render rank badges between the nickname line
+    // and the comment line even though they appear on one visual header.
+    const lines=(node.innerText||"").split(/\r?\n/)
+      .map(s=>s.replace(/\s+/g," ").trim()).filter(Boolean);
+    const authorLine=lines.findIndex(line=>line.includes(author));
+    if(authorLine<0||authorLine===lines.length-1)return "";
+    const parts=lines.slice(authorLine+1);
+    const rankNumber=meta?.rank||"";
+    const leadingRank=/^(?:No\.?\s*|อันดับ\s*)(\d{1,4})(?:\s+|$)/i;
+    // A whole, stand-alone rank line between the header and the comment
+    // is a badge, not speech. Require at least one subsequent line.
+    while(parts.length>1 && leadingRank.test(parts[0])){
+      const match=parts[0].match(leadingRank);
+      if(!match || parts[0].trim()!==match[0].trim())break;
+      parts.shift();
+    }
+    // An inline "No. 2 comment" is ambiguous without DOM metadata.
+    // Strip it ONLY if the separately detected rank badge equals No. 2.
+    if(rankNumber && parts.length){
+      const match=parts[0].match(leadingRank);
+      if(match && match[1]===String(rankNumber)
+         && parts[0].length>match[0].length)
+        parts[0]=parts[0].slice(match[0].length).trim();
+    }
+    const tail=parts.join(" ").trim();
+    return tail.length<=280?tail:"";
   }
   function parseRow(node){
     if(isSystemNotice(node))return null;
@@ -194,7 +209,7 @@
       .replace(/\s+/g," ").trim().slice(0,80);
     if(!author)return null;
     const meta=decorations(node,nameNode);
-    let text=commentTail(node,nameNode,author);
+    let text=commentTail(node,nameNode,author,meta);
     if(!text||text===author||text.length>280)return null;
     if(/^(joined|followed|liked|shared|is now following)\b/i.test(text))return null;
     const rowMarker=(String(node.className||"")+" "+

@@ -38,6 +38,11 @@ function makeRow(data){
     get innerText(){
       const headerTokens=[data.level?"Lv."+data.level:"",
         data.rank?"No."+data.rank:"",data.badge||"",data.author].filter(Boolean);
+      if(data.rankAfterAuthor){
+        const rankLine="No. "+data.rank;
+        return data.author+"\n"+rankLine+
+          (data.rankInline?" ":"\n")+data.comment;
+      }
       return headerTokens.join(" ") + (data.inline?" ":"\n") + data.comment;
     },
     contains(node){return node===name||node===header||node===tail||node===this;},
@@ -45,14 +50,17 @@ function makeRow(data){
     querySelector(selector){
       if(selector.includes("follow")||selector.includes("join"))return null;
       if(selector.includes("message-owner-name"))return name;
-      if(selector.includes("message-text"))return tail;
+      if(selector.includes("message-text"))
+        return data.noMessageElement?null:tail;
       return null;
     },
     querySelectorAll(selector){
       if(selector.includes("message-owner-name"))return [name];
-      if(selector.includes("message-text"))return [tail];
+      if(selector.includes("message-text"))
+        return data.noMessageElement?[]:[tail];
       if(selector.includes('[data-e2e*="badge"]'))return metadata();
-      if(selector==="span,p,div")return [name,...metadata(),tail];
+      if(selector==="span,p,div")
+        return data.noMessageElement&&data.noLeaves?[]:[name,...metadata(),tail];
       return [];
     },
   };
@@ -118,6 +126,20 @@ async function run(){
     comment:"ไม่เก่งเองใช่ไหม ใจเดียวก็ไม่เจอเงิน"}));
   // A single-line comment has the username and message inline.
   rows.push(makeRow({id:"inline",author:"Guest",inline:true,comment:"คำมา"}));
+  // Real TikTok sometimes renders the rank *after* the username in
+  // innerText, even though it appears on the same visual header line.
+  rows.push(makeRow({id:"rank-after-name",author:"maitreewongthawik",
+    rank:2,rankAfterAuthor:true,comment:"Trum up Trum up!! 😮"}));
+  rows.push(makeRow({id:"rank-inline",author:"PorchJoy Kabsee",rank:2,
+    rankAfterAuthor:true,rankInline:true,noMessageElement:true,noLeaves:true,
+    comment:"แพ้ใจ"}));
+  rows.push(makeRow({id:"rank-separate",author:"Tester",rank:3,
+    rankAfterAuthor:true,noMessageElement:true,noLeaves:true,
+    comment:"No. 2 ในความเห็นนี้คือเนื้อหาจริง"}));
+  rows.push(makeRow({id:"legit-no",author:"Riskies",noMessageElement:true,
+    noLeaves:true,comment:"No. 2 เป็นชื่อเพลงที่ชอบ"}));
+  rows.push(makeRow({id:"rank2-genuine-no",author:"ExactRank",rank:2,
+    rankAfterAuthor:true,comment:"No. 2 หมายถึงอันดับที่ฉันพูดถึง"}));
   background=true;focused=false;
   mutation([{target:list}]);
   await Promise.resolve();
@@ -126,7 +148,7 @@ async function run(){
   assert.equal(snapshot.phase,"ready");
   assert.equal(snapshot.diagnostics.tab_visible,false);
   assert.equal(snapshot.diagnostics.tab_focused,false);
-  assert.equal(snapshot.items.length,4,"background DOM updates must be captured");
+  assert.equal(snapshot.items.length,9,"background DOM updates must be captured");
   const ranks=snapshot.items.find(x=>x.id==="rank-only");
   assert.equal(ranks.text,"สวนแชทเท่าๆ");
   assert.equal(ranks.rank,"2");
@@ -141,6 +163,19 @@ async function run(){
   assert.equal(level.rank,"");
   assert.equal(level.text,"ไม่เก่งเองใช่ไหม ใจเดียวก็ไม่เจอเงิน");
   assert.equal(snapshot.items.find(x=>x.id==="inline").text,"คำมา");
+  assert.equal(snapshot.items.find(x=>x.id==="rank-after-name").text,
+    "Trum up Trum up!! 😮","rank badge must not leak into comment body");
+  assert.equal(snapshot.items.find(x=>x.id==="rank-inline").text,"แพ้ใจ",
+    "inline header rank prefix is not a comment");
+  assert.equal(snapshot.items.find(x=>x.id==="rank-separate").text,
+    "No. 2 ในความเห็นนี้คือเนื้อหาจริง",
+    "strip only the rank badge line, not a user's rank-like message");
+  assert.equal(snapshot.items.find(x=>x.id==="legit-no").text,
+    "No. 2 เป็นชื่อเพลงที่ชอบ",
+    "no badge => do not alter a legitimate No. 2 comment");
+  assert.equal(snapshot.items.find(x=>x.id==="rank2-genuine-no").text,
+    "No. 2 หมายถึงอันดับที่ฉันพูดถึง",
+    "an explicit comment body is authoritative, even with matching No. 2 badge");
   const before=sends.length;
   tick();
   assert.equal(sends.at(-1).items.length,0,"unchanged items not duplicated");
