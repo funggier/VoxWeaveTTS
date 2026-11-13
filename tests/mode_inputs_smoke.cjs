@@ -9,7 +9,7 @@ async function main(){
     if(!elements.has(id)){
       elements.set(id,{
         value:"",textContent:"",disabled:false,
-        type:id.includes("FeedFormat")?"checkbox":(/Feed(?:Gift)?Separator$/.test(id)?"text":""),
+        type:id.includes("FeedFormat")?"checkbox":(/Feed(?:SenderPrefix|GiftSeparator|Separator)$/.test(id)?"text":""),
         style:{display:"none"},src:"",paused:true,events:{},
         addEventListener(name,fn){this.events[name]=fn},
         pause(){this.paused=true},async play(){this.paused=false},removeAttribute(name){if(name==="src")this.src=""},
@@ -179,23 +179,20 @@ async function main(){
   assert.equal(payloads.at(-1).source_message_id,"tiktok_browser-dom1");
   assert.equal(payloads.at(-1).engine_id,"tiktok-browser-voice");
   assert.equal(payloads.at(-1).text,"ข้อความจาก TikTok Browser");
-  // Mode-local phrase, metadata and separate gift toggles are sampled
-  // only for new speech jobs. Browser TTS never speaks decorative badges
-  // unless the user specifically enables the corresponding option.
+  // Simplified mode-local speech preferences: sender prefix and name,
+  // comments and gifts. Level/rank/badge metadata is never spoken.
   get("tiktokBrowserAudio").paused=true;
   get("tiktokBrowserAudio").events.ended();
   get("tiktokBrowserFeedReadSender").checked=true;
+  get("tiktokBrowserFeedSenderPrefix").value="ท่าน";
   get("tiktokBrowserFeedSeparator").value="กล่าวข้อความว่า";
   get("tiktokBrowserFeedFormatread_comments").checked=true;
   get("tiktokBrowserFeedFormatread_gifts").checked=false;
-  get("tiktokBrowserFeedFormatread_levels").checked=false;
-  get("tiktokBrowserFeedFormatread_ranks").checked=false;
-  get("tiktokBrowserFeedFormatread_badges").checked=false;
   const comment={message_id:"dom2",kind:"comment",author:"🥒Sprite Pam🥒",
     level:"25",rank:"3",badges:["InvT"],text:"สวัสดีครับ"};
   assert.equal(browser.receiveIncoming(comment,true),"queued");
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(payloads.at(-1).text,"Sprite Pam กล่าวข้อความว่า สวัสดีครับ");
+  assert.equal(payloads.at(-1).text,"ท่าน 🥒Sprite Pam🥒 กล่าวข้อความว่า สวัสดีครับ");
   get("tiktokBrowserAudio").paused=true;
   get("tiktokBrowserAudio").events.ended();
   const gift={message_id:"gift1",kind:"gift",author:"Sprite Pam",
@@ -204,40 +201,70 @@ async function main(){
   const beforeGift=payloads.length;
   assert.equal(browser.receiveIncoming(gift,true),"manual");
   assert.equal(payloads.length,beforeGift,"gifts stay opt-in");
-  get("tiktokBrowserFeedFormatread_levels").checked=true;
-  get("tiktokBrowserFeedFormatread_ranks").checked=true;
-  get("tiktokBrowserFeedFormatread_badges").checked=true;
   get("tiktokBrowserFeedGiftSeparator").value="มอบของขวัญ";
   get("tiktokBrowserFeedFormatread_gifts").checked=true;
-  get("tiktokBrowserFeedFormatread_gift_count").checked=true;
   assert.equal(browser.receiveIncoming(gift,true),"queued");
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads.at(-1).text,
-    "Sprite Pam เลเวล 25 อันดับ 3 ป้าย InvT มอบของขวัญ Heart Me จำนวน 2");
+    "ท่าน Sprite Pam มอบของขวัญ Heart Me จำนวน 2");
   get("tiktokBrowserAudio").paused=true;
   get("tiktokBrowserAudio").events.ended();
-  // Optional emoji in display names is a separate setting from badges.
-  get("tiktokBrowserFeedFormatread_name_emojis").checked=true;
-  assert.equal(browser.receiveIncoming({...comment,message_id:"dom-emoji"},true),"queued");
+  // User may disable sender name without removing the custom prefix value.
+  get("tiktokBrowserFeedReadSender").checked=false;
+  assert.equal(browser.receiveIncoming({...comment,message_id:"dom-no-name"},true),"queued");
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(payloads.at(-1).text,
-    "🥒Sprite Pam🥒 เลเวล 25 อันดับ 3 ป้าย InvT กล่าวข้อความว่า สวัสดีครับ");
+  assert.equal(payloads.at(-1).text,"สวัสดีครับ");
   get("tiktokBrowserAudio").paused=true;
   get("tiktokBrowserAudio").events.ended();
   get("tiktokBrowserFeedFormatread_comments").checked=false;
   assert.equal(browser.receiveIncoming({...comment,message_id:"dom3"},true),"manual");
   browser.suspend();
-  // YouTube's configurable connector is independent of TikTok's.
+  // YouTube API and YouTube Browser must use a speaker-specific prefix,
+  // not a global @ replacement that would corrupt viewer comments.
   current="live";
   get("liveFeedAuto").checked=true;
   get("liveFeedReadSender").checked=true;
+  get("liveFeedSenderPrefix").value="คุณ";
   get("liveFeedSeparator").value="บอกว่า";
   get("liveAudio").paused=true;
   assert.equal(live.receiveIncoming({
-    message_id:"yt-phrase",author:"ผู้ชม",text:"สวัสดี"
+    message_id:"yt-phrase",author:"@ผู้ชม",text:"สวัสดี @เพื่อน"
   },true),"queued");
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(payloads.at(-1).text,"ผู้ชม บอกว่า สวัสดี");
-  console.log("PASS: independent TTS, custom sender phrase, badges/ranks and opt-in gifts");
+  assert.equal(payloads.at(-1).text,"คุณ ผู้ชม บอกว่า สวัสดี @เพื่อน");
+  get("liveAudio").paused=true;
+  get("liveAudio").events.ended();
+  get("liveFeedFormatread_name_at").checked=true;
+  assert.equal(live.receiveIncoming({
+    message_id:"yt-at-on",author:"@ผู้ชม",text:"ทัก @เพื่อน"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"คุณ @ผู้ชม บอกว่า ทัก @เพื่อน",
+    "enabled sender @ must not mutate @ in the chat body");
+  get("liveAudio").paused=true;
+  get("liveAudio").events.ended();
+  // The Browser variant has its own sender-@ preference.
+  current="youtube_browser";
+  voiceByMode.youtube_browser="youtube-browser-voice";
+  const youtubeBrowser=attach("youtube_browser");
+  get("youtubeBrowserFeedAuto").checked=true;
+  get("youtubeBrowserFeedReadSender").checked=true;
+  get("youtubeBrowserFeedSenderPrefix").value="ท่าน";
+  get("youtubeBrowserFeedSeparator").value="พิมพ์ว่า";
+  get("youtubeBrowserFeedFormatread_name_at").checked=false;
+  assert.equal(youtubeBrowser.receiveIncoming({
+    message_id:"yb-at-off",author:"@เพื่อน",text:"ตอบ @ผม ได้เลย"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"ท่าน เพื่อน พิมพ์ว่า ตอบ @ผม ได้เลย");
+  get("youtubeBrowserAudio").paused=true;
+  get("youtubeBrowserAudio").events.ended();
+  get("youtubeBrowserFeedFormatread_name_at").checked=true;
+  assert.equal(youtubeBrowser.receiveIncoming({
+    message_id:"yb-at-on",author:"@เพื่อน",text:"ตอบ @ผม ได้เลย"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"ท่าน @เพื่อน พิมพ์ว่า ตอบ @ผม ได้เลย");
+  console.log("PASS: mode-local prefix and sender-only @ toggles, untouched comment @, opt-in gifts");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

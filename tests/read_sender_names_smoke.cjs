@@ -91,7 +91,7 @@ async function test(){
     reader.pickMessage({message_id:"picked",author:"เพื่อน",text:"ข้อความเลือกเอง"});
     assert.equal(el(prefix+"Text").value,"ข้อความเลือกเอง");
     await reader.submit();
-    assert.equal(latest.at(-1).text,"เพื่อน พิมพ์ว่า ข้อความเลือกเอง");
+    assert.equal(latest.at(-1).text,"คุณ เพื่อน พิมพ์ว่า ข้อความเลือกเอง");
     el(prefix+"Text").value="ข้อความที่แก้ไขด้วยมือ";
     el(prefix+"Text").events.input();
     await reader.submit();

@@ -120,28 +120,47 @@ async function main(){
     return visit(views.get(mode));
   }
   const liveSeparator=elementById("live","liveFeedSeparator");
-  assert.ok(liveSeparator,"YouTube phrase input must be in the mode UI");
+  const livePrefix=elementById("live","liveFeedSenderPrefix");
+  const browserPrefix=elementById("youtube_browser","youtubeBrowserFeedSenderPrefix");
+  const liveReadAt=elementById("live","liveFeedFormatread_name_at");
+  const browserReadAt=elementById("youtube_browser","youtubeBrowserFeedFormatread_name_at");
+  assert.ok(liveSeparator&&livePrefix&&browserPrefix&&liveReadAt&&browserReadAt,
+    "both YouTube modes must have independent sender-prefix and @ controls");
+  assert.equal(liveReadAt.checked,false,"default skips @ only in sender name");
+  assert.equal(browserReadAt.checked,false);
   liveSeparator.value="บอกว่า";
+  livePrefix.value="คุณ";
   await manager.saveSpeechFormat("live");
   assert.equal(posts[4].mode,"__speech_format__");
   assert.equal(posts[4].settings.source_mode,"live");
   assert.equal(posts[4].settings.format.separator,"บอกว่า");
+  assert.equal(posts[4].settings.format.sender_prefix,"คุณ");
+  assert.equal(posts[4].settings.format.read_name_at,false);
   const tiktokPhrase=elementById("tiktok_browser","tiktokBrowserFeedSeparator");
   const giftToggle=elementById("tiktok_browser","tiktokBrowserFeedFormatread_gifts");
-  const rankToggle=elementById("tiktok_browser","tiktokBrowserFeedFormatread_ranks");
   const giftLabel=elementById("tiktok_browser","tiktokBrowserFeedGiftSeparator");
-  assert.ok(tiktokPhrase&&giftToggle&&rankToggle&&giftLabel);
+  const tiktokPrefix=elementById("tiktok_browser","tiktokBrowserFeedSenderPrefix");
+  const hiddenRank=elementById("tiktok_browser","tiktokBrowserFeedFormatread_ranks");
+  assert.ok(tiktokPhrase&&giftToggle&&giftLabel&&tiktokPrefix);
+  assert.equal(hiddenRank,null,"rank and badge switches are hidden from simplified UI");
+  tiktokPrefix.value="ท่าน";
   tiktokPhrase.value="พูดว่า";
   giftLabel.value="มอบของขวัญ";
-  giftToggle.checked=true;rankToggle.checked=true;
+  giftToggle.checked=true;
   await manager.saveSpeechFormat("tiktok_browser");
   assert.equal(posts[5].settings.source_mode,"tiktok_browser");
   assert.equal(posts[5].settings.format.read_gifts,true);
-  assert.equal(posts[5].settings.format.read_ranks,true);
+  assert.equal(posts[5].settings.format.sender_prefix,"ท่าน");
   assert.equal(posts[5].settings.format.gift_separator,"มอบของขวัญ");
-  assert.equal(manager.readSpeechFormat("live").separator,"บอกว่า");
-  assert.equal(manager.readSpeechFormat("tiktok_browser").separator,"พูดว่า");
-  assert.equal(manager.readSpeechFormat("tiktok").read_gifts,false);
+  assert.equal(manager.readSpeechFormat("live").sender_prefix,"คุณ");
+  browserReadAt.checked=true;
+  await manager.saveSpeechFormat("youtube_browser");
+  assert.equal(posts[6].settings.source_mode,"youtube_browser");
+  assert.equal(posts[6].settings.format.read_name_at,true);
+  assert.equal(manager.readSpeechFormat("live").read_name_at,false,
+    "changing Browser @ does not change API @");
+  assert.equal(manager.readSpeechFormat("tiktok_browser").sender_prefix,"ท่าน");
+  assert.equal(manager.readSpeechFormat("tiktok").read_gifts,true);
   // Presets copied from a different machine stay visible even before their
   // optional model pack has been installed.
   const pendingModel="model-optional-thai-1_0_0";

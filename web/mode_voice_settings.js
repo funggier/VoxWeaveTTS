@@ -11,19 +11,14 @@ const VOICE_MODES=Object.freeze([
 ]);
 const SENDER_MODES=["live","youtube_browser","tiktok","tiktok_browser","discord","discord_client"];
 const DEFAULT_FORMAT=Object.freeze({
-  separator:"พิมพ์ว่า",gift_separator:"ส่งของขวัญ",
-  read_comments:true,read_gifts:false,
+  sender_prefix:"คุณ",separator:"พิมพ์ว่า",gift_separator:"ส่งของขวัญ",
+  read_comments:true,read_gifts:true,
   read_levels:false,read_ranks:false,read_badges:false,read_gift_count:true,
-  read_name_emojis:false,
+  read_name_emojis:false,read_name_at:false,
 });
 const FORMAT_BOOL_LABELS=[
   ["read_comments","อ่านข้อความแชท"],
   ["read_gifts","อ่านกิจกรรมส่งของขวัญ"],
-  ["read_levels","อ่านเลเวลผู้ส่ง"],
-  ["read_ranks","อ่านอันดับหรือยศ"],
-  ["read_badges","อ่านป้ายสมาชิก/เหรียญตรา"],
-  ["read_gift_count","อ่านจำนวนของขวัญ"],
-  ["read_name_emojis","อ่านอีโมจิในชื่อผู้ส่ง"],
 ];
 function sourcePrefix(mode){
   return mode==="discord_client"?"discordClient":
@@ -294,52 +289,83 @@ function attach({document,engines,getDefault}){
     panel.appendChild(create("summary","กำหนดการอ่านข้อความและข้อมูลพิเศษ"));
     const help=create("p","เลือกประเภทข้อมูลและคำเชื่อมสำหรับโหมดนี้โดยเฉพาะ · ค่าใหม่ใช้กับข้อความที่สร้างเสียงครั้งถัดไป");
     help.className="small";panel.appendChild(help);
+    // Move the original live controls rather than cloning them. Existing
+    // listeners, checkbox values and mode-ownership behavior are preserved.
+    for(const suffix of ["FeedAuto","FeedReadSender"]){
+      const control=document.getElementById?.(prefix+suffix);
+      const label=control?.closest?.("label")||control?.parentElement;
+      if(label){
+        const holder=create("div");holder.style.margin="6px 0";
+        holder.appendChild(label);
+        panel.appendChild(holder);
+      }
+      if(suffix==="FeedReadSender"){
+        const status=document.getElementById?.(prefix+"FeedReadSenderStatus");
+        if(status)panel.appendChild(status);
+      }
+    }
     const fields={};
     const addPhrase=(field,label,description)=>{
       const holder=create("div");
       const caption=create("label",label);
       const input=create("input");input.type="text";
-      input.id=prefix+"Feed"+(field==="separator"?"Separator":"GiftSeparator");
+      const suffix={sender_prefix:"SenderPrefix",separator:"Separator",
+                    gift_separator:"GiftSeparator"}[field];
+      input.id=prefix+"Feed"+suffix;
       input.maxLength=60;input.value=DEFAULT_FORMAT[field];
       const desc=create("small",description);desc.className="small";
       holder.append(caption,input,desc);
       panel.appendChild(holder);fields[field]=input;
     };
+    addPhrase("sender_prefix","คำนำหน้าชื่อผู้ส่ง เช่น คุณ",
+      "ใส่คำว่า คุณ หรือคำอื่นได้ · เว้นว่างเพื่ออ่านเฉพาะชื่อ · ไม่เปลี่ยน @ ในข้อความแชท");
     addPhrase("separator","คำเชื่อมหลังชื่อผู้ส่งก่อนข้อความ เช่น พิมพ์ว่า",
       "เว้นว่างเพื่อให้อ่านชื่อแล้วตามด้วยข้อความโดยไม่มีคำเชื่อม");
-    if(mode==="tiktok"||mode==="tiktok_browser"){
+    if(mode==="tiktok"||mode==="tiktok_browser")
       addPhrase("gift_separator","คำเชื่อมเมื่อได้รับของขวัญ เช่น ส่งของขวัญ",
         "ใช้เฉพาะกิจกรรมของขวัญที่ตรวจพบจริง");
-      for(const [field,label] of FORMAT_BOOL_LABELS){
-        const holder=create("label");holder.style.display="flex";
-        holder.style.gap="8px";holder.style.alignItems="center";
-        const box=create("input");box.type="checkbox";
-        box.id=prefix+"FeedFormat"+field;
-        box.checked=DEFAULT_FORMAT[field];
-        holder.append(box,create("span",label));panel.appendChild(holder);
-        fields[field]=box;
-      }
+    for(const [field,label] of FORMAT_BOOL_LABELS){
+      if(field==="read_gifts"&&mode!=="tiktok"&&mode!=="tiktok_browser")continue;
+      const holder=create("label");holder.style.display="flex";
+      holder.style.gap="8px";holder.style.alignItems="center";
+      const box=create("input");box.type="checkbox";
+      box.id=prefix+"FeedFormat"+field;
+      box.checked=DEFAULT_FORMAT[field];
+      holder.append(box,create("span",label));panel.appendChild(holder);
+      fields[field]=box;
+    }
+    if(mode==="live"||mode==="youtube_browser"){
+      const holder=create("label");holder.style.display="flex";
+      holder.style.gap="8px";holder.style.alignItems="center";
+      const box=create("input");box.type="checkbox";
+      box.id=prefix+"FeedFormatread_name_at";
+      box.checked=DEFAULT_FORMAT.read_name_at;
+      holder.append(box,create("span",
+        "อ่าน @ ที่นำหน้าชื่อผู้ส่ง (ไม่เกี่ยวกับ @ ในข้อความคอมเมนต์)"));
+      panel.appendChild(holder);
+      const note=create("small",
+        "ถ้าเคยตั้งกฎแทน @ → คุณ ในแท็บกฎข้อความ ให้ปิดกฎเดิมนั้นด้วย เพราะกฎส่วนกลางยังมีผลกับเนื้อหาคอมเมนต์");
+      note.className="small";panel.appendChild(note);
+      fields.read_name_at=box;
     }
     const preview=create("p");
     preview.className="small";preview.style.marginTop="8px";
     const refreshPreview=()=>{
       const options={...DEFAULT_FORMAT};
       for(const [field,input] of Object.entries(fields))
-        options[field]=field==="separator"||field==="gift_separator"
+        options[field]=["sender_prefix","separator","gift_separator"].includes(field)
           ?String(input.value??"").trim():Boolean(input.checked);
       const withName=document.getElementById?.(prefix+"FeedReadSender")?.checked;
-      const details=[];
-      if(options.read_levels)details.push("เลเวล 25");
-      if(options.read_ranks)details.push("อันดับ 3");
-      if(options.read_badges)details.push("ป้ายสมาชิก InvT");
-      const exampleName=withName?(options.read_name_emojis?"🥒ผู้ชมตัวอย่าง":"ผู้ชมตัวอย่าง"):"";
-      const front=[exampleName,...details].filter(Boolean).join(" ");
+      const displayName=(mode==="live"||mode==="youtube_browser")
+        ?(options.read_name_at?"@ผู้ชมตัวอย่าง":"ผู้ชมตัวอย่าง"):"ผู้ชมตัวอย่าง";
+      const front=withName
+        ?[options.sender_prefix,displayName].filter(Boolean).join(" "):"";
       const comment=options.read_comments
         ?[front,front?options.separator:"","สวัสดีครับ"].filter(Boolean).join(" ")
         :"(ปิดการอ่านคอมเมนต์)";
       const gift=options.read_gifts
         ?[front,options.gift_separator,"Heart Me",
-           options.read_gift_count?"จำนวน 2":""].filter(Boolean).join(" ")
+           "จำนวน 2"].filter(Boolean).join(" ")
         :"(ปิดการอ่านของขวัญ)";
       preview.textContent="ตัวอย่างแชท: "+comment+
         (mode==="tiktok"||mode==="tiktok_browser"
@@ -365,7 +391,7 @@ function attach({document,engines,getDefault}){
     const config={...DEFAULT_FORMAT};
     if(!fields)return config;
     for(const [key,input] of Object.entries(fields)){
-      config[key]=key==="separator"||key==="gift_separator"
+      config[key]=["sender_prefix","separator","gift_separator"].includes(key)
         ?String(input.value??"").trim():Boolean(input.checked);
     }
     return config;
@@ -374,8 +400,8 @@ function attach({document,engines,getDefault}){
     const ui=speechControls.get(mode);
     if(!ui)return;
     const format=readSpeechFormat(mode);
-    if(format.separator.length>60||format.gift_separator.length>60||
-       /[\u0000-\u001f\u007f]/.test(format.separator+format.gift_separator)){
+    if(["sender_prefix","separator","gift_separator"].some(key=>
+      format[key].length>60||/[\u0000-\u001f\u007f]/.test(format[key]))){
       ui.state.textContent="คำเชื่อมไม่ถูกต้อง (สูงสุด 60 ตัวอักษร)";
       return;
     }
@@ -417,7 +443,7 @@ function attach({document,engines,getDefault}){
       if(ui){
         const settings={...DEFAULT_FORMAT,...(data.speech_formats?.[mode]||{})};
         for(const [field,input] of Object.entries(ui.fields)){
-          if(field==="separator"||field==="gift_separator")
+          if(["sender_prefix","separator","gift_separator"].includes(field))
             input.value=settings[field];
           else input.checked=Boolean(settings[field]);
         }

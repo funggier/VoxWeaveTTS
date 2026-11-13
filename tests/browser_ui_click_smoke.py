@@ -77,21 +77,43 @@ def main():
             # Configuration UI renders independently of active mode. Read-only
             # inspection only: this test must never overwrite real voice settings.
             required = (
+                "liveFeedSenderPrefix", "youtubeBrowserFeedSenderPrefix",
+                "liveFeedFormatread_name_at", "youtubeBrowserFeedFormatread_name_at",
                 "liveFeedSeparator", "youtubeBrowserFeedSeparator",
-                "tiktokBrowserFeedSeparator", "tiktokBrowserFeedGiftSeparator",
+                "tiktokBrowserFeedSenderPrefix", "tiktokBrowserFeedSeparator",
+                "tiktokBrowserFeedGiftSeparator", "tiktokFeedGiftSeparator",
                 "tiktokBrowserFeedFormatread_comments",
                 "tiktokBrowserFeedFormatread_gifts",
-                "tiktokBrowserFeedFormatread_levels",
-                "tiktokBrowserFeedFormatread_ranks",
-                "tiktokBrowserFeedFormatread_badges",
-                "tiktokBrowserFeedFormatread_gift_count",
-                "tiktokBrowserFeedFormatread_name_emojis",
-                "tiktokFeedGiftSeparator",
             )
             for element_id in required:
                 exists = evaluate("!!document.getElementById("
                                   + json.dumps(element_id) + ")")
                 assert exists, "missing source speech option: " + element_id
+            # Existing live checkboxes must be physically moved into the
+            # speech-format details panel, not duplicated or recreated.
+            for source in ("live", "youtubeBrowser", "tiktok", "tiktokBrowser",
+                           "discord", "discordClient"):
+                for suffix in ("FeedAuto", "FeedReadSender"):
+                    control_id=source+suffix
+                    expr=("(()=>{const el=document.getElementById("
+                          +json.dumps(control_id)
+                          +"); return !!el && !!el.closest('.source-format-settings') "
+                          "&& document.querySelectorAll('#'+el.id).length===1;})()")
+                    assert evaluate(expr), "checkbox not relocated correctly: "+control_id
+            for obsolete in ("tiktokBrowserFeedFormatread_levels",
+                             "tiktokBrowserFeedFormatread_ranks",
+                             "tiktokBrowserFeedFormatread_badges",
+                             "tiktokBrowserFeedFormatread_gift_count",
+                             "tiktokBrowserFeedFormatread_name_emojis"):
+                assert not evaluate("!!document.getElementById("+json.dumps(obsolete)+")"),obsolete
+            prefix=evaluate("document.getElementById('liveFeedSenderPrefix').value")
+            assert prefix=="คุณ",prefix
+            for source in ("live","youtubeBrowser"):
+                at=evaluate("document.getElementById("+json.dumps(source+"FeedFormatread_name_at")+
+                            ").checked")
+                assert at is False,source+" should skip @ in sender by default"
+            assert not evaluate("!!document.getElementById('tiktokBrowserFeedFormatread_name_at')"), (
+                "name @ control only belongs in YouTube modes")
             preview = evaluate(
                 "document.querySelector('[data-mode-view=tiktok_browser] "
                 ".source-format-settings p.small:last-of-type')?.textContent")

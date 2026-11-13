@@ -111,7 +111,8 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                 with urlopen(self.base+"/v1/settings/mode-voices") as response:
                     doc=json.load(response)
                 self.assertEqual(doc["speech_formats"],{})
-                youtube={**DEFAULT_SPEECH_FORMAT,"separator":"กล่าวว่า"}
+                youtube={**DEFAULT_SPEECH_FORMAT,"sender_prefix":"ท่าน","separator":"กล่าวว่า",
+                         "read_name_at":True}
                 tiktok={**DEFAULT_SPEECH_FORMAT,"separator":"",
                         "read_gifts":True,"read_levels":True,"read_ranks":True}
                 for revision,mode,fmt in ((2,"live",youtube),
@@ -122,12 +123,17 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                     })
                     self.assertEqual(status,200)
                 self.assertEqual(doc["speech_formats"]["live"]["separator"],"กล่าวว่า")
+                self.assertEqual(doc["speech_formats"]["live"]["sender_prefix"],"ท่าน")
+                self.assertTrue(doc["speech_formats"]["live"]["read_name_at"])
                 self.assertTrue(doc["speech_formats"]["tiktok_browser"]["read_gifts"])
                 self.assertEqual(doc["sender_names"],{"live":True})
                 before=voice.load_workspace_settings(target)
                 for invalid in (
                     {**tiktok,"read_gifts":"true"},
+                    {**tiktok,"read_name_at":"false"},
                     {**tiktok,"separator":"a"*61},
+                    {**tiktok,"sender_prefix":"คุณ"*61},
+                    {**tiktok,"sender_prefix":"\n"},
                     {**tiktok,"separator":"\n"},
                     {**tiktok,"unknown":True},
                 ):
@@ -158,6 +164,8 @@ class ModeVoiceHTTPTests(unittest.TestCase):
             settings=voice.load_workspace_settings(path)
             source=settings["speech_formats"]["tiktok_browser"]
             self.assertEqual(source["separator"],"กล่าวว่า")
+            self.assertEqual(source["sender_prefix"],"คุณ")
+            self.assertFalse(source["read_name_at"])
             self.assertTrue(source["read_gifts"])
             self.assertTrue(source["read_badges"])
             self.assertFalse(source["read_name_emojis"])

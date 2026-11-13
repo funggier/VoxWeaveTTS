@@ -42,22 +42,17 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       const control=get("FeedFormat"+key);
       return control?.type==="checkbox"?control.checked:undefined;
     };
-    const separatorControl=get("FeedSeparator");
-    const giftSeparatorControl=get("FeedGiftSeparator");
-    const separator=separatorControl?.type==="text"?separatorControl.value:undefined;
-    const giftSeparator=giftSeparatorControl?.type==="text"
-      ?giftSeparatorControl.value:undefined;
+    const phrase=(field,fallback)=>{
+      const input=get("Feed"+field);
+      return input?.type==="text"?String(input.value||"").trim().slice(0,60):fallback;
+    };
     return {
-      separator:typeof separator==="string"?separator.trim().slice(0,60):"พิมพ์ว่า",
-      gift_separator:typeof giftSeparator==="string"?giftSeparator.trim().slice(0,60):"ส่งของขวัญ",
+      sender_prefix:phrase("SenderPrefix","คุณ"),
+      separator:phrase("Separator","พิมพ์ว่า"),
+      gift_separator:phrase("GiftSeparator","ส่งของขวัญ"),
       read_comments:pick("read_comments")!==false,
-      read_gifts:pick("read_gifts")===true,
-      read_levels:pick("read_levels")===true,
-      read_ranks:pick("read_ranks")===true,
-      read_badges:pick("read_badges")===true,
-      read_gift_count:pick("read_gift_count")!==false,
-      read_name_emojis:(mode!=="tiktok"&&mode!=="tiktok_browser")
-        || pick("read_name_emojis")===true,
+      read_gifts:pick("read_gifts")!==false,
+      read_name_at:pick("read_name_at")===true,
     };
   }
   function speechText(item,plainText){
@@ -67,24 +62,22 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       ?value.replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim()
       :"";
     let author=get("FeedReadSender")?.checked?clean(item.author).slice(0,80):"";
-    if(author&&!opts.read_name_emojis)
-      author=author.replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D]/gu," ")
-        .replace(/\s+/g," ").trim();
-    const metadata=[];
-    if(opts.read_levels&&clean(item.level))metadata.push("เลเวล "+clean(item.level));
-    if(opts.read_ranks&&clean(item.rank))metadata.push("อันดับ "+clean(item.rank));
-    if(opts.read_badges&&Array.isArray(item.badges))
-      metadata.push(...item.badges.slice(0,8).map(clean).filter(Boolean).map(b=>"ป้าย "+b));
-    const prefix=[author,...metadata].filter(Boolean).join(" ");
+    // A YouTube handle can start with @. Remove that marker only from the
+    // speaker's name. Never substitute @ in the actual viewer comment.
+    if(author&&(mode==="live"||mode==="youtube_browser")&&!opts.read_name_at)
+      author=author.replace(/^@+/,"").trim();
+    // TikTok display names sometimes contain decorative emojis; keep their
+    // visible Unicode names, but do not inject level/rank/badge metadata.
+    const salutation=author&&opts.sender_prefix&&!author.startsWith(opts.sender_prefix)
+      ?opts.sender_prefix:"";
+    const named=author?[salutation,author].filter(Boolean).join(" "):"";
     if(item.kind==="gift"){
       const gift=clean(item.gift_name)||clean(plainText);
       const count=Number(item.gift_count)||0;
-      const parts=[prefix,opts.gift_separator,gift];
-      if(opts.read_gift_count&&count>0)parts.push("จำนวน "+count);
-      return parts.filter(Boolean).join(" ");
+      return [named,opts.gift_separator,gift,count>0?"จำนวน "+count:""]
+        .filter(Boolean).join(" ");
     }
-    const separator=prefix&&opts.separator?" "+opts.separator:"";
-    return prefix?prefix+separator+" "+plainText:plainText;
+    return [named,named?opts.separator:"",plainText].filter(Boolean).join(" ");
   }
   function pickMessage(item){
     if(!item || typeof item.text!=="string")return;

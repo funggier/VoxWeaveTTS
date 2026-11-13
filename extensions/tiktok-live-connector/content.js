@@ -14,6 +14,7 @@
     '[data-e2e="room-chat-message"]',
     '[data-e2e*="chat-message-item"]',
     '[data-e2e*="gift-message"]','[data-e2e*="gift-notification"]',
+    '[data-e2e*="system-message"]','[class*="DivSystemMessage"]',
     '[class*="DivChatMessage"]:not([class*="DivChatMessageList"])',
     '[class*="ChatMessageItem"]','[class*="GiftMessage"]',
   ].join(",");
@@ -40,9 +41,14 @@
     const marker=(String(node.className||"")+" "+String(node.getAttribute?.("data-e2e")||"")).toLowerCase();
     // Gifts are legitimate *separate* events; joins/follows/likes/shares
     // remain excluded from the comment/gift feed.
-    if(/follow|join|system|notice|pinned|moderator/.test(marker))return true;
-    if(/gift/.test(marker))return false;
-    if(/\b(liked|shared|joined|followed) the live\b/i.test(node.textContent||""))return true;
+    if(/follow|join|pinned|moderator/.test(marker))return true;
+    const line=(node.innerText||node.textContent||"").replace(/\s+/g," ");
+    if(/\b(liked|shared|joined|followed) the live\b/i.test(line))return true;
+    // Some gifts are rendered inside a generic system/notice row.
+    // They must be handled as gifts rather than discarded as system chat.
+    const giftNotice=/\bsent\s+.+\s+[×x]\s*\d{1,5}\s*$/i.test(line);
+    if(/gift/.test(marker)||giftNotice)return false;
+    if(/system|notice/.test(marker))return true;
     return Boolean(node.querySelector?.('[data-e2e*="follow"],[data-e2e*="join"],'
       +'[class*="SystemMessage"]'));
   }
@@ -209,31 +215,44 @@
       .replace(/\s+/g," ").trim().slice(0,80);
     if(!author)return null;
     const meta=decorations(node,nameNode);
-    let text=commentTail(node,nameNode,author,meta);
-    if(!text||text===author||text.length>280)return null;
-    if(/^(joined|followed|liked|shared|is now following)\b/i.test(text))return null;
     const rowMarker=(String(node.className||"")+" "+
       (node.getAttribute?.("data-e2e")||"")).toLowerCase();
     const giftTagged=/gift/.test(rowMarker)||
-      Boolean(node.querySelector?.('[data-e2e*="gift"],[class*="GiftMessage"]'));
-    // Gift rows often split "sent <gift>" and "x N" into separate elements;
-    // use the scoped row text only for the known gift notification pattern.
+      Boolean(node.querySelector?.('[data-e2e*="gift"],[class*="GiftMessage"],'
+        +'img[alt*="gift"],img[class*="Gift"]'));
+    // A gift notification may have no chat-message text node at all.
+    // Identify it BEFORE checking comment text. Thai/English usernames,
+    // levels and badges may precede the literal "sent ..." segment.
     const whole=(node.innerText||node.textContent||"")
       .replace(/\s+/g," ").trim();
-    const afterAuthor=whole.startsWith(author)?whole.slice(author.length).trim():whole;
-    const giftMatch=/(?:^|\s)sent\s+(.+?)\s+[x×]\s*(\d{1,5})\s*$/i.exec(
-      giftTagged?afterAuthor:text
-    );
+    const authorPos=whole.indexOf(author);
+    const afterAuthor=authorPos>=0
+      ?whole.slice(authorPos+author.length).trim():whole;
+    const giftMatch=/(?:^|\s)sent\s+(.+?)\s+[×x]\s*(\d{1,5})\s*$/i.exec(afterAuthor);
+    const dedicatedComment=Boolean(node.querySelector?.(TEXT_SELECTOR));
+    // A viewer can literally type "sent Heart Me × 1" in a regular chat.
+    // Without a gift marker, treat that dedicated chat-text node as speech.
+    const clearGiftPattern=giftMatch && (giftTagged
+      ||/system|notice/.test(rowMarker)
+      ||(!dedicatedComment && /×\s*\d{1,5}\s*$/.test(afterAuthor)));
     let kind="comment",gift_name="",gift_count=0;
-    if(giftMatch && (giftTagged || node.querySelector?.('img[alt*="gift"],img[class*="Gift"]'))){
-      gift_name=giftMatch[1].replace(/[\p{Extended_Pictographic}]/gu,"").trim().slice(0,48);
+    let text="";
+    if(clearGiftPattern){
+      gift_name=giftMatch[1]
+        .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu,"")
+        .replace(/\s+/g," ").trim().slice(0,48);
       gift_count=Number(giftMatch[2]);
       if(!gift_name||gift_count<1)return null;
       kind="gift";
       text=gift_name;
-    }else if(giftTagged || /^sent\s+.+\s+[x×]\s*\d+\s*$/i.test(text)){
-      // Do not pretend an unrecognized gift notification is a chat comment.
-      return null;
+    }else{
+      if(giftTagged)return null; // Never misread a gift alert as viewer chat.
+      text=commentTail(node,nameNode,author,meta);
+      if(!text||text===author||text.length>280)return null;
+      if(/^(joined|followed|liked|shared|is now following)\b/i.test(text))
+        return null;
+      if(/^sent\s+.+\s+[×x]\s*\d+\s*$/i.test(text) && !dedicatedComment)
+        return null; // Unclassified notification, not a typed comment.
     }
     let id=node.getAttribute("data-id")||node.getAttribute("data-message-id")||"";
     if(!/^[a-zA-Z0-9_.:\-]{1,160}$/.test(id)){

@@ -23,15 +23,17 @@ VOICE_MODES = frozenset(("studio", "reader", "queue", "live", "youtube_browser",
 AUDIO_POLICIES = frozenset(("serial", "overlap"))
 SENDER_MODES = frozenset(("live", "youtube_browser", "tiktok", "tiktok_browser",
                           "discord", "discord_client"))
-SPEECH_FORMAT_KEYS = frozenset(("separator", "gift_separator", "read_comments",
+SPEECH_FORMAT_KEYS = frozenset(("sender_prefix", "separator", "gift_separator", "read_comments",
                                "read_gifts", "read_levels", "read_ranks",
-                               "read_badges", "read_gift_count", "read_name_emojis"))
-SPEECH_FORMAT_BOOL_KEYS = SPEECH_FORMAT_KEYS - {"separator", "gift_separator"}
+                               "read_badges", "read_gift_count", "read_name_emojis", "read_name_at"))
+SPEECH_FORMAT_BOOL_KEYS = SPEECH_FORMAT_KEYS - {"sender_prefix", "separator", "gift_separator"}
 DEFAULT_SPEECH_FORMAT = {
-    "separator": "พิมพ์ว่า", "gift_separator": "ส่งของขวัญ",
-    "read_comments": True, "read_gifts": False,
+    "sender_prefix": "คุณ", "separator": "พิมพ์ว่า",
+    "gift_separator": "ส่งของขวัญ",
+    "read_comments": True, "read_gifts": True,
     "read_levels": False, "read_ranks": False, "read_badges": False,
     "read_gift_count": True, "read_name_emojis": False,
+    "read_name_at": False,
 }
 
 
@@ -40,7 +42,7 @@ def validate_speech_format(raw: Any) -> dict[str, Any]:
         or any(type(raw[key]) is not bool for key in SPEECH_FORMAT_BOOL_KEYS)
         or any(not isinstance(raw[key], str) or len(raw[key]) > 60
                or any(ord(char) < 32 or ord(char) == 127 for char in raw[key])
-               for key in ("separator", "gift_separator"))):
+               for key in ("sender_prefix", "separator", "gift_separator"))):
         raise InputError("invalid sender speech format")
     return dict(raw)
 
