@@ -30,7 +30,7 @@ SPEECH_FORMAT_BOOL_KEYS = SPEECH_FORMAT_KEYS - {"sender_prefix", "separator", "g
 DEFAULT_SPEECH_FORMAT = {
     "sender_prefix": "คุณ", "separator": "พิมพ์ว่า",
     "gift_separator": "ส่งของขวัญ",
-    "read_comments": True, "read_gifts": True,
+    "read_comments": True, "read_gifts": False,  # Legacy key; Gift reading removed
     "read_levels": False, "read_ranks": False, "read_badges": False,
     "read_gift_count": True, "read_name_emojis": False,
     "read_name_at": False,
@@ -38,13 +38,17 @@ DEFAULT_SPEECH_FORMAT = {
 
 
 def validate_speech_format(raw: Any) -> dict[str, Any]:
-    if (not isinstance(raw, dict) or set(raw) != SPEECH_FORMAT_KEYS
-        or any(type(raw[key]) is not bool for key in SPEECH_FORMAT_BOOL_KEYS)
-        or any(not isinstance(raw[key], str) or len(raw[key]) > 60
-               or any(ord(char) < 32 or ord(char) == 127 for char in raw[key])
+    # Keep loading old portable settings without exposing removed Gift options.
+    if not isinstance(raw, dict) or set(raw) - SPEECH_FORMAT_KEYS:
+        raise InputError("invalid sender speech format")
+    merged = {**DEFAULT_SPEECH_FORMAT, **raw}
+    if (any(type(merged[key]) is not bool for key in SPEECH_FORMAT_BOOL_KEYS)
+        or any(not isinstance(merged[key], str) or len(merged[key]) > 60
+               or any(ord(char) < 32 or ord(char) == 127 for char in merged[key])
                for key in ("sender_prefix", "separator", "gift_separator"))):
         raise InputError("invalid sender speech format")
-    return dict(raw)
+    merged["read_gifts"] = False
+    return merged
 
 _LOCK = threading.RLock()
 

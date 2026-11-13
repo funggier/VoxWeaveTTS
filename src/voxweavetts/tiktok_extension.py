@@ -154,6 +154,10 @@ class TikTokExtensionAdapter:
                     raise ExtensionBridgeError("gift event requires verified gift name and count")
                 if kind == "comment" and (gift_name or gift_count):
                     raise ExtensionBridgeError("comment must not contain gift data")
+                if kind == "gift":
+                    # Backward compatibility: older installed extensions can
+                    # still send gifts, but they are no longer queued or spoken.
+                    continue
                 batch.append(SourceMessage(
                     mid, author.strip(), body.strip(), kind=kind, level=level.strip(),
                     rank=rank.strip(), badges=tuple(x.strip() for x in badges if x.strip()),

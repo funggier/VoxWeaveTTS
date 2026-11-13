@@ -145,25 +145,18 @@ def main():
             time.sleep(.4)
             batches=evaluate(ws,54,"window.__vw_messages.flatMap(m=>m.items)")
             messages={x["id"]:x for x in batches}
-            assert len(messages)==7,(native_lines,batches)
+            assert len(messages)==4,(native_lines,batches)
             assert messages["rank-comment"]["text"]=="Trum up Trum up!! 😮",messages
             assert messages["rank-comment"]["rank"]=="2",messages
             assert messages["plain-comment"]["text"]=="No. 2 เป็นชื่อเพลงที่ชอบ",messages
             assert messages["rank-generic"]["text"]=="แพ้ใจ",messages
             assert messages["rank-generic"]["rank"]=="2",messages
-            assert messages["gift-system"]["kind"]=="gift",messages
-            assert messages["gift-system"]["gift_name"]=="Heart Me",messages
-            assert messages["gift-system"]["gift_count"]==1,messages
-            assert messages["gift-system-x"]["kind"]=="gift",messages
-            assert messages["gift-system-x"]["gift_name"]=="Rose",messages
-            assert messages["gift-system-x"]["gift_count"]==4,messages
-            assert messages["gift-generic"]["kind"]=="gift",messages
-            assert messages["gift-generic"]["gift_name"]=="Go Popular",messages
-            assert messages["gift-generic"]["gift_count"]==2,messages
             assert messages["not-gift"]["kind"]=="comment",messages
             assert messages["not-gift"]["text"]=="sent Heart Me × 3",messages
-            print("PASS: real Chrome DOM separates ranks/comments and both gift "
-                  "announcement layouts without converting typed chat into gifts")
+            assert not any(key in messages for key in
+                ("gift-system","gift-system-x","gift-generic")),messages
+            print("PASS: Chrome DOM isolates real chat comments, excludes gift "
+                  "notices, and preserves viewer-typed gift-like text")
         finally:
             if ws:
                 try: ws.close()

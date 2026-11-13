@@ -96,36 +96,13 @@ async function test(){
   el("tiktokFeedKeepRead").events.input();
   assert.equal(feed.visible.length,1);
   assert.equal(feed.visible[0].message_id,"uuid-2");
-  // TikFinity emits gift events distinctly from chat. Do not speak an
-  // intermediate gift streak; the final event carries the total quantity.
+  // Gift and social events must not appear in history or the TTS queue.
   const firstCount=delivered.length;
-  sockets[0].emit({event:"gift",data:{messageUuid:"gift-streak-1",
-    giftName:"Heart Me",repeatCount:2,giftType:1,repeatEnd:false,
-    user:{nickname:"Sprite Pam",level:25,badges:[{name:"InvT"}]}}});
-  assert.equal(delivered.length,firstCount);
-  sockets[0].emit({event:"gift",data:{messageUuid:"gift-streak-1",
-    giftName:"Heart Me",repeatCount:2,repeatEnd:false,
-    user:{nickname:"Sprite Pam"}}});
-  assert.equal(delivered.length,firstCount,
-    "in-progress gift streak should not announce even when giftType is absent");
-  sockets[0].emit({event:"gift",data:{messageUuid:"gift-streak-1",
-    giftName:"Heart Me",repeatCount:2,giftType:1,repeatEnd:true,
-    topGifterRank:3,user:{nickname:"Sprite Pam",level:25,
-                           badges:[{name:"InvT"}]}}});
-  assert.equal(delivered.length,firstCount+1);
-  assert.equal(delivered.at(-1).entry.kind,"gift");
-  assert.equal(delivered.at(-1).entry.gift_name,"Heart Me");
-  assert.equal(delivered.at(-1).entry.gift_count,2);
-  assert.equal(delivered.at(-1).entry.level,"25");
-  assert.equal(delivered.at(-1).entry.rank,"3");
-  assert.equal(delivered.at(-1).entry.badges[0],"InvT");
-  assert.ok(el("tiktokFeedItems").children[0].children
-    .some(x=>x.textContent.includes("Heart Me × 2")));
-  sockets[0].emit({event:"gift",data:{messageUuid:"gift-streak-1",
-    giftName:"Heart Me",repeatCount:2,repeatEnd:true,
-    user:{nickname:"Sprite Pam"}}});
-  assert.equal(delivered.length,firstCount+1,"do not repeat the completed gift streak");
-
+  for(const event of ["gift","follow","share","like"]){
+    sockets[0].emit({event,data:{messageUuid:event+"-1",giftName:"Heart Me",
+      repeatCount:2,repeatEnd:true,user:{nickname:"Sprite Pam"}}});
+  }
+  assert.equal(delivered.length,firstCount,"only chat messages are accepted");
 
   // Export profile (no credentials for the TikFinity local bridge).
   const saved=await feed.exportSettings();

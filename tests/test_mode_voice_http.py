@@ -125,7 +125,7 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                 self.assertEqual(doc["speech_formats"]["live"]["separator"],"กล่าวว่า")
                 self.assertEqual(doc["speech_formats"]["live"]["sender_prefix"],"ท่าน")
                 self.assertTrue(doc["speech_formats"]["live"]["read_name_at"])
-                self.assertTrue(doc["speech_formats"]["tiktok_browser"]["read_gifts"])
+                self.assertFalse(doc["speech_formats"]["tiktok_browser"]["read_gifts"])
                 self.assertEqual(doc["sender_names"],{"live":True})
                 before=voice.load_workspace_settings(target)
                 for invalid in (
@@ -166,7 +166,7 @@ class ModeVoiceHTTPTests(unittest.TestCase):
             self.assertEqual(source["separator"],"กล่าวว่า")
             self.assertEqual(source["sender_prefix"],"คุณ")
             self.assertFalse(source["read_name_at"])
-            self.assertTrue(source["read_gifts"])
+            self.assertFalse(source["read_gifts"])
             self.assertTrue(source["read_badges"])
             self.assertFalse(source["read_name_emojis"])
             self.assertEqual(set(source),set(DEFAULT_SPEECH_FORMAT))

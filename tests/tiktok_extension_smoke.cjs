@@ -309,18 +309,16 @@ function testMetadataAndGiftEvents(){
   current=[old,row("c1","comment"),row("gift-1","gift")];
   tick();
   const items=sent.at(-1).items;
-  assert.equal(items.length,2,"parse a comment and a gift separately");
-  const comment=items.find(i=>i.kind==="comment"),gift=items.find(i=>i.kind==="gift");
+  assert.equal(items.length,1,"only chat comments are sent to VoxWeaveTTS");
+  const comment=items[0];
+  assert.equal(comment.kind,"comment");
   assert.equal(comment.author,"Sprite Pam");
   assert.equal(comment.text,"สวัสดีครับ");
   assert.equal(comment.level,"25");
   assert.equal(comment.rank,"3");
   assert.ok(comment.badges.includes("InvT"));
-  assert.equal(gift.gift_name,"Heart Me");
-  assert.equal(gift.gift_count,2);
-  assert.equal(gift.text,"Heart Me");
   tick();
-  assert.equal(sent.at(-1).items.length,0,"no repeat gift without new DOM item");
+  assert.equal(sent.at(-1).items.length,0,"no repeated chat messages");
   listener({kind:"vw-stop"});
 }
 (async()=>{

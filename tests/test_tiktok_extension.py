@@ -106,15 +106,13 @@ class AdapterTests(unittest.TestCase):
         ]
         try:
             self.assertEqual(a.receive(extension_id=EXT_ID,token=token,url=LIVE_URL,
-                             phase="ready",items=rows),2)
+                             phase="ready",items=rows),1)
             events=[e.public() for e in a.poll().messages]
             self.assertEqual(events[0]["text"],"สวัสดีครับ")
             self.assertEqual(events[0]["level"],"25")
             self.assertEqual(events[0]["rank"],"3")
             self.assertEqual(events[0]["badges"],["InvT"])
-            self.assertEqual(events[1]["kind"],"gift")
-            self.assertEqual(events[1]["gift_name"],"Heart Me")
-            self.assertEqual(events[1]["gift_count"],3)
+            self.assertEqual(len(events),1,"gifts from older extensions are dropped")
             self.assertNotIn("gift_name",events[0])
             for invalid in (
                 {**rows[1],"gift_count":0},

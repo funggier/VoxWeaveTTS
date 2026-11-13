@@ -137,21 +137,19 @@ async function main(){
   assert.equal(posts[4].settings.format.sender_prefix,"คุณ");
   assert.equal(posts[4].settings.format.read_name_at,false);
   const tiktokPhrase=elementById("tiktok_browser","tiktokBrowserFeedSeparator");
-  const giftToggle=elementById("tiktok_browser","tiktokBrowserFeedFormatread_gifts");
-  const giftLabel=elementById("tiktok_browser","tiktokBrowserFeedGiftSeparator");
   const tiktokPrefix=elementById("tiktok_browser","tiktokBrowserFeedSenderPrefix");
-  const hiddenRank=elementById("tiktok_browser","tiktokBrowserFeedFormatread_ranks");
-  assert.ok(tiktokPhrase&&giftToggle&&giftLabel&&tiktokPrefix);
-  assert.equal(hiddenRank,null,"rank and badge switches are hidden from simplified UI");
+  const giftToggle=elementById("tiktok_browser","tiktokBrowserFeedFormatread_gifts");
+  const giftPhrase=elementById("tiktok_browser","tiktokBrowserFeedGiftSeparator");
+  assert.ok(tiktokPhrase&&tiktokPrefix);
+  assert.equal(giftToggle,null,"gift reading is no longer a UI option");
+  assert.equal(giftPhrase,null,"gift phrase is removed");
   tiktokPrefix.value="ท่าน";
   tiktokPhrase.value="พูดว่า";
-  giftLabel.value="มอบของขวัญ";
-  giftToggle.checked=true;
   await manager.saveSpeechFormat("tiktok_browser");
   assert.equal(posts[5].settings.source_mode,"tiktok_browser");
-  assert.equal(posts[5].settings.format.read_gifts,true);
+  assert.equal(posts[5].settings.format.read_gifts,undefined);
   assert.equal(posts[5].settings.format.sender_prefix,"ท่าน");
-  assert.equal(posts[5].settings.format.gift_separator,"มอบของขวัญ");
+  assert.equal(posts[5].settings.format.gift_separator,undefined);
   assert.equal(manager.readSpeechFormat("live").sender_prefix,"คุณ");
   browserReadAt.checked=true;
   await manager.saveSpeechFormat("youtube_browser");
@@ -160,7 +158,7 @@ async function main(){
   assert.equal(manager.readSpeechFormat("live").read_name_at,false,
     "changing Browser @ does not change API @");
   assert.equal(manager.readSpeechFormat("tiktok_browser").sender_prefix,"ท่าน");
-  assert.equal(manager.readSpeechFormat("tiktok").read_gifts,true);
+  assert.equal(manager.readSpeechFormat("tiktok").read_gifts,undefined);
   // Presets copied from a different machine stay visible even before their
   // optional model pack has been installed.
   const pendingModel="model-optional-thai-1_0_0";

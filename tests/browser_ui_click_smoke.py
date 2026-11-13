@@ -81,9 +81,7 @@ def main():
                 "liveFeedFormatread_name_at", "youtubeBrowserFeedFormatread_name_at",
                 "liveFeedSeparator", "youtubeBrowserFeedSeparator",
                 "tiktokBrowserFeedSenderPrefix", "tiktokBrowserFeedSeparator",
-                "tiktokBrowserFeedGiftSeparator", "tiktokFeedGiftSeparator",
                 "tiktokBrowserFeedFormatread_comments",
-                "tiktokBrowserFeedFormatread_gifts",
             )
             for element_id in required:
                 exists = evaluate("!!document.getElementById("
@@ -100,7 +98,11 @@ def main():
                           +"); return !!el && !!el.closest('.source-format-settings') "
                           "&& document.querySelectorAll('#'+el.id).length===1;})()")
                     assert evaluate(expr), "checkbox not relocated correctly: "+control_id
-            for obsolete in ("tiktokBrowserFeedFormatread_levels",
+            for obsolete in ("tiktokBrowserFeedGiftSeparator",
+                             "tiktokFeedGiftSeparator",
+                             "tiktokBrowserFeedFormatread_gifts",
+                             "tiktokFeedFormatread_gifts",
+                             "tiktokBrowserFeedFormatread_levels",
                              "tiktokBrowserFeedFormatread_ranks",
                              "tiktokBrowserFeedFormatread_badges",
                              "tiktokBrowserFeedFormatread_gift_count",

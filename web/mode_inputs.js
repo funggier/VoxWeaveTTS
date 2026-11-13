@@ -49,9 +49,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     return {
       sender_prefix:phrase("SenderPrefix","คุณ"),
       separator:phrase("Separator","พิมพ์ว่า"),
-      gift_separator:phrase("GiftSeparator","ส่งของขวัญ"),
       read_comments:pick("read_comments")!==false,
-      read_gifts:pick("read_gifts")!==false,
       read_name_at:pick("read_name_at")===true,
     };
   }
@@ -71,12 +69,6 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     const salutation=author&&opts.sender_prefix&&!author.startsWith(opts.sender_prefix)
       ?opts.sender_prefix:"";
     const named=author?[salutation,author].filter(Boolean).join(" "):"";
-    if(item.kind==="gift"){
-      const gift=clean(item.gift_name)||clean(plainText);
-      const count=Number(item.gift_count)||0;
-      return [named,opts.gift_separator,gift,count>0?"จำนวน "+count:""]
-        .filter(Boolean).join(" ");
-    }
     return [named,named?opts.separator:"",plainText].filter(Boolean).join(" ");
   }
   function pickMessage(item){
@@ -233,9 +225,9 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     if(!autoRead||autoPaused||!guard(mode)||typeof msg?.text!=="string")
       return "manual";
     const opts=readOptions();
-    if((msg.kind==="gift"&&!opts.read_gifts)||
-       (msg.kind!=="gift"&&!opts.read_comments))
-      return "manual";
+    // Gift events are intentionally unsupported; never enqueue them as chat.
+    if(msg.kind==="gift")return "skipped";
+    if(!opts.read_comments)return "manual";
     if(incoming.length>=MAX_WAITING){
       // Never silently evict an earlier unread message. New overflow is
       // skipped, and the UI marks it as such instead of claiming it was read.

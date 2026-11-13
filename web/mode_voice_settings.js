@@ -11,14 +11,13 @@ const VOICE_MODES=Object.freeze([
 ]);
 const SENDER_MODES=["live","youtube_browser","tiktok","tiktok_browser","discord","discord_client"];
 const DEFAULT_FORMAT=Object.freeze({
-  sender_prefix:"คุณ",separator:"พิมพ์ว่า",gift_separator:"ส่งของขวัญ",
-  read_comments:true,read_gifts:true,
+  sender_prefix:"คุณ",separator:"พิมพ์ว่า",
+  read_comments:true,
   read_levels:false,read_ranks:false,read_badges:false,read_gift_count:true,
   read_name_emojis:false,read_name_at:false,
 });
 const FORMAT_BOOL_LABELS=[
   ["read_comments","อ่านข้อความแชท"],
-  ["read_gifts","อ่านกิจกรรมส่งของขวัญ"],
 ];
 function sourcePrefix(mode){
   return mode==="discord_client"?"discordClient":
@@ -309,8 +308,7 @@ function attach({document,engines,getDefault}){
       const holder=create("div");
       const caption=create("label",label);
       const input=create("input");input.type="text";
-      const suffix={sender_prefix:"SenderPrefix",separator:"Separator",
-                    gift_separator:"GiftSeparator"}[field];
+      const suffix={sender_prefix:"SenderPrefix",separator:"Separator"}[field];
       input.id=prefix+"Feed"+suffix;
       input.maxLength=60;input.value=DEFAULT_FORMAT[field];
       const desc=create("small",description);desc.className="small";
@@ -321,11 +319,7 @@ function attach({document,engines,getDefault}){
       "ใส่คำว่า คุณ หรือคำอื่นได้ · เว้นว่างเพื่ออ่านเฉพาะชื่อ · ไม่เปลี่ยน @ ในข้อความแชท");
     addPhrase("separator","คำเชื่อมหลังชื่อผู้ส่งก่อนข้อความ เช่น พิมพ์ว่า",
       "เว้นว่างเพื่อให้อ่านชื่อแล้วตามด้วยข้อความโดยไม่มีคำเชื่อม");
-    if(mode==="tiktok"||mode==="tiktok_browser")
-      addPhrase("gift_separator","คำเชื่อมเมื่อได้รับของขวัญ เช่น ส่งของขวัญ",
-        "ใช้เฉพาะกิจกรรมของขวัญที่ตรวจพบจริง");
     for(const [field,label] of FORMAT_BOOL_LABELS){
-      if(field==="read_gifts"&&mode!=="tiktok"&&mode!=="tiktok_browser")continue;
       const holder=create("label");holder.style.display="flex";
       holder.style.gap="8px";holder.style.alignItems="center";
       const box=create("input");box.type="checkbox";
@@ -353,7 +347,7 @@ function attach({document,engines,getDefault}){
     const refreshPreview=()=>{
       const options={...DEFAULT_FORMAT};
       for(const [field,input] of Object.entries(fields))
-        options[field]=["sender_prefix","separator","gift_separator"].includes(field)
+        options[field]=["sender_prefix","separator"].includes(field)
           ?String(input.value??"").trim():Boolean(input.checked);
       const withName=document.getElementById?.(prefix+"FeedReadSender")?.checked;
       const displayName=(mode==="live"||mode==="youtube_browser")
@@ -363,13 +357,7 @@ function attach({document,engines,getDefault}){
       const comment=options.read_comments
         ?[front,front?options.separator:"","สวัสดีครับ"].filter(Boolean).join(" ")
         :"(ปิดการอ่านคอมเมนต์)";
-      const gift=options.read_gifts
-        ?[front,options.gift_separator,"Heart Me",
-           "จำนวน 2"].filter(Boolean).join(" ")
-        :"(ปิดการอ่านของขวัญ)";
-      preview.textContent="ตัวอย่างแชท: "+comment+
-        (mode==="tiktok"||mode==="tiktok_browser"
-          ?" · ตัวอย่างของขวัญ: "+gift:"");
+      preview.textContent="ตัวอย่างแชท: "+comment;
     };
     for(const input of Object.values(fields)){
       input.addEventListener("input",refreshPreview);
@@ -391,7 +379,7 @@ function attach({document,engines,getDefault}){
     const config={...DEFAULT_FORMAT};
     if(!fields)return config;
     for(const [key,input] of Object.entries(fields)){
-      config[key]=["sender_prefix","separator","gift_separator"].includes(key)
+      config[key]=["sender_prefix","separator"].includes(key)
         ?String(input.value??"").trim():Boolean(input.checked);
     }
     return config;
@@ -400,7 +388,7 @@ function attach({document,engines,getDefault}){
     const ui=speechControls.get(mode);
     if(!ui)return;
     const format=readSpeechFormat(mode);
-    if(["sender_prefix","separator","gift_separator"].some(key=>
+    if(["sender_prefix","separator"].some(key=>
       format[key].length>60||/[\u0000-\u001f\u007f]/.test(format[key]))){
       ui.state.textContent="คำเชื่อมไม่ถูกต้อง (สูงสุด 60 ตัวอักษร)";
       return;
@@ -443,7 +431,7 @@ function attach({document,engines,getDefault}){
       if(ui){
         const settings={...DEFAULT_FORMAT,...(data.speech_formats?.[mode]||{})};
         for(const [field,input] of Object.entries(ui.fields)){
-          if(["sender_prefix","separator","gift_separator"].includes(field))
+          if(["sender_prefix","separator"].includes(field))
             input.value=settings[field];
           else input.checked=Boolean(settings[field]);
         }

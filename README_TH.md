@@ -2,17 +2,17 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.4.4** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.5.0** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
-## โหมดทดลองระหว่างพัฒนา (ยังไม่อยู่ใน Release v0.4.4)
+## โหมด LIVE รุ่น v0.5.0 และข้อจำกัด
 
 ใน Source Project แยกแท็บ YouTube เป็น **YouTube LIVE (Browser)** และ **YouTube LIVE (API)** โดย Tab API เดิมใช้รหัส `live` และค่าเดิมไม่เปลี่ยน ส่วน Tab Browser เป็นต้นแบบเปิดหน้าต่าง Chrome/Edge เฉพาะ Live Chat ผ่าน CDP แล้วส่งข้อความใหม่จาก DOM เข้า TTS/OBS Subtitle เดิมโดยไม่ใช้ YouTube Data API Key หรือ Quota ของ Data API **ยังไม่ยืนยันกับ YouTube LIVE จริงและไม่ใช่วิธีทางการของ YouTube** การเข้าถึงอัตโนมัติมีข้อจำกัดในเงื่อนไขของ YouTube โปรดตรวจสอบสิทธิ์ก่อนใช้ [คู่มือ YouTube Browser (ภาษาไทย)](docs/YOUTUBE_BROWSER_READER_TH.md)
 
-เปลี่ยนโหมดทดลองที่เคยชื่อ **TikTok LIVE (Browser)** เป็น **TikTok LIVE (Extension)** แล้ว โดยใช้ส่วนเสริม Chrome แบบติดตั้งเอง (Manifest V3) และรหัสจับคู่ชั่วคราวกับโปรแกรมในเครื่อง ผู้ใช้ยืนยันว่า **รับคอมเมนต์จาก LIVE จริงได้แล้ว** แต่ความถูกต้องของการแยกป้าย/ระดับ/ยศและ Gift Event ยังต้องทดลองเพิ่มเติม รุ่น Extension v0.2.0 เพิ่มการแยกคอมเมนต์จากของขวัญ แยกชื่อกับเลเวล/อันดับ/ป้าย และตั้งค่าอ่านแต่ละประเภทเป็นอิสระ รวมถึง **กำหนดคำเชื่อมชื่อผู้ส่ง** ของ YouTube/TikTok/Discord ได้แยกโหมด ระบบกรองข้อความ TTS และ OBS เดิมยังใช้ร่วมได้ ส่วน **TikTok LIVE (TikFinity)** ยังคงทำงานแยกตามเดิม การเข้าถึงข้อมูลโดยระบบอัตโนมัติต้องตรวจสอบสิทธิ์ตามข้อกำหนดของ TikTok [คู่มือ TikTok Extension](docs/TIKTOK_EXTENSION_READER_TH.md)
+**TikTok LIVE (Extension) v0.2.4** รับเฉพาะคอมเมนต์จากแท็บ Chrome ที่ผู้ใช้เลือกและจับคู่กับโปรแกรมผ่าน 127.0.0.1 ผู้ใช้ยืนยันการรับคอมเมนต์ LIVE จริงแล้ว ส่วน **TikTok LIVE (TikFinity)** รับแชทผ่าน WebSocket ในเครื่องเช่นเดิม ทั้งสองโหมด **ไม่รองรับการอ่าน Gift, Follow, Share, Join หรือ Like** อีกต่อไป ตัวเลือกการอ่านย้ายอยู่ในหัวข้อเดียวกันและมีการกำหนดคำนำหน้าชื่อผู้ส่ง คำเชื่อม และการอ่าน `@` ของชื่อ YouTube แยกจาก `@` ในข้อความ ดู [คู่มือ TikTok Extension](docs/TIKTOK_EXTENSION_READER_TH.md) และ [รายละเอียด Release v0.5.0](docs/RELEASE_NOTES_v0.5.0.md)
 
 ## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
 
-1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.4.4-portable.zip`
+1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.5.0-portable.zip`
 2. แตก ZIP **ทั้งโฟลเดอร์** ไปยังที่เขียนไฟล์ได้ เช่น `T:\\Apps\\VoxWeaveTTS` อย่าเปิด EXE จากใน ZIP
 3. เปิด `VoxWeaveTTS.exe` จะมีหน้าต่างควบคุมและเปิด Browser เริ่มต้น (Firefox/Chrome) ไปที่ `http://127.0.0.1:8765/` อัตโนมัติ
 4. เลือก Engine **MakHam Paradee** แล้วทดลองพิมพ์ข้อความไทยและสร้าง WAV ได้โดยไม่ต้องโหลดโมเดลเพิ่มเติม
@@ -27,7 +27,7 @@
 - อ่าน Google API Error `reason` ที่ปลอดภัยเพื่อแยก `quotaExceeded`, `dailyLimitExceeded`, `rateLimitExceeded` โดย **หยุด API อัตโนมัติเมื่อโควตารายวันหมด** ไม่เปิดเผย API Key และไม่ Retry ซ้ำจนกว่าผู้ใช้จะ Connect เอง
 - `streamList` มีค่าใช้โควตาในการเปิดการเชื่อมต่อและยังต้องมีสิทธิ์เข้าถึง Live Chat การทดสอบส่วนนี้เป็นการจำลอง API เท่านั้น ยังไม่ทดสอบกับบัญชีจริงที่โควตาคงเหลือน้อย
 
-**ดาวน์โหลด:** [GitHub Release v0.4.4](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.4) รวม Windows Portable ที่มี gRPC Runtime, MakHam และ Model Packages เสริม Vachana/FastThaiG2P ให้เลือกโหลดแยก
+**รุ่นก่อนหน้า:** [GitHub Release v0.4.4](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.4) รวม Windows Portable ที่มี gRPC Runtime, MakHam และ Model Packages เสริม Vachana/FastThaiG2P ให้เลือกโหลดแยก
 
 ## แก้ Connect และดาวน์โหลด Model Packages พร้อมโปรแกรม (v0.4.3)
 

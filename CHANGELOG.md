@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — Live readers, custom sender speech and chat-only TikTok Extension (13 November 2026)
+
+- Added separate YouTube LIVE (API) and experimental YouTube LIVE (Browser) tabs, and the TikTok LIVE (Extension) flow using a user-installed Chrome Manifest V3 extension with local pairing.
+- Consolidated auto-read and speaker settings in a per-channel panel, with a custom sender prefix and post-name connector phrase. The optional leading `@` in YouTube sender names is independent of `@` in viewer comments.
+- **Removed all Gift reading** from TikTok Extension and TikFinity. No Gift reading controls remain; settings migrate safely with Gift disabled, and older extension gift events are ignored by the backend.
+- Improved TikTok comment isolation around varying rank/badge metadata, recycled DOM rows, and throttled background tabs. Delivery still depends on what TikTok renders.
+- Windows Portable includes Chrome Extension source under `extensions/tiktok-live-connector`. A standalone ZIP and SHA-256 checksums accompany the main release; optional model packs remain available from v0.4.4.
+
+
 The v0.4.0 release is the first distributable Windows portable bundle. Older dev snapshots below were development-only.
 
 ## 0.4.4 — YouTube Live gRPC streaming and quota protection (13 November 2026)

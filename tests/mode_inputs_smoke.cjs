@@ -187,7 +187,6 @@ async function main(){
   get("tiktokBrowserFeedSenderPrefix").value="ท่าน";
   get("tiktokBrowserFeedSeparator").value="กล่าวข้อความว่า";
   get("tiktokBrowserFeedFormatread_comments").checked=true;
-  get("tiktokBrowserFeedFormatread_gifts").checked=false;
   const comment={message_id:"dom2",kind:"comment",author:"🥒Sprite Pam🥒",
     level:"25",rank:"3",badges:["InvT"],text:"สวัสดีครับ"};
   assert.equal(browser.receiveIncoming(comment,true),"queued");
@@ -195,18 +194,13 @@ async function main(){
   assert.equal(payloads.at(-1).text,"ท่าน 🥒Sprite Pam🥒 กล่าวข้อความว่า สวัสดีครับ");
   get("tiktokBrowserAudio").paused=true;
   get("tiktokBrowserAudio").events.ended();
+  // No gift events should enter the speech queue, including from an older
+  // Extension that has not yet been reloaded.
   const gift={message_id:"gift1",kind:"gift",author:"Sprite Pam",
-    level:"25",rank:"3",badges:["InvT"],text:"Heart Me",
-    gift_name:"Heart Me",gift_count:2};
+    text:"Heart Me",gift_name:"Heart Me",gift_count:2};
   const beforeGift=payloads.length;
-  assert.equal(browser.receiveIncoming(gift,true),"manual");
-  assert.equal(payloads.length,beforeGift,"gifts stay opt-in");
-  get("tiktokBrowserFeedGiftSeparator").value="มอบของขวัญ";
-  get("tiktokBrowserFeedFormatread_gifts").checked=true;
-  assert.equal(browser.receiveIncoming(gift,true),"queued");
-  await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(payloads.at(-1).text,
-    "ท่าน Sprite Pam มอบของขวัญ Heart Me จำนวน 2");
+  assert.equal(browser.receiveIncoming(gift,true),"skipped");
+  assert.equal(payloads.length,beforeGift,"gift events are never spoken");
   get("tiktokBrowserAudio").paused=true;
   get("tiktokBrowserAudio").events.ended();
   // User may disable sender name without removing the custom prefix value.

@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.4.4', [switch]$SkipZip)
+param([string]$Version = '0.5.0', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -28,6 +28,8 @@ function Copy-Tree([string]$source,[string]$destination,[string[]]$skip=@()) {
 }
 Copy-Tree (Join-Path $root 'src') (Join-Path $stage 'src')
 Copy-Tree (Join-Path $root 'web') (Join-Path $stage 'web')
+# Include the manually-installed Chrome extension in the portable distribution.
+Copy-Tree (Join-Path $root 'extensions') (Join-Path $stage 'extensions')
 Copy-Tree (Join-Path $root 'docs') (Join-Path $stage 'docs')
 foreach ($name in @('LICENSE','README_TH.md','README.md')) {
   Copy-Item (Join-Path $root $name) (Join-Path $stage $name) -Force

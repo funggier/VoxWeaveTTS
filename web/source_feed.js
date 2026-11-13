@@ -285,11 +285,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       li.className="source-message";
       const details=document.createElement("span");
       details.className="source-author";
-      details.textContent=(data.kind==="gift"?"🎁 ":"")+(data.author||"ไม่ระบุชื่อ")+": ";
+      details.textContent=(data.author||"ไม่ระบุชื่อ")+": ";
       const body=document.createElement("span");
-      body.textContent=data.kind==="gift"
-        ? (data.gift_name||data.text)+" × "+(data.gift_count||1)
-        : data.text;
+      body.textContent=data.text;
       if(data.level||data.rank||data.badges?.length){
         const meta=document.createElement("small");
         meta.className="source-message-state";
@@ -371,14 +369,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     if(!connected||!guard(mode)||typeof raw!=="string"||raw.length>16384)return;
     let frame;
     try{frame=JSON.parse(raw);}catch{return;}
-    if(!["chat","gift"].includes(frame?.event)||!isRecord(frame.data))return;
+    // Ignore all TikFinity non-chat events, including gift, follow and share.
+    if(frame?.event!=="chat"||!isRecord(frame.data))return;
     const data=frame.data;
-    const gift=frame.event==="gift";
-    // TikFinity sends gift streak updates; read only the final streak once.
-    if(gift && data.repeatEnd===false)return; // Streak is still in progress.
-    const giftCount=Number.isSafeInteger(data.repeatCount)
-      ?Math.max(1,Math.min(99999,data.repeatCount)):1;
-    const incoming=gift?data.giftName:data.comment;
+    const incoming=data.comment;
     if(typeof incoming!=="string")return;
     const value=incoming.replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim();
     const max=Number(get("FeedMaxChars").value);
@@ -394,7 +388,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     let messageId;
     if((typeof rawId==="string"||typeof rawId==="number")
         && /^[a-zA-Z0-9_-]{1,100}$/.test(String(rawId))){
-      messageId=(gift?"gift-":"")+String(rawId);
+      messageId=String(rawId);
       if(seen.has(messageId)){wsRejected++;updateTikTokStatus();return;}
       seen.add(messageId);
       if(seen.size>256)seen.delete(seen.values().next().value);
@@ -414,8 +408,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     props.badges=badges.slice(0,8).map(b=>typeof b==="string"?b:
       (isRecord(b)?(b.name||b.label||""):""))
       .filter(b=>typeof b==="string"&&b.length<=48);
-    const item={message_id:messageId,author,text:value,kind:gift?"gift":"comment",
-      ...props,...(gift?{gift_name:value,gift_count:giftCount}:{})};
+    const item={message_id:messageId,author,text:value,kind:"comment",...props};
     wsMessages++;
     const auto=Boolean(get("FeedAuto").checked);
     const entry={...item,state:auto?"queued":"manual"};

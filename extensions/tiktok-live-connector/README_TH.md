@@ -1,6 +1,6 @@
 # VoxWeaveTTS — TikTok LIVE (Extension)
 
-ส่วนเสริม Chrome Manifest V3 แบบติดตั้งเอง สำหรับส่งเฉพาะข้อความคอมเมนต์ใหม่จาก **แท็บ TikTok LIVE ที่ผู้ใช้เลือก** ไปยัง VoxWeaveTTS ผ่าน `127.0.0.1` โดยไม่ใช้ CDP หรือเปิด Browser อัตโนมัติ
+ส่วนเสริม Chrome Manifest V3 v0.2.4 แบบติดตั้งเอง สำหรับส่งเฉพาะข้อความคอมเมนต์ใหม่จาก **แท็บ TikTok LIVE ที่ผู้ใช้เลือก** ไปยัง VoxWeaveTTS ผ่าน `127.0.0.1` โดยไม่ใช้ CDP หรือเปิด Browser อัตโนมัติ **ไม่ส่ง Gift/Follow/Like/Share/Join เข้าคิว TTS**
 
 ## ติดตั้ง
 
