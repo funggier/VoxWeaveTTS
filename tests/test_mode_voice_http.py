@@ -144,6 +144,31 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                 self.assertEqual(status,400)
                 self.assertEqual(voice.load_workspace_settings(target),before)
 
+    def test_older_speech_format_without_new_switch_migrates(self):
+        from voxweavetts.mode_voice_settings import DEFAULT_SPEECH_FORMAT
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"old-rich-format.json"
+            old={"revision":7,"policy":"serial","modes":{},
+                 "speech_formats":{"tiktok_browser":{
+                     "separator":"กล่าวว่า",
+                     "read_gifts":True,
+                     "read_badges":True,
+                 }}}
+            path.write_text(json.dumps(old),encoding="utf-8")
+            settings=voice.load_workspace_settings(path)
+            source=settings["speech_formats"]["tiktok_browser"]
+            self.assertEqual(source["separator"],"กล่าวว่า")
+            self.assertTrue(source["read_gifts"])
+            self.assertTrue(source["read_badges"])
+            self.assertFalse(source["read_name_emojis"])
+            self.assertEqual(set(source),set(DEFAULT_SPEECH_FORMAT))
+            saved=voice.save_workspace_settings({
+                "expected_revision":7,"mode":"__sender__",
+                "settings":{"source_mode":"live","enabled":True},
+            },path)
+            self.assertEqual(saved["revision"],8)
+            self.assertEqual(saved["speech_formats"]["tiktok_browser"],source)
+
     def test_http_persists_policy_and_per_mode_without_crosswriting(self):
         with tempfile.TemporaryDirectory() as tmp:
             target=Path(tmp)/"voices.json"

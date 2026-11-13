@@ -552,10 +552,13 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         for(const item of result.messages){
           if(!item || typeof item.text!=="string")continue;
           const auto=Boolean(get("FeedAuto").checked);
-          const entry={message_id:item.message_id,author:item.author,text:item.text,
-                       state:auto?"queued":"manual"};
+          // Retain structured metadata in the visible history as well as
+          // in the auto-read callback. Manual selection must preserve gift
+          // kind, count, ranks, and badges for the eventual TTS job.
+          const entry={...item,state:auto?"queued":"manual"};
           visible.unshift(entry);
           const accepted=onMessage(item,auto);
+          if(accepted==="manual")entry.state="manual";
           if(accepted==="skipped"){
             entry.state="skipped";
             overflow++;

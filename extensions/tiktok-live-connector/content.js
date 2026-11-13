@@ -164,7 +164,8 @@
       Boolean(node.querySelector?.('[data-e2e*="gift"],[class*="GiftMessage"]'));
     // Gift rows often split "sent <gift>" and "x N" into separate elements;
     // use the scoped row text only for the known gift notification pattern.
-    const whole=(node.innerText||node.textContent||"").trim();
+    const whole=(node.innerText||node.textContent||"")
+      .replace(/\s+/g," ").trim();
     const afterAuthor=whole.startsWith(author)?whole.slice(author.length).trim():whole;
     const giftMatch=/(?:^|\s)sent\s+(.+?)\s+[x×]\s*(\d{1,5})\s*$/i.exec(
       giftTagged?afterAuthor:text

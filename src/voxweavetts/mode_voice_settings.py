@@ -87,11 +87,18 @@ def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
         if (not isinstance(formats, dict)
             or not set(formats) <= SENDER_MODES):
             raise InputError("invalid saved speech format settings")
-        for config in formats.values():
-            validate_speech_format(config)
-        # Legacy files without the speech format block remain fully compatible.
+        migrated_formats = {}
+        for name, config in formats.items():
+            if not isinstance(config, dict) or set(config) - SPEECH_FORMAT_KEYS:
+                raise InputError("invalid saved speech format settings")
+            # A newly introduced switch must not invalidate an older portable
+            # configuration. Validate all supplied values, fill missing keys
+            # with conservative defaults, and preserve each source separately.
+            migrated_formats[name] = validate_speech_format({
+                **DEFAULT_SPEECH_FORMAT, **config,
+            })
         return {**doc, "sender_names": dict(sender_names),
-                "speech_formats": dict(formats)}
+                "speech_formats": migrated_formats}
 
 
 def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) -> dict[str, Any]:

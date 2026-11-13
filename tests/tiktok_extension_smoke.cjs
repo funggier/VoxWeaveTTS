@@ -256,7 +256,7 @@ function testMetadataAndGiftEvents(){
     return{
       className:gift?"DivGiftMessage":"DivChatMessageItem",
       textContent:gift?"Sprite Pam sent Heart Me × 2":"Sprite Pam สวัสดีครับ",
-      innerText:gift?"Sprite Pam sent Heart Me × 2":"Sprite Pam สวัสดีครับ",
+      innerText:gift?"Sprite Pam\n sent Heart Me 🧸\n × 2":"Sprite Pam สวัสดีครับ",
       contains(child){return child===this||child===metaRoot;},
       getAttribute(key){return key==="data-id"?id:null;},
       querySelector(selector){

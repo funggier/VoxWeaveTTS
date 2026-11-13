@@ -29,6 +29,7 @@ async function main(){
   function createElement(tag){return{
     tagName:tag.toUpperCase(),children:[],events:{},
     append(...items){this.children.push(...items);},
+    appendChild(item){this.children.push(item);},
     addEventListener(name,fn){this.events[name]=fn;},
   };}
   el(prefix+"FeedSourceId").value="https://www.tiktok.com/@test.stream_42/live";
@@ -40,6 +41,7 @@ async function main(){
   const requests=[],received=[],picked=[];
   let currentPhase="waiting_extension_pair";
   let chatRows=0;
+  let injectGift=false;
   const sandbox={window:{},JSON,Number,document:{createElement},
     setInterval(fn,ms){assert.equal(ms,1200);return 1;},
     clearInterval(){},
@@ -51,7 +53,12 @@ async function main(){
       };}};
       if(path.endsWith("/drain"))return{ok:true,async json(){return{
         messages:currentPhase==="ready"
-          ? [{message_id:"a1",author:"Tester",text:"สวัสดีครับ"}] : [],
+          ? (injectGift
+            ? [{message_id:"gift2",author:"Tester",text:"Heart Me",
+                kind:"gift",gift_name:"Heart Me",gift_count:3,
+                level:"25",rank:"3",badges:["InvT"]}]
+            : [{message_id:"a1",author:"Tester",text:"สวัสดีครับ"}])
+          : [],
         status:{mode:"tiktok_browser",state:currentPhase==="ready"?"running":"connecting",
                 connection_phase:currentPhase,transport:"extension",
                 dom_diagnostics:{list_found:true,row_candidates:chatRows,
@@ -71,7 +78,7 @@ async function main(){
     mode:"tiktok_browser",el,credentials:mode=>({mode,mode_token:owner}),
     guard:()=>true,
     async onConnect(){owner="b".repeat(32);},
-    onMessage:(msg,auto)=>{received.push({msg,auto});return "queued";},
+    onMessage:(msg,auto)=>{received.push({msg,auto});return msg.kind==="gift"?"manual":"queued";},
     onPick:item=>picked.push(item),
     onStop(){},
   });
@@ -98,6 +105,17 @@ async function main(){
   assert.equal(el(prefix+"FeedItems").children.length,1);
   el(prefix+"FeedItems").children[0].children[2].events.click();
   assert.equal(picked[0].message_id,"a1");
+  injectGift=true;
+  await feed.poll();
+  assert.equal(received.at(-1).msg.gift_name,"Heart Me");
+  assert.equal(feed.visible[0].gift_count,3);
+  assert.equal(feed.visible[0].state,"manual","disabled auto-gift reading stays manual");
+  assert.equal(el(prefix+"FeedItems").children.length,2);
+  el(prefix+"FeedItems").children[0].children[3].events.click();
+  assert.equal(picked.at(-1).kind,"gift");
+  assert.equal(picked.at(-1).gift_count,3);
+  assert.equal(picked.at(-1).level,"25");
+  assert.deepEqual(Array.from(picked.at(-1).badges),["InvT"]);
   currentPhase="extension_disconnected";
   await feed.poll();
   assert.match(el(prefix+"FeedStatus").textContent,/ขาดการเชื่อมต่อ/);

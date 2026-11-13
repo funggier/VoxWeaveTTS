@@ -74,6 +74,28 @@ def main():
                 time.sleep(.2)
             else:
                 raise AssertionError("UI did not finish loading")
+            # Configuration UI renders independently of active mode. Read-only
+            # inspection only: this test must never overwrite real voice settings.
+            required = (
+                "liveFeedSeparator", "youtubeBrowserFeedSeparator",
+                "tiktokBrowserFeedSeparator", "tiktokBrowserFeedGiftSeparator",
+                "tiktokBrowserFeedFormatread_comments",
+                "tiktokBrowserFeedFormatread_gifts",
+                "tiktokBrowserFeedFormatread_levels",
+                "tiktokBrowserFeedFormatread_ranks",
+                "tiktokBrowserFeedFormatread_badges",
+                "tiktokBrowserFeedFormatread_gift_count",
+                "tiktokBrowserFeedFormatread_name_emojis",
+                "tiktokFeedGiftSeparator",
+            )
+            for element_id in required:
+                exists = evaluate("!!document.getElementById("
+                                  + json.dumps(element_id) + ")")
+                assert exists, "missing source speech option: " + element_id
+            preview = evaluate(
+                "document.querySelector('[data-mode-view=tiktok_browser] "
+                ".source-format-settings p.small:last-of-type')?.textContent")
+            assert preview and "ตัวอย่างแชท" in preview, preview
             evaluate("document.querySelector('[data-mode-target=youtube_browser]').click()")
             until = time.monotonic() + 6
             while time.monotonic() < until:
