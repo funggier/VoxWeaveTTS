@@ -248,7 +248,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <div class="mode-view" data-mode-view="tiktok_browser" hidden><section class="panel" style="margin-top:0">
 <h2>TikTok LIVE (Browser)</h2>
-<p class="small">โหมดทดลอง: เปิดหน้า TikTok LIVE ใน Chrome/Edge โปรไฟล์แยก พยายามซ่อน/พักวิดีโอ อ่านเฉพาะคอมเมนต์ใหม่จาก DOM ไม่ต้องใช้ TikFinity หรือ API Key ทั้งนี้ TikTok จำกัดการดึงข้อมูลโดยระบบอัตโนมัติหากไม่ได้รับอนุญาต ฟีเจอร์นี้ยังไม่ผ่านการทดสอบกับ LIVE จริง</p>
+<p class="small">โหมดทดลอง: เปิดหน้า TikTok LIVE ใน Chrome/Edge โปรไฟล์แยก ปิดเสียงวิดีโอ (ไม่หยุดการเล่นเพื่อรักษาการทำงานของแชท) และอ่านเฉพาะคอมเมนต์ใหม่จาก DOM ไม่ต้องใช้ TikFinity หรือ API Key ทั้งนี้ TikTok จำกัดการดึงข้อมูลโดยระบบอัตโนมัติหากไม่ได้รับอนุญาต ฟีเจอร์นี้ยังไม่ผ่านการทดสอบกับ LIVE จริง</p>
 <label for="tiktokBrowserText">ทดลองอ่านข้อความ / เลือกข้อความจากแชท</label>
 <textarea id="tiktokBrowserText" placeholder="ข้อความที่รับจาก TikTok Browser จะปรากฏที่นี่เมื่อเลือกอ่าน"></textarea>
 <div class="voice-grid">
@@ -258,7 +258,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <details class="source-connector" style="margin:14px 0" open>
 <summary>เชื่อมต่อหน้าต่าง TikTok LIVE Chat (ไม่ใช้ API Key)</summary>
-<p class="small">กดเชื่อมต่อเพื่อเปิด TikTok LIVE ใน Browser แยกต่างหาก (TikTok ไม่มี Chat Pop-out อย่างเป็นทางการ) ระบบพยายามซ่อน/พักวิดีโอ แต่หน้าเว็บอาจยังโหลดข้อมูลวิดีโออยู่ ต้องมี LIVE ที่เปิดคอมเมนต์และคุณต้องมีสิทธิ์เข้าถึงหน้า LIVE โปรดตรวจสอบเงื่อนไข TikTok ก่อนใช้ DOM Automation</p>
+<p class="small">กดเชื่อมต่อเพื่อเปิด TikTok LIVE ใน Browser แยกต่างหาก (TikTok ไม่มี Chat Pop-out อย่างเป็นทางการ) ระบบปิดเสียงวิดีโอโดยปล่อยให้หน้า LIVE ทำงานตามปกติ เพราะการซ่อนหรือหยุดวิดีโออาจทำให้แชทไม่ทำงาน และหน้าเว็บอาจยังโหลดข้อมูลวิดีโออยู่ ต้องมี LIVE ที่เปิดคอมเมนต์และคุณต้องมีสิทธิ์เข้าถึงหน้า LIVE โปรดตรวจสอบเงื่อนไข TikTok ก่อนใช้ DOM Automation</p>
 <div class="voice-grid">
 <div><label for="tiktokBrowserFeedSourceId">TikTok Username หรือ URL ของ LIVE</label><input type="text" id="tiktokBrowserFeedSourceId" autocomplete="off" placeholder="https://www.tiktok.com/@username/live"></div>
 <div><label for="tiktokBrowserFeedBlocked">คำที่ไม่อ่าน (คั่นด้วยจุลภาค)</label><input type="text" id="tiktokBrowserFeedBlocked" placeholder="คำที่ไม่ต้องการ"></div>

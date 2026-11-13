@@ -48,7 +48,9 @@ class TikTokBrowserTests(unittest.TestCase):
         self.assertFalse(a.target_matches({"type": "page",
             "url": "https://www.tiktok.com/@" + USERNAME + "/video/1"}))
         self.assertIn("DivChatMessageList", a.chat_script)
-        self.assertIn("video.pause()", a.chat_script)
+        self.assertIn("video.muted = true", a.chat_script)
+        self.assertNotIn("video.pause()", a.chat_script)
+        self.assertIn('live-chat-container', a.chat_script)
         a.close()
 
     def test_new_comments_only_with_duplicate_dedupe(self):
@@ -72,6 +74,35 @@ class TikTokBrowserTests(unittest.TestCase):
             self.assertEqual([(x.author, x.text) for x in a.poll().messages],
                              [("Bob", "สวัสดีครับ")])
         a.close()
+
+    def test_comments_off_is_not_reported_as_connected_or_as_a_message(self):
+        reader = TikTokBrowserAdapter(USERNAME)
+        reader._ws = Socket()
+        frames = [
+            {"ready": False, "status": "comments_off_login_prompt", "items": []},
+            {"ready": False, "status": "comments_off", "items": []},
+            {"ready": True, "items": [{"id": "previous", "author": "A",
+                                      "text": "ประวัติก่อนหน้า"}]},
+            {"ready": True, "items": [{"id": "previous", "author": "A",
+                                      "text": "ประวัติก่อนหน้า"},
+                                     {"id": "latest", "author": "B",
+                                      "text": "กลับมาอ่านได้แล้ว"}]},
+        ]
+        try:
+            with patch.object(reader, "_evaluate", side_effect=frames):
+                self.assertEqual(reader.poll().messages, ())
+                self.assertFalse(reader.dom_ready)
+                self.assertEqual(reader.phase, "comments_off_login_prompt")
+                self.assertEqual(reader.poll().messages, ())
+                self.assertFalse(reader.dom_ready)
+                self.assertEqual(reader.phase, "comments_off")
+                self.assertEqual(reader.poll().messages, ())
+                self.assertTrue(reader.dom_ready)
+                self.assertEqual(reader.phase, "ready")
+                self.assertEqual([m.text for m in reader.poll().messages],
+                                 ["กลับมาอ่านได้แล้ว"])
+        finally:
+            reader.close()
 
     def test_browser_source_manager_does_not_request_api_key(self):
         created = []

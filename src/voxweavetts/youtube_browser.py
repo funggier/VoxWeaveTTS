@@ -324,7 +324,10 @@ class YouTubeBrowserAdapter:
             result = self._evaluate()
             if not isinstance(result, dict) or not result.get("ready"):
                 self.dom_ready = False
-                self.phase = "waiting_chat_dom"
+                status = result.get("status") if isinstance(result, dict) else None
+                self.phase = (status if status in (
+                    "comments_off", "comments_off_login_prompt", "login_prompt")
+                    else "waiting_chat_dom")
                 return PollResult((), 2.0)
             self.dom_ready = True
             self.phase = "ready"

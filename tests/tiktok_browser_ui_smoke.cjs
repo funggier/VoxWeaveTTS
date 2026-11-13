@@ -38,6 +38,7 @@ async function main(){
   el(prefix+"FeedAuto").checked=true;
   let owner="a".repeat(32);
   const requests=[],received=[],picked=[];
+  let currentPhase="comments_off_login_prompt";
   const sandbox={window:{},JSON,Number,document:{createElement},
     setInterval(fn,ms){assert.equal(ms,1200);return 1;},
     clearInterval(){},
@@ -48,9 +49,12 @@ async function main(){
         mode:"tiktok_browser",state:"connecting",pending:0,
       };}};
       if(path.endsWith("/drain"))return{ok:true,async json(){return{
-        messages:[{message_id:"a1",author:"Tester",text:"สวัสดีครับ"}],
-        status:{mode:"tiktok_browser",state:"running",connection_phase:"ready",transport:"browser-dom",
-                received:1,discarded:0,pending:0,next_poll_seconds:1.5},
+        messages:currentPhase==="ready"
+          ? [{message_id:"a1",author:"Tester",text:"สวัสดีครับ"}] : [],
+        status:{mode:"tiktok_browser",state:currentPhase==="ready"?"running":"connecting",
+                connection_phase:currentPhase,transport:"browser-dom",
+                received:currentPhase==="ready"?1:0,discarded:0,pending:0,
+                next_poll_seconds:2},
       };}};
       if(path.endsWith("/stop"))return{ok:true,async json(){return{state:"stopped"};}};
       throw Error("unexpected URL: "+path);
@@ -72,6 +76,13 @@ async function main(){
   assert.equal(requests[0].payload.source_id,el(prefix+"FeedSourceId").value);
   assert.equal(requests[0].payload.mode,"tiktok_browser");
   assert.equal(requests[0].payload.credential,"");
+  assert.match(el(prefix+"FeedStatus").textContent,/Comments off/);
+  assert.match(el(prefix+"FeedStatus").textContent,/Log in/);
+  assert.match(el(prefix+"FeedStatus").textContent,/โปรดเข้าสู่ระบบ/);
+  assert.equal(received.length,0,"must not fabricate comments when TikTok disables chat");
+  assert.equal(feed.connected,true,"should keep checking for changes");
+  currentPhase="ready";
+  await feed.poll();
   assert.equal(received[0].msg.text,"สวัสดีครับ");
   assert.equal(received[0].auto,true);
   assert.match(el(prefix+"FeedStatus").textContent,/เชื่อมต่อสำเร็จ/);
@@ -82,6 +93,6 @@ async function main(){
   assert.equal(picked[0].message_id,"a1");
   await feed.stop();
   assert.equal(feed.connected,false);
-  console.log("PASS: TikTok Browser mode UI, no API key, separate source, safe message feed");
+  console.log("PASS: TikTok Browser UI shows Comments off then resumes reading when available");
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

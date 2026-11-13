@@ -8,7 +8,7 @@
 
 ใน Source Project แยกแท็บ YouTube เป็น **YouTube LIVE (Browser)** และ **YouTube LIVE (API)** โดย Tab API เดิมใช้รหัส `live` และค่าเดิมไม่เปลี่ยน ส่วน Tab Browser เป็นต้นแบบเปิดหน้าต่าง Chrome/Edge เฉพาะ Live Chat ผ่าน CDP แล้วส่งข้อความใหม่จาก DOM เข้า TTS/OBS Subtitle เดิมโดยไม่ใช้ YouTube Data API Key หรือ Quota ของ Data API **ยังไม่ยืนยันกับ YouTube LIVE จริงและไม่ใช่วิธีทางการของ YouTube** การเข้าถึงอัตโนมัติมีข้อจำกัดในเงื่อนไขของ YouTube โปรดตรวจสอบสิทธิ์ก่อนใช้ [คู่มือ YouTube Browser (ภาษาไทย)](docs/YOUTUBE_BROWSER_READER_TH.md)
 
-เพิ่ม **TikTok LIVE (Browser)** แบบทดลองใน Source Project ด้วย เปิดหน้า LIVE ผ่าน Chrome/Edge โปรไฟล์แยกแล้วพยายามซ่อน/พักวิดีโอ พร้อมรับเฉพาะคอมเมนต์ตัวอักษรจาก DOM ไปยัง TTS/Subtitle เดิม (ยังไม่ได้ยืนยันกับ TikTok LIVE จริง) ส่วน **TikTok LIVE (TikFinity)** ยังคงใช้ Local WebSocket เดิมอย่างอิสระ **การดึงข้อมูล TikTok โดยอัตโนมัติต้องได้รับอนุญาตตามข้อกำหนดของแพลตฟอร์ม** [คู่มือ TikTok Browser](docs/TIKTOK_BROWSER_READER_TH.md)
+เพิ่ม **TikTok LIVE (Browser)** แบบทดลองใน Source Project ด้วย เปิดหน้า LIVE ผ่าน Chrome/Edge โปรไฟล์แยกแล้วปิดเสียงวิดีโอแต่ไม่สั่งพักหรือซ่อนส่วนหลักของ LIVE เพื่อไม่ให้ระบบแชทหยุดทำงาน พร้อมรับเฉพาะคอมเมนต์ตัวอักษรจาก DOM ไปยัง TTS/Subtitle เดิม (ยังไม่ได้ยืนยันกับ TikTok LIVE จริง) ส่วน **TikTok LIVE (TikFinity)** ยังคงใช้ Local WebSocket เดิมอย่างอิสระ **การดึงข้อมูล TikTok โดยอัตโนมัติต้องได้รับอนุญาตตามข้อกำหนดของแพลตฟอร์ม** [คู่มือ TikTok Browser](docs/TIKTOK_BROWSER_READER_TH.md)
 
 ## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
 

@@ -247,7 +247,20 @@ class SourceManager:
                                                 if session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList"
                                                 else "official API connected")))
                     if session.mode in ("youtube_browser", "tiktok_browser") and session.state == "connecting":
-                        session.info = "Waiting for LIVE chat DOM in browser window"
+                        phase = getattr(session.adapter, "phase", "")
+                        session.info = (
+                            "This TikTok browser session shows Comments off and a Log in button; "
+                            "check login in the isolated browser profile"
+                            if session.mode == "tiktok_browser"
+                            and phase == "comments_off_login_prompt"
+                            else "This TikTok browser session shows Comments off; "
+                            "this does not prove the creator disabled LIVE comments"
+                            if session.mode == "tiktok_browser" and phase == "comments_off"
+                            else "TikTok browser displays a Log in option; "
+                            "chat DOM is not available in this session"
+                            if session.mode == "tiktok_browser" and phase == "login_prompt"
+                            else "Waiting for LIVE chat DOM in browser window"
+                        )
                     for item in batch.messages:
                         if item.message_id in session.seen:
                             session.duplicates += 1

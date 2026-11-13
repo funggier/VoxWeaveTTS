@@ -68,6 +68,52 @@ def main():
                 assert result["items"][0]["text"] == "สวัสดีครับ", result
                 assert result["items"][0]["author"] == "Tester", result
                 assert len(result["items"]) == 1, result
+                # A live page can show "Comments off" even while the
+                # message list exists: status must not be "ready".
+                def evaluate(call_id, expression):
+                    ws.send(json.dumps({"id": call_id, "method": "Runtime.evaluate",
+                                        "params": {"expression": expression,
+                                                   "returnByValue": True}}).encode())
+                    while True:
+                        frame = json.loads(ws.receive())
+                        if frame.get("id") == call_id:
+                            return frame["result"]["result"].get("value", {})
+
+                evaluate(101, """document.body.insertAdjacentHTML(
+                    "beforeend", '<div id="fixture-off">Comments off</div>'
+                )""")
+                off = evaluate(102, TIKTOK_CHAT_SCRIPT)
+                assert off["ready"] is False and off["status"] == "comments_off", off
+                evaluate(103, "document.getElementById('fixture-off').remove()")
+                on = evaluate(104, TIKTOK_CHAT_SCRIPT)
+                assert on["ready"] is True, on
+                evaluate(105, """document.body.insertAdjacentHTML(
+                    "beforeend", '<input id="fixture-off" placeholder="Comments off">'
+                )""")
+                off_input = evaluate(106, TIKTOK_CHAT_SCRIPT)
+                assert off_input["status"] == "comments_off", off_input
+                evaluate(107, """document.body.insertAdjacentHTML(
+                    "beforeend", '<button id="fixture-login">Log in</button>'
+                )""")
+                login = evaluate(108, TIKTOK_CHAT_SCRIPT)
+                assert login["status"] == "comments_off_login_prompt", login
+                evaluate(109, """document.querySelector(".DivChatMessageList").remove();
+                    document.getElementById('fixture-off').remove();
+                    document.getElementById('fixture-login').remove();
+                    document.body.insertAdjacentHTML(
+                      "beforeend",
+                      '<div data-e2e="live-chat-container"><div class="overflow-y-scroll">'
+                      + '<div data-e2e="chat-message" data-id="modern1">'
+                      + '<span class="SpanUserName">Viewer</span>'
+                      + '<span class="SpanChatMessageText">สวัสดีจาก TikTok ใหม่</span>'
+                      + '</div></div><div data-e2e="room-chat-input-field" '
+                      + 'contenteditable="plaintext-only" placeholder="Say something nice"></div></div>'
+                    )""")
+                modern = evaluate(110, TIKTOK_CHAT_SCRIPT)
+                assert modern["ready"] is True, modern
+                assert len(modern["items"]) == 1, modern
+                assert modern["items"][0]["text"] == "สวัสดีจาก TikTok ใหม่", modern
+
             finally:
                 ws.close()
             print("PASS: isolated Chrome CDP, TikTok-style comment DOM extraction (no gifts)")

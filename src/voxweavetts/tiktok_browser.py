@@ -1,8 +1,8 @@
 """Experimental TikTok LIVE browser DOM comment reader.
 
 Uses the existing isolated, local Chrome CDP adapter; only visible text chat
-elements are extracted. The TikTok LIVE page may still load video resources
-even though the script pauses and hides its video player. No unofficial API,
+elements are extracted. The live player remains mounted and is muted rather
+than paused, because TikTok may couple chat with its live player. No unofficial API,
 credential injection, CAPTCHA bypass, or private endpoint requests.
 """
 from __future__ import annotations
@@ -20,27 +20,43 @@ USERNAME = re.compile(r"^[A-Za-z0-9_.]{2,24}$")
 # The DivChatMessageList class is documented in public chat-only CSS examples.
 # Critically, do not return gift/follow/join notification rows.
 TIKTOK_CHAT_SCRIPT = r"""(() => {
-  // TikTok has no supported chat-only URL. Hide the video visually and
-  // pause playback, but the site may still download video data.
-  for (const video of document.querySelectorAll("video")) {
-    video.muted = true;
-    video.autoplay = false;
-    try { video.pause(); } catch (_) {}
-  }
-  if (!document.getElementById("vwtts-tiktok-chat-only")) {
-    const style = document.createElement("style");
-    style.id = "vwtts-tiktok-chat-only";
-    style.textContent = '[class*="DivLiveContainer"] > [class*="DivLiveContent"] { display: none !important; }'
-      + '[class*="DivSideNavContainer"], [class*="DivTopViewersContainer"] { display: none !important; }'
-      + '[class*="DivChatRoomAnimationContainer"] { width: 100% !important; display: block !important; }';
-    document.head?.append(style);
-  }
+  // TikTok has no official chat-only URL. Do not hide parent containers
+  // or pause the player: that can prevent the chat UI from mounting.
+  // Mute locally instead; video data may still be loaded by TikTok.
+  for (const video of document.querySelectorAll("video")) video.muted = true;
+  const loginPrompt = [...document.querySelectorAll("button")].some(button =>
+    /^(log\s*in|login|sign\s*in)$/i.test((button.innerText || "").trim())
+  );
+  // The platform can render "Comments off" in the chat composer even
+  // when the message list element is present. Report the visible state, do
+  // not pretend the DOM reader is connected or try to change moderation.
+  const disabledComment = [...document.querySelectorAll(
+    'input, textarea, [role="textbox"], [contenteditable], [placeholder],'
+    + ' [data-e2e="room-chat-input-field"]'
+  )].some(node => /^(comments\s+off|comments\s+disabled)$/i.test(
+    (node.getAttribute("placeholder") || node.getAttribute("aria-label")
+     || node.textContent || "").trim()
+  ));
+  const visibleStatus = (document.body?.innerText || "").split(/\r?\n/)
+    .some(line => /^comments\s+(off|disabled)$/i.test(line.trim()));
+  if (disabledComment || visibleStatus)
+    return {ready: false,
+            status: loginPrompt ? "comments_off_login_prompt" : "comments_off",
+            items: []};
+  // Older TikTok pages expose DivChatMessageList; newer LIVE pages (observed
+  // in Nov 2026) have a live-chat-container with an overflow-y-scroll pane.
   const list = document.querySelector(
     '[class*="DivChatMessageList"], [data-e2e="live-chat-message-list"]'
+  ) || document.querySelector(
+    '[data-e2e="live-chat-container"] [class*="overflow-y-scroll"]'
   );
-  if (!list) return {ready: false, items: []};
+  if (!list)
+    return {ready: false, status: loginPrompt ? "login_prompt" : "waiting_chat_dom",
+            items: []};
   const candidates = [...list.querySelectorAll(
-    '[data-e2e="chat-message"], div[class*="DivChatMessage"]'
+    '[data-e2e="chat-message"], [data-e2e="live-chat-message"],'
+    + ' [data-e2e="room-chat-message"],'
+    + ' div[class*="DivChatMessage"]'
   )].filter(node => node !== list
     && !/DivChatMessageList|DivChatMessageText/.test(String(node.className))
     && !node.matches('[data-e2e*="gift"], [data-e2e*="follow"], [data-e2e*="join"]'));

@@ -81,6 +81,9 @@ const BROWSER_PHASE_NAMES=Object.freeze({
   reading_dom:"ขั้นตอน 5/5 · ตรวจสอบองค์ประกอบข้อความในหน้า Chat",
   waiting_chat_dom:"ขั้นตอน 5/5 · รอให้หน้า Live Chat โหลดหรือเปิดแชท",
   ready:"เชื่อมต่อสำเร็จ · พร้อมอ่านข้อความใหม่จาก YouTube Live Chat",
+  comments_off:"TikTok ใน Browser นี้แสดง Comments off · ไม่ได้แปลว่าเจ้าของไลฟ์ปิดคอมเมนต์ ตรวจสอบสิทธิ์การเข้าถึงในหน้าต่างนี้",
+  comments_off_login_prompt:"TikTok ใน Browser นี้แสดง Comments off และปุ่ม Log in · โปรดเข้าสู่ระบบ TikTok ในหน้าต่าง Browser ที่โปรแกรมเปิด แล้วรีเฟรชหน้า LIVE",
+  login_prompt:"TikTok ใน Browser นี้มีปุ่ม Log in และยังไม่พบ DOM แชท · ตรวจสอบการเข้าสู่ระบบในหน้าต่างนี้",
   retrying:"การเชื่อมต่อขัดข้อง · กำลังรอลองเชื่อมต่อใหม่",
   error:"เชื่อมต่อไม่สำเร็จ",
   ended:"ไลฟ์สิ้นสุดหรือหน้าต่าง Chat ปิดแล้ว",
@@ -521,6 +524,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
           " · รออ่าน "+(status.pending||0);
         const note=["error","retrying"].includes(status.state)
           ? " · สาเหตุ: "+(status.info||"ไม่สามารถเชื่อมต่อ Browser")
+          : ["comments_off","comments_off_login_prompt","login_prompt"].includes(browserPhase)
+            ? " · Browser โปรไฟล์แยกไม่ใช้บัญชีจาก Firefox/Chrome ปกติ · โปรแกรมจะตรวจซ้ำเมื่อสถานะเปลี่ยน"
           : browserPhase==="waiting_chat_dom"
             ? " · หากรอนาน ให้ตรวจว่า LIVE เปิด Chat และหน้า Browser โหลดสำเร็จ"
             : "";
