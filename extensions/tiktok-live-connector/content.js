@@ -112,13 +112,41 @@
     }
     return {id,author,text};
   }
+  // Reloading/unpacking an extension invalidates the previous content
+  // script's chrome.runtime, while its DOM observers and timers can survive
+  // until the TikTok tab itself is refreshed. Stop the old reader instead of
+  // repeatedly raising "Extension context invalidated".
+  function isInvalidatedContext(error){
+    return /extension context invalidated|context invalidated/i.test(
+      String(error?.message||error||"")
+    );
+  }
   function send(phase,items,diagnostics){
     if(!running)return;
-    chrome.runtime.sendMessage({kind:"vw-chat-batch",phase,items,diagnostics},result=>{
-      if(chrome.runtime.lastError || result?.ok===false){
-        if(result?.error==="not authorized tab")stop();
-      }
-    });
+    try{
+      // Chrome removes runtime.id from orphaned content-script contexts.
+      if(!chrome.runtime?.id){stop();return;}
+      chrome.runtime.sendMessage({kind:"vw-chat-batch",phase,items,diagnostics},result=>{
+        if(!running)return;
+        try{
+          const issue=chrome.runtime.lastError;
+          if(issue){
+            if(isInvalidatedContext(issue))stop();
+            return;
+          }
+          if(result?.ok===false && result.error==="not authorized tab")stop();
+        }catch(error){
+          // Even reading runtime.lastError may fail on the old context.
+          if(isInvalidatedContext(error))stop();
+          else stop(); // Unexpected runtime failure; avoid a noisy retry loop.
+        }
+      });
+    }catch(error){
+      // sendMessage throws synchronously after extension reload/update.
+      // Never keep scanning with a detached runtime.
+      if(isInvalidatedContext(error))stop();
+      else stop();
+    }
   }
   function scan(){
     if(!running)return;

@@ -131,6 +131,7 @@ function testContent(){
   };
   const chrome={
     runtime:{
+      id:"abcdefghijklmnopabcdefghijklmnop",
       onMessage:{addListener(fn){listener=fn;}},
       sendMessage(data,cb){sends.push(data);cb?.({ok:true});},
     }
@@ -195,6 +196,7 @@ function testGenericLiveChatRows(){
     }
   };
   const chrome={runtime:{
+    id:"abcdefghijklmnopabcdefghijklmnop",
     onMessage:{addListener(fn){listener=fn;}},
     sendMessage(data,cb){sent.push(data);cb?.({ok:true});},
   }};
