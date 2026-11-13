@@ -36,7 +36,7 @@ const document={
 };
 let revision=0,active="studio",stopped=0,activations=[],revoked=[];
 const modeRevisions={};
-let channel,timer;
+let channel,timer,notifyBeforeReturn=false;
 class Channel{
   constructor(name){assert.match(name,/workspace/);channel=this;this.handlers={};}
   addEventListener(key,fn){this.handlers[key]=fn;}
@@ -60,6 +60,11 @@ const sandbox={
     const mode=JSON.parse(options.body).mode;
     activations.push(mode);
     revision++;active=mode;modeRevisions[mode]=revision;
+    if(notifyBeforeReturn && mode==="live"){
+      notifyBeforeReturn=false;
+      // SSE can deliver our own renewal before HTTP returns the new token.
+      channel.receive({revision,mode_revisions:{...modeRevisions}});
+    }
     return {ok:true,async json(){return{
       revision,active_mode:mode,
       mode_revisions:{...modeRevisions},
@@ -94,7 +99,10 @@ async function test(){
   assert.equal(activations.filter(x=>x==="live").length,1,
                "returning to live must not disconnect/reconnect the provider");
   assert.equal(app.credentials("studio").mode_token,first.mode_token);
+  notifyBeforeReturn=true;
   const fresh=await app.reclaim("live");
+  assert.deepEqual(revoked,[],
+    "early notification for our own renewal must not revoke the source");
   assert.equal(activations.filter(x=>x==="live").length,2,
                "explicit Connect must renew even when local owner exists");
   assert.notEqual(fresh.mode_token,youTube.mode_token);

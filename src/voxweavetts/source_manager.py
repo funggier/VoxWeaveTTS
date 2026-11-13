@@ -65,7 +65,8 @@ class _Session:
                if self.mode in ("live", "youtube_browser") and getattr(self.adapter, "transport", None)
                in ("streamList", "polling", "browser-dom") else {}),
             **({"connection_phase": self.adapter.phase}
-               if self.mode == "discord_client" and isinstance(getattr(self.adapter, "phase", None), str)
+               if self.mode in ("discord_client", "youtube_browser")
+               and isinstance(getattr(self.adapter, "phase", None), str)
                else {}),
             **({"failed_phase": self.adapter.failed_phase}
                if self.mode == "discord_client" and self.state == "error"

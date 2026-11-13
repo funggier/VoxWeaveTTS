@@ -68,6 +68,24 @@ const RPC_PHASE_NAMES={
   subscribed:"สมัครรับข้อความจากห้องสำเร็จ",
   disconnected:"ตัดการเชื่อมต่อแล้ว",
 };
+const BROWSER_PHASE_NAMES=Object.freeze({
+  checking_input:"ขั้นตอน 1/5 · ตรวจสอบ Video ID หรือ URL และตัวกรอง",
+  claiming_owner:"ขั้นตอน 2/5 · เตรียมพื้นที่ทำงานและขอสิทธิ์ควบคุมช่องทาง",
+  starting_worker:"ขั้นตอน 2/5 · ส่งคำขอเปิด Browser ไปยังโปรแกรมในเครื่อง",
+  preparing:"ขั้นตอน 3/5 · เตรียมตัวรับข้อความจาก Browser",
+  locating_browser:"ขั้นตอน 3/5 · ค้นหา Google Chrome หรือ Microsoft Edge",
+  starting_browser:"ขั้นตอน 3/5 · กำลังเปิดหน้าต่าง YouTube Chat-only",
+  waiting_debugger:"ขั้นตอน 3/5 · รอ Browser เปิดพอร์ตควบคุมเฉพาะในเครื่อง",
+  finding_chat_page:"ขั้นตอน 4/5 · ค้นหาหน้า YouTube Live Chat ใน Browser",
+  connecting_dom:"ขั้นตอน 4/5 · เชื่อมระบบควบคุม DOM ของ Browser",
+  reading_dom:"ขั้นตอน 5/5 · ตรวจสอบองค์ประกอบข้อความในหน้า Chat",
+  waiting_chat_dom:"ขั้นตอน 5/5 · รอให้หน้า Live Chat โหลดหรือเปิดแชท",
+  ready:"เชื่อมต่อสำเร็จ · พร้อมอ่านข้อความใหม่จาก YouTube Live Chat",
+  retrying:"การเชื่อมต่อขัดข้อง · กำลังรอลองเชื่อมต่อใหม่",
+  error:"เชื่อมต่อไม่สำเร็จ",
+  ended:"ไลฟ์สิ้นสุดหรือหน้าต่าง Chat ปิดแล้ว",
+  stopped:"หยุดรับข้อความจาก Browser แล้ว",
+});
 function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPreference,onConnect}){
   if(!["live","youtube_browser","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
   const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode;
@@ -76,7 +94,26 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
   let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
   const seen=new Set();
   let visible=[], overflow=0;
+  let browserStageName="",browserStageLog=[];
   function message(text){get("FeedStatus").textContent=String(text);}
+  function clearBrowserProgress(){
+    if(mode!=="youtube_browser")return;
+    browserStageName="";browserStageLog=[];
+    get("FeedProgress")?.replaceChildren();
+  }
+  function browserStage(phase,extra=""){
+    if(mode!=="youtube_browser")return;
+    const desc=BROWSER_PHASE_NAMES[phase]||"กำลังตรวจสอบการเชื่อมต่อ Browser";
+    if(browserStageName!==phase){
+      browserStageName=phase;
+      const item=document.createElement("li");
+      item.textContent=desc;
+      browserStageLog.push(item);
+      if(browserStageLog.length>12)browserStageLog.shift();
+      get("FeedProgress")?.replaceChildren(...browserStageLog);
+    }
+    message(desc+(extra?" · "+extra:""));
+  }
   function buildSettingsProfile(){
     const blocked=get("FeedBlocked").value;
     const max=get("FeedMaxChars").value.trim();
@@ -380,10 +417,16 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     }
   }
   async function start(){
+    if(mode==="youtube_browser"){
+      clearBrowserProgress();
+      browserStage("checking_input");
+    }
     if(!guard(mode) && (mode==="tiktok" || !onConnect))
       throw Error("กรุณาเปิดโหมดนี้ก่อนเชื่อมต่อ");
     if(mode==="tiktok")return startTikTok();
     const channelId=get("FeedSourceId").value.trim();
+    if(mode==="youtube_browser"&&!channelId)
+      throw Error("กรุณาใส่ URL หรือ Video ID ของ YouTube LIVE ก่อนกดเชื่อมต่อ");
     const temporaryCredential=mode==="discord_client" ? {
       client_id:get("FeedAppId").value.trim(),
       client_secret:get("FeedAppSecret").value.trim(),
@@ -406,10 +449,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     clearMessages();
     const ticket=++generation;
     get("FeedStart").disabled=true;
-    message(mode==="youtube_browser"?"กำลังเปิดหน้าต่าง Browser เฉพาะแชท...":"กำลังตรวจสอบสิทธิ์ช่องทางและเชื่อมต่อ API...");
+    if(mode==="youtube_browser")browserStage("claiming_owner");
+    else message("กำลังตรวจสอบสิทธิ์ช่องทางและเชื่อมต่อ API...");
     try{
       if(onConnect)await onConnect(mode);
       if(ticket!==generation||!guard(mode))return;
+      if(mode==="youtube_browser")browserStage("starting_worker");
       const result=await api("start",{
         ...credentials(mode),source_id:channelId,
         credential:temporaryCredential,
@@ -420,7 +465,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       if(ticket!==generation||!guard(mode))return;
       connected=true;
       get("FeedStop").disabled=false;
-      message(mode==="youtube_browser"?"กำลังเชื่อม Browser DOM · เปิดหน้าต่าง Chat ไว้":"เริ่มกระบวนการเชื่อมต่อแล้ว · รอตรวจสอบสิทธิ์และสมัครรับข้อความจากผู้ให้บริการ");
+      if(mode==="youtube_browser")browserStage(result.connection_phase||"preparing");
+      else message("เริ่มกระบวนการเชื่อมต่อแล้ว · รอตรวจสอบสิทธิ์และสมัครรับข้อความจากผู้ให้บริการ");
       timer=setInterval(()=>poll().catch(error=>message(String(error.message||error))),1200);
       await poll();
       return result;
@@ -428,7 +474,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       if(ticket===generation){
         connected=false;
         get("FeedStart").disabled=false;
-        message("เชื่อมต่อไม่สำเร็จ: "+String(error.message||error));
+        if(mode==="youtube_browser")browserStage("error",String(error.message||error));
+        else message("เชื่อมต่อไม่สำเร็จ: "+String(error.message||error));
       }
       throw error;
     }
@@ -457,6 +504,23 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         }
       }
       render();
+      if(mode==="youtube_browser"){
+        const browserPhase=status.state==="error"?"error"
+          :status.state==="retrying"?"retrying"
+          :status.state==="ended"?"ended"
+          :(status.connection_phase||"preparing");
+        const statistics="รับ "+(status.received||0)+
+          " · กรอง/ล้นคิว "+(status.discarded||0)+
+          " · รออ่าน "+(status.pending||0);
+        const note=["error","retrying"].includes(status.state)
+          ? " · สาเหตุ: "+(status.info||"ไม่สามารถเชื่อมต่อ Browser")
+          : browserPhase==="waiting_chat_dom"
+            ? " · หากรอนาน ให้ตรวจว่า LIVE เปิด Chat และหน้า Browser โหลดสำเร็จ"
+            : "";
+        const retry=status.state==="retrying"
+          ? " · ลองใหม่ใน "+Math.round(status.next_poll_seconds||0)+" วินาที":"";
+        browserStage(browserPhase,statistics+note+retry);
+      }else{
       const phase=status.failed_phase && status.state==="error"
         ? " · ผิดพลาดที่ "+(RPC_PHASE_NAMES[status.failed_phase]||"ขั้นตอน Discord RPC")
         : status.connection_phase ? " · "+(RPC_PHASE_NAMES[status.connection_phase]||"กำลังตรวจสอบสถานะ Discord RPC") : "";
@@ -469,6 +533,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         " · รอบถัดไป "+Math.round(status.next_poll_seconds||0)+"s"+
         (["error","connecting","retrying"].includes(status.state) ? " · "+status.info : "")
       );
+      }
       if(status.state==="ended"||status.state==="error"){
         connected=false;
         if(timer!==null){clearInterval(timer);timer=null;}
@@ -504,6 +569,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     localSuspend();
     try { await api("stop",authorization); }
     catch(error){message("หยุดรับใน Browser แล้ว ("+String(error.message||error)+")");}
+    if(mode==="youtube_browser")browserStage("stopped");
   }
   get("FeedExport").addEventListener("click",()=>exportSettings());
   get("FeedImport").addEventListener("click",()=>get("FeedImportFile").click());
@@ -514,7 +580,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     await importSettings(file);
   });
   get("FeedStart").addEventListener("click",()=>{
-    start().catch(()=>{});
+    start().catch(error=>{
+      // Errors before the backend request (such as an empty video URL) must
+      // still be visible rather than silently swallowed by the click handler.
+      if(mode==="youtube_browser")browserStage("error",String(error.message||error));
+    });
   });
   get("FeedStop").addEventListener("click",()=>stop().catch(()=>{}));
   get("FeedStop").disabled=true;

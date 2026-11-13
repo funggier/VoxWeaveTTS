@@ -11,13 +11,16 @@ async function main(){
                        "FeedAuto","FeedReadSender","FeedStart","FeedStop",
                        "FeedStatus","FeedItems","FeedExport","FeedImport"])
     assert.ok(html.includes('id="'+prefix+suffix+'"'),"missing browser field "+suffix);
+  assert.match(html,/id="youtubeBrowserFeedStart">เชื่อมต่อ<\/button>/);
+  assert.match(html,/id="youtubeBrowserFeedProgress"/);
+  assert.match(html,/for\(const mode of \["live","youtube_browser","discord","discord_client","tiktok"\]\)\{\s*const inputMode=/);
   assert.ok(!html.includes('id="'+prefix+'FeedCredential"'),
             "Browser must not request an API key");
   const records=new Map();
   function el(id){
     if(!records.has(id))records.set(id,{
       value:"",checked:false,disabled:false,textContent:"",children:[],events:{},
-      replaceChildren(){this.children=[];},
+      replaceChildren(...items){this.children=items;},
       appendChild(item){this.children.push(item);},
       addEventListener(name,fn){this.events[name]=fn;},
     });
@@ -46,7 +49,7 @@ async function main(){
       };}};
       if(path.endsWith("/drain"))return{ok:true,async json(){return{
         messages:[{message_id:"a1",author:"Tester",text:"สวัสดีครับ"}],
-        status:{mode:"youtube_browser",state:"running",transport:"browser-dom",
+        status:{mode:"youtube_browser",state:"running",connection_phase:"ready",transport:"browser-dom",
                 received:1,discarded:0,pending:0,next_poll_seconds:1.5},
       };}};
       if(path.endsWith("/stop"))return{ok:true,async json(){return{state:"stopped"};}};
@@ -63,14 +66,17 @@ async function main(){
     onPick:item=>picked.push(item),
     onStop(){},
   });
-  await feed.start();
+  await el(prefix+"FeedStart").events.click();
+  for(let i=0;i<15&&!feed.connected;i++)await new Promise(resolve=>setImmediate(resolve));
   assert.equal(feed.connected,true);
   assert.equal(requests[0].payload.source_id,el(prefix+"FeedSourceId").value);
   assert.equal(requests[0].payload.mode,"youtube_browser");
   assert.equal(requests[0].payload.credential,"");
   assert.equal(received[0].msg.text,"สวัสดีครับ");
   assert.equal(received[0].auto,true);
-  assert.match(el(prefix+"FeedStatus").textContent,/Browser: running/);
+  assert.match(el(prefix+"FeedStatus").textContent,/เชื่อมต่อสำเร็จ/);
+  assert.match(el(prefix+"FeedStatus").textContent,/รับ 1/);
+  assert.ok(el(prefix+"FeedProgress").children.length>=3,"progress stages should render");
   assert.equal(el(prefix+"FeedItems").children.length,1);
   el(prefix+"FeedItems").children[0].children[2].events.click();
   assert.equal(picked[0].message_id,"a1");

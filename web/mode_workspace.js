@@ -22,6 +22,8 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
   const valid=new Set(MODES.map(x=>x.id));
   const get=id=>document.getElementById(id);
   const owners=new Map(), ownedRevisions=new Map();
+  const activating=new Set();
+  const lastObservedRevisions=new Map();
   let active="studio", revision=0, serial=Promise.resolve(), stopped=false;
   let channel=null, monitor=null, modeStream=null;
   const broadcastName="VoxWeaveTTS-workspace-owner-v1";
@@ -54,7 +56,14 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
     revision=incoming.revision;
     const changed=incoming.mode_revisions;
     if(changed && typeof changed==="object"){
+      for(const [mode,newRevision] of Object.entries(changed)){
+        if(Number.isInteger(newRevision))
+          lastObservedRevisions.set(mode,Math.max(newRevision,lastObservedRevisions.get(mode)||0));
+      }
       for(const [mode,localRevision] of ownedRevisions){
+        // A server notification for our own in-flight token renewal can
+        // arrive before its HTTP response. Do not revoke ourselves.
+        if(activating.has(mode))continue;
         if(Number.isInteger(changed[mode]) && changed[mode]>localRevision)
           revokeMode(mode);
       }
@@ -73,16 +82,25 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
     if(active===mode){render();onActive?.(mode);}
   }
   async function issueActivation(mode){
-    const response=await fetch("/v1/modes/activate",{
-      method:"POST",
-      headers:{"Content-Type":"application/json",
-               "X-VoxWeaveTTS-Intent":"activate-mode"},
-      body:JSON.stringify({mode}),cache:"no-store",
-    });
-    const snapshot=await response.json();
-    if(!response.ok)throw Error(snapshot.error||"Cannot activate workspace");
-    if(!stopped)accept(mode,snapshot);
-    return snapshot;
+    activating.add(mode);
+    try{
+      const response=await fetch("/v1/modes/activate",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",
+                 "X-VoxWeaveTTS-Intent":"activate-mode"},
+        body:JSON.stringify({mode}),cache:"no-store",
+      });
+      const snapshot=await response.json();
+      if(!response.ok)throw Error(snapshot.error||"Cannot activate workspace");
+      if(!stopped){
+        accept(mode,snapshot);
+        // A different tab may have reclaimed the mode after this response.
+        if((lastObservedRevisions.get(mode)||0)>snapshot.revision)revokeMode(mode);
+      }
+      return snapshot;
+    }finally{
+      activating.delete(mode);
+    }
   }
   function select(mode){
     if(!valid.has(mode))return Promise.reject(Error("Invalid workspace mode"));

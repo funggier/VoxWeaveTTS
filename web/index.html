@@ -183,9 +183,10 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <span class="small" id="youtubeBrowserFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="youtubeBrowserAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 </div>
-<div class="voice-grid"><button type="button" id="youtubeBrowserFeedStart">เปิด Browser และเชื่อมต่อ</button><button type="button" id="youtubeBrowserFeedStop">หยุดรับข้อความ</button></div>
+<div class="voice-grid"><button type="button" id="youtubeBrowserFeedStart">เชื่อมต่อ</button><button type="button" id="youtubeBrowserFeedStop">หยุดรับข้อความ</button></div>
 <div class="voice-grid"><button type="button" id="youtubeBrowserFeedExport">Export / Save As (.json)</button><button type="button" id="youtubeBrowserFeedImport">Import การตั้งค่า (.json)</button><input type="file" id="youtubeBrowserFeedImportFile" accept=".json,application/json" hidden></div>
-<p id="youtubeBrowserFeedStatus" class="small" role="status">ยังไม่เชื่อมต่อ · กดเปิด Browser และเชื่อมต่อ</p>
+<p id="youtubeBrowserFeedStatus" class="small" role="status" aria-live="polite">ยังไม่เชื่อมต่อ · กดเชื่อมต่อเพื่อเปิดหน้าต่างแชท</p>
+<ol id="youtubeBrowserFeedProgress" class="source-message-list small" aria-label="ขั้นตอนการเชื่อมต่อ Browser"></ol>
 <p id="youtubeBrowserFeedQueueStatus" class="small" role="status"></p>
 <ol id="youtubeBrowserFeedItems" class="source-message-list"></ol>
 </details>
@@ -1904,7 +1905,7 @@ if(typeof VoxModeInputs!=="undefined"){
   }
 }
 if(typeof VoxSourceFeed!=="undefined"){
-  for(const mode of ["live","discord","discord_client","tiktok"]){
+  for(const mode of ["live","youtube_browser","discord","discord_client","tiktok"]){
     const inputMode=mode==="live"?liveMode:(mode==="youtube_browser"?youtubeBrowserMode:(mode==="discord"?discordMode:(mode==="tiktok"?tiktokMode:discordClientMode)));
     const feed=VoxSourceFeed.attach({
       mode,el,

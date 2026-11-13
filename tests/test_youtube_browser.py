@@ -62,6 +62,8 @@ class BrowserAdapterTests(unittest.TestCase):
                 self.source = source
                 self.closed = False
                 self.n = 0
+                self.phase = "preparing"
+                self.dom_ready = False
                 instances.append(self)
 
             def set_cancel(self, event):
@@ -71,6 +73,8 @@ class BrowserAdapterTests(unittest.TestCase):
                 self.closed = True
 
             def poll(self):
+                self.phase = "ready"
+                self.dom_ready = True
                 self.n += 1
                 if self.n == 1:
                     return PollResult((SourceMessage("one", "ผู้ชม", "ทดสอบสด"),), 0.1)
@@ -92,6 +96,7 @@ class BrowserAdapterTests(unittest.TestCase):
                     break
                 time.sleep(0.05)
             self.assertEqual(manager.status("youtube_browser")["transport"], "browser-dom")
+            self.assertEqual(manager.status("youtube_browser")["connection_phase"], "ready")
             self.assertEqual(manager.status("youtube_browser")["received"], 1)
             messages = manager.drain({"mode": "youtube_browser",
                                       "mode_token": owner["mode_token"],

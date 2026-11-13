@@ -1,0 +1,121 @@
+"""End-to-end local UI smoke for YouTube Browser connect button.
+
+Requires the development server at http://127.0.0.1:8765/ and installed
+Chrome/Edge. Uses an isolated headless profile and an invalid video ID; never
+navigates to a real YouTube live stream.
+"""
+from __future__ import annotations
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import time
+from urllib.request import urlopen
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from voxweavetts.youtube_browser import _CDPWebSocket, find_chromium
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def main():
+    with urlopen("http://127.0.0.1:8765/v1/status", timeout=3) as response:
+        assert response.status == 200, response.status
+    with tempfile.TemporaryDirectory(prefix="vw-browser-ui-", dir=ROOT / "cache",
+                                     ignore_cleanup_errors=True) as dirname:
+        folder = Path(dirname)
+        profile = folder / "profile"
+        process = subprocess.Popen(
+            [find_chromium(), "--headless=new", "--disable-gpu",
+             "--no-first-run", "--no-default-browser-check",
+             "--remote-debugging-address=127.0.0.1",
+             "--remote-debugging-port=0", f"--user-data-dir={profile}",
+             "http://127.0.0.1:8765/"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        ws = None
+        try:
+            file = profile / "DevToolsActivePort"
+            until = time.monotonic() + 10
+            while not file.exists() and time.monotonic() < until:
+                if process.poll() is not None:
+                    raise AssertionError("Chrome exited before opening the UI")
+                time.sleep(.15)
+            assert file.exists(), "CDP port not open"
+            port = int(file.read_text(encoding="ascii").splitlines()[0])
+            with urlopen(f"http://127.0.0.1:{port}/json/list", timeout=3) as r:
+                targets = json.load(r)
+            target = next(t for t in targets if t.get("type") == "page" and
+                          t.get("url", "").startswith("http://127.0.0.1:8765"))
+            ws = _CDPWebSocket(target["webSocketDebuggerUrl"])
+            seq = 0
+            def evaluate(expr):
+                nonlocal seq
+                seq += 1
+                ticket = seq
+                ws.send(json.dumps({"id": ticket, "method": "Runtime.evaluate",
+                    "params": {"expression": expr, "returnByValue": True,
+                               "awaitPromise": True}}).encode())
+                while True:
+                    result = json.loads(ws.receive())
+                    if result.get("id") == ticket:
+                        if result.get("result", {}).get("exceptionDetails"):
+                            raise AssertionError(result["result"]["exceptionDetails"])
+                        return result.get("result", {}).get("result", {}).get("value")
+
+            until = time.monotonic() + 12
+            while time.monotonic() < until:
+                if evaluate("document.readyState==='complete' && !!document.getElementById('youtubeBrowserFeedStart') && typeof VoxSourceFeed!=='undefined'"):
+                    break
+                time.sleep(.2)
+            else:
+                raise AssertionError("UI did not finish loading")
+            evaluate("document.querySelector('[data-mode-target=youtube_browser]').click()")
+            until = time.monotonic() + 6
+            while time.monotonic() < until:
+                if evaluate("modeRuntime?.guard('youtube_browser')===true"):
+                    break
+                time.sleep(.2)
+            else:
+                raise AssertionError("Browser mode ownership was not acquired")
+            evaluate("document.getElementById('youtubeBrowserFeedSourceId').value=''; document.getElementById('youtubeBrowserFeedStart').click();")
+            until = time.monotonic() + 4
+            while time.monotonic() < until:
+                status = evaluate("document.getElementById('youtubeBrowserFeedStatus').textContent")
+                if "กรุณาใส่ URL" in status:
+                    break
+                time.sleep(.15)
+            else:
+                raise AssertionError("click did not display a validation error: "+str(status))
+            count = evaluate("document.getElementById('youtubeBrowserFeedProgress').children.length")
+            assert count >= 2, ("no progress history", count)
+            evaluate("document.getElementById('youtubeBrowserFeedSourceId').value='invalid-video'; document.getElementById('youtubeBrowserFeedStart').click();")
+            until = time.monotonic() + 6
+            while time.monotonic() < until:
+                status = evaluate("document.getElementById('youtubeBrowserFeedStatus').textContent")
+                if "เชื่อมต่อไม่สำเร็จ" in status and "youtube" in status.lower():
+                    break
+                time.sleep(.2)
+            else:
+                raise AssertionError("backend validation feedback not displayed: "+str(status))
+            print("PASS: actual browser click -> UI status timeline -> backend validation error")
+        finally:
+            if ws:
+                ws.close()
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, timeout=5)
+            elif process.poll() is None:
+                process.terminate()
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+
+
+if __name__ == "__main__":
+    main()

@@ -192,6 +192,7 @@ class YouTubeBrowserAdapter:
         self._ws: _CDPWebSocket | None = None
         self._initialized = False
         self.dom_ready = False
+        self.phase = "preparing"
         self._seen: set[str] = set()
         self._closed = False
 
@@ -200,6 +201,7 @@ class YouTubeBrowserAdapter:
 
     def close(self) -> None:
         self._closed = True
+        self.phase = "stopped"
         if self._ws:
             self._ws.close()
             self._ws = None
@@ -228,7 +230,9 @@ class YouTubeBrowserAdapter:
         portfile = profile / "DevToolsActivePort"
         # Stale file after a crashed browser is not a valid endpoint.
         portfile.unlink(missing_ok=True)
+        self.phase = "locating_browser"
         browser = find_chromium()
+        self.phase = "starting_browser"
         url = f"https://www.youtube.com/live_chat?is_popout=1&v={self.video_id}"
         args = [
             browser, "--remote-debugging-address=127.0.0.1",
@@ -240,6 +244,7 @@ class YouTubeBrowserAdapter:
                 args, stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
+            self.phase = "waiting_debugger"
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline:
                 if self._closed or getattr(self, "_cancel", None) and self._cancel.is_set():
@@ -250,6 +255,7 @@ class YouTubeBrowserAdapter:
                     rows = portfile.read_text(encoding="ascii").splitlines()
                     if rows and rows[0].isdigit():
                         self._port = int(rows[0])
+                        self.phase = "finding_chat_page"
                         return
                 time.sleep(0.2)
         except OSError:
@@ -261,6 +267,7 @@ class YouTubeBrowserAdapter:
             self._launch()
         if self._closed:
             return
+        self.phase = "finding_chat_page"
         try:
             with urlopen(f"http://127.0.0.1:{self._port}/json/list", timeout=5) as r:
                 targets = json.load(r)
@@ -272,6 +279,7 @@ class YouTubeBrowserAdapter:
             if not target:
                 raise SourceFailure("YouTube chat page is closed or still loading",
                                     fatal=self._initialized, retry_after=3)
+            self.phase = "connecting_dom"
             self._ws = _CDPWebSocket(target["webSocketDebuggerUrl"])
         except SourceFailure:
             raise
@@ -298,11 +306,14 @@ class YouTubeBrowserAdapter:
         if self._closed:
             return PollResult((), 2.0, online=False)
         try:
+            self.phase = "reading_dom"
             result = self._evaluate()
             if not isinstance(result, dict) or not result.get("ready"):
                 self.dom_ready = False
+                self.phase = "waiting_chat_dom"
                 return PollResult((), 2.0)
             self.dom_ready = True
+            self.phase = "ready"
             rows = result.get("items", [])
             if not isinstance(rows, list):
                 raise ValueError("invalid chat DOM")
@@ -328,5 +339,6 @@ class YouTubeBrowserAdapter:
         except (OSError, ValueError, KeyError, TimeoutError):
             self._ws.close()
             self._ws = None
+            self.phase = "retrying"
             raise SourceFailure("browser chat DOM unavailable; reconnecting",
                                 retry_after=5) from None
