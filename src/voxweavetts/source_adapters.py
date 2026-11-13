@@ -156,10 +156,26 @@ class SourceMessage:
     message_id: str
     author: str
     text: str
+    kind: str = "comment"
+    level: str = ""
+    rank: str = ""
+    badges: tuple[str, ...] = ()
+    gift_name: str = ""
+    gift_count: int = 0
 
-    def public(self) -> dict[str, str]:
-        return {"message_id": self.message_id,
-                "author": self.author, "text": self.text}
+    def public(self) -> dict[str, object]:
+        result: dict[str, object] = {
+            "message_id": self.message_id,
+            "author": self.author, "text": self.text,
+        }
+        if self.kind != "comment":
+            result["kind"] = self.kind
+        if self.level:result["level"] = self.level
+        if self.rank:result["rank"] = self.rank
+        if self.badges:result["badges"] = list(self.badges)
+        if self.gift_name:result["gift_name"] = self.gift_name
+        if self.gift_count:result["gift_count"] = self.gift_count
+        return result
 
 
 @dataclass(frozen=True)

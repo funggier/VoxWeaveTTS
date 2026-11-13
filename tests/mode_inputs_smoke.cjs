@@ -9,6 +9,7 @@ async function main(){
     if(!elements.has(id)){
       elements.set(id,{
         value:"",textContent:"",disabled:false,
+        type:id.includes("FeedFormat")?"checkbox":(/Feed(?:Gift)?Separator$/.test(id)?"text":""),
         style:{display:"none"},src:"",paused:true,events:{},
         addEventListener(name,fn){this.events[name]=fn},
         pause(){this.paused=true},async play(){this.paused=false},removeAttribute(name){if(name==="src")this.src=""},
@@ -178,7 +179,65 @@ async function main(){
   assert.equal(payloads.at(-1).source_message_id,"tiktok_browser-dom1");
   assert.equal(payloads.at(-1).engine_id,"tiktok-browser-voice");
   assert.equal(payloads.at(-1).text,"ข้อความจาก TikTok Browser");
+  // Mode-local phrase, metadata and separate gift toggles are sampled
+  // only for new speech jobs. Browser TTS never speaks decorative badges
+  // unless the user specifically enables the corresponding option.
+  get("tiktokBrowserAudio").paused=true;
+  get("tiktokBrowserAudio").events.ended();
+  get("tiktokBrowserFeedReadSender").checked=true;
+  get("tiktokBrowserFeedSeparator").value="กล่าวข้อความว่า";
+  get("tiktokBrowserFeedFormatread_comments").checked=true;
+  get("tiktokBrowserFeedFormatread_gifts").checked=false;
+  get("tiktokBrowserFeedFormatread_levels").checked=false;
+  get("tiktokBrowserFeedFormatread_ranks").checked=false;
+  get("tiktokBrowserFeedFormatread_badges").checked=false;
+  const comment={message_id:"dom2",kind:"comment",author:"🥒Sprite Pam🥒",
+    level:"25",rank:"3",badges:["InvT"],text:"สวัสดีครับ"};
+  assert.equal(browser.receiveIncoming(comment,true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"Sprite Pam กล่าวข้อความว่า สวัสดีครับ");
+  get("tiktokBrowserAudio").paused=true;
+  get("tiktokBrowserAudio").events.ended();
+  const gift={message_id:"gift1",kind:"gift",author:"Sprite Pam",
+    level:"25",rank:"3",badges:["InvT"],text:"Heart Me",
+    gift_name:"Heart Me",gift_count:2};
+  const beforeGift=payloads.length;
+  assert.equal(browser.receiveIncoming(gift,true),"manual");
+  assert.equal(payloads.length,beforeGift,"gifts stay opt-in");
+  get("tiktokBrowserFeedFormatread_levels").checked=true;
+  get("tiktokBrowserFeedFormatread_ranks").checked=true;
+  get("tiktokBrowserFeedFormatread_badges").checked=true;
+  get("tiktokBrowserFeedGiftSeparator").value="มอบของขวัญ";
+  get("tiktokBrowserFeedFormatread_gifts").checked=true;
+  get("tiktokBrowserFeedFormatread_gift_count").checked=true;
+  assert.equal(browser.receiveIncoming(gift,true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,
+    "Sprite Pam เลเวล 25 อันดับ 3 ป้าย InvT มอบของขวัญ Heart Me จำนวน 2");
+  get("tiktokBrowserAudio").paused=true;
+  get("tiktokBrowserAudio").events.ended();
+  // Optional emoji in display names is a separate setting from badges.
+  get("tiktokBrowserFeedFormatread_name_emojis").checked=true;
+  assert.equal(browser.receiveIncoming({...comment,message_id:"dom-emoji"},true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,
+    "🥒Sprite Pam🥒 เลเวล 25 อันดับ 3 ป้าย InvT กล่าวข้อความว่า สวัสดีครับ");
+  get("tiktokBrowserAudio").paused=true;
+  get("tiktokBrowserAudio").events.ended();
+  get("tiktokBrowserFeedFormatread_comments").checked=false;
+  assert.equal(browser.receiveIncoming({...comment,message_id:"dom3"},true),"manual");
   browser.suspend();
-  console.log("PASS: independent Live/Discord/TikTok/TikTok Extension queues, separate TTS voices and sources");
+  // YouTube's configurable connector is independent of TikTok's.
+  current="live";
+  get("liveFeedAuto").checked=true;
+  get("liveFeedReadSender").checked=true;
+  get("liveFeedSeparator").value="บอกว่า";
+  get("liveAudio").paused=true;
+  assert.equal(live.receiveIncoming({
+    message_id:"yt-phrase",author:"ผู้ชม",text:"สวัสดี"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"ผู้ชม บอกว่า สวัสดี");
+  console.log("PASS: independent TTS, custom sender phrase, badges/ranks and opt-in gifts");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

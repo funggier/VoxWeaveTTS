@@ -21,7 +21,29 @@ SETTINGS_PATH = ROOT / "data" / "settings" / "mode-voices.json"
 VOICE_MODES = frozenset(("studio", "reader", "queue", "live", "youtube_browser", "tiktok", "tiktok_browser",
                          "discord", "discord_client"))
 AUDIO_POLICIES = frozenset(("serial", "overlap"))
-SENDER_MODES = frozenset(("live", "youtube_browser", "tiktok", "discord", "discord_client"))
+SENDER_MODES = frozenset(("live", "youtube_browser", "tiktok", "tiktok_browser",
+                          "discord", "discord_client"))
+SPEECH_FORMAT_KEYS = frozenset(("separator", "gift_separator", "read_comments",
+                               "read_gifts", "read_levels", "read_ranks",
+                               "read_badges", "read_gift_count", "read_name_emojis"))
+SPEECH_FORMAT_BOOL_KEYS = SPEECH_FORMAT_KEYS - {"separator", "gift_separator"}
+DEFAULT_SPEECH_FORMAT = {
+    "separator": "พิมพ์ว่า", "gift_separator": "ส่งของขวัญ",
+    "read_comments": True, "read_gifts": False,
+    "read_levels": False, "read_ranks": False, "read_badges": False,
+    "read_gift_count": True, "read_name_emojis": False,
+}
+
+
+def validate_speech_format(raw: Any) -> dict[str, Any]:
+    if (not isinstance(raw, dict) or set(raw) != SPEECH_FORMAT_KEYS
+        or any(type(raw[key]) is not bool for key in SPEECH_FORMAT_BOOL_KEYS)
+        or any(not isinstance(raw[key], str) or len(raw[key]) > 60
+               or any(ord(char) < 32 or ord(char) == 127 for char in raw[key])
+               for key in ("separator", "gift_separator"))):
+        raise InputError("invalid sender speech format")
+    return dict(raw)
+
 _LOCK = threading.RLock()
 
 
@@ -44,7 +66,7 @@ def validate_voice_profile(raw: Any) -> dict[str, Any]:
 def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
     with _LOCK:
         if not path.is_file():
-            return {"revision": 0, "policy": "serial", "modes": {}, "sender_names": {}}
+            return {"revision": 0, "policy": "serial", "modes": {}, "sender_names": {}, "speech_formats": {}}
         try:
             if path.stat().st_size > 48_000:
                 raise InputError("workspace settings file too large")
@@ -52,7 +74,7 @@ def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
         except (OSError, ValueError) as exc:
             raise InputError("invalid workspace voice settings file") from exc
         if (not isinstance(doc, dict) or not {"revision", "policy", "modes"} <= set(doc)
-            or set(doc) - {"revision", "policy", "modes", "sender_names"}
+            or set(doc) - {"revision", "policy", "modes", "sender_names", "speech_formats"}
             or type(doc["revision"]) is not int or doc["revision"] < 0
             or doc["policy"] not in AUDIO_POLICIES or not isinstance(doc["modes"], dict)
             or not set(doc["modes"]) <= VOICE_MODES):
@@ -61,9 +83,15 @@ def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
         if (not isinstance(sender_names, dict) or not set(sender_names) <= SENDER_MODES
             or any(type(value) is not bool for value in sender_names.values())):
             raise InputError("invalid saved sender-name settings")
-        # Previously saved mode-voices.json files are still accepted.
-        # Do not reject saved profiles solely because a model was removed.
-        return {**doc, "sender_names": dict(sender_names)}
+        formats = doc.get("speech_formats", {})
+        if (not isinstance(formats, dict)
+            or not set(formats) <= SENDER_MODES):
+            raise InputError("invalid saved speech format settings")
+        for config in formats.values():
+            validate_speech_format(config)
+        # Legacy files without the speech format block remain fully compatible.
+        return {**doc, "sender_names": dict(sender_names),
+                "speech_formats": dict(formats)}
 
 
 def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) -> dict[str, Any]:
@@ -73,7 +101,7 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
     if type(revision) is not int or revision < 0:
         raise InputError("invalid workspace settings revision")
     mode = data["mode"]
-    if not isinstance(mode, str) or (mode not in ("__policy__", "__sender__") and mode not in VOICE_MODES):
+    if not isinstance(mode, str) or (mode not in ("__policy__", "__sender__", "__speech_format__") and mode not in VOICE_MODES):
         raise InputError("unknown voice workspace")
     if mode == "__policy__":
         value = data["settings"]
@@ -86,6 +114,14 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
             or value["source_mode"] not in SENDER_MODES
             or type(value["enabled"]) is not bool):
             raise InputError("invalid sender-name preference")
+    elif mode == "__speech_format__":
+        value = data["settings"]
+        if (not isinstance(value, dict) or set(value) != {"source_mode", "format"}
+            or not isinstance(value["source_mode"], str)
+            or value["source_mode"] not in SENDER_MODES):
+            raise InputError("invalid source speech format update")
+        value = {"source_mode": value["source_mode"],
+                 "format": validate_speech_format(value["format"])}
     else:
         value = validate_voice_profile(data["settings"])
     with _LOCK:
@@ -96,11 +132,14 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
             "revision": revision + 1, "policy": current["policy"],
             "modes": dict(current["modes"]),
             "sender_names": dict(current["sender_names"]),
+            "speech_formats": dict(current["speech_formats"]),
         }
         if mode == "__policy__":
             next_doc["policy"] = value
         elif mode == "__sender__":
             next_doc["sender_names"][value["source_mode"]] = value["enabled"]
+        elif mode == "__speech_format__":
+            next_doc["speech_formats"][value["source_mode"]] = value["format"]
         else:
             next_doc["modes"][mode] = value
         path.parent.mkdir(parents=True, exist_ok=True)

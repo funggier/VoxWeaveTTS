@@ -20,7 +20,7 @@ class Node{
   get options(){return this.children;}
 }
 const views=new Map();
-for(const mode of ["studio","reader","queue","live","tiktok","discord","discord_client"])
+for(const mode of ["studio","reader","queue","live","youtube_browser","tiktok","tiktok_browser","discord","discord_client"])
   views.set(mode,new Node("div"));
 const senderFields=new Map();
 const document={
@@ -68,7 +68,7 @@ async function main(){
   const manager=attach({document,engines:()=>voices,getDefault:()=>defaults});
   const config=await manager.load();
   assert.equal(config.policy,"serial");
-  assert.equal(manager.modes.length,7);
+  assert.equal(manager.modes.length,9);
   assert.equal(document.getElementById("liveFeedReadSender").checked,true);
   assert.equal(document.getElementById("discordFeedReadSender").checked,false);
   assert.equal(document.getElementById("tiktokFeedReadSender").checked,false);
@@ -79,7 +79,7 @@ async function main(){
   // User edits the live channel mid-stream; new job reads current values,
   // existing WAV isn't mutated or re-synthesized.
   const live=views.get("live");
-  const all=live.children[0].children;
+  const all=live.children.find(node=>node.className==="mode-voice-settings").children;
   const grid=all[2];
   const engine=grid.children[0].children[1];
   const voice=grid.children[1].children[1];
@@ -109,6 +109,39 @@ async function main(){
   assert.equal(revision,4);
   assert.equal(document.getElementById("liveFeedReadSender").checked,true,
     "changing Discord must not affect YouTube");
+  function elementById(mode,id){
+    const visit=node=>{
+      if(node.id===id)return node;
+      for(const child of node.children){
+        const found=visit(child);if(found)return found;
+      }
+      return null;
+    };
+    return visit(views.get(mode));
+  }
+  const liveSeparator=elementById("live","liveFeedSeparator");
+  assert.ok(liveSeparator,"YouTube phrase input must be in the mode UI");
+  liveSeparator.value="บอกว่า";
+  await manager.saveSpeechFormat("live");
+  assert.equal(posts[4].mode,"__speech_format__");
+  assert.equal(posts[4].settings.source_mode,"live");
+  assert.equal(posts[4].settings.format.separator,"บอกว่า");
+  const tiktokPhrase=elementById("tiktok_browser","tiktokBrowserFeedSeparator");
+  const giftToggle=elementById("tiktok_browser","tiktokBrowserFeedFormatread_gifts");
+  const rankToggle=elementById("tiktok_browser","tiktokBrowserFeedFormatread_ranks");
+  const giftLabel=elementById("tiktok_browser","tiktokBrowserFeedGiftSeparator");
+  assert.ok(tiktokPhrase&&giftToggle&&rankToggle&&giftLabel);
+  tiktokPhrase.value="พูดว่า";
+  giftLabel.value="มอบของขวัญ";
+  giftToggle.checked=true;rankToggle.checked=true;
+  await manager.saveSpeechFormat("tiktok_browser");
+  assert.equal(posts[5].settings.source_mode,"tiktok_browser");
+  assert.equal(posts[5].settings.format.read_gifts,true);
+  assert.equal(posts[5].settings.format.read_ranks,true);
+  assert.equal(posts[5].settings.format.gift_separator,"มอบของขวัญ");
+  assert.equal(manager.readSpeechFormat("live").separator,"บอกว่า");
+  assert.equal(manager.readSpeechFormat("tiktok_browser").separator,"พูดว่า");
+  assert.equal(manager.readSpeechFormat("tiktok").read_gifts,false);
   // Presets copied from a different machine stay visible even before their
   // optional model pack has been installed.
   const pendingModel="model-optional-thai-1_0_0";

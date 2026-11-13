@@ -100,7 +100,7 @@ class TikTokExtensionAdapter:
         if not isinstance(token, str) or not isinstance(url, str):
             raise ExtensionBridgeError("invalid extension connection")
         if not isinstance(items, list) or len(items) > 20:
-            raise ExtensionBridgeError("extension batch must contain at most 20 comments")
+            raise ExtensionBridgeError("extension batch must contain at most 20 events")
         if diagnostics is not None:
             if (not isinstance(diagnostics, dict)
                 or set(diagnostics) != DIAGNOSTIC_FIELDS
@@ -123,17 +123,38 @@ class TikTokExtensionAdapter:
                 raise ExtensionBridgeError("extension connection is not authorized")
             batch: list[SourceMessage] = []
             for item in items:
-                if not isinstance(item, dict) or set(item) != {"id", "author", "text"}:
-                    raise ExtensionBridgeError("invalid comment structure")
-                mid, author, text = item["id"], item["author"], item["text"]
+                basic = {"id", "author", "text"}
+                optional = {"kind", "level", "rank", "badges", "gift_name", "gift_count"}
+                if (not isinstance(item, dict) or not basic <= set(item)
+                    or set(item) - basic - optional):
+                    raise ExtensionBridgeError("invalid LIVE event structure")
+                mid, author, body = item["id"], item["author"], item["text"]
+                kind = item.get("kind", "comment")
+                level, rank = item.get("level", ""), item.get("rank", "")
+                badges = item.get("badges", [])
+                gift_name, gift_count = item.get("gift_name", ""), item.get("gift_count", 0)
                 if (not isinstance(mid, str) or not MESSAGE_ID.fullmatch(mid)
                     or not isinstance(author, str) or len(author) > 80
-                    or not isinstance(text, str) or not 1 <= len(text) <= 280
-                    or any(ord(c) < 32 and c not in "\t" for c in text)):
-                    raise ExtensionBridgeError("invalid comment fields")
-                batch.append(SourceMessage(mid, author.strip(), text.strip()))
+                    or not isinstance(body, str) or not 1 <= len(body) <= 280
+                    or any(ord(c) < 32 and c not in "\t" for c in body)
+                    or kind not in ("comment", "gift")
+                    or any(not isinstance(x, str) or len(x)>48 or
+                           any(ord(ch)<32 for ch in x) for x in (level, rank, gift_name))
+                    or not isinstance(badges, list) or len(badges) > 8
+                    or any(not isinstance(b, str) or len(b)>48 for b in badges)
+                    or type(gift_count) is not int or not 0 <= gift_count <= 99999):
+                    raise ExtensionBridgeError("invalid LIVE event fields")
+                if kind == "gift" and (not gift_name or gift_count < 1):
+                    raise ExtensionBridgeError("gift event requires verified gift name and count")
+                if kind == "comment" and (gift_name or gift_count):
+                    raise ExtensionBridgeError("comment must not contain gift data")
+                batch.append(SourceMessage(
+                    mid, author.strip(), body.strip(), kind=kind, level=level.strip(),
+                    rank=rank.strip(), badges=tuple(x.strip() for x in badges if x.strip()),
+                    gift_name=gift_name.strip(), gift_count=gift_count,
+                ))
             if phase != "ready" and batch:
-                raise ExtensionBridgeError("comments require ready DOM state")
+                raise ExtensionBridgeError("events require ready DOM state")
             self._last_seen = time.monotonic()
             self.phase = phase
             self.dom_ready = phase == "ready"

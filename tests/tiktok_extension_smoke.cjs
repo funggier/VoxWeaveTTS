@@ -227,9 +227,105 @@ function testGenericLiveChatRows(){
   assert.equal(sent.at(-1).diagnostics.fresh_rows,1);
   listener({kind:"vw-stop"});
 }
+
+function testMetadataAndGiftEvents(){
+  let listener,tick;
+  const sent=[];
+  const category=(klass,text,desc)=>({
+    className:klass,textContent:text,
+    getAttribute:key=>key==="data-e2e"?desc:key==="aria-label"?null:null,
+    querySelector:()=>null,
+  });
+  const userName={textContent:"Sprite Pam InvT",parentElement:null,
+    contains(other){return this===other;},querySelector:()=>null,
+    cloneNode(){
+      const clone={textContent:"Sprite Pam InvT",
+        querySelectorAll(){return[{remove(){clone.textContent="Sprite Pam";}}];}};
+      return clone;
+    }};
+  const rank=category("BadgeRank","No.3","rank-badge");
+  const level=category("BadgeLevel","25","level-badge");
+  const badge=category("BadgeMember","InvT","membership-badge");
+  const metadata=[rank,level,badge];
+  const commentBody={textContent:"สวัสดีครับ"};
+  const giftBody={textContent:"Heart Me × 2"};
+  function row(id,kind){
+    const gift=kind==="gift";
+    const metaRoot={querySelectorAll(){return metadata;}};
+    userName.parentElement=metaRoot;
+    return{
+      className:gift?"DivGiftMessage":"DivChatMessageItem",
+      textContent:gift?"Sprite Pam sent Heart Me × 2":"Sprite Pam สวัสดีครับ",
+      innerText:gift?"Sprite Pam sent Heart Me × 2":"Sprite Pam สวัสดีครับ",
+      contains(child){return child===this||child===metaRoot;},
+      getAttribute(key){return key==="data-id"?id:null;},
+      querySelector(selector){
+        if(selector.includes("follow")||selector.includes("join"))return null;
+        if(selector.includes("gift")||selector.includes("GiftMessage")){
+          return gift?{alt:"gift"}:null;
+        }
+        if(selector.includes("message-owner-name"))return userName;
+        if(selector.includes("message-text"))return gift?giftBody:commentBody;
+        return null;
+      },
+      querySelectorAll(selector){
+        if(selector.includes('[data-e2e*="badge"]'))return metadata;
+        return[];
+      },
+    };
+  }
+  const old=row("old","comment");
+  let current=[old];
+  const list={
+    querySelectorAll(selector){
+      if(selector.includes("chat-message"))return current;
+      if(selector.includes("message-owner-name"))return [];
+      return[];
+    },
+  };
+  const doc={
+    documentElement:{},
+    querySelector(selector){
+      if(selector.includes("room-chat-input-field"))return null;
+      if(selector.includes("DivChatMessageList"))return list;
+      return null;
+    },
+  };
+  const chrome={runtime:{
+    id:"abcdefghijklmnopabcdefghijklmnop",
+    onMessage:{addListener(fn){listener=fn;}},
+    sendMessage(data,callback){sent.push(data);callback?.({ok:true});},
+  }};
+  const box={document:doc,chrome,Date,Number,Set,WeakMap,
+    MutationObserver:class{observe(){}disconnect(){}},
+    setInterval(fn){tick=fn;return 1;},clearInterval(){},
+    setTimeout(){return 1;},clearTimeout(){}};
+  box.globalThis=box;
+  vm.createContext(box);
+  vm.runInContext(fs.readFileSync(extPath+"content.js","utf8"),box);
+  listener({kind:"vw-start"});
+  assert.equal(sent[0].items.length,0);
+  current=[old,row("c1","comment"),row("gift-1","gift")];
+  tick();
+  const items=sent.at(-1).items;
+  assert.equal(items.length,2,"parse a comment and a gift separately");
+  const comment=items.find(i=>i.kind==="comment"),gift=items.find(i=>i.kind==="gift");
+  assert.equal(comment.author,"Sprite Pam");
+  assert.equal(comment.text,"สวัสดีครับ");
+  assert.equal(comment.level,"25");
+  assert.equal(comment.rank,"3");
+  assert.ok(comment.badges.includes("InvT"));
+  assert.equal(gift.gift_name,"Heart Me");
+  assert.equal(gift.gift_count,2);
+  assert.equal(gift.text,"Heart Me");
+  tick();
+  assert.equal(sent.at(-1).items.length,0,"no repeat gift without new DOM item");
+  listener({kind:"vw-stop"});
+}
 (async()=>{
   await testWorker();
   testContent();
   testGenericLiveChatRows();
+  testMetadataAndGiftEvents();
   console.log("PASS: MV3 extension explicit activation, pairing, sender isolation, comments-only DOM, stop");
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -94,6 +94,42 @@ class AdapterTests(unittest.TestCase):
             a.receive(extension_id=EXT_ID,token=token,url=LIVE_URL,phase="ready",items=[])
         a.close()
 
+    def test_mixed_gift_and_comment_events_preserve_structured_metadata(self):
+        a = TikTokExtensionAdapter(USERNAME)
+        token = a.pair(a.pairing_code, EXT_ID, LIVE_URL)
+        rows = [
+            {"id":"c1","author":"Viewer","text":"สวัสดีครับ",
+             "kind":"comment","level":"25","rank":"3","badges":["InvT"]},
+            {"id":"g1","author":"Viewer","text":"Heart Me","kind":"gift",
+             "gift_name":"Heart Me","gift_count":3,
+             "level":"","rank":"","badges":["InvT"]},
+        ]
+        try:
+            self.assertEqual(a.receive(extension_id=EXT_ID,token=token,url=LIVE_URL,
+                             phase="ready",items=rows),2)
+            events=[e.public() for e in a.poll().messages]
+            self.assertEqual(events[0]["text"],"สวัสดีครับ")
+            self.assertEqual(events[0]["level"],"25")
+            self.assertEqual(events[0]["rank"],"3")
+            self.assertEqual(events[0]["badges"],["InvT"])
+            self.assertEqual(events[1]["kind"],"gift")
+            self.assertEqual(events[1]["gift_name"],"Heart Me")
+            self.assertEqual(events[1]["gift_count"],3)
+            self.assertNotIn("gift_name",events[0])
+            for invalid in (
+                {**rows[1],"gift_count":0},
+                {**rows[1],"gift_count":"3"},
+                {**rows[1],"kind":"comment"},
+                {**rows[0],"kind":"share"},
+                {**rows[0],"badges":["B"*49]},
+                {**rows[0],"level":"0"*49},
+            ):
+                with self.subTest(invalid=invalid),self.assertRaises(ExtensionBridgeError):
+                    a.receive(extension_id=EXT_ID,token=token,url=LIVE_URL,
+                              phase="ready",items=[invalid])
+        finally:
+            a.close()
+
     def test_dom_diagnostics_are_bounded_counts_not_raw_chat(self):
         a = TikTokExtensionAdapter(USERNAME)
         token = a.pair(a.pairing_code, EXT_ID, LIVE_URL)

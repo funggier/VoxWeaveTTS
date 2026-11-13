@@ -12,8 +12,9 @@
     '[data-e2e="chat-message"]','[data-e2e="live-chat-message"]',
     '[data-e2e="room-chat-message"]',
     '[data-e2e*="chat-message-item"]',
+    '[data-e2e*="gift-message"]','[data-e2e*="gift-notification"]',
     '[class*="DivChatMessage"]:not([class*="DivChatMessageList"])',
-    '[class*="ChatMessageItem"]',
+    '[class*="ChatMessageItem"]','[class*="GiftMessage"]',
   ].join(",");
   const NAME_SELECTOR=[
     '[data-e2e="message-owner-name"]','[data-e2e="chat-message-name"]',
@@ -36,9 +37,47 @@
   }
   function isSystemNotice(node){
     const marker=(String(node.className||"")+" "+String(node.getAttribute?.("data-e2e")||"")).toLowerCase();
-    if(/gift|follow|join|member|system|notice|pinned|moderator/.test(marker))return true;
-    return Boolean(node.querySelector?.('[data-e2e*="gift"],[data-e2e*="follow"],'
-      +'[data-e2e*="join"],[class*="GiftMessage"],[class*="SystemMessage"]'));
+    // Gifts are legitimate *separate* events; joins/follows/likes/shares
+    // remain excluded from the comment/gift feed.
+    if(/follow|join|system|notice|pinned|moderator/.test(marker))return true;
+    if(/gift/.test(marker))return false;
+    if(/\b(liked|shared|joined|followed) the live\b/i.test(node.textContent||""))return true;
+    return Boolean(node.querySelector?.('[data-e2e*="follow"],[data-e2e*="join"],'
+      +'[class*="SystemMessage"]'));
+  }
+  function decorations(row,nameNode){
+    // Only inspect metadata *near the username*, not text of the comment.
+    const parent=nameNode?.parentElement;
+    const badgeRoot=parent&&row.contains(parent)?parent:row;
+    const labels=[];
+    const decorated=badgeRoot.querySelectorAll?.(
+      '[data-e2e*="badge"],[data-e2e*="level"],[data-e2e*="rank"],'
+      +'[class*="Badge"],[class*="Level"],[class*="Rank"],'
+      +'[aria-label*="level"],[aria-label*="rank"],'
+      +'[title*="level"],[title*="rank"]'
+    )||[];
+    for(const element of [...decorated].slice(0,24)){
+      if(element===nameNode)continue; // Nested badge icons are metadata, not the username.
+      const descriptor=(String(element.className||"")+" "+
+        (element.getAttribute?.("data-e2e")||"")+" "+
+        (element.getAttribute?.("aria-label")||"")).toLowerCase();
+      const raw=(element.getAttribute?.("aria-label")||
+        element.getAttribute?.("title")||element.textContent||
+        element.querySelector?.("img")?.alt||"").trim().slice(0,48);
+      if(raw)labels.push({raw,descriptor});
+    }
+    let level="",rank="";
+    const badges=[];
+    for(const {raw,descriptor} of labels){
+      const ranking=/\b(?:no\.?|rank|อันดับ)\s*[:.#-]?\s*(\d{1,4})/i.exec(raw);
+      const leveled=/\b(?:lv\.?|level|เลเวล)\s*[:.#-]?\s*(\d{1,4})/i.exec(raw);
+      if(!rank&&(ranking||/rank|ranking/.test(descriptor)&&/^\d{1,4}$/.test(raw)))
+        rank=ranking?ranking[1]:raw;
+      else if(!level&&(leveled||/level/.test(descriptor)&&/^\d{1,4}$/.test(raw)))
+        level=leveled?leveled[1]:raw;
+      else if(!badges.includes(raw) && badges.length<8)badges.push(raw);
+    }
+    return {level,rank,badges};
   }
   function toRow(nameNode,list){
     // In current LIVE layouts, the comment row may have only generic flex
@@ -79,38 +118,75 @@
   function parseRow(node){
     if(isSystemNotice(node))return null;
     const nameNode=node.querySelector(NAME_SELECTOR);
-    const author=(nameNode?.textContent||"").trim().slice(0,80);
+    if(!nameNode)return null;
+    // Prefer the textual nickname; nested decorative level/badge elements are
+    // not part of the speaker's actual display name.
+    const nickname=nameNode.querySelector?.(
+      '[data-e2e*="nickname"],[class*="Nickname"],[class*="UserNameText"]'
+    )||nameNode;
+    // A display-name node may contain injected level/badge elements.
+    const isolated=typeof nickname.cloneNode==="function"
+      ?nickname.cloneNode(true):null;
+    if(isolated){
+      for(const badge of isolated.querySelectorAll?.(
+        '[data-e2e*="badge"],[data-e2e*="level"],[data-e2e*="rank"],'
+        +'[class*="Badge"],[class*="Level"],[class*="Rank"],img,svg'
+      )||[])badge.remove?.();
+    }
+    const author=((isolated||nickname).textContent||"")
+      .replace(/\s+/g," ").trim().slice(0,80);
     if(!author)return null;
+    const meta=decorations(node,nameNode);
     const textNode=node.querySelector(TEXT_SELECTOR);
     let text=(textNode?.textContent||"").trim();
     if(!text){
-      // Strict fallback: only use leaf text *outside* the username subtree
-      // from a comment row scoped to the LIVE chat list. Do not read metadata
-      // or unrelated labels from the page.
+      // Leaf-only fallback, excluding badges, ranks, icons and usernames.
       const leaf=[...node.querySelectorAll("span,p")]
-        .filter(n=>n!==nameNode && !nameNode?.contains(n)
-          && !(n.querySelector("span,p"))
-          && !(n.closest?.('[data-e2e*="gift"],[data-e2e*="follow"],'
-                              +'[data-e2e*="join"]')))
+        .filter(n=>n!==nameNode&&!nameNode.contains(n)
+          && !n.querySelector("span,p")
+          && !/badge|level|rank|gifticon/i.test(String(n.className||""))
+          && !n.closest?.('[data-e2e*="badge"],[data-e2e*="level"],'
+                            +'[data-e2e*="rank"],[data-e2e*="gift-icon"]'))
         .map(n=>(n.textContent||"").trim())
         .filter(value=>value&&value!==author&&value.length<=280);
       if(leaf.length)text=leaf.at(-1);
     }
-    if(!text && nameNode){
+    if(!text){
       const whole=(node.innerText||node.textContent||"").trim();
-      if(whole.startsWith(author)){
+      if(whole.startsWith(author))
         text=whole.slice(author.length).replace(/^\s*[:：]\s*/,"").trim();
-      }
     }
     if(!text||text===author||text.length>280)return null;
-    if(/^(joined|followed|sent a gift|liked the live|is now following|shared the live)\b/i.test(text))
+    if(/^(joined|followed|liked|shared|is now following)\b/i.test(text))return null;
+    const rowMarker=(String(node.className||"")+" "+
+      (node.getAttribute?.("data-e2e")||"")).toLowerCase();
+    const giftTagged=/gift/.test(rowMarker)||
+      Boolean(node.querySelector?.('[data-e2e*="gift"],[class*="GiftMessage"]'));
+    // Gift rows often split "sent <gift>" and "x N" into separate elements;
+    // use the scoped row text only for the known gift notification pattern.
+    const whole=(node.innerText||node.textContent||"").trim();
+    const afterAuthor=whole.startsWith(author)?whole.slice(author.length).trim():whole;
+    const giftMatch=/(?:^|\s)sent\s+(.+?)\s+[x×]\s*(\d{1,5})\s*$/i.exec(
+      giftTagged?afterAuthor:text
+    );
+    let kind="comment",gift_name="",gift_count=0;
+    if(giftMatch && (giftTagged || node.querySelector?.('img[alt*="gift"],img[class*="Gift"]'))){
+      gift_name=giftMatch[1].replace(/[\p{Extended_Pictographic}]/gu,"").trim().slice(0,48);
+      gift_count=Number(giftMatch[2]);
+      if(!gift_name||gift_count<1)return null;
+      kind="gift";
+      text=gift_name;
+    }else if(giftTagged || /^sent\s+.+\s+[x×]\s*\d+\s*$/i.test(text)){
+      // Do not pretend an unrecognized gift notification is a chat comment.
       return null;
+    }
     let id=node.getAttribute("data-id")||node.getAttribute("data-message-id")||"";
     if(!/^[a-zA-Z0-9_.:\-]{1,160}$/.test(id)){
       if(!fallback.has(node))fallback.set(node,idPrefix+(++seq));
       id=fallback.get(node);
     }
-    return {id,author,text};
+    return {id,author,text,kind,...meta,
+      ...(kind==="gift"?{gift_name,gift_count}:{})};
   }
   // Reloading/unpacking an extension invalidates the previous content
   // script's chrome.runtime, while its DOM observers and timers can survive

@@ -6,7 +6,7 @@ const vm=require("node:vm");
 
 const script=fs.readFileSync("extensions/tiktok-live-connector/content.js","utf8");
 const manifest=JSON.parse(fs.readFileSync("extensions/tiktok-live-connector/manifest.json","utf8"));
-assert.equal(manifest.version,"0.1.2");
+assert.equal(manifest.version,"0.2.0");
 function mount(makeRuntime,extensionId="abcdefghijklmnopabcdefghijklmnop"){
   let messageListener=null, heartbeat=null;
   let sends=0, observerDisconnected=0, intervalsCleared=0, timeoutsCleared=0;

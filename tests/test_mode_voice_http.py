@@ -96,6 +96,54 @@ class ModeVoiceHTTPTests(unittest.TestCase):
             self.assertEqual(voice.load_workspace_settings(path)["sender_names"],
                              {"discord":True})
 
+    def test_sender_speech_format_is_mode_local_and_migrates_old_files(self):
+        from voxweavetts.mode_voice_settings import DEFAULT_SPEECH_FORMAT
+        with tempfile.TemporaryDirectory() as tmp:
+            target=Path(tmp)/"formats.json"
+            old={"revision":2,"policy":"serial","modes":{},
+                 "sender_names":{"live":True}}
+            target.write_text(json.dumps(old),encoding="utf-8")
+            with patch("voxweavetts.server.load_workspace_settings",
+                       side_effect=lambda:voice.load_workspace_settings(target)),patch(
+                "voxweavetts.server.save_workspace_settings",
+                side_effect=lambda data:voice.save_workspace_settings(data,target)
+            ):
+                with urlopen(self.base+"/v1/settings/mode-voices") as response:
+                    doc=json.load(response)
+                self.assertEqual(doc["speech_formats"],{})
+                youtube={**DEFAULT_SPEECH_FORMAT,"separator":"กล่าวว่า"}
+                tiktok={**DEFAULT_SPEECH_FORMAT,"separator":"",
+                        "read_gifts":True,"read_levels":True,"read_ranks":True}
+                for revision,mode,fmt in ((2,"live",youtube),
+                                          (3,"tiktok_browser",tiktok)):
+                    status,doc=self.post({
+                        "expected_revision":revision,"mode":"__speech_format__",
+                        "settings":{"source_mode":mode,"format":fmt},
+                    })
+                    self.assertEqual(status,200)
+                self.assertEqual(doc["speech_formats"]["live"]["separator"],"กล่าวว่า")
+                self.assertTrue(doc["speech_formats"]["tiktok_browser"]["read_gifts"])
+                self.assertEqual(doc["sender_names"],{"live":True})
+                before=voice.load_workspace_settings(target)
+                for invalid in (
+                    {**tiktok,"read_gifts":"true"},
+                    {**tiktok,"separator":"a"*61},
+                    {**tiktok,"separator":"\n"},
+                    {**tiktok,"unknown":True},
+                ):
+                    status,_=self.post({
+                        "expected_revision":4,"mode":"__speech_format__",
+                        "settings":{"source_mode":"tiktok_browser","format":invalid},
+                    })
+                    self.assertEqual(status,400)
+                    self.assertEqual(voice.load_workspace_settings(target),before)
+                status,_=self.post({
+                    "expected_revision":4,"mode":"__speech_format__",
+                    "settings":{"source_mode":"unregistered","format":tiktok},
+                })
+                self.assertEqual(status,400)
+                self.assertEqual(voice.load_workspace_settings(target),before)
+
     def test_http_persists_policy_and_per_mode_without_crosswriting(self):
         with tempfile.TemporaryDirectory() as tmp:
             target=Path(tmp)/"voices.json"

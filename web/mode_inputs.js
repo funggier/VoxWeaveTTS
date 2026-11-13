@@ -37,17 +37,58 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
   );
   function feedback(message){get("Status").textContent=message;}
+  function readOptions(){
+    const pick=key=>{
+      const control=get("FeedFormat"+key);
+      return control?.type==="checkbox"?control.checked:undefined;
+    };
+    const separatorControl=get("FeedSeparator");
+    const giftSeparatorControl=get("FeedGiftSeparator");
+    const separator=separatorControl?.type==="text"?separatorControl.value:undefined;
+    const giftSeparator=giftSeparatorControl?.type==="text"
+      ?giftSeparatorControl.value:undefined;
+    return {
+      separator:typeof separator==="string"?separator.trim().slice(0,60):"พิมพ์ว่า",
+      gift_separator:typeof giftSeparator==="string"?giftSeparator.trim().slice(0,60):"ส่งของขวัญ",
+      read_comments:pick("read_comments")!==false,
+      read_gifts:pick("read_gifts")===true,
+      read_levels:pick("read_levels")===true,
+      read_ranks:pick("read_ranks")===true,
+      read_badges:pick("read_badges")===true,
+      read_gift_count:pick("read_gift_count")!==false,
+      read_name_emojis:(mode!=="tiktok"&&mode!=="tiktok_browser")
+        || pick("read_name_emojis")===true,
+    };
+  }
   function speechText(item,plainText){
-    if(!item || !get("FeedReadSender")?.checked)return plainText;
-    const author=typeof item.author==="string"
-      ? item.author.replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim().slice(0,80)
-      : "";
-    // Missing names should not synthesize a made-up sender.
-    return author ? author+" พิมพ์ว่า "+plainText : plainText;
+    if(!item)return plainText;
+    const opts=readOptions();
+    const clean=value=>typeof value==="string"
+      ?value.replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim()
+      :"";
+    let author=get("FeedReadSender")?.checked?clean(item.author).slice(0,80):"";
+    if(author&&!opts.read_name_emojis)
+      author=author.replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D]/gu," ")
+        .replace(/\s+/g," ").trim();
+    const metadata=[];
+    if(opts.read_levels&&clean(item.level))metadata.push("เลเวล "+clean(item.level));
+    if(opts.read_ranks&&clean(item.rank))metadata.push("อันดับ "+clean(item.rank));
+    if(opts.read_badges&&Array.isArray(item.badges))
+      metadata.push(...item.badges.slice(0,8).map(clean).filter(Boolean).map(b=>"ป้าย "+b));
+    const prefix=[author,...metadata].filter(Boolean).join(" ");
+    if(item.kind==="gift"){
+      const gift=clean(item.gift_name)||clean(plainText);
+      const count=Number(item.gift_count)||0;
+      const parts=[prefix,opts.gift_separator,gift];
+      if(opts.read_gift_count&&count>0)parts.push("จำนวน "+count);
+      return parts.filter(Boolean).join(" ");
+    }
+    const separator=prefix&&opts.separator?" "+opts.separator:"";
+    return prefix?prefix+separator+" "+plainText:plainText;
   }
   function pickMessage(item){
     if(!item || typeof item.text!=="string")return;
-    pickedMessage={author:item.author,text:item.text,message_id:item.message_id};
+    pickedMessage={...item};
     get("Text").value=item.text;
   }
   get("Text").addEventListener?.("input",()=>{pickedMessage=null;});
@@ -196,7 +237,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
   }
   function receiveIncoming(msg,autoRead){
-    if(!autoRead||autoPaused||!guard(mode)||typeof msg?.text!=="string")return "manual";
+    if(!autoRead||autoPaused||!guard(mode)||typeof msg?.text!=="string")
+      return "manual";
+    const opts=readOptions();
+    if((msg.kind==="gift"&&!opts.read_gifts)||
+       (msg.kind!=="gift"&&!opts.read_comments))
+      return "manual";
     if(incoming.length>=MAX_WAITING){
       // Never silently evict an earlier unread message. New overflow is
       // skipped, and the UI marks it as such instead of claiming it was read.

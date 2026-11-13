@@ -10,6 +10,26 @@ const VOICE_MODES=Object.freeze([
   ["discord","Discord"],["discord_client","Discord Client"],
 ]);
 const SENDER_MODES=["live","youtube_browser","tiktok","tiktok_browser","discord","discord_client"];
+const DEFAULT_FORMAT=Object.freeze({
+  separator:"พิมพ์ว่า",gift_separator:"ส่งของขวัญ",
+  read_comments:true,read_gifts:false,
+  read_levels:false,read_ranks:false,read_badges:false,read_gift_count:true,
+  read_name_emojis:false,
+});
+const FORMAT_BOOL_LABELS=[
+  ["read_comments","อ่านข้อความแชท"],
+  ["read_gifts","อ่านกิจกรรมส่งของขวัญ"],
+  ["read_levels","อ่านเลเวลผู้ส่ง"],
+  ["read_ranks","อ่านอันดับหรือยศ"],
+  ["read_badges","อ่านป้ายสมาชิก/เหรียญตรา"],
+  ["read_gift_count","อ่านจำนวนของขวัญ"],
+  ["read_name_emojis","อ่านอีโมจิในชื่อผู้ส่ง"],
+];
+function sourcePrefix(mode){
+  return mode==="discord_client"?"discordClient":
+    mode==="youtube_browser"?"youtubeBrowser":
+    mode==="tiktok_browser"?"tiktokBrowser":mode;
+}
 const TUNING=[
   ["speed","ความเร็วในการอ่าน",0.60,5.00,1,"×"],
   ["gain_db","ความดัง",-18,12,0,"dB"],
@@ -19,6 +39,7 @@ const TUNING=[
 ];
 function attach({document,engines,getDefault}){
   const controls=new Map();
+  const speechControls=new Map();
   let revision=0, serial=Promise.resolve(),presets=[];
   const create=(tag,label)=>{
     const node=document.createElement(tag);
@@ -257,6 +278,128 @@ function attach({document,engines,getDefault}){
       if(panel.open)loadPresets().catch(e=>{status.textContent=String(e.message||e);});
     });
   }
+  // One independent speech composition panel for every source. Controls
+  // are sampled at speech-queue time, so neither current audio nor chat
+  // history is rewritten. The plain text is persisted in portable settings.
+  for(const mode of SENDER_MODES){
+    const view=document.querySelector('[data-mode-view="'+mode+'"]');
+    if(!view)continue;
+    const prefix=sourcePrefix(mode);
+    const panel=create("details");
+    panel.className="source-format-settings";
+    panel.style.margin="12px 0";
+    panel.style.padding="12px";
+    panel.style.border="1px solid #40516d";
+    panel.style.borderRadius="10px";
+    panel.appendChild(create("summary","กำหนดการอ่านข้อความและข้อมูลพิเศษ"));
+    const help=create("p","เลือกประเภทข้อมูลและคำเชื่อมสำหรับโหมดนี้โดยเฉพาะ · ค่าใหม่ใช้กับข้อความที่สร้างเสียงครั้งถัดไป");
+    help.className="small";panel.appendChild(help);
+    const fields={};
+    const addPhrase=(field,label,description)=>{
+      const holder=create("div");
+      const caption=create("label",label);
+      const input=create("input");input.type="text";
+      input.id=prefix+"Feed"+(field==="separator"?"Separator":"GiftSeparator");
+      input.maxLength=60;input.value=DEFAULT_FORMAT[field];
+      const desc=create("small",description);desc.className="small";
+      holder.append(caption,input,desc);
+      panel.appendChild(holder);fields[field]=input;
+    };
+    addPhrase("separator","คำเชื่อมหลังชื่อผู้ส่งก่อนข้อความ เช่น พิมพ์ว่า",
+      "เว้นว่างเพื่อให้อ่านชื่อแล้วตามด้วยข้อความโดยไม่มีคำเชื่อม");
+    if(mode==="tiktok"||mode==="tiktok_browser"){
+      addPhrase("gift_separator","คำเชื่อมเมื่อได้รับของขวัญ เช่น ส่งของขวัญ",
+        "ใช้เฉพาะกิจกรรมของขวัญที่ตรวจพบจริง");
+      for(const [field,label] of FORMAT_BOOL_LABELS){
+        const holder=create("label");holder.style.display="flex";
+        holder.style.gap="8px";holder.style.alignItems="center";
+        const box=create("input");box.type="checkbox";
+        box.id=prefix+"FeedFormat"+field;
+        box.checked=DEFAULT_FORMAT[field];
+        holder.append(box,create("span",label));panel.appendChild(holder);
+        fields[field]=box;
+      }
+    }
+    const preview=create("p");
+    preview.className="small";preview.style.marginTop="8px";
+    const refreshPreview=()=>{
+      const options={...DEFAULT_FORMAT};
+      for(const [field,input] of Object.entries(fields))
+        options[field]=field==="separator"||field==="gift_separator"
+          ?String(input.value??"").trim():Boolean(input.checked);
+      const withName=document.getElementById?.(prefix+"FeedReadSender")?.checked;
+      const details=[];
+      if(options.read_levels)details.push("เลเวล 25");
+      if(options.read_ranks)details.push("อันดับ 3");
+      if(options.read_badges)details.push("ป้ายสมาชิก InvT");
+      const exampleName=withName?(options.read_name_emojis?"🥒ผู้ชมตัวอย่าง":"ผู้ชมตัวอย่าง"):"";
+      const front=[exampleName,...details].filter(Boolean).join(" ");
+      const comment=options.read_comments
+        ?[front,front?options.separator:"","สวัสดีครับ"].filter(Boolean).join(" ")
+        :"(ปิดการอ่านคอมเมนต์)";
+      const gift=options.read_gifts
+        ?[front,options.gift_separator,"Heart Me",
+           options.read_gift_count?"จำนวน 2":""].filter(Boolean).join(" ")
+        :"(ปิดการอ่านของขวัญ)";
+      preview.textContent="ตัวอย่างแชท: "+comment+
+        (mode==="tiktok"||mode==="tiktok_browser"
+          ?" · ตัวอย่างของขวัญ: "+gift:"");
+    };
+    for(const input of Object.values(fields)){
+      input.addEventListener("input",refreshPreview);
+      input.addEventListener("change",refreshPreview);
+    }
+    document.getElementById?.(prefix+"FeedReadSender")
+      ?.addEventListener("change",refreshPreview);
+    const button=create("button","บันทึกรูปแบบการอ่าน");
+    button.type="button";
+    const state=create("span","ค่าเริ่มต้น: อ่านเฉพาะคอมเมนต์");
+    state.className="small";state.style.marginLeft="8px";
+    panel.append(preview,button,state);
+    speechControls.set(mode,{fields,button,state,refreshPreview});
+    view.insertBefore(panel,view.firstChild);
+    refreshPreview();
+  }
+  function readSpeechFormat(mode){
+    const fields=speechControls.get(mode)?.fields;
+    const config={...DEFAULT_FORMAT};
+    if(!fields)return config;
+    for(const [key,input] of Object.entries(fields)){
+      config[key]=key==="separator"||key==="gift_separator"
+        ?String(input.value??"").trim():Boolean(input.checked);
+    }
+    return config;
+  }
+  async function saveSpeechFormat(mode){
+    const ui=speechControls.get(mode);
+    if(!ui)return;
+    const format=readSpeechFormat(mode);
+    if(format.separator.length>60||format.gift_separator.length>60||
+       /[\u0000-\u001f\u007f]/.test(format.separator+format.gift_separator)){
+      ui.state.textContent="คำเชื่อมไม่ถูกต้อง (สูงสุด 60 ตัวอักษร)";
+      return;
+    }
+    ui.button.disabled=true;ui.state.textContent="กำลังบันทึก...";
+    try{
+      await (serial=serial.catch(()=>{}).then(async()=>{
+        const response=await fetch("/v1/settings/mode-voices",{
+          method:"POST",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":"save-mode-voice"},
+          body:JSON.stringify({expected_revision:revision,mode:"__speech_format__",
+            settings:{source_mode:mode,format}}),
+        });
+        const data=await response.json();
+        if(!response.ok)throw Error(data.error||"ไม่สามารถบันทึกรูปแบบการอ่าน");
+        revision=data.revision;
+      }));
+      ui.state.textContent="บันทึกแล้ว · ใช้กับข้อความใหม่";
+    }catch(error){ui.state.textContent=String(error.message||error);}
+    finally{ui.button.disabled=false;}
+  }
+  for(const [mode,ui] of speechControls){
+    ui.button.addEventListener("click",()=>saveSpeechFormat(mode));
+  }
   refreshEngines();refreshPresetOptions();
   async function load(){
     const response=await fetch("/v1/settings/mode-voices",{cache:"no-store"});
@@ -267,9 +410,19 @@ function attach({document,engines,getDefault}){
     for(const [mode] of controls)
       set(mode,data.modes?.[mode]||getDefault());
     for(const mode of SENDER_MODES){
-      const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
+      const prefix=sourcePrefix(mode);
       const checkbox=document.getElementById?.(prefix+"FeedReadSender");
       if(checkbox)checkbox.checked=data.sender_names?.[mode]===true;
+      const ui=speechControls.get(mode);
+      if(ui){
+        const settings={...DEFAULT_FORMAT,...(data.speech_formats?.[mode]||{})};
+        for(const [field,input] of Object.entries(ui.fields)){
+          if(field==="separator"||field==="gift_separator")
+            input.value=settings[field];
+          else input.checked=Boolean(settings[field]);
+        }
+        ui.refreshPreview();
+      }
     }
     await loadPresets();
     return data;
@@ -293,7 +446,7 @@ function attach({document,engines,getDefault}){
     }));
   }
   for(const mode of SENDER_MODES){
-    const prefix=mode==="discord_client"?"discordClient":mode;
+    const prefix=sourcePrefix(mode);
     const checkbox=document.getElementById?.(prefix+"FeedReadSender");
     const status=document.getElementById?.(prefix+"FeedReadSenderStatus");
     checkbox?.addEventListener("change",async()=>{
@@ -320,7 +473,8 @@ function attach({document,engines,getDefault}){
       revision=data.revision;
     }));
   }
-  return {load,read,save,savePolicy,saveSenderName,loadPresets,refreshEngines,
+  return {load,read,save,savePolicy,saveSenderName,saveSpeechFormat,readSpeechFormat,
+          loadPresets,refreshEngines,
           settingsFor:mode=>read(mode),
           get modes(){return [...controls.keys()];}};
 }
