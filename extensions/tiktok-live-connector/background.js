@@ -2,6 +2,7 @@
 /* MV3 extension service worker: least-privilege bridge to the loopback app.
    Requires explicit action on a selected LIVE tab, and one-time pairing. */
 const SESSION_KEY="voxweave_tiktok_live_connection";
+const SCAN_KEY="voxweave_tiktok_live_last_scan";
 function liveUsername(raw){
   try{
     const u=new URL(raw);
@@ -25,7 +26,7 @@ async function getSession(){
 }
 async function stop(){
   const active=await getSession();
-  await chrome.storage.session.remove(SESSION_KEY);
+  await chrome.storage.session.remove([SESSION_KEY,SCAN_KEY]);
   if(!active)return;
   try{await chrome.tabs.sendMessage(active.tabId,{kind:"vw-stop"});}catch{}
   try{await post(active.port,"disconnect",{token:active.token});}catch{}
@@ -60,17 +61,32 @@ async function forward(data,sender){
      ||sender.id!==chrome.runtime.id
      ||liveUsername(sender.url)!==session.username)return {ok:false,error:"not authorized tab"};
   const rows=Array.isArray(data.items)?data.items:[];
-  if(rows.length>20 || !["ready","waiting_chat_dom","comments_off"].includes(data.phase))
+  const diagnostics=data.diagnostics;
+  if(!diagnostics || typeof diagnostics!=="object"
+     || typeof diagnostics.list_found!=="boolean"
+     || ["row_candidates","parsed_rows","fresh_rows","author_nodes"].some(key=>
+         !Number.isInteger(diagnostics[key])||diagnostics[key]<0||diagnostics[key]>10000)
+     || rows.length>20
+     || !["ready","waiting_chat_dom","comments_off"].includes(data.phase))
     return {ok:false,error:"invalid chat batch"};
   try{
     const result=await post(session.port,"messages",{
       url:sender.url,token:session.token,phase:data.phase,items:rows,
+      diagnostics,
     });
+    const active=await getSession();
+    if(active?.token===session.token){
+      // Counts only: never persist comments, usernames, or page HTML.
+      await chrome.storage.session.set({[SCAN_KEY]:{
+        tabId:session.tabId,phase:data.phase,diagnostics,
+        accepted:result.accepted||0,when:Date.now(),
+      }});
+    }
     return {ok:true,accepted:result.accepted||0};
   }catch(error){
     // A stale app token after restart may no longer be usable.
     if(/connection|expired|authorized|source|invalid/i.test(error.message)){
-      await chrome.storage.session.remove(SESSION_KEY);
+      await chrome.storage.session.remove([SESSION_KEY,SCAN_KEY]);
     }
     return {ok:false,error:"Local bridge unavailable; restart pairing in VoxWeaveTTS"};
   }
@@ -87,7 +103,9 @@ chrome.runtime.onMessage.addListener((msg,sender,reply)=>{
   }else if(fromPopup && msg.type==="vw-stop"){
     work=stop().then(()=>({ok:true}));
   }else if(fromPopup && msg.type==="vw-status"){
-    work=getSession().then(s=>({ok:true,connected:!!s}));
+    work=Promise.all([getSession(),chrome.storage.session.get(SCAN_KEY)])
+      .then(([s,result])=>({ok:true,connected:!!s,
+        scan:s && result[SCAN_KEY]?.tabId===s.tabId?result[SCAN_KEY]:null}));
   }else return false;
   Promise.resolve(work).then(reply,error=>reply({ok:false,error:String(error.message||error)}));
   return true;

@@ -9,7 +9,7 @@ async function main(){
   for(const suffix of ["Text","Submit","Play","Stop","Audio","Subtitle","Download",
                        "FeedSourceId","FeedBlocked","FeedMaxChars","FeedKeepRead",
                        "FeedAuto","FeedReadSender","FeedStart","FeedStop",
-                       "FeedStatus","FeedItems","FeedExport","FeedImport","FeedPairingCode","FeedCopyCode"])
+                       "FeedStatus","FeedItems","FeedExport","FeedImport","FeedPairingCode","FeedCopyCode","FeedDomDiagnostics"])
     assert.ok(html.includes('id="'+prefix+suffix+'"'),"missing browser field "+suffix);
   assert.match(html,/id="tiktokBrowserFeedStart">สร้างรหัสจับคู่<\/button>/);
   assert.match(html,/id="tiktokBrowserFeedProgress"/);
@@ -39,6 +39,7 @@ async function main(){
   let owner="a".repeat(32);
   const requests=[],received=[],picked=[];
   let currentPhase="waiting_extension_pair";
+  let chatRows=0;
   const sandbox={window:{},JSON,Number,document:{createElement},
     setInterval(fn,ms){assert.equal(ms,1200);return 1;},
     clearInterval(){},
@@ -53,6 +54,9 @@ async function main(){
           ? [{message_id:"a1",author:"Tester",text:"สวัสดีครับ"}] : [],
         status:{mode:"tiktok_browser",state:currentPhase==="ready"?"running":"connecting",
                 connection_phase:currentPhase,transport:"extension",
+                dom_diagnostics:{list_found:true,row_candidates:chatRows,
+                  parsed_rows:chatRows,fresh_rows:currentPhase==="ready"?chatRows:0,
+                  author_nodes:chatRows},
                 received:currentPhase==="ready"?1:0,discarded:0,pending:0,
                 info:"" ,
                 next_poll_seconds:2},
@@ -82,11 +86,14 @@ async function main(){
   assert.equal(received.length,0,"must not fabricate comments before Extension pairing");
   assert.equal(feed.connected,true,"should keep checking for changes");
   currentPhase="ready";
+  chatRows=1;
   await feed.poll();
   assert.equal(received[0].msg.text,"สวัสดีครับ");
   assert.equal(received[0].auto,true);
   assert.match(el(prefix+"FeedStatus").textContent,/เชื่อมต่อสำเร็จ/);
   assert.match(el(prefix+"FeedStatus").textContent,/รับ 1/);
+  assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แถวคอมเมนต์ 1/);
+  assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แยกข้อความได้ 1/);
   assert.ok(el(prefix+"FeedProgress").children.length>=3,"progress stages should render");
   assert.equal(el(prefix+"FeedItems").children.length,1);
   el(prefix+"FeedItems").children[0].children[2].events.click();

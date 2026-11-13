@@ -1,54 +1,121 @@
 "use strict";
-/* User-initiated, DOM-only TikTok LIVE comment reader.
-   No login, network interception, script injection into page world, or
-   attempt to alter the site's playback / access restrictions. */
+/* Explicitly user-activated, DOM-only TikTok LIVE comment reader.
+   Never reads login/cookies or bypasses TikTok security/access controls.
+   Diagnostics are counts only, not raw HTML or private account data. */
 (()=>{
   if(globalThis.__voxweaveTikTokReaderInstalled)return;
   globalThis.__voxweaveTikTokReaderInstalled=true;
   let running=false,observer=null,heartbeat=null,delay=null,started=false,seq=0;
   const known=new Set(), fallback=new WeakMap();
   const idPrefix="xt"+Date.now().toString(36)+"-";
-  function chatList(){
-    return document.querySelector(
+  const ROW_SELECTOR=[
+    '[data-e2e="chat-message"]','[data-e2e="live-chat-message"]',
+    '[data-e2e="room-chat-message"]',
+    '[data-e2e*="chat-message-item"]',
+    '[class*="DivChatMessage"]:not([class*="DivChatMessageList"])',
+    '[class*="ChatMessageItem"]',
+  ].join(",");
+  const NAME_SELECTOR=[
+    '[data-e2e="message-owner-name"]','[data-e2e="chat-message-name"]',
+    '[data-e2e*="nickname"]','[class*="SpanUserName"]',
+    '[class*="UserName"]','a[href^="/@"]',
+  ].join(",");
+  const TEXT_SELECTOR=[
+    '[data-e2e="message-text"]','[data-e2e="comment-content"]',
+    '[data-e2e="chat-message-text"]','[data-e2e*="chat-text"]',
+    '[class*="SpanChatMessageText"]','[class*="DivChatMessageText"]',
+    '[class*="SpanMessageText"]','[class*="CommentText"]',
+  ].join(",");
+  function findList(){
+    const known=document.querySelector(
       '[class*="DivChatMessageList"],[data-e2e="live-chat-message-list"]'
     ) || document.querySelector(
       '[data-e2e="live-chat-container"] [class*="overflow-y-scroll"]'
     );
+    return known || document.querySelector('[data-e2e="live-chat-container"]');
   }
-  function rows(list){
-    const candidates=[...list.querySelectorAll(
-      '[data-e2e="chat-message"],[data-e2e="live-chat-message"],'
-      +'[data-e2e="room-chat-message"],div[class*="DivChatMessage"]'
-    )].filter(n=>n!==list&&!/DivChatMessageList|DivChatMessageText/.test(String(n.className)));
-    return candidates.filter(n=>!candidates.some(p=>p!==n&&p.contains(n))).slice(-100);
+  function isSystemNotice(node){
+    const marker=(String(node.className||"")+" "+String(node.getAttribute?.("data-e2e")||"")).toLowerCase();
+    if(/gift|follow|join|member|system|notice|pinned|moderator/.test(marker))return true;
+    return Boolean(node.querySelector?.('[data-e2e*="gift"],[data-e2e*="follow"],'
+      +'[data-e2e*="join"],[class*="GiftMessage"],[class*="SystemMessage"]'));
+  }
+  function toRow(nameNode,list){
+    // In current LIVE layouts, the comment row may have only generic flex
+    // classnames. Start from a visible nickname and find its small wrapper.
+    const name=(nameNode.textContent||"").trim();
+    let parent=nameNode.parentElement;
+    for(let depth=0;parent&&depth<6&&parent!==list;parent=parent.parentElement,depth++){
+      const value=(parent.textContent||"").trim();
+      if(value.length>name.length+1&&value.length<=550
+         &&parent.querySelector?.(NAME_SELECTOR)
+         &&!isSystemNotice(parent))return parent;
+    }
+    return null;
+  }
+  function collectRows(list){
+    const direct=[...list.querySelectorAll(ROW_SELECTOR)].filter(n=>
+      !/DivChatMessageList|DivChatMessageText/.test(String(n.className))
+      &&!isSystemNotice(n)
+    );
+    const candidates=direct.filter(n=>
+      !direct.some(p=>p!==n&&p.contains(n))
+    );
+    const nameNodes=[...list.querySelectorAll(NAME_SELECTOR)];
+    const authorNodes=nameNodes.length;
+    if(!candidates.length){
+      const found=new Set();
+      for(const name of nameNodes){
+        const row=toRow(name,list);
+        if(row && !found.has(row)){found.add(row);candidates.push(row);}
+      }
+      // A wrapper may contain the entire scroller. Keep only small rows,
+      // and avoid repeating a parent and its child.
+      return {rows:candidates.filter(row=>!candidates.some(other=>
+        other!==row&&row.contains(other))),authorNodes,method:"author"};
+    }
+    return {rows:candidates,authorNodes,method:"structured"};
   }
   function parseRow(node){
-    if(node.querySelector('[data-e2e*="gift"],[data-e2e*="follow"],[data-e2e*="join"]'))return null;
-    const textNode=node.querySelector(
-      '[data-e2e="message-text"],[data-e2e="comment-content"],'
-      +'[data-e2e="chat-message-text"],[class*="SpanChatMessageText"],'
-      +'[class*="DivChatMessageText"],[class*="SpanMessageText"]'
-    );
-    if(!textNode)return null;
-    const text=(textNode.textContent||"").trim().slice(0,280);
-    if(!text)return null;
-    const name=node.querySelector(
-      '[data-e2e="message-owner-name"],[data-e2e="chat-message-name"],'
-      +'[class*="SpanUserName"],a[href^="/@"]'
-    );
+    if(isSystemNotice(node))return null;
+    const nameNode=node.querySelector(NAME_SELECTOR);
+    const author=(nameNode?.textContent||"").trim().slice(0,80);
+    if(!author)return null;
+    const textNode=node.querySelector(TEXT_SELECTOR);
+    let text=(textNode?.textContent||"").trim();
+    if(!text){
+      // Strict fallback: only use leaf text *outside* the username subtree
+      // from a comment row scoped to the LIVE chat list. Do not read metadata
+      // or unrelated labels from the page.
+      const leaf=[...node.querySelectorAll("span,p")]
+        .filter(n=>n!==nameNode && !nameNode?.contains(n)
+          && !(n.querySelector("span,p"))
+          && !(n.closest?.('[data-e2e*="gift"],[data-e2e*="follow"],'
+                              +'[data-e2e*="join"]')))
+        .map(n=>(n.textContent||"").trim())
+        .filter(value=>value&&value!==author&&value.length<=280);
+      if(leaf.length)text=leaf.at(-1);
+    }
+    if(!text && nameNode){
+      const whole=(node.innerText||node.textContent||"").trim();
+      if(whole.startsWith(author)){
+        text=whole.slice(author.length).replace(/^\s*[:：]\s*/,"").trim();
+      }
+    }
+    if(!text||text===author||text.length>280)return null;
+    if(/^(joined|followed|sent a gift|liked the live|is now following|shared the live)\b/i.test(text))
+      return null;
     let id=node.getAttribute("data-id")||node.getAttribute("data-message-id")||"";
     if(!/^[a-zA-Z0-9_.:\-]{1,160}$/.test(id)){
       if(!fallback.has(node))fallback.set(node,idPrefix+(++seq));
       id=fallback.get(node);
     }
-    return {id,author:(name?.textContent||"").trim().slice(0,80),text};
+    return {id,author,text};
   }
-  function send(phase,items){
+  function send(phase,items,diagnostics){
     if(!running)return;
-    chrome.runtime.sendMessage({kind:"vw-chat-batch",phase,items},result=>{
+    chrome.runtime.sendMessage({kind:"vw-chat-batch",phase,items,diagnostics},result=>{
       if(chrome.runtime.lastError || result?.ok===false){
-        // Do not retry the login, open new windows or make direct API calls.
-        // Stop only if the local bridge is no longer authorized.
         if(result?.error==="not authorized tab")stop();
       }
     });
@@ -59,24 +126,32 @@
       '[data-e2e="room-chat-input-field"][placeholder],'
       +'[contenteditable][placeholder],textarea[placeholder]'
     );
-    const off=/^comments\s+(off|disabled)$/i.test((input?.getAttribute("placeholder")||"").trim());
-    const list=chatList();
-    if(off){send("comments_off",[]);return;}
-    if(!list){send("waiting_chat_dom",[]);return;}
+    const off=/^comments\s+(off|disabled)$/i.test(
+      (input?.getAttribute("placeholder")||"").trim());
+    const list=findList();
+    const diagnostics={list_found:!!list,row_candidates:0,parsed_rows:0,
+      fresh_rows:0,author_nodes:0};
+    if(off){send("comments_off",[],diagnostics);return;}
+    if(!list){send("waiting_chat_dom",[],diagnostics);return;}
+    const collected=collectRows(list);
+    diagnostics.row_candidates=Math.min(collected.rows.length,10000);
+    diagnostics.author_nodes=Math.min(collected.authorNodes,10000);
     const items=[];
-    for(const node of rows(list)){
+    for(const node of collected.rows.slice(-150)){
       const item=parseRow(node);
-      if(!item||known.has(item.id))continue;
+      if(!item)continue;
+      diagnostics.parsed_rows++;
+      if(known.has(item.id))continue;
       known.add(item.id);
       if(started && items.length<20)items.push(item);
     }
+    diagnostics.fresh_rows=items.length;
     started=true;
     if(known.size>3500){
-      // Preserve a bounded last-seen map when the LIVE lasts for hours.
       const recent=[...known].slice(-1700);
       known.clear();recent.forEach(id=>known.add(id));
     }
-    send("ready",items);
+    send("ready",items,diagnostics);
   }
   function schedule(){
     if(!running||delay!==null)return;
@@ -86,7 +161,8 @@
     if(running)return;
     running=true;started=false;known.clear();
     observer=new MutationObserver(schedule);
-    observer.observe(document.documentElement,{childList:true,subtree:true,attributes:false});
+    observer.observe(document.documentElement,{childList:true,subtree:true,
+      characterData:true,attributes:false});
     heartbeat=setInterval(scan,3500);
     scan();
   }

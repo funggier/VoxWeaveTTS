@@ -1,6 +1,15 @@
 "use strict";
 const $=id=>document.getElementById(id);
 const render=msg=>$("status").textContent=msg;
+function diagnosis(scan){
+  if(!scan?.diagnostics)return "กำลังรอการตรวจ DOM จากแท็บ TikTok";
+  const d=scan.diagnostics;
+  return "DOM กล่องแชท: "+(d.list_found?"พบ":"ไม่พบ")
+    +" | แถว: "+d.row_candidates
+    +" | แยกคอมเมนต์: "+d.parsed_rows
+    +" | ข้อความใหม่ล่าสุด: "+d.fresh_rows
+    +" | Backend รับรอบล่าสุด: "+(scan.accepted||0);
+}
 function send(data){
   return new Promise((resolve,reject)=>{
     chrome.runtime.sendMessage(data,result=>{
@@ -14,7 +23,8 @@ function send(data){
 async function refresh(){
   try{
     const result=await send({type:"vw-status"});
-    render(result.connected?"กำลังส่งข้อความจากแท็บ TikTok LIVE ไปยัง VoxWeaveTTS":"ยังไม่เชื่อมต่อ");
+    render(result.connected?"เชื่อมต่อ VoxWeaveTTS แล้ว\n"+diagnosis(result.scan)
+      :"ยังไม่เชื่อมต่อ");
   }catch(error){render("ตรวจสถานะไม่ได้: "+error.message);}
 }
 $("connect").addEventListener("click",async()=>{
@@ -35,3 +45,4 @@ $("stop").addEventListener("click",async()=>{
   catch(error){render("หยุดไม่สำเร็จ: "+error.message);}
 });
 refresh();
+setInterval(refresh,3500);

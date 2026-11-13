@@ -27,7 +27,7 @@ async function testWorker(){
     storage:{session:{
       async get(key){return {[key]:sessions.get(key)};},
       async set(object){for(const [k,v] of Object.entries(object))sessions.set(k,v);},
-      async remove(key){sessions.delete(key);}
+      async remove(key){(Array.isArray(key)?key:[key]).forEach(k=>sessions.delete(k));}
     }},
     tabs:{
       async query(){return [tab];},
@@ -79,11 +79,19 @@ async function testWorker(){
   });
   assert.equal(denied.ok,false);
   const sample=[{id:"m1",author:"Viewer",text:"สวัสดีครับ"}];
-  const forwarded=await command({kind:"vw-chat-batch",phase:"ready",items:sample},sourceTab);
+  const diagnostics={list_found:true,row_candidates:1,parsed_rows:1,
+    fresh_rows:1,author_nodes:1};
+  const forwarded=await command({kind:"vw-chat-batch",phase:"ready",
+    items:sample,diagnostics},sourceTab);
   assert.equal(forwarded.ok,true);
   assert.equal(forwarded.accepted,1);
   assert.equal(requests.at(-1).data.items[0].text,"สวัสดีครับ");
   assert.equal(requests.at(-1).data.url,sourceTab.url);
+  assert.equal(requests.at(-1).data.diagnostics.parsed_rows,1);
+  const report=await command({type:"vw-status"},popup);
+  assert.equal(report.scan.diagnostics.parsed_rows,1);
+  assert.equal(report.scan.accepted,1);
+  assert.equal(report.scan.phase,"ready");
   const stopped=await command({type:"vw-stop"},popup);
   assert.equal(stopped.ok,true);
   assert.equal((await command({type:"vw-status"},popup)).connected,false);
@@ -146,8 +154,80 @@ function testContent(){
   interval();
   assert.equal(sends.at(-1).items.length,0);
 }
+
+function testGenericLiveChatRows(){
+  // Modern TikTok can use generic flex wrappers without data-e2e chat-message.
+  let listener,heartbeat;
+  let current=[{id:"old",author:"Guest A",text:"ข้อความก่อนเชื่อมต่อ"}];
+  const sent=[];
+  const names=()=>{
+    return current.map(data=>{
+      const name={
+        textContent:data.author,parentElement:null,
+        querySelector(){return null;},contains(other){return other===this;},
+      };
+      const message={
+        textContent:data.text,querySelector(){return null;},
+        closest(){return null;},
+      };
+      const row={
+        className:"flex gap-2",
+        textContent:data.author+" "+data.text,
+        getAttribute(key){return key==="data-id"?data.id:null;},
+        contains(other){return other===this;},
+        querySelector(selector){
+          if(selector.includes("gift")||selector.includes("follow"))return null;
+          if(selector.includes("SpanUserName")||selector.includes("message-owner-name"))
+            return name;
+          return null;
+        },
+        querySelectorAll(selector){
+          return selector==="span,p"?[name,message]:[];
+        },
+      };
+      name.parentElement=row;
+      return {name,row};
+    });
+  };
+  const chat={
+    querySelectorAll(selector){
+      return selector.includes("SpanUserName")?names().map(x=>x.name):[];
+    }
+  };
+  const chrome={runtime:{
+    onMessage:{addListener(fn){listener=fn;}},
+    sendMessage(data,cb){sent.push(data);cb?.({ok:true});},
+  }};
+  const document={
+    documentElement:{},
+    querySelector(selector){
+      if(selector.includes("room-chat-input-field"))return null;
+      if(selector.includes("DivChatMessageList"))return chat;
+      return null;
+    }
+  };
+  const box={chrome,document,Date,WeakMap,Set,Number,MutationObserver:class{
+    observe(){}disconnect(){}
+  },setInterval(fn){heartbeat=fn;return 1;},clearInterval(){},
+  setTimeout(){return 1;},clearTimeout(){}};
+  box.globalThis=box;
+  vm.createContext(box);
+  vm.runInContext(fs.readFileSync(extPath+"content.js","utf8"),box);
+  listener({kind:"vw-start"});
+  assert.equal(sent[0].diagnostics.row_candidates,1);
+  assert.equal(sent[0].diagnostics.parsed_rows,1);
+  assert.equal(sent[0].items.length,0,"do not replay comments already visible");
+  current.push({id:"new",author:"Guest B",text:"สวัสดีจากแชทใหม่"});
+  heartbeat();
+  assert.equal(sent.at(-1).items.length,1);
+  assert.equal(sent.at(-1).items[0].author,"Guest B");
+  assert.equal(sent.at(-1).items[0].text,"สวัสดีจากแชทใหม่");
+  assert.equal(sent.at(-1).diagnostics.fresh_rows,1);
+  listener({kind:"vw-stop"});
+}
 (async()=>{
   await testWorker();
   testContent();
+  testGenericLiveChatRows();
   console.log("PASS: MV3 extension explicit activation, pairing, sender isolation, comments-only DOM, stop");
 })().catch(error=>{console.error(error);process.exitCode=1;});

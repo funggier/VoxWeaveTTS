@@ -555,6 +555,21 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         const retry=status.state==="retrying"
           ? " · ลองใหม่ใน "+Math.round(status.next_poll_seconds||0)+" วินาที":"";
         browserStage(browserPhase,statistics+note+retry);
+        if(extensionMode){
+          const diag=status.dom_diagnostics;
+          let desc="DOM: รอส่วนเสริมส่งผลตรวจหน้า LIVE";
+          if(diag && typeof diag==="object"){
+            desc="DOM: กล่องแชท "+(diag.list_found?"พบ":"ไม่พบ")
+              +" · แถวคอมเมนต์ "+(diag.row_candidates||0)
+              +" · แยกข้อความได้ "+(diag.parsed_rows||0)
+              +" · ข้อความใหม่รอบล่าสุด "+(diag.fresh_rows||0)
+              +" · จุดชื่อผู้ส่ง "+(diag.author_nodes||0);
+            if(!diag.list_found)desc+=" · หน้า TikTok อาจเปลี่ยนโครงสร้าง หรือยังโหลดแชทไม่เสร็จ";
+            else if(diag.row_candidates===0)desc+=" · พบกล่องแชท แต่ยังไม่พบแถวข้อความ";
+            else if(diag.parsed_rows===0)desc+=" · พบแถวข้อความ แต่ตัวอ่านยังแยกชื่อผู้ส่ง/เนื้อหาไม่ได้";
+          }
+          get("FeedDomDiagnostics").textContent=desc;
+        }
       }else{
       const phase=status.failed_phase && status.state==="error"
         ? " · ผิดพลาดที่ "+(RPC_PHASE_NAMES[status.failed_phase]||"ขั้นตอน Discord RPC")
@@ -623,6 +638,17 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     });
   });
   get("FeedStop").addEventListener("click",()=>stop().catch(()=>{}));
+  if(extensionMode)get("FeedCopyDiagnostics").addEventListener("click",async()=>{
+    const text="TikTok LIVE (Extension)\n"+
+      get("FeedStatus").textContent+"\n"+
+      get("FeedDomDiagnostics").textContent;
+    try{
+      await navigator.clipboard.writeText(text);
+      message("คัดลอกสถานะการตรวจจับแล้ว · ส่งข้อความที่คัดลอกมาเพื่อวิเคราะห์ได้");
+    }catch{
+      message("คัดลอกอัตโนมัติไม่ได้ · เลือกข้อความสถานะบนหน้าจอแล้วกด Ctrl+C");
+    }
+  });
   if(extensionMode)get("FeedCopyCode").addEventListener("click",async()=>{
     const value=get("FeedPairingCode").value;
     if(!value){message("โปรดสร้างรหัสจับคู่ก่อน");return;}

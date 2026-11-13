@@ -21,6 +21,8 @@ EXTENSION_ID = re.compile(r"^[a-p]{32}$")
 MESSAGE_ID = re.compile(r"^[A-Za-z0-9_.:\-]{1,160}$")
 PAIR_WINDOW = 300.0
 HEARTBEAT_WINDOW = 15.0
+DIAGNOSTIC_FIELDS = frozenset(("list_found", "row_candidates", "parsed_rows",
+                              "fresh_rows", "author_nodes"))
 
 
 def extension_id_from_origin(value: str | None) -> str | None:
@@ -46,6 +48,7 @@ class TikTokExtensionAdapter:
         self._extension_id: str | None = None
         self._last_seen = 0.0
         self._pending: deque[SourceMessage] = deque(maxlen=150)
+        self.diagnostics: dict[str, object] | None = None
         self._lock = threading.RLock()
         self._closed = False
 
@@ -64,6 +67,7 @@ class TikTokExtensionAdapter:
             self._closed = True
             self.phase = "stopped"
             self._pending.clear()
+            self.diagnostics = None
             self._secret = None
             self._pairing_code = None
             self._extension_id = None
@@ -91,11 +95,20 @@ class TikTokExtensionAdapter:
             return self._secret
 
     def receive(self, *, extension_id: str, token: object, url: object,
-                phase: object, items: object) -> int:
+                phase: object, items: object,
+                diagnostics: object = None) -> int:
         if not isinstance(token, str) or not isinstance(url, str):
             raise ExtensionBridgeError("invalid extension connection")
         if not isinstance(items, list) or len(items) > 20:
             raise ExtensionBridgeError("extension batch must contain at most 20 comments")
+        if diagnostics is not None:
+            if (not isinstance(diagnostics, dict)
+                or set(diagnostics) != DIAGNOSTIC_FIELDS
+                or type(diagnostics["list_found"]) is not bool
+                or any(type(diagnostics[key]) is not int
+                       or not 0 <= diagnostics[key] <= 10000
+                       for key in DIAGNOSTIC_FIELDS - {"list_found"})):
+                raise ExtensionBridgeError("invalid DOM diagnostic counts")
         if phase not in ("ready", "waiting_chat_dom", "comments_off"):
             raise ExtensionBridgeError("unsupported extension chat state")
         try:
@@ -124,6 +137,7 @@ class TikTokExtensionAdapter:
             self._last_seen = time.monotonic()
             self.phase = phase
             self.dom_ready = phase == "ready"
+            self.diagnostics = dict(diagnostics) if diagnostics is not None else None
             self._pending.extend(batch)
             return len(batch)
 
@@ -134,6 +148,7 @@ class TikTokExtensionAdapter:
             if self._secret and time.monotonic() - self._last_seen > HEARTBEAT_WINDOW:
                 self.dom_ready = False
                 self.phase = "extension_disconnected"
+                self.diagnostics = None
             batch = tuple(self._pending)
             self._pending.clear()
             return PollResult(batch, 1.0)
@@ -147,4 +162,5 @@ class TikTokExtensionAdapter:
                 self._extension_id = None
                 self.dom_ready = False
                 self.phase = "extension_disconnected"
+                self.diagnostics = None
                 self._pending.clear()

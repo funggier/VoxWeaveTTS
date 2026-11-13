@@ -65,6 +65,10 @@ class _Session:
             **({"transport": self.adapter.transport}
                if self.mode in ("live", "youtube_browser", "tiktok_browser") and getattr(self.adapter, "transport", None)
                in ("streamList", "polling", "browser-dom", "extension") else {}),
+            **({"dom_diagnostics": self.adapter.diagnostics}
+               if self.mode == "tiktok_browser"
+               and isinstance(getattr(self.adapter, "diagnostics", None), dict)
+               else {}),
             **({"connection_phase": self.adapter.phase}
                if self.mode in ("discord_client", "youtube_browser", "tiktok_browser")
                and isinstance(getattr(self.adapter, "phase", None), str)
@@ -192,7 +196,7 @@ class SourceManager:
             accepted = session.adapter.receive(
                 extension_id=extension_id, token=data.get("token"),
                 url=data.get("url"), phase=data.get("phase"),
-                items=data.get("items"),
+                items=data.get("items"), diagnostics=data.get("diagnostics"),
             )
             return {"accepted": accepted}
 

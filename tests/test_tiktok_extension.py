@@ -94,6 +94,30 @@ class AdapterTests(unittest.TestCase):
             a.receive(extension_id=EXT_ID,token=token,url=LIVE_URL,phase="ready",items=[])
         a.close()
 
+    def test_dom_diagnostics_are_bounded_counts_not_raw_chat(self):
+        a = TikTokExtensionAdapter(USERNAME)
+        token = a.pair(a.pairing_code, EXT_ID, LIVE_URL)
+        diagnostic = {"list_found": True, "row_candidates": 2,
+                      "parsed_rows": 0, "fresh_rows": 0, "author_nodes": 0}
+        try:
+            count = a.receive(extension_id=EXT_ID, token=token, url=LIVE_URL,
+                              phase="ready", items=[], diagnostics=diagnostic)
+            self.assertEqual(count, 0)
+            self.assertEqual(a.diagnostics, diagnostic)
+            for invalid in (
+                {"list_found": "yes", "row_candidates": 2, "parsed_rows": 0,
+                 "fresh_rows": 0, "author_nodes": 0},
+                {**diagnostic, "parsed_rows": "private text"},
+                {**diagnostic, "raw_html": "<div>private comment</div>"},
+                {**diagnostic, "row_candidates": 999999},
+                {"list_found": True},
+            ):
+                with self.subTest(invalid=invalid), self.assertRaises(ExtensionBridgeError):
+                    a.receive(extension_id=EXT_ID, token=token, url=LIVE_URL,
+                              phase="ready", items=[], diagnostics=invalid)
+        finally:
+            a.close()
+
     def test_payload_bounds(self):
         a = TikTokExtensionAdapter(USERNAME)
         token = a.pair(a.pairing_code, EXT_ID, LIVE_URL)
@@ -195,8 +219,13 @@ class HTTPBridgeTests(unittest.TestCase):
         status,_,r=self.send("/v1/extension/messages",{
             "token":token,"url":LIVE_URL,"phase":"ready",
             "items":[{"id":"id1","author":"Viewer","text":"ทดสอบคอมเมนต์จาก Chrome"}],
+            "diagnostics":{"list_found":True,"row_candidates":1,"parsed_rows":1,
+                            "fresh_rows":1,"author_nodes":1},
         },origin=EXT_ORIGIN,intent="tiktok-extension")
         self.assertEqual((status,r["accepted"]),(200,1))
+        health = self.server.source_manager.status("tiktok_browser")
+        self.assertEqual(health["dom_diagnostics"]["parsed_rows"], 1)
+        self.assertNotIn("ทดสอบคอมเมนต์จาก Chrome",str(health["dom_diagnostics"]))
         deadline=time.monotonic()+2
         while time.monotonic()<deadline:
             if self.server.source_manager.status("tiktok_browser")["received"]>=1: break
