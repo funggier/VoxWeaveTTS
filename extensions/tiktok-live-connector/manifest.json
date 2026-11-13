@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "VoxWeaveTTS — TikTok LIVE Extension",
+  "description": "Opt-in local bridge from a selected TikTok LIVE tab to VoxWeaveTTS. Requires platform permission.",
+  "version": "0.1.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Connect selected TikTok LIVE tab to VoxWeaveTTS",
+    "default_popup": "popup.html"
+  }
+}

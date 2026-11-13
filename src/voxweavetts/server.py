@@ -37,6 +37,7 @@ from .playback_state import PlaybackState, PlaybackConflict, StreamFull
 from .playback_hub import PlaybackHub
 from .mode_state import ModeState, ModeConflict, MODES
 from .source_manager import SourceManager
+from .tiktok_extension import extension_id_from_origin, ExtensionBridgeError
 from .profile_export import (save_source_profile_dialog, SaveDialogBusy,
                              SaveDialogUnavailable)
 from .model_packages import (
@@ -250,6 +251,37 @@ class Handler(BaseHTTPRequestHandler):
         self._headers(status, "application/json; charset=utf-8", len(payload))
         self.wfile.write(payload)
 
+    def _extension_origin_id(self) -> str | None:
+        origin = self.headers.get("Origin", "")
+        host = self.headers.get("Host", "").lower()
+        if host != f"127.0.0.1:{self.server.server_port}":
+            return None
+        return extension_id_from_origin(origin)
+
+    def _send_extension_json(self, code: int, body: Any) -> None:
+        origin = self.headers.get("Origin", "")
+        data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        self._headers(code, "application/json; charset=utf-8", len(data), {
+            "Access-Control-Allow-Origin": origin, "Vary": "Origin",
+        })
+        self.wfile.write(data)
+
+    def do_OPTIONS(self) -> None:
+        route = urlsplit(self.path).path
+        if (route not in ("/v1/extension/pair", "/v1/extension/messages",
+                          "/v1/extension/disconnect")
+            or not self._extension_origin_id()
+            or self.headers.get("Access-Control-Request-Method") != "POST"):
+            self._headers(403, "application/json", 0)
+            return
+        self._headers(204, "text/plain", 0, {
+            "Access-Control-Allow-Origin": self.headers["Origin"],
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "content-type, x-voxweavetts-intent",
+            "Access-Control-Max-Age": "600",
+            "Vary": "Origin",
+        })
+
     def reject_unread_post(self, status: int, body: Any) -> None:
         """Finish a small local request before returning an early HTTP error.
 
@@ -424,8 +456,10 @@ class Handler(BaseHTTPRequestHandler):
                         "youtube_live_polling": True,
                         "youtube_browser_dom_preview": True,
                         "youtube_browser_live_verified": False,
-                        "tiktok_browser_dom_preview": True,
+                        "tiktok_browser_dom_preview": False,
                         "tiktok_browser_live_verified": False,
+                        "tiktok_extension_bridge_preview": True,
+                        "tiktok_extension_live_verified": False,
                         "tiktok_tikfinity_local_websocket": True,
                         "tiktok_live_account_verified": False,
                         "discord_bot_rest_polling": True,
@@ -567,6 +601,28 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         route = urlsplit(self.path).path
+        if route in ("/v1/extension/pair", "/v1/extension/messages",
+                     "/v1/extension/disconnect"):
+            extension_id = self._extension_origin_id()
+            if not extension_id or self.headers.get("X-VoxWeaveTTS-Intent") != "tiktok-extension":
+                self.reject_unread_post(403, {"error": "extension origin/intent required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "extension JSON required"})
+                return
+            try:
+                data = self._read_json(max_bytes=32_768)
+                manager = self._source_manager()
+                if route.endswith("/pair"):
+                    result = manager.extension_pair(data, extension_id, self._mode_state())
+                elif route.endswith("/messages"):
+                    result = manager.extension_push(data, extension_id, self._mode_state())
+                else:
+                    result = manager.extension_disconnect(data, extension_id)
+                self._send_extension_json(200, result)
+            except (InputError, UnicodeDecodeError, ValueError, KeyError):
+                self._send_extension_json(403, {"error": "invalid or expired extension request"})
+            return
         if route in ("/v1/model-packages/install-local", "/v1/model-packages/remove"):
             host = self.headers.get("Host", "").lower().strip()
             origin = self.headers.get("Origin", "").lower().strip()

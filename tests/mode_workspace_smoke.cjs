@@ -77,7 +77,7 @@ vm.runInContext(source,sandbox);
 async function test(){
   assert.match(html,/data-mode-target="live"[^>]*>YouTube LIVE \(API\)/);
   assert.match(html,/data-mode-target="youtube_browser"[^>]*>YouTube LIVE \(Browser\)/);
-  assert.match(html,/data-mode-target="tiktok_browser"[^>]*>TikTok LIVE \(Browser\)/);
+  assert.match(html,/data-mode-target="tiktok_browser"[^>]*>TikTok LIVE \(Extension\)/);
   assert.match(html,/<h2>YouTube LIVE \(API\)<\/h2>/);
   assert.match(html,/<h2>YouTube LIVE \(Browser\)<\/h2>/);
   const modes=sandbox.window.VoxWorkspaceModes.MODES;

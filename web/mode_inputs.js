@@ -107,7 +107,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       const sender=autoPlay ? activeIncoming
         : (pickedMessage?.text===text ? pickedMessage : null);
       body.text=speechText(sender,text);
-      body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":mode==="tiktok_browser"?"tiktok-live-browser":"discord";
+      body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":mode==="tiktok_browser"?"tiktok-live-extension":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
         method:"POST",

@@ -1,4 +1,4 @@
-// Browser tab: source profile is credential-free and feeds existing voice queue.
+// TikTok Extension tab: local pairing and existing TTS queue without TikFinity.
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const vm=require("node:vm");
@@ -9,9 +9,9 @@ async function main(){
   for(const suffix of ["Text","Submit","Play","Stop","Audio","Subtitle","Download",
                        "FeedSourceId","FeedBlocked","FeedMaxChars","FeedKeepRead",
                        "FeedAuto","FeedReadSender","FeedStart","FeedStop",
-                       "FeedStatus","FeedItems","FeedExport","FeedImport"])
+                       "FeedStatus","FeedItems","FeedExport","FeedImport","FeedPairingCode","FeedCopyCode"])
     assert.ok(html.includes('id="'+prefix+suffix+'"'),"missing browser field "+suffix);
-  assert.match(html,/id="tiktokBrowserFeedStart">เชื่อมต่อ<\/button>/);
+  assert.match(html,/id="tiktokBrowserFeedStart">สร้างรหัสจับคู่<\/button>/);
   assert.match(html,/id="tiktokBrowserFeedProgress"/);
   assert.match(html,/for\(const mode of \["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"\]\)\{\s*const inputMode=/);
   assert.ok(!html.includes('id="'+prefix+'FeedCredential"'),
@@ -38,7 +38,7 @@ async function main(){
   el(prefix+"FeedAuto").checked=true;
   let owner="a".repeat(32);
   const requests=[],received=[],picked=[];
-  let currentPhase="comments_off_login_prompt";
+  let currentPhase="waiting_extension_pair";
   const sandbox={window:{},JSON,Number,document:{createElement},
     setInterval(fn,ms){assert.equal(ms,1200);return 1;},
     clearInterval(){},
@@ -46,15 +46,15 @@ async function main(){
       const payload=JSON.parse(options.body);
       requests.push({path,payload});
       if(path.endsWith("/start"))return{ok:true,async json(){return{
-        mode:"tiktok_browser",state:"connecting",pending:0,
+        mode:"tiktok_browser",state:"connecting",pending:0,pairing_code:"PAIRCODE12345678901234567890",
       };}};
       if(path.endsWith("/drain"))return{ok:true,async json(){return{
         messages:currentPhase==="ready"
           ? [{message_id:"a1",author:"Tester",text:"สวัสดีครับ"}] : [],
-        status:{mode:"tiktok_browser",state:currentPhase==="login_rate_limited"?"error":currentPhase==="ready"?"running":"connecting",
-                connection_phase:currentPhase,transport:"browser-dom",
+        status:{mode:"tiktok_browser",state:currentPhase==="ready"?"running":"connecting",
+                connection_phase:currentPhase,transport:"extension",
                 received:currentPhase==="ready"?1:0,discarded:0,pending:0,
-                info:currentPhase==="login_rate_limited"?"TikTok login attempts are temporarily limited; stop retrying":"" ,
+                info:"" ,
                 next_poll_seconds:2},
       };}};
       if(path.endsWith("/stop"))return{ok:true,async json(){return{state:"stopped"};}};
@@ -77,10 +77,9 @@ async function main(){
   assert.equal(requests[0].payload.source_id,el(prefix+"FeedSourceId").value);
   assert.equal(requests[0].payload.mode,"tiktok_browser");
   assert.equal(requests[0].payload.credential,"");
-  assert.match(el(prefix+"FeedStatus").textContent,/Comments off/);
-  assert.match(el(prefix+"FeedStatus").textContent,/Log in/);
-  assert.match(el(prefix+"FeedStatus").textContent,/อย่าลองเข้าสู่ระบบซ้ำ/);
-  assert.equal(received.length,0,"must not fabricate comments when TikTok disables chat");
+  assert.match(el(prefix+"FeedStatus").textContent,/รอกรอกรหัสจับคู่/);
+  assert.equal(el(prefix+"FeedPairingCode").value,"PAIRCODE12345678901234567890");
+  assert.equal(received.length,0,"must not fabricate comments before Extension pairing");
   assert.equal(feed.connected,true,"should keep checking for changes");
   currentPhase="ready";
   await feed.poll();
@@ -92,13 +91,12 @@ async function main(){
   assert.equal(el(prefix+"FeedItems").children.length,1);
   el(prefix+"FeedItems").children[0].children[2].events.click();
   assert.equal(picked[0].message_id,"a1");
-  currentPhase="login_rate_limited";
+  currentPhase="extension_disconnected";
   await feed.poll();
-  assert.equal(feed.connected,false,"platform login throttle must stop monitoring");
-  assert.match(el(prefix+"FeedStatus").textContent,/temporarily limited/);
-  assert.equal(received.length,1);
+  assert.match(el(prefix+"FeedStatus").textContent,/ขาดการเชื่อมต่อ/);
   await feed.stop();
+  assert.equal(el(prefix+"FeedPairingCode").value,"");
   assert.equal(feed.connected,false);
-  console.log("PASS: TikTok Browser UI shows Comments off then resumes reading when available");
+  console.log("PASS: TikTok Extension UI pairing code, wait, message delivery and stop");
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

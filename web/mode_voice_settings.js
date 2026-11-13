@@ -6,7 +6,7 @@
 const VOICE_MODES=Object.freeze([
   ["studio","สร้างเสียง"],["reader","อ่านเอกสาร"],["queue","คิวและ Subtitle"],
   ["live","YouTube LIVE (API)"],["youtube_browser","YouTube LIVE (Browser)"],["tiktok","TikTok LIVE (TikFinity)"],
-  ["tiktok_browser","TikTok LIVE (Browser)"],
+  ["tiktok_browser","TikTok LIVE (Extension)"],
   ["discord","Discord"],["discord_client","Discord Client"],
 ]);
 const SENDER_MODES=["live","youtube_browser","tiktok","tiktok_browser","discord","discord_client"];

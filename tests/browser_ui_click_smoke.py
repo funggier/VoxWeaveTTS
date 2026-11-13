@@ -1,4 +1,4 @@
-"""End-to-end local UI smoke for YouTube and TikTok Browser connect buttons.
+"""End-to-end local UI smoke for YouTube Browser and TikTok Extension pairing.
 
 Requires a development server (VOXWEAVE_TEST_BASE_URL, default port 8765) and installed
 Chrome/Edge. Uses an isolated headless profile and an invalid video ID; never
@@ -102,7 +102,7 @@ def main():
                 time.sleep(.2)
             else:
                 raise AssertionError("backend validation feedback not displayed: "+str(status))
-            # The new TikTok Browser mode must use the same real UI click path,
+            # TikTok Extension reuses the old internal mode ID but never opens a browser.
             # and invalid URL validation must not launch a TikTok live page.
             evaluate("document.querySelector('[data-mode-target=tiktok_browser]').click()")
             until = time.monotonic() + 6
@@ -111,7 +111,7 @@ def main():
                     break
                 time.sleep(.2)
             else:
-                raise AssertionError("TikTok Browser ownership was not acquired")
+                raise AssertionError("TikTok Extension mode ownership was not acquired")
             evaluate("document.getElementById('tiktokBrowserFeedSourceId').value=''; document.getElementById('tiktokBrowserFeedStart').click();")
             until = time.monotonic() + 4
             while time.monotonic() < until:
@@ -132,7 +132,28 @@ def main():
                 time.sleep(.2)
             else:
                 raise AssertionError("TikTok backend validation feedback not displayed: "+str(status))
-            print("PASS: actual YouTube/TikTok Browser UI clicks, progress timelines and backend validation")
+            # Successful pairing produces a code without launching TikTok.
+            evaluate("document.getElementById('tiktokBrowserFeedSourceId').value='@demo_stream'; document.getElementById('tiktokBrowserFeedStart').click();")
+            until = time.monotonic() + 5
+            pair = ""
+            while time.monotonic() < until:
+                pair = evaluate("document.getElementById('tiktokBrowserFeedPairingCode').value")
+                if isinstance(pair, str) and len(pair) >= 24:
+                    break
+                time.sleep(.15)
+            else:
+                raise AssertionError("TikTok Extension did not show a pairing code")
+            mode = evaluate("document.querySelector('[data-mode-target=tiktok_browser]').textContent")
+            assert "Extension" in mode, mode
+            evaluate("document.getElementById('tiktokBrowserFeedStop').click()")
+            until = time.monotonic() + 4
+            while time.monotonic() < until:
+                if evaluate("document.getElementById('tiktokBrowserFeedPairingCode').value") == "":
+                    break
+                time.sleep(.15)
+            else:
+                raise AssertionError("TikTok Extension pairing code was not cleared on stop")
+            print("PASS: real YouTube Browser/TikTok Extension UI, pairing and validation")
         finally:
             if ws:
                 ws.close()

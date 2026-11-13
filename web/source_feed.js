@@ -53,6 +53,20 @@ function validateSettingsProfile(value,mode){
     throw Error("ไฟล์ตั้งค่ามีช่องข้อมูลของแหล่งอื่น");
   return value;
 }
+const EXTENSION_PHASE_NAMES=Object.freeze({
+  checking_input:"ขั้นตอน 1/4 · ตรวจสอบชื่อ TikTok LIVE และตัวกรอง",
+  claiming_owner:"ขั้นตอน 2/4 · เตรียมสิทธิ์ของโหมดรับข้อความ",
+  starting_worker:"ขั้นตอน 2/4 · สร้างรหัสจับคู่สำหรับส่วนเสริม",
+  waiting_extension_pair:"ขั้นตอน 3/4 · รอกรอกรหัสจับคู่ในส่วนเสริม Chrome (ใช้ได้ 5 นาที)",
+  waiting_chat_dom:"ขั้นตอน 4/4 · ส่วนเสริมเชื่อมต่อแล้ว · รอข้อความใหม่ในแท็บ TikTok LIVE",
+  ready:"เชื่อมต่อสำเร็จ · รับคอมเมนต์จาก TikTok Extension ได้แล้ว",
+  comments_off:"ส่วนเสริมพบ Comments off ในแท็บ TikTok ที่เลือก · ตรวจสอบว่าเปิด LIVE ที่แสดงคอมเมนต์ได้",
+  extension_disconnected:"ส่วนเสริมขาดการเชื่อมต่อ · กดสร้างรหัสจับคู่ใหม่ใน VoxWeaveTTS แล้วเชื่อมส่วนเสริมอีกครั้ง",
+  retrying:"ช่องทางส่วนเสริมขัดข้อง · ตรวจการเชื่อมต่อกับโปรแกรมในเครื่อง",
+  error:"เชื่อมต่อไม่สำเร็จ",
+  ended:"หยุดรับข้อความจาก TikTok Extension แล้ว",
+  stopped:"หยุดรับข้อความจาก TikTok Extension แล้ว",
+});
 const STATE_LABELS={
   queued:"รออ่าน",preparing:"กำลังสร้างเสียง",reading:"กำลังอ่าน",read:"อ่านแล้ว",
   skipped:"ข้ามการอ่าน",manual:"เลือกอ่านเอง",
@@ -99,6 +113,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
   const seen=new Set();
   let visible=[], overflow=0;
   const browserMode=mode==="youtube_browser"||mode==="tiktok_browser";
+  const extensionMode=mode==="tiktok_browser";
   const platform=mode==="tiktok_browser"?"TikTok":"YouTube";
   let browserStageName="",browserStageLog=[];
   function message(text){get("FeedStatus").textContent=String(text);}
@@ -109,12 +124,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
   }
   function browserStage(phase,extra=""){
     if(!browserMode)return;
-    const desc=mode==="tiktok_browser"&&phase==="checking_input"
-      ? "ขั้นตอน 1/5 · ตรวจสอบ TikTok Username หรือ URL และตัวกรอง"
-      : mode==="tiktok_browser"&&phase==="starting_browser"
-        ? "ขั้นตอน 3/5 · เปิดหน้า TikTok LIVE และพยายามซ่อน/พักวิดีโอ"
-        : (BROWSER_PHASE_NAMES[phase]||"กำลังตรวจสอบการเชื่อมต่อ Browser")
-            .replaceAll("YouTube",platform);
+    const desc=extensionMode
+      ? (EXTENSION_PHASE_NAMES[phase]||"กำลังตรวจสอบการเชื่อมต่อ TikTok Extension")
+      : (BROWSER_PHASE_NAMES[phase]||"กำลังตรวจสอบการเชื่อมต่อ Browser")
+          .replaceAll("YouTube",platform);
     if(browserStageName!==phase){
       browserStageName=phase;
       const item=document.createElement("li");
@@ -429,6 +442,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
   }
   async function start(){
     if(browserMode){
+      if(extensionMode)get("FeedPairingCode").value="";
       clearBrowserProgress();
       browserStage("checking_input");
     }
@@ -475,8 +489,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       else if(!browserMode)get("FeedCredential").value=""; // clear DOM secret as soon as accepted
       if(ticket!==generation||!guard(mode))return;
       connected=true;
+      if(extensionMode){
+        get("FeedPairingCode").value=result.pairing_code||"";
+      }
       get("FeedStop").disabled=false;
-      if(browserMode)browserStage(result.connection_phase||"preparing");
+      if(browserMode)browserStage(result.connection_phase
+        ||(extensionMode?"waiting_extension_pair":"preparing"));
       else message("เริ่มกระบวนการเชื่อมต่อแล้ว · รอตรวจสอบสิทธิ์และสมัครรับข้อความจากผู้ให้บริการ");
       timer=setInterval(()=>poll().catch(error=>message(String(error.message||error))),1200);
       await poll();
@@ -525,6 +543,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
           " · รออ่าน "+(status.pending||0);
         const note=["error","retrying"].includes(status.state)
           ? " · สาเหตุ: "+(status.info||"ไม่สามารถเชื่อมต่อ Browser")
+          : extensionMode && browserPhase==="waiting_extension_pair"
+            ? " · คัดลอกรหัสด้านบนไปยังส่วนเสริม Chrome ที่แท็บ TikTok LIVE ที่เปิดเอง"
+          : extensionMode && browserPhase==="comments_off"
+            ? " · ตัวอ่านจะไม่สร้างข้อความเองและจะตรวจซ้ำเมื่อคอมเมนต์กลับมา"
           : ["comments_off","comments_off_login_prompt","login_prompt"].includes(browserPhase)
             ? " · Chrome ที่โปรแกรมควบคุมอาจได้รับการตอบสนองต่างจาก Chrome ปกติ · โปรแกรมจะตรวจซ้ำเมื่อสถานะเปลี่ยน"
           : browserPhase==="waiting_chat_dom"
@@ -583,6 +605,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     try { await api("stop",authorization); }
     catch(error){message("หยุดรับใน Browser แล้ว ("+String(error.message||error)+")");}
     if(browserMode)browserStage("stopped");
+    if(extensionMode)get("FeedPairingCode").value="";
   }
   get("FeedExport").addEventListener("click",()=>exportSettings());
   get("FeedImport").addEventListener("click",()=>get("FeedImportFile").click());
@@ -600,6 +623,18 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     });
   });
   get("FeedStop").addEventListener("click",()=>stop().catch(()=>{}));
+  if(extensionMode)get("FeedCopyCode").addEventListener("click",async()=>{
+    const value=get("FeedPairingCode").value;
+    if(!value){message("โปรดสร้างรหัสจับคู่ก่อน");return;}
+    try{
+      await navigator.clipboard.writeText(value);
+      message("คัดลอกรหัสจับคู่แล้ว · วางในส่วนเสริมที่แท็บ TikTok LIVE");
+    }catch{
+      get("FeedPairingCode").focus();
+      get("FeedPairingCode").select();
+      message("เลือกข้อความรหัสจับคู่ให้แล้ว · กด Ctrl+C เพื่อคัดลอก");
+    }
+  });
   get("FeedStop").disabled=true;
   get("FeedKeepRead").addEventListener("input",()=>{
     prune();render();

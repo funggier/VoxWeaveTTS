@@ -17,7 +17,7 @@ from .mode_state import ModeConflict, ModeState
 from .processing import InputError
 from .discord_client_rpc import DiscordClientRPCAdapter
 from .youtube_browser import YouTubeBrowserAdapter
-from .tiktok_browser import TikTokBrowserAdapter
+from .tiktok_extension import TikTokExtensionAdapter, ExtensionBridgeError
 from .source_adapters import (
     DiscordChannelAdapter, PollResult, SourceFailure, SourceMessage,
     YouTubeLiveAdapter,
@@ -64,7 +64,7 @@ class _Session:
             "temporary_credentials": True,
             **({"transport": self.adapter.transport}
                if self.mode in ("live", "youtube_browser", "tiktok_browser") and getattr(self.adapter, "transport", None)
-               in ("streamList", "polling", "browser-dom") else {}),
+               in ("streamList", "polling", "browser-dom", "extension") else {}),
             **({"connection_phase": self.adapter.phase}
                if self.mode in ("discord_client", "youtube_browser", "tiktok_browser")
                and isinstance(getattr(self.adapter, "phase", None), str)
@@ -82,7 +82,7 @@ class SourceManager:
                  discord_factory: Callable[..., Any] = DiscordChannelAdapter,
                  client_factory: Callable[..., Any] = DiscordClientRPCAdapter,
                  browser_factory: Callable[..., Any] = YouTubeBrowserAdapter,
-                 tiktok_browser_factory: Callable[..., Any] = TikTokBrowserAdapter):
+                 tiktok_browser_factory: Callable[..., Any] = TikTokExtensionAdapter):
         self._lock = threading.RLock()
         self._sessions: dict[str, _Session] = {}
         self._youtube_factory = youtube_factory
@@ -165,7 +165,45 @@ class SourceManager:
             )
             session.thread = thread
             thread.start()
-            return session.public()
+            output = session.public()
+            if mode == "tiktok_browser":
+                output["pairing_code"] = getattr(adapter, "pairing_code", "")
+            return output
+
+    def extension_pair(self, data: dict[str, Any], extension_id: str,
+                       mode_state: ModeState) -> dict[str, Any]:
+        """Pair only with a live, user-activated TikTok Extension source."""
+        with self._lock:
+            session = self._sessions.get("tiktok_browser")
+            if (session is None or session.cancelled.is_set()
+                or not mode_state.is_owner(session.mode, session.owner_token)):
+                raise ExtensionBridgeError("TikTok Extension is not waiting for pairing")
+            token = session.adapter.pair(data.get("code"), extension_id,
+                                         data.get("url"))
+            return {"token": token, "source": session.adapter.username}
+
+    def extension_push(self, data: dict[str, Any], extension_id: str,
+                       mode_state: ModeState) -> dict[str, Any]:
+        with self._lock:
+            session = self._sessions.get("tiktok_browser")
+            if (session is None or session.cancelled.is_set()
+                or not mode_state.is_owner(session.mode, session.owner_token)):
+                raise ExtensionBridgeError("TikTok Extension source is not active")
+            accepted = session.adapter.receive(
+                extension_id=extension_id, token=data.get("token"),
+                url=data.get("url"), phase=data.get("phase"),
+                items=data.get("items"),
+            )
+            return {"accepted": accepted}
+
+    def extension_disconnect(self, data: dict[str, Any],
+                             extension_id: str) -> dict[str, Any]:
+        with self._lock:
+            session = self._sessions.get("tiktok_browser")
+            if session is not None and not session.cancelled.is_set():
+                session.adapter.disconnect(extension_id=extension_id,
+                                           token=data.get("token"))
+            return {"ok": True}
 
     def _cancel_unlocked(self, mode: str | None = None) -> None:
         targets = (list(self._sessions) if mode is None else [mode])
@@ -241,12 +279,20 @@ class SourceManager:
                                      else "running")
                     session.info = ("Discord Desktop RPC subscribed to selected room"
                                     if session.mode == "discord_client"
-                                    else ("Browser DOM connected"
+                                    else ("Browser connection active"
                                           if session.mode in ("youtube_browser", "tiktok_browser")
                                           else ("YouTube streamList connected"
                                                 if session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList"
                                                 else "official API connected")))
-                    if session.mode in ("youtube_browser", "tiktok_browser") and session.state == "connecting":
+                    if session.mode == "tiktok_browser" and session.state == "connecting":
+                        phase = getattr(session.adapter, "phase", "")
+                        session.info = {
+                            "waiting_extension_pair": "Waiting for the user-installed TikTok Extension pairing code",
+                            "waiting_chat_dom": "Extension paired; waiting for visible TikTok LIVE comments",
+                            "comments_off": "TikTok tab displays Comments off; this does not prove LIVE moderation is disabled",
+                            "extension_disconnected": "Extension connection stopped or heartbeat expired",
+                        }.get(phase, "Waiting for TikTok Extension status")
+                    elif session.mode == "youtube_browser" and session.state == "connecting":
                         phase = getattr(session.adapter, "phase", "")
                         session.info = (
                             "TikTok Browser shows Comments off and Log in; the same LIVE may "

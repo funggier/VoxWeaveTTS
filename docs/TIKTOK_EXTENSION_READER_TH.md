@@ -1,0 +1,60 @@
+# TikTok LIVE (Extension) — รับคอมเมนต์จากแท็บ Chrome ที่ผู้ใช้เลือก
+
+**สถานะ:** Development Preview ใน Source Project; ยังไม่รวมใน Windows Portable Release v0.4.4 และยังไม่ยืนยันกับ TikTok LIVE จริง
+
+โหมดนี้มาแทน **TikTok LIVE (Browser)** ที่เคยเปิด Chrome ผ่าน CDP แล้วแสดง `Comments off` ขณะที่ Chrome Incognito ปกติเห็นคอมเมนต์ มีวัตถุประสงค์เพื่อลองรับข้อความจาก Chrome ที่ผู้ใช้เปิดเอง โดย **ไม่สั่งเปิด Browser ใหม่, ไม่สั่งล็อกอิน, ไม่ใช้ CDP และไม่พยายามหลบระบบป้องกัน TikTok**
+
+## หลักการทำงาน
+
+ผู้ใช้เลือกแท็บ TikTok LIVE ใน Chrome → กดไอคอนส่วนเสริมที่ติดตั้งเอง → ส่วนเสริมขอสิทธิ์เฉพาะแท็บนั้นผ่าน `activeTab` + `scripting` → อ่านเฉพาะ DOM ของคอมเมนต์ใหม่ → ส่งข้อความให้ extension service worker → POST ด้วย token ชั่วคราวไป `http://127.0.0.1:8765/v1/extension/messages` → SourceManager → Filters → TTS Queue → OBS Subtitle
+
+ส่วนเสริมไม่ส่งข้อมูลไปเซิร์ฟเวอร์อื่น ไม่ดึง TikTok API ภายใน ไม่ดัก Network/WebSocket ไม่อ่านรหัสผ่านหรือคุกกี้ ไม่ใช้ `debugger` ไม่ทำการกดไลก์หรือส่งแชท และไม่อ่านข้อความเก่าที่มีอยู่ก่อนเริ่มเชื่อมต่อ รายการ Gift, Follow และ Join จะถูกกรองออกเมื่อแยกได้จาก DOM
+
+**ข้อจำกัด:** TikTok ไม่อนุญาตการดึงข้อมูลจากแพลตฟอร์มด้วยซอฟต์แวร์อัตโนมัติหากไม่ได้รับอนุญาตตามข้อกำหนดที่เกี่ยวข้อง [Terms of Service](https://t.tiktok.com/legal/page/us/terms-of-service/en) ควรใช้เฉพาะเมื่อมีสิทธิ์ที่เหมาะสมและปฏิบัติตามข้อกำหนด ส่วนเสริมนี้ไม่ใช่เครื่องมือที่ TikTok อนุมัติ ไม่สามารถรับรองว่าจะรับคอมเมนต์ได้กับทุก LIVE และไม่ควรใช้เพื่อหลบข้อจำกัดบัญชี/เข้าสู่ระบบ
+
+## การติดตั้งส่วนเสริมแบบ Unpacked (ยังไม่เผยแพร่ Chrome Web Store)
+
+1. เปิด **Google Chrome** ปกติ แล้วเข้า `chrome://extensions`
+2. เปิด **Developer mode** (โหมดนักพัฒนาซอฟต์แวร์)
+3. กด **Load unpacked** และเลือกโฟลเดอร์นี้ทั้งโฟลเดอร์:
+   `T:\Space\Projects\ProjectsProgram\VoxWeaveTTS\extensions\tiktok-live-connector`
+4. หากต้องการเปิด LIVE ใน **Chrome Incognito** ให้เข้า **Details** ของส่วนเสริมและเปิด **Allow in Incognito** ด้วยตนเองก่อน (ไม่ได้เปิดโดยอัตโนมัติ) ระมัดระวังสิทธิ์ส่วนเสริมในโหมดไม่ระบุตัวตน
+5. เปิดแท็บ LIVE ที่คุณมีสิทธิ์เข้าถึงในรูปแบบ `https://www.tiktok.com/@username/live` และตรวจว่า Chrome ปกติแสดงข้อความคอมเมนต์ได้
+
+## การเชื่อมต่อกับ VoxWeaveTTS
+
+1. ปิดแล้วเปิด Source Project ด้วย `Start-Dev.cmd` ใหม่ และรีเฟรชหน้า Web UI
+2. เข้า Tab **TikTok LIVE (Extension)** (โหมดภายในยังชื่อ `tiktok_browser` เพื่อคงการตั้งค่าเดิม)
+3. กรอก Username/URL ของ LIVE ให้ตรงกับแท็บ Chrome ตั้ง Filter และ Voice ได้ตามปกติ
+4. กด **สร้างรหัสจับคู่** โปรแกรมจะสร้างรหัสแบบใช้ครั้งเดียว มีอายุ 5 นาที
+5. กด **คัดลอกรหัส** แล้วกลับไปที่แท็บ LIVE ใน Chrome กดไอคอน **VoxWeaveTTS — TikTok LIVE Extension**
+6. กรอก Port (ปกติ `8765`) และวางรหัส แล้วกด **เชื่อมต่อแท็บนี้**
+7. ตรวจสถานะในหน้า VoxWeaveTTS: รอจับคู่ → Extension เชื่อมต่อ → รอ DOM Chat → พร้อมรับข้อความใหม่
+8. หยุดได้จากปุ่ม **หยุดรับข้อความ** ใน VoxWeaveTTS หรือ **หยุดรับข้อความ** ในส่วนเสริม
+
+สลับแท็บหน้า VoxWeaveTTS ได้โดยไม่หยุด TTS ของโหมดอื่น หากปิดแท็บ TikTok, ปิด Chrome, เปลี่ยนห้อง LIVE, หรือ Browser ปิด Service Worker แล้วตัวเชื่อมต่อขาด ให้กด **สร้างรหัสจับคู่ใหม่** เพื่อเริ่ม session ใหม่
+
+## การป้องกันข้อมูลในเครื่อง
+
+- HTTP Server รับคำขอจากส่วนเสริมเฉพาะ Origin `chrome-extension://<extension_id>` ที่ตรงรูปแบบมาตรฐาน และ Host `127.0.0.1:<port>` เท่านั้น ไม่มี CORS สำหรับเว็บไซต์ทั่วไป
+- ต้องใช้ **รหัสจับคู่ครั้งเดียว** ที่สร้างจาก Source Session ซึ่งผู้ใช้กดเริ่มเอง แล้วส่งกลับ **Session Token** แบบสุ่ม (เก็บใน `chrome.storage.session` ของส่วนเสริม ไม่บันทึกถาวร)
+- Bind Token กับ Extension ID และ Username/URL ของไลฟ์เดิม ตรวจสอบทุกชุดข้อความ; จำกัดขนาด batch 20, ความยาวข้อความ 280 ตัวอักษร และคิวที่รับเข้า
+- หน้า TikTok ไม่ได้รับ Token ตัวเชื่อม, รหัสจับคู่ หรือสิทธิ์เข้าถึง API ของ VoxWeaveTTS โดยตรง
+- ส่งข้อความผ่าน `textContent` และรายการคิว TTS เดิม; ข้อความจากหน้า LIVE เป็นข้อมูลที่ไม่เชื่อถือ
+- โหมด TikFinity เดิมและ YouTube/Discord เดิมไม่ได้รับผลกระทบ
+
+## ถ้าเชื่อมต่อไม่ได้
+
+- **ไม่เห็นรหัสจับคู่:** รีสตาร์ต Backend และรีเฟรชหน้า Web UI, กดสร้างรหัสอีกครั้ง
+- **Pairing rejected:** รหัสหมดอายุหรือถูกใช้แล้ว, เลือก LIVE คนละช่อง, เปลี่ยนโหมด หรือพอร์ตผิด ให้เริ่มการจับคู่ใหม่
+- **Extension ยังไม่พบ DOM Chat:** ตรวจสอบว่า LIVE ยังดำเนินอยู่ และมีรายการคอมเมนต์ในแท็บนั้น TikTok อาจปรับ DOM จน Selector ไม่ตรง
+- **Comments off:** เป็นสถานะในแท็บนี้เท่านั้น ไม่พิสูจน์ว่าเจ้าของไลฟ์ปิดการแชท
+- **Maximum number of attempts reached:** หยุดลองล็อกอินซ้ำและอย่าพยายามหลบระบบจำกัดของ TikTok
+- **ไม่มีส่วนเสริมใน Incognito:** เปิด Allow in Incognito ให้ส่วนเสริมด้วยตัวเอง
+- **ส่วนเสริมหลุดหลังเปลี่ยน LIVE/ปิดแท็บ:** กดสร้างรหัสจับคู่ใหม่ แล้วเชื่อมต่อบนแท็บที่ต้องการ
+
+## การทดสอบที่มี
+
+- Python Unit Tests: token, expiry, user-selected matching LIVE, tab source, extension Origin/CORS, invalid payload, pairing single-use, source queue
+- JavaScript Smoke: MV3 manifest, popup → service worker, explicit injection of selected tab, content script skips existing messages, sends new comments, stop
+- **ยังไม่ได้ทดสอบ End-to-End กับคอมเมนต์จริงที่ได้รับอนุญาตจาก TikTok** จึงยังไม่รับรองการใช้งานจริง
