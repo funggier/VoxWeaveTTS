@@ -1,6 +1,6 @@
-"""End-to-end local UI smoke for YouTube Browser connect button.
+"""End-to-end local UI smoke for YouTube and TikTok Browser connect buttons.
 
-Requires the development server at http://127.0.0.1:8765/ and installed
+Requires a development server (VOXWEAVE_TEST_BASE_URL, default port 8765) and installed
 Chrome/Edge. Uses an isolated headless profile and an invalid video ID; never
 navigates to a real YouTube live stream.
 """
@@ -18,10 +18,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from voxweavetts.youtube_browser import _CDPWebSocket, find_chromium
 
 ROOT = Path(__file__).resolve().parents[1]
+BASE_URL = os.environ.get("VOXWEAVE_TEST_BASE_URL", "http://127.0.0.1:8765").rstrip("/")
 
 
 def main():
-    with urlopen("http://127.0.0.1:8765/v1/status", timeout=3) as response:
+    with urlopen(BASE_URL + "/v1/status", timeout=3) as response:
         assert response.status == 200, response.status
     with tempfile.TemporaryDirectory(prefix="vw-browser-ui-", dir=ROOT / "cache",
                                      ignore_cleanup_errors=True) as dirname:
@@ -32,7 +33,7 @@ def main():
              "--no-first-run", "--no-default-browser-check",
              "--remote-debugging-address=127.0.0.1",
              "--remote-debugging-port=0", f"--user-data-dir={profile}",
-             "http://127.0.0.1:8765/"],
+             BASE_URL + "/"],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -49,7 +50,7 @@ def main():
             with urlopen(f"http://127.0.0.1:{port}/json/list", timeout=3) as r:
                 targets = json.load(r)
             target = next(t for t in targets if t.get("type") == "page" and
-                          t.get("url", "").startswith("http://127.0.0.1:8765"))
+                          t.get("url", "").startswith(BASE_URL))
             ws = _CDPWebSocket(target["webSocketDebuggerUrl"])
             seq = 0
             def evaluate(expr):
@@ -85,7 +86,7 @@ def main():
             until = time.monotonic() + 4
             while time.monotonic() < until:
                 status = evaluate("document.getElementById('youtubeBrowserFeedStatus').textContent")
-                if "กรุณาใส่ URL" in status:
+                if "YouTube Video ID" in status:
                     break
                 time.sleep(.15)
             else:
@@ -101,7 +102,37 @@ def main():
                 time.sleep(.2)
             else:
                 raise AssertionError("backend validation feedback not displayed: "+str(status))
-            print("PASS: actual browser click -> UI status timeline -> backend validation error")
+            # The new TikTok Browser mode must use the same real UI click path,
+            # and invalid URL validation must not launch a TikTok live page.
+            evaluate("document.querySelector('[data-mode-target=tiktok_browser]').click()")
+            until = time.monotonic() + 6
+            while time.monotonic() < until:
+                if evaluate("modeRuntime?.guard('tiktok_browser')===true"):
+                    break
+                time.sleep(.2)
+            else:
+                raise AssertionError("TikTok Browser ownership was not acquired")
+            evaluate("document.getElementById('tiktokBrowserFeedSourceId').value=''; document.getElementById('tiktokBrowserFeedStart').click();")
+            until = time.monotonic() + 4
+            while time.monotonic() < until:
+                status = evaluate("document.getElementById('tiktokBrowserFeedStatus').textContent")
+                if "TikTok Username" in status:
+                    break
+                time.sleep(.15)
+            else:
+                raise AssertionError("TikTok button did not display missing username: "+str(status))
+            progress = evaluate("document.getElementById('tiktokBrowserFeedProgress').children.length")
+            assert progress >= 2, ("TikTok progress timeline missing", progress)
+            evaluate("document.getElementById('tiktokBrowserFeedSourceId').value='https://wrong.example.com/@user/live'; document.getElementById('tiktokBrowserFeedStart').click();")
+            until = time.monotonic() + 6
+            while time.monotonic() < until:
+                status = evaluate("document.getElementById('tiktokBrowserFeedStatus').textContent")
+                if "เชื่อมต่อไม่สำเร็จ" in status and "tiktok" in status.lower():
+                    break
+                time.sleep(.2)
+            else:
+                raise AssertionError("TikTok backend validation feedback not displayed: "+str(status))
+            print("PASS: actual YouTube/TikTok Browser UI clicks, progress timelines and backend validation")
         finally:
             if ws:
                 ws.close()

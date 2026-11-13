@@ -167,6 +167,18 @@ async function main(){
   assert.equal(discord.autoPaused,true);
   assert.equal(get("discordFeedAuto").checked,true,
     "Stop pauses source speech but preserves automatic reader preference");
-  console.log("PASS: independent Live/Discord/TikTok drafts, shared global TTS, mode-local voice switching for next queued sentence");
+  // TikTok Browser is an independent voice/source, not an alias of TikFinity.
+  current="tiktok_browser";
+  voiceByMode.tiktok_browser="tiktok-browser-voice";
+  const browser=attach("tiktok_browser");
+  get("tiktokBrowserFeedAuto").checked=true;
+  assert.equal(browser.receiveIncoming({message_id:"dom1",text:"ข้อความจาก TikTok Browser"},true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).source,"tiktok-live-browser");
+  assert.equal(payloads.at(-1).source_message_id,"tiktok_browser-dom1");
+  assert.equal(payloads.at(-1).engine_id,"tiktok-browser-voice");
+  assert.equal(payloads.at(-1).text,"ข้อความจาก TikTok Browser");
+  browser.suspend();
+  console.log("PASS: independent Live/Discord/TikTok/TikTok Browser queues, separate TTS voices and sources");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

@@ -424,6 +424,8 @@ class Handler(BaseHTTPRequestHandler):
                         "youtube_live_polling": True,
                         "youtube_browser_dom_preview": True,
                         "youtube_browser_live_verified": False,
+                        "tiktok_browser_dom_preview": True,
+                        "tiktok_browser_live_verified": False,
                         "tiktok_tikfinity_local_websocket": True,
                         "tiktok_live_account_verified": False,
                         "discord_bot_rest_polling": True,

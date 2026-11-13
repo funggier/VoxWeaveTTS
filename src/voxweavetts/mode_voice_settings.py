@@ -18,7 +18,7 @@ from .voice_controls import validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_PATH = ROOT / "data" / "settings" / "mode-voices.json"
-VOICE_MODES = frozenset(("studio", "reader", "queue", "live", "youtube_browser", "tiktok",
+VOICE_MODES = frozenset(("studio", "reader", "queue", "live", "youtube_browser", "tiktok", "tiktok_browser",
                          "discord", "discord_client"))
 AUDIO_POLICIES = frozenset(("serial", "overlap"))
 SENDER_MODES = frozenset(("live", "youtube_browser", "tiktok", "discord", "discord_client"))

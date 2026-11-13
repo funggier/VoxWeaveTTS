@@ -13,7 +13,7 @@ async function main(){
     assert.ok(html.includes('id="'+prefix+suffix+'"'),"missing browser field "+suffix);
   assert.match(html,/id="youtubeBrowserFeedStart">เชื่อมต่อ<\/button>/);
   assert.match(html,/id="youtubeBrowserFeedProgress"/);
-  assert.match(html,/for\(const mode of \["live","youtube_browser","discord","discord_client","tiktok"\]\)\{\s*const inputMode=/);
+  assert.match(html,/for\(const mode of \["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"\]\)\{\s*const inputMode=/);
   assert.ok(!html.includes('id="'+prefix+'FeedCredential"'),
             "Browser must not request an API key");
   const records=new Map();

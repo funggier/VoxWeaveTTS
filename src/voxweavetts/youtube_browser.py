@@ -85,7 +85,7 @@ def find_chromium() -> str:
         ):
             if folder and (Path(folder) / executable).is_file():
                 return str(Path(folder) / executable)
-    raise SourceFailure("Chrome or Edge is required for YouTube Browser mode", fatal=True)
+    raise SourceFailure("Chrome or Edge is required for Browser DOM mode", fatal=True)
 
 
 class _CDPWebSocket:
@@ -184,9 +184,27 @@ class YouTubeBrowserAdapter:
     """Optional explicit-connect DOM reader; never pulls existing chat history."""
 
     transport = "browser-dom"
+    chat_script = CHAT_SCRIPT
+    profile_name = "youtube-chat"
+    page_label = "YouTube"
+
+    @staticmethod
+    def parse_source(source: str) -> str:
+        return video_id_from_input(source)
+
+    @staticmethod
+    def build_chat_url(identifier: str) -> str:
+        return f"https://www.youtube.com/live_chat?is_popout=1&v={identifier}"
+
+    def target_matches(self, target: dict) -> bool:
+        u = urlsplit(target.get("url", ""))
+        return (target.get("type") == "page"
+                and u.scheme == "https" and u.hostname in ("www.youtube.com", "youtube.com")
+                and u.path == "/live_chat"
+                and parse_qs(u.query).get("v") == [self.video_id])
 
     def __init__(self, source_id: str):
-        self.video_id = video_id_from_input(source_id)
+        self.video_id = self.parse_source(source_id)
         self._process: subprocess.Popen | None = None
         self._port: int | None = None
         self._ws: _CDPWebSocket | None = None
@@ -225,7 +243,7 @@ class YouTubeBrowserAdapter:
             self._process = None
 
     def _launch(self) -> None:
-        profile = ROOT / "data" / "browser-profiles" / "youtube-chat"
+        profile = ROOT / "data" / "browser-profiles" / self.profile_name
         profile.mkdir(parents=True, exist_ok=True)
         portfile = profile / "DevToolsActivePort"
         # Stale file after a crashed browser is not a valid endpoint.
@@ -233,7 +251,7 @@ class YouTubeBrowserAdapter:
         self.phase = "locating_browser"
         browser = find_chromium()
         self.phase = "starting_browser"
-        url = f"https://www.youtube.com/live_chat?is_popout=1&v={self.video_id}"
+        url = self.build_chat_url(self.video_id)
         args = [
             browser, "--remote-debugging-address=127.0.0.1",
             "--remote-debugging-port=0", f"--user-data-dir={profile}",
@@ -260,7 +278,7 @@ class YouTubeBrowserAdapter:
                 time.sleep(0.2)
         except OSError:
             pass
-        raise SourceFailure("could not open chat-only browser window", fatal=True)
+        raise SourceFailure(f"could not open {self.page_label} browser window", fatal=True)
 
     def _connect(self) -> None:
         if self._port is None:
@@ -271,13 +289,9 @@ class YouTubeBrowserAdapter:
         try:
             with urlopen(f"http://127.0.0.1:{self._port}/json/list", timeout=5) as r:
                 targets = json.load(r)
-            target = next(
-                (t for t in targets if t.get("type") == "page"
-                 and "youtube.com/live_chat?" in t.get("url", "")
-                 and f"v={self.video_id}" in t.get("url", "")), None
-            )
+            target = next((t for t in targets if self.target_matches(t)), None)
             if not target:
-                raise SourceFailure("YouTube chat page is closed or still loading",
+                raise SourceFailure(f"{self.page_label} LIVE page is closed or still loading",
                                     fatal=self._initialized, retry_after=3)
             self.phase = "connecting_dom"
             self._ws = _CDPWebSocket(target["webSocketDebuggerUrl"])
@@ -290,7 +304,7 @@ class YouTubeBrowserAdapter:
     def _evaluate(self) -> dict:
         self._ws.send(json.dumps({
             "id": 1, "method": "Runtime.evaluate",
-            "params": {"expression": CHAT_SCRIPT, "returnByValue": True}
+            "params": {"expression": self.chat_script, "returnByValue": True}
         }).encode("utf-8"))
         for _ in range(20):
             response = json.loads(self._ws.receive().decode("utf-8"))

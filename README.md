@@ -8,6 +8,8 @@
 
 The source tree now has separate tabs **YouTube LIVE (Browser)** and **YouTube LIVE (API)**. The original API workspace keeps its `live` identifier and saved settings. The experimental Browser workspace starts an isolated Chrome/Edge chat-only window, reads new DOM text messages over local CDP, and routes them into the existing TTS/OBS queue without a YouTube Data API key or Data API quota. It has been tested against a local chat DOM fixture only, **not against authorized real YouTube LIVE chat**. Browser-based automated access is not officially supported and may violate YouTube's terms without prior permission. [Thai browser mode guide](docs/YOUTUBE_BROWSER_READER_TH.md).
 
+**TikTok LIVE (Browser)** is an additional experimental chat DOM workspace, independent from the existing **TikTok LIVE (TikFinity)** local WebSocket workspace. It opens an isolated Chrome/Edge TikTok LIVE page, tries to hide/pause its video, and forwards only newly visible text comments to the existing Thai TTS/OBS queue. No TikFinity or API key is required for the Browser mode. **It has not been tested with a real TikTok LIVE stream. Automated extraction without written approval is prohibited by TikTok’s terms**; check authorization before use. [Thai TikTok Browser guide](docs/TIKTOK_BROWSER_READER_TH.md).
+
 ## Model packages (v0.4.2)
 
 VoxWeaveTTS now has a data-only .vwmodel format for optional fixed-voice model packs. One pack specifies its compatible trusted engine adapter, version, multiple selectable voices, SHA-256 checksums, upstream model source, license claim and dependency metadata. The Windows local manager can install multiple packs/versions side by side and remove them independently; no model-supplied Python code runs.

@@ -84,7 +84,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" class="mode-nav-button" data-mode-target="youtube_browser" aria-pressed="false">YouTube LIVE (Browser)</button>
 <button type="button" class="mode-nav-button" data-mode-target="live" aria-pressed="false">YouTube LIVE (API)</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord" aria-pressed="false">Discord</button>
-<button type="button" class="mode-nav-button" data-mode-target="tiktok" aria-pressed="false">TikTok LIVE</button>
+<button type="button" class="mode-nav-button" data-mode-target="tiktok_browser" aria-pressed="false">TikTok LIVE (Browser)</button>
+<button type="button" class="mode-nav-button" data-mode-target="tiktok" aria-pressed="false">TikTok LIVE (TikFinity)</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord_client" aria-pressed="false">Discord Client</button>
 <button type="button" class="mode-nav-button" data-mode-target="queue" aria-pressed="false">คิวและ Subtitle</button>
 <button type="button" class="mode-nav-button" data-mode-target="rules" aria-pressed="false">คำอ่านและกฎ</button>
@@ -245,6 +246,41 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <a id="liveDownload" style="display:none" download="VoxWeaveTTS.wav">ดาวน์โหลด WAV</a>
 </section>
 </div>
+<div class="mode-view" data-mode-view="tiktok_browser" hidden><section class="panel" style="margin-top:0">
+<h2>TikTok LIVE (Browser)</h2>
+<p class="small">โหมดทดลอง: เปิดหน้า TikTok LIVE ใน Chrome/Edge โปรไฟล์แยก พยายามซ่อน/พักวิดีโอ อ่านเฉพาะคอมเมนต์ใหม่จาก DOM ไม่ต้องใช้ TikFinity หรือ API Key ทั้งนี้ TikTok จำกัดการดึงข้อมูลโดยระบบอัตโนมัติหากไม่ได้รับอนุญาต ฟีเจอร์นี้ยังไม่ผ่านการทดสอบกับ LIVE จริง</p>
+<label for="tiktokBrowserText">ทดลองอ่านข้อความ / เลือกข้อความจากแชท</label>
+<textarea id="tiktokBrowserText" placeholder="ข้อความที่รับจาก TikTok Browser จะปรากฏที่นี่เมื่อเลือกอ่าน"></textarea>
+<div class="voice-grid">
+<button type="button" id="tiktokBrowserSubmit">สร้างเสียงจากข้อความ</button>
+<button type="button" id="tiktokBrowserPlay">เล่นเสียง</button>
+<button type="button" id="tiktokBrowserStop">หยุดเสียง</button>
+</div>
+<details class="source-connector" style="margin:14px 0" open>
+<summary>เชื่อมต่อหน้าต่าง TikTok LIVE Chat (ไม่ใช้ API Key)</summary>
+<p class="small">กดเชื่อมต่อเพื่อเปิด TikTok LIVE ใน Browser แยกต่างหาก (TikTok ไม่มี Chat Pop-out อย่างเป็นทางการ) ระบบพยายามซ่อน/พักวิดีโอ แต่หน้าเว็บอาจยังโหลดข้อมูลวิดีโออยู่ ต้องมี LIVE ที่เปิดคอมเมนต์และคุณต้องมีสิทธิ์เข้าถึงหน้า LIVE โปรดตรวจสอบเงื่อนไข TikTok ก่อนใช้ DOM Automation</p>
+<div class="voice-grid">
+<div><label for="tiktokBrowserFeedSourceId">TikTok Username หรือ URL ของ LIVE</label><input type="text" id="tiktokBrowserFeedSourceId" autocomplete="off" placeholder="https://www.tiktok.com/@username/live"></div>
+<div><label for="tiktokBrowserFeedBlocked">คำที่ไม่อ่าน (คั่นด้วยจุลภาค)</label><input type="text" id="tiktokBrowserFeedBlocked" placeholder="คำที่ไม่ต้องการ"></div>
+<div><label for="tiktokBrowserFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="tiktokBrowserFeedMaxChars" min="20" max="280" value="240"></div>
+<div><label for="tiktokBrowserFeedKeepRead">ประวัติที่อ่านแล้ว (0-100)</label><input type="number" id="tiktokBrowserFeedKeepRead" min="0" max="100" value="20"></div>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokBrowserFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ</label>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokBrowserFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนข้อความ</label>
+<span class="small" id="tiktokBrowserFeedReadSenderStatus" role="status"></span>
+<button type="button" class="small-button" id="tiktokBrowserAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
+</div>
+<div class="voice-grid"><button type="button" id="tiktokBrowserFeedStart">เชื่อมต่อ</button><button type="button" id="tiktokBrowserFeedStop">หยุดรับข้อความ</button></div>
+<div class="voice-grid"><button type="button" id="tiktokBrowserFeedExport">Export / Save As (.json)</button><button type="button" id="tiktokBrowserFeedImport">Import การตั้งค่า (.json)</button><input type="file" id="tiktokBrowserFeedImportFile" accept=".json,application/json" hidden></div>
+<p id="tiktokBrowserFeedStatus" class="small" role="status" aria-live="polite">ยังไม่เชื่อมต่อ · กรอกชื่อผู้ใช้ TikTok และกดเชื่อมต่อ</p>
+<ol id="tiktokBrowserFeedProgress" class="source-message-list small" aria-label="ขั้นตอนการเชื่อมต่อ Browser"></ol>
+<p id="tiktokBrowserFeedQueueStatus" class="small" role="status"></p>
+<ol id="tiktokBrowserFeedItems" class="source-message-list"></ol>
+</details>
+<p id="tiktokBrowserStatus" class="small" role="status">พร้อมทดลองข้อความจาก Browser</p>
+<audio id="tiktokBrowserAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
+<div id="tiktokBrowserSubtitle" class="mode-subtitle" role="status"></div>
+<a id="tiktokBrowserDownload" style="display:none" download="VoxWeaveTTS-tiktok-browser.wav">ดาวน์โหลด WAV</a>
+</section></div>
 <div class="mode-view" data-mode-view="tiktok" hidden><section class="panel" style="margin-top:0">
 <h2>TikTok LIVE — อ่านคอมเมนต์สด</h2>
 <p class="small">รับคอมเมนต์จาก <a href="https://tikfinity.zerody.one/" target="_blank" rel="noopener noreferrer">TikFinity Desktop</a> ผ่าน Local WebSocket เท่านั้น ไม่ใช้รหัสผ่านหรือคุกกี้ TikTok ภายใน VoxWeaveTTS ต้องเปิด TikFinity บนเครื่องเดียวกันและให้ TikFinity เชื่อมกับไลฟ์ก่อน</p>
@@ -601,11 +637,13 @@ let youtubeBrowserMode = null;
 let discordMode = null;
 let discordClientMode = null;
 let tiktokMode = null;
+let tiktokBrowserMode = null;
 let liveFeed = null;
 let youtubeBrowserFeed = null;
 let discordFeed = null;
 let discordClientFeed = null;
 let tiktokFeed = null;
+let tiktokBrowserFeed = null;
 let studioGeneration = 0;
 let studioJobId = null;
 let studioReadyJob = null;
@@ -1863,11 +1901,13 @@ function suspendAllPlayback(){
   discordFeed?.suspend();
   discordClientFeed?.suspend();
   tiktokFeed?.suspend();
+  tiktokBrowserFeed?.suspend();
   liveMode?.suspend();
   youtubeBrowserMode?.suspend();
   discordMode?.suspend();
   discordClientMode?.suspend();
   tiktokMode?.suspend();
+  tiktokBrowserMode?.suspend();
 }
 function restoreModeAudio(mode){
   // Unsaved global Engine/DSP edits remain in memory across mode changes.
@@ -1883,9 +1923,10 @@ function restoreModeAudio(mode){
   else if(mode==="discord")discordMode?.resume();
   else if(mode==="discord_client")discordClientMode?.resume();
   else if(mode==="tiktok")tiktokMode?.resume();
+  else if(mode==="tiktok_browser")tiktokBrowserMode?.resume();
 }
 if(typeof VoxModeInputs!=="undefined"){
-  for(const mode of ["live","youtube_browser","discord","discord_client","tiktok"]){
+  for(const mode of ["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"]){
     const instance=VoxModeInputs.attach({
       mode,el,clockLibrary:VoxPlaybackClock,report:sendPlaybackReport,
       getSpeechPayload:buildSpeechPayload,
@@ -1893,20 +1934,21 @@ if(typeof VoxModeInputs!=="undefined"){
       cancelAudio:audio=>audioScheduler.cancel(audio),
       guard:id=>!modeRuntime || modeRuntime.guard(id),
       onMessageState:(id,state)=>{
-        const feed=mode==="live"?liveFeed:(mode==="youtube_browser"?youtubeBrowserFeed:(mode==="discord"?discordFeed:(mode==="tiktok"?tiktokFeed:discordClientFeed)));
+        const feed=mode==="live"?liveFeed:(mode==="youtube_browser"?youtubeBrowserFeed:(mode==="tiktok_browser"?tiktokBrowserFeed:(mode==="discord"?discordFeed:(mode==="tiktok"?tiktokFeed:discordClientFeed))));
         feed?.setMessageState(id,state);
       }
     });
     if(mode==="live")liveMode=instance;
     else if(mode==="youtube_browser")youtubeBrowserMode=instance;
+    else if(mode==="tiktok_browser")tiktokBrowserMode=instance;
     else if(mode==="discord")discordMode=instance;
     else if(mode==="tiktok")tiktokMode=instance;
     else discordClientMode=instance;
   }
 }
 if(typeof VoxSourceFeed!=="undefined"){
-  for(const mode of ["live","youtube_browser","discord","discord_client","tiktok"]){
-    const inputMode=mode==="live"?liveMode:(mode==="youtube_browser"?youtubeBrowserMode:(mode==="discord"?discordMode:(mode==="tiktok"?tiktokMode:discordClientMode)));
+  for(const mode of ["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"]){
+    const inputMode=mode==="live"?liveMode:(mode==="youtube_browser"?youtubeBrowserMode:(mode==="tiktok_browser"?tiktokBrowserMode:(mode==="discord"?discordMode:(mode==="tiktok"?tiktokMode:discordClientMode))));
     const feed=VoxSourceFeed.attach({
       mode,el,
       credentials:id=>modeRuntime.credentials(id),
@@ -1919,6 +1961,7 @@ if(typeof VoxSourceFeed!=="undefined"){
     });
     if(mode==="live")liveFeed=feed;
     else if(mode==="youtube_browser")youtubeBrowserFeed=feed;
+    else if(mode==="tiktok_browser")tiktokBrowserFeed=feed;
     else if(mode==="discord")discordFeed=feed;
     else if(mode==="tiktok")tiktokFeed=feed;
     else discordClientFeed=feed;
@@ -1929,7 +1972,8 @@ if(typeof VoxWorkspaceModes!=="undefined"){
     document,
     stopLocal:suspendAllPlayback,
     onLostMode:mode=>{
-      const streams={live:[liveFeed,liveMode],youtube_browser:[youtubeBrowserFeed,youtubeBrowserMode],discord:[discordFeed,discordMode],
+      const streams={live:[liveFeed,liveMode],youtube_browser:[youtubeBrowserFeed,youtubeBrowserMode],
+         tiktok_browser:[tiktokBrowserFeed,tiktokBrowserMode],discord:[discordFeed,discordMode],
         discord_client:[discordClientFeed,discordClientMode],
         tiktok:[tiktokFeed,tiktokMode]};
       if(streams[mode]){

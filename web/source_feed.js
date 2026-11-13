@@ -24,7 +24,7 @@ function validateSettingsProfile(value,mode){
   if(!isRecord(value) || Object.keys(value).some(key=>!SETTINGS_KEYS.has(key))
      || value.format!==SETTINGS_FORMAT || value.version!==SETTINGS_VERSION
      || value.mode!==mode)throw Error("ไฟล์ตั้งค่าไม่ตรงกับโหมดหรือรูปแบบที่รองรับ");
-  if(typeof value.source_id!=="string" || value.source_id.length>(mode==="youtube_browser"?600:200)
+  if(typeof value.source_id!=="string" || value.source_id.length>(["youtube_browser","tiktok_browser"].includes(mode)?600:200)
      || /[\u0000-\u001f\u007f]/.test(value.source_id))
     throw Error("Source/Channel ID ในไฟล์ไม่ถูกต้อง");
   if(!isRecord(value.filters) || Object.keys(value.filters).some(k=>!["blocked_words","max_chars"].includes(k))
@@ -44,7 +44,7 @@ function validateSettingsProfile(value,mode){
       throw Error("Client ID หรือ OAuth Redirect URI ในไฟล์ไม่ถูกต้อง");
   }else if("client_id" in value || "client_secret" in value || "redirect_uri" in value){
     throw Error("ไฟล์ตั้งค่ามีช่องข้อมูลของแหล่งอื่น");
-  }else if(mode==="tiktok"||mode==="youtube_browser"){
+  }else if(mode==="tiktok"||mode==="youtube_browser"||mode==="tiktok_browser"){
     if("credential" in value)throw Error("ไฟล์ Browser/TikTok ไม่ต้องมี Credential");
   }else if(typeof value.credential!=="string" || value.credential.length>4096){
     throw Error("ค่าข้อมูลรับรองของแหล่งข้อความไม่ถูกต้อง");
@@ -87,23 +87,30 @@ const BROWSER_PHASE_NAMES=Object.freeze({
   stopped:"หยุดรับข้อความจาก Browser แล้ว",
 });
 function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPreference,onConnect}){
-  if(!["live","youtube_browser","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
-  const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode;
+  if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
+  const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
   const get=id=>el(prefix+id);
   let timer=null, generation=0, connected=false, inFlight=false;
   let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
   const seen=new Set();
   let visible=[], overflow=0;
+  const browserMode=mode==="youtube_browser"||mode==="tiktok_browser";
+  const platform=mode==="tiktok_browser"?"TikTok":"YouTube";
   let browserStageName="",browserStageLog=[];
   function message(text){get("FeedStatus").textContent=String(text);}
   function clearBrowserProgress(){
-    if(mode!=="youtube_browser")return;
+    if(!browserMode)return;
     browserStageName="";browserStageLog=[];
     get("FeedProgress")?.replaceChildren();
   }
   function browserStage(phase,extra=""){
-    if(mode!=="youtube_browser")return;
-    const desc=BROWSER_PHASE_NAMES[phase]||"กำลังตรวจสอบการเชื่อมต่อ Browser";
+    if(!browserMode)return;
+    const desc=mode==="tiktok_browser"&&phase==="checking_input"
+      ? "ขั้นตอน 1/5 · ตรวจสอบ TikTok Username หรือ URL และตัวกรอง"
+      : mode==="tiktok_browser"&&phase==="starting_browser"
+        ? "ขั้นตอน 3/5 · เปิดหน้า TikTok LIVE และพยายามซ่อน/พักวิดีโอ"
+        : (BROWSER_PHASE_NAMES[phase]||"กำลังตรวจสอบการเชื่อมต่อ Browser")
+            .replaceAll("YouTube",platform);
     if(browserStageName!==phase){
       browserStageName=phase;
       const item=document.createElement("li");
@@ -130,7 +137,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       data.client_id=get("FeedAppId").value;
       data.client_secret=get("FeedAppSecret").value;
       data.redirect_uri=get("FeedRedirect").value;
-    }else if(mode!=="tiktok"&&mode!=="youtube_browser")data.credential=get("FeedCredential").value;
+    }else if(mode!=="tiktok"&&!browserMode)data.credential=get("FeedCredential").value;
     return validateSettingsProfile(data,mode);
   }
   async function exportSettings(){
@@ -213,7 +220,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         get("FeedAppId").value=data.client_id;
         get("FeedRedirect").value=data.redirect_uri;
         get("FeedAppSecret").value=data.client_secret;
-      }else if(mode!=="tiktok"&&mode!=="youtube_browser")get("FeedCredential").value=data.credential;
+      }else if(mode!=="tiktok"&&!browserMode)get("FeedCredential").value=data.credential;
       prune();render();
       message("โหลดการตั้งค่าครบทุกช่องแล้ว (รวมข้อมูลลับ) · ยังไม่เชื่อมต่ออัตโนมัติ");
       return true;
@@ -417,7 +424,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     }
   }
   async function start(){
-    if(mode==="youtube_browser"){
+    if(browserMode){
       clearBrowserProgress();
       browserStage("checking_input");
     }
@@ -425,13 +432,13 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       throw Error("กรุณาเปิดโหมดนี้ก่อนเชื่อมต่อ");
     if(mode==="tiktok")return startTikTok();
     const channelId=get("FeedSourceId").value.trim();
-    if(mode==="youtube_browser"&&!channelId)
-      throw Error("กรุณาใส่ URL หรือ Video ID ของ YouTube LIVE ก่อนกดเชื่อมต่อ");
+    if(browserMode&&!channelId)
+      throw Error("กรุณาใส่ "+(mode==="tiktok_browser"?"TikTok Username หรือ URL ของ LIVE":"YouTube Video ID หรือ URL ของ LIVE")+" ก่อนกดเชื่อมต่อ");
     const temporaryCredential=mode==="discord_client" ? {
       client_id:get("FeedAppId").value.trim(),
       client_secret:get("FeedAppSecret").value.trim(),
       redirect_uri:get("FeedRedirect").value.trim(),
-    } : mode==="youtube_browser"?"":get("FeedCredential").value.trim();
+    } : browserMode?"":get("FeedCredential").value.trim();
     const blocked=get("FeedBlocked").value.split(",").map(x=>x.trim()).filter(Boolean);
     const maxChars=Number(get("FeedMaxChars").value);
     if(!Number.isInteger(maxChars) || get("FeedMaxChars").value.trim()==="")
@@ -449,23 +456,23 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     clearMessages();
     const ticket=++generation;
     get("FeedStart").disabled=true;
-    if(mode==="youtube_browser")browserStage("claiming_owner");
+    if(browserMode)browserStage("claiming_owner");
     else message("กำลังตรวจสอบสิทธิ์ช่องทางและเชื่อมต่อ API...");
     try{
       if(onConnect)await onConnect(mode);
       if(ticket!==generation||!guard(mode))return;
-      if(mode==="youtube_browser")browserStage("starting_worker");
+      if(browserMode)browserStage("starting_worker");
       const result=await api("start",{
         ...credentials(mode),source_id:channelId,
         credential:temporaryCredential,
         filters:{blocked_words:blocked,max_chars:maxChars},
       });
       if(mode==="discord_client")get("FeedAppSecret").value="";
-      else if(mode!=="youtube_browser")get("FeedCredential").value=""; // clear DOM secret as soon as accepted
+      else if(!browserMode)get("FeedCredential").value=""; // clear DOM secret as soon as accepted
       if(ticket!==generation||!guard(mode))return;
       connected=true;
       get("FeedStop").disabled=false;
-      if(mode==="youtube_browser")browserStage(result.connection_phase||"preparing");
+      if(browserMode)browserStage(result.connection_phase||"preparing");
       else message("เริ่มกระบวนการเชื่อมต่อแล้ว · รอตรวจสอบสิทธิ์และสมัครรับข้อความจากผู้ให้บริการ");
       timer=setInterval(()=>poll().catch(error=>message(String(error.message||error))),1200);
       await poll();
@@ -474,7 +481,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       if(ticket===generation){
         connected=false;
         get("FeedStart").disabled=false;
-        if(mode==="youtube_browser")browserStage("error",String(error.message||error));
+        if(browserMode)browserStage("error",String(error.message||error));
         else message("เชื่อมต่อไม่สำเร็จ: "+String(error.message||error));
       }
       throw error;
@@ -504,7 +511,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         }
       }
       render();
-      if(mode==="youtube_browser"){
+      if(browserMode){
         const browserPhase=status.state==="error"?"error"
           :status.state==="retrying"?"retrying"
           :status.state==="ended"?"ended"
@@ -525,7 +532,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         ? " · ผิดพลาดที่ "+(RPC_PHASE_NAMES[status.failed_phase]||"ขั้นตอน Discord RPC")
         : status.connection_phase ? " · "+(RPC_PHASE_NAMES[status.connection_phase]||"กำลังตรวจสอบสถานะ Discord RPC") : "";
       message(
-        (mode==="youtube_browser"?"Browser: ":"API: ")+status.state+phase+
+        (browserMode?"Browser: ":"API: ")+status.state+phase+
         " · รับ "+(status.received||0)+
         " · กรอง/ล้นคิว "+(status.discarded||0)+
         " · รออ่าน "+(status.pending||0)+
@@ -569,7 +576,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     localSuspend();
     try { await api("stop",authorization); }
     catch(error){message("หยุดรับใน Browser แล้ว ("+String(error.message||error)+")");}
-    if(mode==="youtube_browser")browserStage("stopped");
+    if(browserMode)browserStage("stopped");
   }
   get("FeedExport").addEventListener("click",()=>exportSettings());
   get("FeedImport").addEventListener("click",()=>get("FeedImportFile").click());
@@ -583,7 +590,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     start().catch(error=>{
       // Errors before the backend request (such as an empty video URL) must
       // still be visible rather than silently swallowed by the click handler.
-      if(mode==="youtube_browser")browserStage("error",String(error.message||error));
+      if(browserMode)browserStage("error",String(error.message||error));
     });
   });
   get("FeedStop").addEventListener("click",()=>stop().catch(()=>{}));

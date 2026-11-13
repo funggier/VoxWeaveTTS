@@ -8,7 +8,8 @@
 const MODES=Object.freeze([
   {id:"studio",label:"สร้างเสียง"},
   {id:"reader",label:"อ่านเอกสาร"},
-  {id:"tiktok",label:"TikTok LIVE"},
+  {id:"tiktok",label:"TikTok LIVE (TikFinity)"},
+  {id:"tiktok_browser",label:"TikTok LIVE (Browser)"},
   {id:"live",label:"YouTube LIVE (API)"},
   {id:"youtube_browser",label:"YouTube LIVE (Browser)"},
   {id:"discord",label:"Discord"},
