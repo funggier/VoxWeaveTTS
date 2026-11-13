@@ -6,7 +6,7 @@ from unittest.mock import patch
 from voxweavetts.mode_state import ModeState
 from voxweavetts.playback_state import PlaybackState
 from voxweavetts.processing import InputError
-from voxweavetts.source_adapters import PollResult, SourceMessage
+from voxweavetts.source_adapters import PollResult, SourceMessage, SourceFailure
 from voxweavetts.source_manager import SourceManager
 from voxweavetts.tiktok_browser import TikTokBrowserAdapter, username_from_input
 
@@ -101,6 +101,23 @@ class TikTokBrowserTests(unittest.TestCase):
                 self.assertEqual(reader.phase, "ready")
                 self.assertEqual([m.text for m in reader.poll().messages],
                                  ["กลับมาอ่านได้แล้ว"])
+        finally:
+            reader.close()
+
+    def test_login_attempt_limit_is_fatal_and_not_retried(self):
+        reader = TikTokBrowserAdapter(USERNAME)
+        reader._ws = Socket()
+        try:
+            with patch.object(reader, "_evaluate", return_value={
+                "ready": False, "status": "login_rate_limited", "items": [],
+            }) as evaluate:
+                with self.assertRaises(SourceFailure) as capture:
+                    reader.poll()
+                self.assertTrue(capture.exception.fatal)
+                self.assertIn("temporarily limited", str(capture.exception))
+                self.assertEqual(reader.phase, "login_rate_limited")
+                self.assertFalse(reader.dom_ready)
+                evaluate.assert_called_once()
         finally:
             reader.close()
 

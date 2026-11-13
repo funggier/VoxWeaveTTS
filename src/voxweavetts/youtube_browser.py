@@ -322,6 +322,15 @@ class YouTubeBrowserAdapter:
         try:
             self.phase = "reading_dom"
             result = self._evaluate()
+            if isinstance(result, dict) and result.get("status") == "login_rate_limited":
+                self.dom_ready = False
+                self.phase = "login_rate_limited"
+                raise SourceFailure(
+                    "TikTok login attempts are temporarily limited by the platform. "
+                    "Stop trying to log in or reconnect; use the existing "
+                    "TikTok LIVE (TikFinity) connector if available.",
+                    fatal=True,
+                )
             if not isinstance(result, dict) or not result.get("ready"):
                 self.dom_ready = False
                 status = result.get("status") if isinstance(result, dict) else None

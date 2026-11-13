@@ -51,9 +51,10 @@ async function main(){
       if(path.endsWith("/drain"))return{ok:true,async json(){return{
         messages:currentPhase==="ready"
           ? [{message_id:"a1",author:"Tester",text:"สวัสดีครับ"}] : [],
-        status:{mode:"tiktok_browser",state:currentPhase==="ready"?"running":"connecting",
+        status:{mode:"tiktok_browser",state:currentPhase==="login_rate_limited"?"error":currentPhase==="ready"?"running":"connecting",
                 connection_phase:currentPhase,transport:"browser-dom",
                 received:currentPhase==="ready"?1:0,discarded:0,pending:0,
+                info:currentPhase==="login_rate_limited"?"TikTok login attempts are temporarily limited; stop retrying":"" ,
                 next_poll_seconds:2},
       };}};
       if(path.endsWith("/stop"))return{ok:true,async json(){return{state:"stopped"};}};
@@ -78,7 +79,7 @@ async function main(){
   assert.equal(requests[0].payload.credential,"");
   assert.match(el(prefix+"FeedStatus").textContent,/Comments off/);
   assert.match(el(prefix+"FeedStatus").textContent,/Log in/);
-  assert.match(el(prefix+"FeedStatus").textContent,/โปรดเข้าสู่ระบบ/);
+  assert.match(el(prefix+"FeedStatus").textContent,/อย่าลองเข้าสู่ระบบซ้ำ/);
   assert.equal(received.length,0,"must not fabricate comments when TikTok disables chat");
   assert.equal(feed.connected,true,"should keep checking for changes");
   currentPhase="ready";
@@ -91,6 +92,11 @@ async function main(){
   assert.equal(el(prefix+"FeedItems").children.length,1);
   el(prefix+"FeedItems").children[0].children[2].events.click();
   assert.equal(picked[0].message_id,"a1");
+  currentPhase="login_rate_limited";
+  await feed.poll();
+  assert.equal(feed.connected,false,"platform login throttle must stop monitoring");
+  assert.match(el(prefix+"FeedStatus").textContent,/temporarily limited/);
+  assert.equal(received.length,1);
   await feed.stop();
   assert.equal(feed.connected,false);
   console.log("PASS: TikTok Browser UI shows Comments off then resumes reading when available");

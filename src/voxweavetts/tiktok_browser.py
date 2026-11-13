@@ -27,6 +27,14 @@ TIKTOK_CHAT_SCRIPT = r"""(() => {
   const loginPrompt = [...document.querySelectorAll("button")].some(button =>
     /^(log\s*in|login|sign\s*in)$/i.test((button.innerText || "").trim())
   );
+  // Observe the existing login warning without reading the password value
+  // or retrying credentials. A blocked login must stop polling this source.
+  const loginFormVisible = !!document.querySelector(
+    'input[type="password"], [autocomplete="current-password"]'
+  );
+  if (loginFormVisible && /maximum number of attempts reached/i.test(
+      document.body?.innerText || ""
+  )) return {ready: false, status: "login_rate_limited", items: []};
   // The platform can render "Comments off" in the chat composer even
   // when the message list element is present. Report the visible state, do
   // not pretend the DOM reader is connected or try to change moderation.

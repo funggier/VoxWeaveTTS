@@ -113,6 +113,18 @@ def main():
                 assert modern["ready"] is True, modern
                 assert len(modern["items"]) == 1, modern
                 assert modern["items"][0]["text"] == "สวัสดีจาก TikTok ใหม่", modern
+                # Login attempt throttling is a platform warning. Only observe
+                # its presence in the login form, never resubmit credentials.
+                evaluate(111, """document.body.insertAdjacentHTML("beforeend",
+                    '<div role="dialog"><input type="password" />'
+                    + '<p>Maximum number of attempts reached. Try again later</p>'
+                    + '</div>'
+                )""")
+                limited = evaluate(112, TIKTOK_CHAT_SCRIPT)
+                assert limited["status"] == "login_rate_limited", limited
+                evaluate(113, """document.querySelector('[role="dialog"]').remove()""")
+                recovered = evaluate(114, TIKTOK_CHAT_SCRIPT)
+                assert recovered["ready"] is True, recovered
 
             finally:
                 ws.close()

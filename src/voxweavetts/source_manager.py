@@ -249,15 +249,16 @@ class SourceManager:
                     if session.mode in ("youtube_browser", "tiktok_browser") and session.state == "connecting":
                         phase = getattr(session.adapter, "phase", "")
                         session.info = (
-                            "This TikTok browser session shows Comments off and a Log in button; "
-                            "check login in the isolated browser profile"
+                            "TikTok Browser shows Comments off and Log in; the same LIVE may "
+                            "allow anonymous comments in normal Chrome. Do not repeatedly "
+                            "attempt login. The managed browser session may be restricted."
                             if session.mode == "tiktok_browser"
                             and phase == "comments_off_login_prompt"
                             else "This TikTok browser session shows Comments off; "
                             "this does not prove the creator disabled LIVE comments"
                             if session.mode == "tiktok_browser" and phase == "comments_off"
-                            else "TikTok browser displays a Log in option; "
-                            "chat DOM is not available in this session"
+                            else "TikTok Browser shows Log in but chat DOM is unavailable; "
+                            "do not assume authentication is required for ordinary viewers"
                             if session.mode == "tiktok_browser" and phase == "login_prompt"
                             else "Waiting for LIVE chat DOM in browser window"
                         )
