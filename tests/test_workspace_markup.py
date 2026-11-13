@@ -53,7 +53,7 @@ class WorkspaceMarkupTests(unittest.TestCase):
         parser.close()
         self.assertEqual(parser.errors,[])
         self.assertEqual(parser.stack,[])
-        expected={"studio","reader","live","tiktok","discord","discord_client","queue","rules","settings"}
+        expected={"studio","reader","youtube_browser","live","tiktok","discord","discord_client","queue","rules","settings"}
         self.assertEqual(set(parser.mode_counts),expected)
         self.assertEqual(set(parser.nav_counts),expected)
         self.assertTrue(all(value==1 for value in parser.mode_counts.values()))
@@ -61,6 +61,8 @@ class WorkspaceMarkupTests(unittest.TestCase):
             ("message","studio"),("audioPreview","studio"),
             ("readerChunkPreview","reader"),("readerAudio","reader"),
             ("liveText","live"),("liveAudio","live"),
+            ("youtubeBrowserText","youtube_browser"),("youtubeBrowserAudio","youtube_browser"),
+            ("youtubeBrowserFeedSourceId","youtube_browser"),
             ("tiktokText","tiktok"),("tiktokAudio","tiktok"),
             ("tiktokFeedSourceId","tiktok"),
             ("discordText","discord"),("discordAudio","discord"),

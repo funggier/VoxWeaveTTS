@@ -18,10 +18,10 @@ from .voice_controls import validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_PATH = ROOT / "data" / "settings" / "mode-voices.json"
-VOICE_MODES = frozenset(("studio", "reader", "queue", "live", "tiktok",
+VOICE_MODES = frozenset(("studio", "reader", "queue", "live", "youtube_browser", "tiktok",
                          "discord", "discord_client"))
 AUDIO_POLICIES = frozenset(("serial", "overlap"))
-SENDER_MODES = frozenset(("live", "tiktok", "discord", "discord_client"))
+SENDER_MODES = frozenset(("live", "youtube_browser", "tiktok", "discord", "discord_client"))
 _LOCK = threading.RLock()
 
 

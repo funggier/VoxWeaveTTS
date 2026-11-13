@@ -12,7 +12,7 @@ from typing import Any
 
 from .processing import InputError
 
-MODES = ("studio", "reader", "queue", "live", "tiktok", "discord", "discord_client", "rules", "settings")
+MODES = ("studio", "reader", "queue", "live", "youtube_browser", "tiktok", "discord", "discord_client", "rules", "settings")
 
 
 class ModeConflict(Exception):

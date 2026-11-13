@@ -6,8 +6,8 @@
 "use strict";
 function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState,
                  playAudio=async audio=>{await audio.play();return true;},cancelAudio=()=>{}}){
-  if(!["live","discord","discord_client","tiktok"].includes(mode))throw Error("unknown source mode");
-  const prefix=mode==="discord_client"?"discordClient":mode;
+  if(!["live","youtube_browser","discord","discord_client","tiktok"].includes(mode))throw Error("unknown source mode");
+  const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode;
   const get=id=>el(prefix+id);
   const audio=get("Audio");
   let generation=0, jobId=null, lastReady=null, wavUrl=null;
@@ -107,7 +107,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       const sender=autoPlay ? activeIncoming
         : (pickedMessage?.text===text ? pickedMessage : null);
       body.text=speechText(sender,text);
-      body.source=mode==="live"?"youtube-live":mode==="tiktok"?"tiktok-live":"discord";
+      body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
         method:"POST",

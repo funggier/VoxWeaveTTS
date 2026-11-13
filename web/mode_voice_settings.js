@@ -5,10 +5,10 @@
 "use strict";
 const VOICE_MODES=Object.freeze([
   ["studio","สร้างเสียง"],["reader","อ่านเอกสาร"],["queue","คิวและ Subtitle"],
-  ["live","YouTube LIVE"],["tiktok","TikTok LIVE"],
+  ["live","YouTube LIVE (API)"],["youtube_browser","YouTube LIVE (Browser)"],["tiktok","TikTok LIVE"],
   ["discord","Discord"],["discord_client","Discord Client"],
 ]);
-const SENDER_MODES=["live","tiktok","discord","discord_client"];
+const SENDER_MODES=["live","youtube_browser","tiktok","discord","discord_client"];
 const TUNING=[
   ["speed","ความเร็วในการอ่าน",0.60,5.00,1,"×"],
   ["gain_db","ความดัง",-18,12,0,"dB"],
@@ -266,7 +266,7 @@ function attach({document,engines,getDefault}){
     for(const [mode] of controls)
       set(mode,data.modes?.[mode]||getDefault());
     for(const mode of SENDER_MODES){
-      const prefix=mode==="discord_client"?"discordClient":mode;
+      const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode;
       const checkbox=document.getElementById?.(prefix+"FeedReadSender");
       if(checkbox)checkbox.checked=data.sender_names?.[mode]===true;
     }

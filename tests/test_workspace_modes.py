@@ -73,7 +73,7 @@ class WorkspaceModeTests(unittest.TestCase):
         with self.assertRaises(InputError):
             modes.activate("unknown",playback)
         self.assertEqual(modes.snapshot()["active_mode"],"reader")
-        self.assertEqual(len(MODES),9)
+        self.assertEqual(len(MODES),10)
         self.assertIn("tiktok", MODES)
 
     def test_mode_change_notifies_sse_revision(self):

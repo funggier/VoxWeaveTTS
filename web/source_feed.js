@@ -24,7 +24,7 @@ function validateSettingsProfile(value,mode){
   if(!isRecord(value) || Object.keys(value).some(key=>!SETTINGS_KEYS.has(key))
      || value.format!==SETTINGS_FORMAT || value.version!==SETTINGS_VERSION
      || value.mode!==mode)throw Error("ไฟล์ตั้งค่าไม่ตรงกับโหมดหรือรูปแบบที่รองรับ");
-  if(typeof value.source_id!=="string" || value.source_id.length>200
+  if(typeof value.source_id!=="string" || value.source_id.length>(mode==="youtube_browser"?600:200)
      || /[\u0000-\u001f\u007f]/.test(value.source_id))
     throw Error("Source/Channel ID ในไฟล์ไม่ถูกต้อง");
   if(!isRecord(value.filters) || Object.keys(value.filters).some(k=>!["blocked_words","max_chars"].includes(k))
@@ -44,8 +44,8 @@ function validateSettingsProfile(value,mode){
       throw Error("Client ID หรือ OAuth Redirect URI ในไฟล์ไม่ถูกต้อง");
   }else if("client_id" in value || "client_secret" in value || "redirect_uri" in value){
     throw Error("ไฟล์ตั้งค่ามีช่องข้อมูลของแหล่งอื่น");
-  }else if(mode==="tiktok"){
-    if("credential" in value)throw Error("ไฟล์ TikTok ไม่ต้องมี Credential");
+  }else if(mode==="tiktok"||mode==="youtube_browser"){
+    if("credential" in value)throw Error("ไฟล์ Browser/TikTok ไม่ต้องมี Credential");
   }else if(typeof value.credential!=="string" || value.credential.length>4096){
     throw Error("ค่าข้อมูลรับรองของแหล่งข้อความไม่ถูกต้อง");
   }
@@ -69,8 +69,8 @@ const RPC_PHASE_NAMES={
   disconnected:"ตัดการเชื่อมต่อแล้ว",
 };
 function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPreference,onConnect}){
-  if(!["live","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
-  const prefix=mode==="discord_client"?"discordClient":mode;
+  if(!["live","youtube_browser","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
+  const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode;
   const get=id=>el(prefix+id);
   let timer=null, generation=0, connected=false, inFlight=false;
   let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
@@ -93,7 +93,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       data.client_id=get("FeedAppId").value;
       data.client_secret=get("FeedAppSecret").value;
       data.redirect_uri=get("FeedRedirect").value;
-    }else if(mode!=="tiktok")data.credential=get("FeedCredential").value;
+    }else if(mode!=="tiktok"&&mode!=="youtube_browser")data.credential=get("FeedCredential").value;
     return validateSettingsProfile(data,mode);
   }
   async function exportSettings(){
@@ -176,7 +176,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         get("FeedAppId").value=data.client_id;
         get("FeedRedirect").value=data.redirect_uri;
         get("FeedAppSecret").value=data.client_secret;
-      }else if(mode!=="tiktok")get("FeedCredential").value=data.credential;
+      }else if(mode!=="tiktok"&&mode!=="youtube_browser")get("FeedCredential").value=data.credential;
       prune();render();
       message("โหลดการตั้งค่าครบทุกช่องแล้ว (รวมข้อมูลลับ) · ยังไม่เชื่อมต่ออัตโนมัติ");
       return true;
@@ -388,7 +388,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       client_id:get("FeedAppId").value.trim(),
       client_secret:get("FeedAppSecret").value.trim(),
       redirect_uri:get("FeedRedirect").value.trim(),
-    } : get("FeedCredential").value.trim();
+    } : mode==="youtube_browser"?"":get("FeedCredential").value.trim();
     const blocked=get("FeedBlocked").value.split(",").map(x=>x.trim()).filter(Boolean);
     const maxChars=Number(get("FeedMaxChars").value);
     if(!Number.isInteger(maxChars) || get("FeedMaxChars").value.trim()==="")
@@ -406,7 +406,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     clearMessages();
     const ticket=++generation;
     get("FeedStart").disabled=true;
-    message("กำลังตรวจสอบสิทธิ์ช่องทางและเชื่อมต่อ API...");
+    message(mode==="youtube_browser"?"กำลังเปิดหน้าต่าง Browser เฉพาะแชท...":"กำลังตรวจสอบสิทธิ์ช่องทางและเชื่อมต่อ API...");
     try{
       if(onConnect)await onConnect(mode);
       if(ticket!==generation||!guard(mode))return;
@@ -416,11 +416,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         filters:{blocked_words:blocked,max_chars:maxChars},
       });
       if(mode==="discord_client")get("FeedAppSecret").value="";
-      else get("FeedCredential").value=""; // clear DOM secret as soon as accepted
+      else if(mode!=="youtube_browser")get("FeedCredential").value=""; // clear DOM secret as soon as accepted
       if(ticket!==generation||!guard(mode))return;
       connected=true;
       get("FeedStop").disabled=false;
-      message("เริ่มกระบวนการเชื่อมต่อแล้ว · รอตรวจสอบสิทธิ์และสมัครรับข้อความจากผู้ให้บริการ");
+      message(mode==="youtube_browser"?"กำลังเชื่อม Browser DOM · เปิดหน้าต่าง Chat ไว้":"เริ่มกระบวนการเชื่อมต่อแล้ว · รอตรวจสอบสิทธิ์และสมัครรับข้อความจากผู้ให้บริการ");
       timer=setInterval(()=>poll().catch(error=>message(String(error.message||error))),1200);
       await poll();
       return result;
@@ -461,11 +461,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         ? " · ผิดพลาดที่ "+(RPC_PHASE_NAMES[status.failed_phase]||"ขั้นตอน Discord RPC")
         : status.connection_phase ? " · "+(RPC_PHASE_NAMES[status.connection_phase]||"กำลังตรวจสอบสถานะ Discord RPC") : "";
       message(
-        "API: "+status.state+phase+
+        (mode==="youtube_browser"?"Browser: ":"API: ")+status.state+phase+
         " · รับ "+(status.received||0)+
         " · กรอง/ล้นคิว "+(status.discarded||0)+
         " · รออ่าน "+(status.pending||0)+
-        (status.transport==="streamList"?" · YouTube streamList":status.transport==="polling"?" · YouTube REST": "")+
+        (status.transport==="streamList"?" · YouTube streamList":status.transport==="polling"?" · YouTube REST":status.transport==="browser-dom"?" · Chat DOM": "")+
         " · รอบถัดไป "+Math.round(status.next_poll_seconds||0)+"s"+
         (["error","connecting","retrying"].includes(status.state) ? " · "+status.info : "")
       );

@@ -81,7 +81,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="side-heading">WORKSPACES</div>
 <nav id="modeNav" class="mode-nav"><button type="button" class="mode-nav-button" data-mode-target="studio" aria-pressed="true">สร้างเสียง</button>
 <button type="button" class="mode-nav-button" data-mode-target="reader" aria-pressed="false">อ่านเอกสาร</button>
-<button type="button" class="mode-nav-button" data-mode-target="live" aria-pressed="false">YouTube LIVE</button>
+<button type="button" class="mode-nav-button" data-mode-target="youtube_browser" aria-pressed="false">YouTube LIVE (Browser)</button>
+<button type="button" class="mode-nav-button" data-mode-target="live" aria-pressed="false">YouTube LIVE (API)</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord" aria-pressed="false">Discord</button>
 <button type="button" class="mode-nav-button" data-mode-target="tiktok" aria-pressed="false">TikTok LIVE</button>
 <button type="button" class="mode-nav-button" data-mode-target="discord_client" aria-pressed="false">Discord Client</button>
@@ -158,8 +159,43 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p class="small">Markdown จะไม่นำ Markdown Syntax, Code Fences, รูปภาพ และ URL จากลิงก์มาอ่าน · เวลาที่เห็นในระบบคิวยังเป็นระยะเวลาที่สร้างเสียง ไม่ใช่ Playback Clock จริง</p>
 </section>
 </div>
+
+<div class="mode-view" data-mode-view="youtube_browser" hidden><section class="panel" style="margin-top:0">
+<h2>YouTube LIVE (Browser)</h2>
+<p class="small">โหมดทดลอง: เปิดเฉพาะหน้าต่าง YouTube Live Chat ใน Chrome/Edge โปรไฟล์แยก และอ่านเฉพาะข้อความใหม่จาก DOM ไม่ใช้ YouTube Data API Key หรือโควตา API การทำงานขึ้นกับหน้าเว็บของ YouTube และอาจไม่พร้อมเมื่อโครงสร้างเว็บเปลี่ยนหรือแชทถูกปิด</p>
+<label for="youtubeBrowserText">ทดลองอ่านข้อความ / เลือกข้อความจากแชท</label>
+<textarea id="youtubeBrowserText" placeholder="ข้อความที่รับจาก Browser จะปรากฏที่นี่เมื่อเลือกอ่าน"></textarea>
+<div class="voice-grid">
+<button type="button" id="youtubeBrowserSubmit">สร้างเสียงจากข้อความ</button>
+<button type="button" id="youtubeBrowserPlay">เล่นเสียง</button>
+<button type="button" id="youtubeBrowserStop">หยุดเสียง</button>
+</div>
+<details class="source-connector" style="margin:14px 0" open>
+<summary>เชื่อมต่อหน้าต่าง YouTube Live Chat (ไม่ใช้ API Key)</summary>
+<p class="small">กดเชื่อมต่อเพื่อเปิดหน้าต่าง Chat-only ของ Browser ในเครื่อง ระบบไม่เปิดหน้าวิดีโอและไม่ใช้โปรไฟล์ Browser ส่วนตัวครั้งแรกอาจต้องยืนยันคุกกี้ในหน้าต่างใหม่ ระบบอ่านเฉพาะข้อความที่มาหลังเริ่มเชื่อมต่อ โปรดตรวจสอบเงื่อนไข YouTube ก่อนใช้ DOM Automation</p>
+<div class="voice-grid">
+<div><label for="youtubeBrowserFeedSourceId">YouTube Video ID หรือ URL ของ LIVE</label><input type="text" id="youtubeBrowserFeedSourceId" autocomplete="off" placeholder="https://www.youtube.com/watch?v=..."></div>
+<div><label for="youtubeBrowserFeedBlocked">คำที่ไม่อ่าน (คั่นด้วยจุลภาค)</label><input type="text" id="youtubeBrowserFeedBlocked" placeholder="คำที่ไม่ต้องการ"></div>
+<div><label for="youtubeBrowserFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="youtubeBrowserFeedMaxChars" min="20" max="280" value="240"></div>
+<div><label for="youtubeBrowserFeedKeepRead">ประวัติที่อ่านแล้ว (0-100)</label><input type="number" id="youtubeBrowserFeedKeepRead" min="0" max="100" value="20"></div>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="youtubeBrowserFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ</label>
+<label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="youtubeBrowserFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนข้อความ</label>
+<span class="small" id="youtubeBrowserFeedReadSenderStatus" role="status"></span>
+<button type="button" class="small-button" id="youtubeBrowserAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
+</div>
+<div class="voice-grid"><button type="button" id="youtubeBrowserFeedStart">เปิด Browser และเชื่อมต่อ</button><button type="button" id="youtubeBrowserFeedStop">หยุดรับข้อความ</button></div>
+<div class="voice-grid"><button type="button" id="youtubeBrowserFeedExport">Export / Save As (.json)</button><button type="button" id="youtubeBrowserFeedImport">Import การตั้งค่า (.json)</button><input type="file" id="youtubeBrowserFeedImportFile" accept=".json,application/json" hidden></div>
+<p id="youtubeBrowserFeedStatus" class="small" role="status">ยังไม่เชื่อมต่อ · กดเปิด Browser และเชื่อมต่อ</p>
+<p id="youtubeBrowserFeedQueueStatus" class="small" role="status"></p>
+<ol id="youtubeBrowserFeedItems" class="source-message-list"></ol>
+</details>
+<p id="youtubeBrowserStatus" class="small" role="status">พร้อมทดลองข้อความจาก Browser</p>
+<audio id="youtubeBrowserAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
+<div id="youtubeBrowserSubtitle" class="mode-subtitle" role="status"></div>
+<a id="youtubeBrowserDownload" style="display:none" download="VoxWeaveTTS-youtube-browser.wav">ดาวน์โหลด WAV</a>
+</section></div>
 <div class="mode-view" data-mode-view="live" hidden><section class="panel" style="margin-top:0">
-<h2>YouTube LIVE</h2>
+<h2>YouTube LIVE (API)</h2>
 <p class="small">โหมดนี้มีช่องข้อความและตัวเล่นเสียงของตัวเอง ใช้ Engine/เสียง/กฎคำอ่านส่วนกลาง · <strong>เชื่อม YouTube Live Chat API หรือ Discord Bot API ได้เมื่อให้สิทธิ์และข้อมูลเชื่อมต่อ</strong> สามารถทดสอบข้อความจำลองและขั้นตอนการอ่านได้ก่อนโดยไม่ต้องใช้บัญชี</p>
 <label for="liveText">ข้อความจาก Live Chat (ทดลองป้อนข้อความเอง)</label>
 <textarea id="liveText" placeholder="พิมพ์หรือวางข้อความเพื่อทดลองการอ่านในโหมดนี้"></textarea>
@@ -560,10 +596,12 @@ const audioScheduler=VoxAudioScheduler.attach({
 let modeVoiceController=null;
 let modeRuntime = null;
 let liveMode = null;
+let youtubeBrowserMode = null;
 let discordMode = null;
 let discordClientMode = null;
 let tiktokMode = null;
 let liveFeed = null;
+let youtubeBrowserFeed = null;
 let discordFeed = null;
 let discordClientFeed = null;
 let tiktokFeed = null;
@@ -1820,10 +1858,12 @@ function suspendAllPlayback(){
   queueClock.clear();
   queueAudio.pause();
   liveFeed?.suspend();
+  youtubeBrowserFeed?.suspend();
   discordFeed?.suspend();
   discordClientFeed?.suspend();
   tiktokFeed?.suspend();
   liveMode?.suspend();
+  youtubeBrowserMode?.suspend();
   discordMode?.suspend();
   discordClientMode?.suspend();
   tiktokMode?.suspend();
@@ -1838,12 +1878,13 @@ function restoreModeAudio(mode){
       el("queueMessage").textContent=String(error.message||error);
     });
   }else if(mode==="live")liveMode?.resume();
+  else if(mode==="youtube_browser")youtubeBrowserMode?.resume();
   else if(mode==="discord")discordMode?.resume();
   else if(mode==="discord_client")discordClientMode?.resume();
   else if(mode==="tiktok")tiktokMode?.resume();
 }
 if(typeof VoxModeInputs!=="undefined"){
-  for(const mode of ["live","discord","discord_client","tiktok"]){
+  for(const mode of ["live","youtube_browser","discord","discord_client","tiktok"]){
     const instance=VoxModeInputs.attach({
       mode,el,clockLibrary:VoxPlaybackClock,report:sendPlaybackReport,
       getSpeechPayload:buildSpeechPayload,
@@ -1851,11 +1892,12 @@ if(typeof VoxModeInputs!=="undefined"){
       cancelAudio:audio=>audioScheduler.cancel(audio),
       guard:id=>!modeRuntime || modeRuntime.guard(id),
       onMessageState:(id,state)=>{
-        const feed=mode==="live"?liveFeed:(mode==="discord"?discordFeed:(mode==="tiktok"?tiktokFeed:discordClientFeed));
+        const feed=mode==="live"?liveFeed:(mode==="youtube_browser"?youtubeBrowserFeed:(mode==="discord"?discordFeed:(mode==="tiktok"?tiktokFeed:discordClientFeed)));
         feed?.setMessageState(id,state);
       }
     });
     if(mode==="live")liveMode=instance;
+    else if(mode==="youtube_browser")youtubeBrowserMode=instance;
     else if(mode==="discord")discordMode=instance;
     else if(mode==="tiktok")tiktokMode=instance;
     else discordClientMode=instance;
@@ -1863,7 +1905,7 @@ if(typeof VoxModeInputs!=="undefined"){
 }
 if(typeof VoxSourceFeed!=="undefined"){
   for(const mode of ["live","discord","discord_client","tiktok"]){
-    const inputMode=mode==="live"?liveMode:(mode==="discord"?discordMode:(mode==="tiktok"?tiktokMode:discordClientMode));
+    const inputMode=mode==="live"?liveMode:(mode==="youtube_browser"?youtubeBrowserMode:(mode==="discord"?discordMode:(mode==="tiktok"?tiktokMode:discordClientMode)));
     const feed=VoxSourceFeed.attach({
       mode,el,
       credentials:id=>modeRuntime.credentials(id),
@@ -1875,6 +1917,7 @@ if(typeof VoxSourceFeed!=="undefined"){
       onStop:()=>{inputMode.clearAutoQueue({includeActive:true});inputMode.stop({discard:true});},
     });
     if(mode==="live")liveFeed=feed;
+    else if(mode==="youtube_browser")youtubeBrowserFeed=feed;
     else if(mode==="discord")discordFeed=feed;
     else if(mode==="tiktok")tiktokFeed=feed;
     else discordClientFeed=feed;
@@ -1885,7 +1928,7 @@ if(typeof VoxWorkspaceModes!=="undefined"){
     document,
     stopLocal:suspendAllPlayback,
     onLostMode:mode=>{
-      const streams={live:[liveFeed,liveMode],discord:[discordFeed,discordMode],
+      const streams={live:[liveFeed,liveMode],youtube_browser:[youtubeBrowserFeed,youtubeBrowserMode],discord:[discordFeed,discordMode],
         discord_client:[discordClientFeed,discordClientMode],
         tiktok:[tiktokFeed,tiktokMode]};
       if(streams[mode]){

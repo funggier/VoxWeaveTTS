@@ -4,6 +4,10 @@
 
 **รุ่นสำหรับใช้งาน Windows Portable v0.4.4** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
+## โหมดทดลองระหว่างพัฒนา (ยังไม่อยู่ใน Release v0.4.4)
+
+ใน Source Project แยกแท็บ YouTube เป็น **YouTube LIVE (Browser)** และ **YouTube LIVE (API)** โดย Tab API เดิมใช้รหัส `live` และค่าเดิมไม่เปลี่ยน ส่วน Tab Browser เป็นต้นแบบเปิดหน้าต่าง Chrome/Edge เฉพาะ Live Chat ผ่าน CDP แล้วส่งข้อความใหม่จาก DOM เข้า TTS/OBS Subtitle เดิมโดยไม่ใช้ YouTube Data API Key หรือ Quota ของ Data API **ยังไม่ยืนยันกับ YouTube LIVE จริงและไม่ใช่วิธีทางการของ YouTube** การเข้าถึงอัตโนมัติมีข้อจำกัดในเงื่อนไขของ YouTube โปรดตรวจสอบสิทธิ์ก่อนใช้ [คู่มือ YouTube Browser (ภาษาไทย)](docs/YOUTUBE_BROWSER_READER_TH.md)
+
 ## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
 
 1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.4.4-portable.zip`

@@ -422,6 +422,8 @@ class Handler(BaseHTTPRequestHandler):
                         "websocket_streaming": False,
                         "live_connectors": True,
                         "youtube_live_polling": True,
+                        "youtube_browser_dom_preview": True,
+                        "youtube_browser_live_verified": False,
                         "tiktok_tikfinity_local_websocket": True,
                         "tiktok_live_account_verified": False,
                         "discord_bot_rest_polling": True,

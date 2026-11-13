@@ -5,7 +5,7 @@ const fs=require("node:fs");
 const vm=require("node:vm");
 const source=fs.readFileSync("web/mode_workspace.js","utf8");
 const html=fs.readFileSync("web/index.html","utf8");
-const names=["studio","reader","live","tiktok","discord","discord_client","queue","rules","settings"];
+const names=["studio","reader","youtube_browser","live","tiktok","discord","discord_client","queue","rules","settings"];
 const views=names.map(mode=>({
   attrs:{"data-mode-view":mode},hidden:false,
   getAttribute(name){return this.attrs[name];},
@@ -70,10 +70,12 @@ const sandbox={
 vm.createContext(sandbox);
 vm.runInContext(source,sandbox);
 async function test(){
-  assert.match(html,/data-mode-target="live"[^>]*>YouTube LIVE/);
-  assert.match(html,/<h2>YouTube LIVE<\/h2>/);
+  assert.match(html,/data-mode-target="live"[^>]*>YouTube LIVE \(API\)/);
+  assert.match(html,/data-mode-target="youtube_browser"[^>]*>YouTube LIVE \(Browser\)/);
+  assert.match(html,/<h2>YouTube LIVE \(API\)<\/h2>/);
+  assert.match(html,/<h2>YouTube LIVE \(Browser\)<\/h2>/);
   const modes=sandbox.window.VoxWorkspaceModes.MODES;
-  assert.equal(modes.length,9);
+  assert.equal(modes.length,10);
   const app=sandbox.window.VoxWorkspaceModes.attach({
     document,stopLocal(){stopped++;},onLostMode(mode){revoked.push(mode);},
   });

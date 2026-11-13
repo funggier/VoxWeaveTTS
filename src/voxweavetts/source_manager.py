@@ -16,6 +16,7 @@ from typing import Any, Callable
 from .mode_state import ModeConflict, ModeState
 from .processing import InputError
 from .discord_client_rpc import DiscordClientRPCAdapter
+from .youtube_browser import YouTubeBrowserAdapter
 from .source_adapters import (
     DiscordChannelAdapter, PollResult, SourceFailure, SourceMessage,
     YouTubeLiveAdapter,
@@ -41,7 +42,7 @@ class _Session:
     seen: set[str] = field(default_factory=set)
     cancelled: threading.Event = field(default_factory=threading.Event)
     state: str = "connecting"
-    info: str = "connecting to official API"
+    info: str = "connecting to source"
     received: int = 0
     discarded: int = 0
     duplicates: int = 0
@@ -61,8 +62,8 @@ class _Session:
             "next_poll_seconds": self.next_poll_seconds,
             "temporary_credentials": True,
             **({"transport": self.adapter.transport}
-               if self.mode == "live" and getattr(self.adapter, "transport", None)
-               in ("streamList", "polling") else {}),
+               if self.mode in ("live", "youtube_browser") and getattr(self.adapter, "transport", None)
+               in ("streamList", "polling", "browser-dom") else {}),
             **({"connection_phase": self.adapter.phase}
                if self.mode == "discord_client" and isinstance(getattr(self.adapter, "phase", None), str)
                else {}),
@@ -77,12 +78,14 @@ class SourceManager:
     def __init__(self, *,
                  youtube_factory: Callable[..., Any] = YouTubeLiveAdapter,
                  discord_factory: Callable[..., Any] = DiscordChannelAdapter,
-                 client_factory: Callable[..., Any] = DiscordClientRPCAdapter):
+                 client_factory: Callable[..., Any] = DiscordClientRPCAdapter,
+                 browser_factory: Callable[..., Any] = YouTubeBrowserAdapter):
         self._lock = threading.RLock()
         self._sessions: dict[str, _Session] = {}
         self._youtube_factory = youtube_factory
         self._discord_factory = discord_factory
         self._client_factory = client_factory
+        self._browser_factory = browser_factory
 
     @staticmethod
     def _validate_policy(value: object) -> tuple[tuple[str, ...], int]:
@@ -117,7 +120,7 @@ class SourceManager:
         return not any(blocked in folded for blocked in session.block_words)
 
     def _authorized(self, mode: Any, token: Any, mode_state: ModeState) -> None:
-        if mode not in ("live", "discord", "discord_client") or not mode_state.is_owner(mode, token):
+        if mode not in ("live", "youtube_browser", "discord", "discord_client") or not mode_state.is_owner(mode, token):
             raise ModeConflict("source monitor requires the active mode owner token")
 
     def start(self, data: dict[str, Any], mode_state: ModeState) -> dict[str, Any]:
@@ -127,13 +130,15 @@ class SourceManager:
         self._authorized(mode, token, mode_state)
         source_id = data.get("source_id")
         secret = data.get("credential")
-        if mode != "discord_client" and (secret is None or secret == ""):
+        if mode not in ("discord_client", "youtube_browser") and (secret is None or secret == ""):
             variable = ("VOXWEAVE_YOUTUBE_API_KEY" if mode == "live"
                         else "VOXWEAVE_DISCORD_BOT_TOKEN")
             secret = os.environ.get(variable, "")
         blocked, max_chars = self._validate_policy(data.get("filters"))
         if mode == "live":
             adapter = self._youtube_factory(source_id, secret)
+        elif mode == "youtube_browser":
+            adapter = self._browser_factory(source_id)
         elif mode == "discord":
             adapter = self._discord_factory(source_id, secret)
         else:
@@ -187,8 +192,8 @@ class SourceManager:
             return {"state": "stopped", "pending": 0}
 
     def status(self, mode: str) -> dict[str, Any]:
-        if mode not in ("live", "discord", "discord_client"):
-            raise InputError("source mode must be live, discord or discord_client")
+        if mode not in ("live", "youtube_browser", "discord", "discord_client"):
+            raise InputError("source mode must be live, youtube_browser, discord or discord_client")
         with self._lock:
             s = self._sessions.get(mode)
             if s is None:
@@ -225,12 +230,18 @@ class SourceManager:
                     if not mode_state.is_owner(session.mode, session.owner_token):
                         break
                     session.polls += 1
-                    session.state = "running"
+                    session.state = ("connecting" if session.mode == "youtube_browser"
+                                     and not getattr(session.adapter, "dom_ready", True)
+                                     else "running")
                     session.info = ("Discord Desktop RPC subscribed to selected room"
                                     if session.mode == "discord_client"
-                                    else ("YouTube streamList connected"
-                                          if session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList"
-                                          else "official API connected"))
+                                    else ("YouTube chat-only browser DOM connected"
+                                          if session.mode == "youtube_browser"
+                                          else ("YouTube streamList connected"
+                                                if session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList"
+                                                else "official API connected")))
+                    if session.mode == "youtube_browser" and session.state == "connecting":
+                        session.info = "Waiting for YouTube Live Chat DOM in browser window"
                     for item in batch.messages:
                         if item.message_id in session.seen:
                             session.duplicates += 1
@@ -254,11 +265,13 @@ class SourceManager:
                         session.info = "live broadcast ended"
                         session.next_poll_seconds = 0
                         break
-                    delay = (0.0 if session.mode == "live" and
+                    delay = (min(5, max(0.5, batch.delay_seconds))
+                             if session.mode == "youtube_browser" else
+                             (0.0 if session.mode == "live" and
                              getattr(session.adapter, "transport", "") == "streamList"
                              else (min(2, max(.1, batch.delay_seconds))
                                    if session.mode == "discord_client"
-                                   else min(3600, max(5, batch.delay_seconds))))
+                                   else min(3600, max(5, batch.delay_seconds)))))
                     session.next_poll_seconds = delay
                 backoff = 5
             except SourceFailure as exc:
