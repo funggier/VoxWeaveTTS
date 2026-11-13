@@ -63,7 +63,8 @@ async function main(){
                 connection_phase:currentPhase,transport:"extension",
                 dom_diagnostics:{list_found:true,row_candidates:chatRows,
                   parsed_rows:chatRows,fresh_rows:currentPhase==="ready"?chatRows:0,
-                  author_nodes:chatRows},
+                  author_nodes:chatRows,tab_visible:false,tab_focused:false,
+                  chat_change_age_seconds:45},
                 received:currentPhase==="ready"?1:0,discarded:0,pending:0,
                 info:"" ,
                 next_poll_seconds:2},
@@ -101,6 +102,9 @@ async function main(){
   assert.match(el(prefix+"FeedStatus").textContent,/รับ 1/);
   assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แถวคอมเมนต์ 1/);
   assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แยกข้อความได้ 1/);
+  assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แท็บ อยู่เบื้องหลัง/);
+  assert.match(el(prefix+"FeedDomDiagnostics").textContent,/45 วินาที/);
+  assert.match(el(prefix+"FeedDomDiagnostics").textContent,/อาจพักการอัปเดตแชทเบื้องหลัง/);
   assert.ok(el(prefix+"FeedProgress").children.length>=3,"progress stages should render");
   assert.equal(el(prefix+"FeedItems").children.length,1);
   el(prefix+"FeedItems").children[0].children[2].events.click();

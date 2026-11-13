@@ -5,7 +5,8 @@
 (()=>{
   if(globalThis.__voxweaveTikTokReaderInstalled)return;
   globalThis.__voxweaveTikTokReaderInstalled=true;
-  let running=false,observer=null,heartbeat=null,delay=null,started=false,seq=0;
+  let running=false,observer=null,heartbeat=null,scheduled=false,started=false,seq=0;
+  let lastChatMutation=Date.now();
   const known=new Set(), fallback=new WeakMap();
   const idPrefix="xt"+Date.now().toString(36)+"-";
   const ROW_SELECTOR=[
@@ -80,17 +81,22 @@
     return {level,rank,badges};
   }
   function toRow(nameNode,list){
-    // In current LIVE layouts, the comment row may have only generic flex
-    // classnames. Start from a visible nickname and find its small wrapper.
+    // A LIVE row may use generic flex wrappers. The *nearest* username
+    // parent often contains only levels/badges, not the comment. Walk up to
+    // the last bounded ancestor containing this single message instead.
     const name=(nameNode.textContent||"").trim();
-    let parent=nameNode.parentElement;
-    for(let depth=0;parent&&depth<6&&parent!==list;parent=parent.parentElement,depth++){
+    let parent=nameNode.parentElement,best=null;
+    for(let depth=0;parent&&depth<7&&parent!==list;parent=parent.parentElement,depth++){
       const value=(parent.textContent||"").trim();
-      if(value.length>name.length+1&&value.length<=550
+      if(value.length>550)break;
+      const names=parent.querySelectorAll?.(NAME_SELECTOR);
+      if(names && [...names].filter(n=>n===nameNode||!nameNode.contains?.(n)).length>1)
+        break; // Do not join several viewers into one message.
+      if(value.length>name.length+1
          &&parent.querySelector?.(NAME_SELECTOR)
-         &&!isSystemNotice(parent))return parent;
+         &&!isSystemNotice(parent))best=parent;
     }
-    return null;
+    return best;
   }
   function collectRows(list){
     const direct=[...list.querySelectorAll(ROW_SELECTOR)].filter(n=>
@@ -102,18 +108,69 @@
     );
     const nameNodes=[...list.querySelectorAll(NAME_SELECTOR)];
     const authorNodes=nameNodes.length;
-    if(!candidates.length){
+    // Generic class selectors can accidentally capture a container with
+    // several comments. Never parse multiple viewers as one event.
+    const singleAuthorRows=candidates.filter(row=>{
+      const nodes=[...(row.querySelectorAll?.(NAME_SELECTOR)||[])];
+      // Some simple rows expose the nickname only through querySelector.
+      // Real DOMs expose both; never accept a row with multiple names.
+      if(!nodes.length)return Boolean(row.querySelector?.(NAME_SELECTOR));
+      return nodes.filter(n=>!nodes.some(other=>other!==n&&other.contains?.(n))).length===1;
+    });
+    if(!singleAuthorRows.length){
       const found=new Set();
       for(const name of nameNodes){
         const row=toRow(name,list);
-        if(row && !found.has(row)){found.add(row);candidates.push(row);}
+        if(row && !found.has(row)){found.add(row);singleAuthorRows.push(row);}
       }
       // A wrapper may contain the entire scroller. Keep only small rows,
       // and avoid repeating a parent and its child.
-      return {rows:candidates.filter(row=>!candidates.some(other=>
+      return {rows:singleAuthorRows.filter(row=>!singleAuthorRows.some(other=>
         other!==row&&row.contains(other))),authorNodes,method:"author"};
     }
-    return {rows:candidates,authorNodes,method:"structured"};
+    return {rows:singleAuthorRows,authorNodes,method:"structured"};
+  }
+  function commentTail(node,nameNode,author){
+    // Prefer the end of the *single message row*. In TikTok's two-line
+    // layout the first line holds level, badges and display name; the
+    // remaining line(s) are the user's comment, even when badge elements
+    // have classes that look like a comment selector.
+    const rawLines=(node.innerText||"").split(/\r?\n/)
+      .map(s=>s.replace(/\s+/g," ").trim()).filter(Boolean);
+    const authorLine=rawLines.findIndex(line=>line.includes(author));
+    if(authorLine>=0 && authorLine<rawLines.length-1){
+      const tail=rawLines.slice(authorLine+1).join(" ").trim();
+      if(tail && tail.length<=280)return tail;
+    }
+    // One-line/inline LIVE rows: choose the LAST explicit message element,
+    // and never use an element nested inside the nickname/badge header.
+    const messageNodes=[...(node.querySelectorAll?.(TEXT_SELECTOR)||[])];
+    if(!messageNodes.length){
+      const direct=node.querySelector?.(TEXT_SELECTOR);
+      if(direct)messageNodes.push(direct);
+    }
+    for(const element of messageNodes.reverse()){
+      if(element===nameNode||nameNode.contains?.(element))continue;
+      if(element.closest?.('[data-e2e*="badge"],[data-e2e*="level"],'
+                           +'[data-e2e*="rank"],[class*="Badge"],'
+                           +'[class*="Level"],[class*="Rank"]'))continue;
+      const text=(element.textContent||"").replace(/\s+/g," ").trim();
+      if(text&&text!==author&&text.length<=280)return text;
+    }
+    // When there is no dedicated text selector, use the final text leaf of
+    // the row, not its combined textContent (which includes header badges).
+    const leaves=[...(node.querySelectorAll?.("span,p,div")||[])];
+    for(const element of leaves.reverse()){
+      if(element===nameNode||nameNode.contains?.(element))continue;
+      if(element.querySelector?.("span,p,div"))continue;
+      if(/badge|level|rank|icon/i.test(String(element.className||"")))continue;
+      if(element.closest?.('[data-e2e*="badge"],[data-e2e*="level"],'
+                           +'[data-e2e*="rank"],[class*="Badge"],'
+                           +'[class*="Level"],[class*="Rank"]'))continue;
+      const text=(element.textContent||"").replace(/\s+/g," ").trim();
+      if(text&&text!==author&&text.length<=280)return text;
+    }
+    return "";
   }
   function parseRow(node){
     if(isSystemNotice(node))return null;
@@ -137,25 +194,7 @@
       .replace(/\s+/g," ").trim().slice(0,80);
     if(!author)return null;
     const meta=decorations(node,nameNode);
-    const textNode=node.querySelector(TEXT_SELECTOR);
-    let text=(textNode?.textContent||"").trim();
-    if(!text){
-      // Leaf-only fallback, excluding badges, ranks, icons and usernames.
-      const leaf=[...node.querySelectorAll("span,p")]
-        .filter(n=>n!==nameNode&&!nameNode.contains(n)
-          && !n.querySelector("span,p")
-          && !/badge|level|rank|gifticon/i.test(String(n.className||""))
-          && !n.closest?.('[data-e2e*="badge"],[data-e2e*="level"],'
-                            +'[data-e2e*="rank"],[data-e2e*="gift-icon"]'))
-        .map(n=>(n.textContent||"").trim())
-        .filter(value=>value&&value!==author&&value.length<=280);
-      if(leaf.length)text=leaf.at(-1);
-    }
-    if(!text){
-      const whole=(node.innerText||node.textContent||"").trim();
-      if(whole.startsWith(author))
-        text=whole.slice(author.length).replace(/^\s*[:：]\s*/,"").trim();
-    }
+    let text=commentTail(node,nameNode,author);
     if(!text||text===author||text.length>280)return null;
     if(/^(joined|followed|liked|shared|is now following)\b/i.test(text))return null;
     const rowMarker=(String(node.className||"")+" "+
@@ -183,8 +222,18 @@
     }
     let id=node.getAttribute("data-id")||node.getAttribute("data-message-id")||"";
     if(!/^[a-zA-Z0-9_.:\-]{1,160}$/.test(id)){
-      if(!fallback.has(node))fallback.set(node,idPrefix+(++seq));
-      id=fallback.get(node);
+      // TikTok sometimes recycles the SAME DOM element for a new comment.
+      // One permanent ID per element would silently drop later comments.
+      // Gift counts can change within a streak; keep that event's ID stable.
+      const signature=kind==="gift"
+        ?kind+"|"+author+"|"+gift_name
+        :kind+"|"+author+"|"+text;
+      let record=fallback.get(node);
+      if(!record||record.signature!==signature){
+        record={id:idPrefix+(++seq),signature};
+        fallback.set(node,record);
+      }
+      id=record.id;
     }
     return {id,author,text,kind,...meta,
       ...(kind==="gift"?{gift_name,gift_count}:{})};
@@ -235,7 +284,12 @@
       (input?.getAttribute("placeholder")||"").trim());
     const list=findList();
     const diagnostics={list_found:!!list,row_candidates:0,parsed_rows:0,
-      fresh_rows:0,author_nodes:0};
+      fresh_rows:0,author_nodes:0,
+      tab_visible:document.visibilityState!=="hidden",
+      tab_focused:typeof document.hasFocus==="function"
+        ?Boolean(document.hasFocus()):true,
+      chat_change_age_seconds:Math.min(86400,
+        Math.max(0,Math.floor((Date.now()-lastChatMutation)/1000)))};
     if(off){send("comments_off",[],diagnostics);return;}
     if(!list){send("waiting_chat_dom",[],diagnostics);return;}
     const collected=collectRows(list);
@@ -258,24 +312,50 @@
     }
     send("ready",items,diagnostics);
   }
-  function schedule(){
-    if(!running||delay!==null)return;
-    delay=setTimeout(()=>{delay=null;scan();},500);
+  function schedule(mutations){
+    if(!running)return;
+    // Chrome throttles setTimeout / setInterval in background tabs. DOM
+    // mutation delivery is event-driven; a microtask is not gated by a
+    // 500-ms background timer. It also coalesces adjacent mutations.
+    if(Array.isArray(mutations) && mutations.some(m=>{
+      const list=findList();
+      return Boolean(list && (list===m.target||list.contains?.(m.target)));
+    })) lastChatMutation=Date.now();
+    if(scheduled)return;
+    scheduled=true;
+    const run=()=>{
+      scheduled=false;
+      if(running)scan();
+    };
+    if(typeof queueMicrotask==="function")queueMicrotask(run);
+    else Promise.resolve().then(run);
+  }
+  function onVisibilityChange(){
+    if(!running)return;
+    // Catch up with any DOM updates when a background tab resumes. This
+    // cannot recover comments TikTok never rendered while it was hidden.
+    schedule();
   }
   function start(){
     if(running)return;
-    running=true;started=false;known.clear();
+    running=true;started=false;known.clear();lastChatMutation=Date.now();
     observer=new MutationObserver(schedule);
     observer.observe(document.documentElement,{childList:true,subtree:true,
       characterData:true,attributes:false});
+    document.addEventListener?.("visibilitychange",onVisibilityChange);
+    globalThis.addEventListener?.("pageshow",onVisibilityChange);
+    globalThis.addEventListener?.("focus",onVisibilityChange);
+    // Timer is a fallback, not the primary capture mechanism.
     heartbeat=setInterval(scan,3500);
     scan();
   }
   function stop(){
-    running=false;started=false;known.clear();
+    running=false;started=false;known.clear();scheduled=false;
     if(observer){observer.disconnect();observer=null;}
+    document.removeEventListener?.("visibilitychange",onVisibilityChange);
+    globalThis.removeEventListener?.("pageshow",onVisibilityChange);
+    globalThis.removeEventListener?.("focus",onVisibilityChange);
     if(heartbeat!==null){clearInterval(heartbeat);heartbeat=null;}
-    if(delay!==null){clearTimeout(delay);delay=null;}
   }
   chrome.runtime.onMessage.addListener(message=>{
     if(message?.kind==="vw-start"){start();return;}

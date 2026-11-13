@@ -63,9 +63,12 @@ async function forward(data,sender){
   const rows=Array.isArray(data.items)?data.items:[];
   const diagnostics=data.diagnostics;
   if(!diagnostics || typeof diagnostics!=="object"
-     || typeof diagnostics.list_found!=="boolean"
-     || ["row_candidates","parsed_rows","fresh_rows","author_nodes"].some(key=>
-         !Number.isInteger(diagnostics[key])||diagnostics[key]<0||diagnostics[key]>10000)
+     || ["list_found","tab_visible","tab_focused"].some(key=>
+         typeof diagnostics[key]!=="boolean")
+     || ["row_candidates","parsed_rows","fresh_rows","author_nodes",
+         "chat_change_age_seconds"].some(key=>
+         !Number.isInteger(diagnostics[key])||diagnostics[key]<0||
+         diagnostics[key]>(key==="chat_change_age_seconds"?86400:10000))
      || rows.length>20
      || !["ready","waiting_chat_dom","comments_off"].includes(data.phase))
     return {ok:false,error:"invalid chat batch"};

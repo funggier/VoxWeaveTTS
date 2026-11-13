@@ -80,7 +80,8 @@ async function testWorker(){
   assert.equal(denied.ok,false);
   const sample=[{id:"m1",author:"Viewer",text:"สวัสดีครับ"}];
   const diagnostics={list_found:true,row_candidates:1,parsed_rows:1,
-    fresh_rows:1,author_nodes:1};
+    fresh_rows:1,author_nodes:1,tab_visible:false,tab_focused:false,
+    chat_change_age_seconds:61};
   const forwarded=await command({kind:"vw-chat-batch",phase:"ready",
     items:sample,diagnostics},sourceTab);
   assert.equal(forwarded.ok,true);
@@ -183,7 +184,7 @@ function testGenericLiveChatRows(){
           return null;
         },
         querySelectorAll(selector){
-          return selector==="span,p"?[name,message]:[];
+          return selector.startsWith("span,p")?[name,message]:[];
         },
       };
       name.parentElement=row;

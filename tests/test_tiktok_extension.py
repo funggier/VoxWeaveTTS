@@ -130,11 +130,33 @@ class AdapterTests(unittest.TestCase):
         finally:
             a.close()
 
+    def test_background_timer_throttling_does_not_false_disconnect(self):
+        from voxweavetts.tiktok_extension import HEARTBEAT_WINDOW
+        self.assertGreaterEqual(HEARTBEAT_WINDOW, 90)
+        a = TikTokExtensionAdapter(USERNAME)
+        token = a.pair(a.pairing_code, EXT_ID, LIVE_URL)
+        try:
+            with patch("voxweavetts.tiktok_extension.time.monotonic",
+                       return_value=a._last_seen+61):
+                a.poll()
+                self.assertEqual(a.phase, "waiting_chat_dom")
+            with patch("voxweavetts.tiktok_extension.time.monotonic",
+                       return_value=a._last_seen+HEARTBEAT_WINDOW+1):
+                a.poll()
+                self.assertEqual(a.phase, "extension_disconnected")
+            a.receive(extension_id=EXT_ID,token=token,url=LIVE_URL,
+                      phase="ready",items=[])
+            self.assertEqual(a.phase,"ready")
+        finally:
+            a.close()
+
     def test_dom_diagnostics_are_bounded_counts_not_raw_chat(self):
         a = TikTokExtensionAdapter(USERNAME)
         token = a.pair(a.pairing_code, EXT_ID, LIVE_URL)
         diagnostic = {"list_found": True, "row_candidates": 2,
-                      "parsed_rows": 0, "fresh_rows": 0, "author_nodes": 0}
+                      "parsed_rows": 0, "fresh_rows": 0, "author_nodes": 0,
+                      "tab_visible": False, "tab_focused": False,
+                      "chat_change_age_seconds": 61}
         try:
             count = a.receive(extension_id=EXT_ID, token=token, url=LIVE_URL,
                               phase="ready", items=[], diagnostics=diagnostic)
@@ -256,7 +278,9 @@ class HTTPBridgeTests(unittest.TestCase):
             "token":token,"url":LIVE_URL,"phase":"ready",
             "items":[{"id":"id1","author":"Viewer","text":"ทดสอบคอมเมนต์จาก Chrome"}],
             "diagnostics":{"list_found":True,"row_candidates":1,"parsed_rows":1,
-                            "fresh_rows":1,"author_nodes":1},
+                            "fresh_rows":1,"author_nodes":1,
+                            "tab_visible":False,"tab_focused":False,
+                            "chat_change_age_seconds":10},
         },origin=EXT_ORIGIN,intent="tiktok-extension")
         self.assertEqual((status,r["accepted"]),(200,1))
         health = self.server.source_manager.status("tiktok_browser")

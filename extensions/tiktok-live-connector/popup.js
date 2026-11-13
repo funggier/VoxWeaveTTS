@@ -8,7 +8,12 @@ function diagnosis(scan){
     +" | แถว: "+d.row_candidates
     +" | แยกคอมเมนต์: "+d.parsed_rows
     +" | ข้อความใหม่ล่าสุด: "+d.fresh_rows
-    +" | Backend รับรอบล่าสุด: "+(scan.accepted||0);
+    +" | Backend รับรอบล่าสุด: "+(scan.accepted||0)
+    +(typeof d.tab_visible==="boolean"
+      ?"\nแท็บ: "+(d.tab_visible?"แสดงอยู่":"เบื้องหลัง")
+       +" | โฟกัส: "+(d.tab_focused?"อยู่ในแท็บ":"อยู่นอกแท็บ")
+       +" | DOM แชทไม่เปลี่ยนมา: "+(d.chat_change_age_seconds||0)+" วินาที"
+      :"");
 }
 function send(data){
   return new Promise((resolve,reject)=>{

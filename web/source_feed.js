@@ -598,9 +598,19 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
               +" · แยกข้อความได้ "+(diag.parsed_rows||0)
               +" · ข้อความใหม่รอบล่าสุด "+(diag.fresh_rows||0)
               +" · จุดชื่อผู้ส่ง "+(diag.author_nodes||0);
+            if(typeof diag.tab_visible==="boolean"){
+              desc+=" · แท็บ "+(diag.tab_visible?"แสดงอยู่":"อยู่เบื้องหลัง");
+              desc+=" · โฟกัส "+(diag.tab_focused?"อยู่ในแท็บ":"อยู่นอกแท็บ");
+              if(Number.isInteger(diag.chat_change_age_seconds))
+                desc+=" · DOM แชทไม่เปลี่ยนมา "+diag.chat_change_age_seconds+" วินาที";
+            }
             if(!diag.list_found)desc+=" · หน้า TikTok อาจเปลี่ยนโครงสร้าง หรือยังโหลดแชทไม่เสร็จ";
             else if(diag.row_candidates===0)desc+=" · พบกล่องแชท แต่ยังไม่พบแถวข้อความ";
             else if(diag.parsed_rows===0)desc+=" · พบแถวข้อความ แต่ตัวอ่านยังแยกชื่อผู้ส่ง/เนื้อหาไม่ได้";
+            if(diag.tab_visible===false &&
+               Number.isInteger(diag.chat_change_age_seconds) &&
+               diag.chat_change_age_seconds>=30)
+              desc+=" · TikTok หรือ Chrome อาจพักการอัปเดตแชทเบื้องหลัง";
           }
           get("FeedDomDiagnostics").textContent=desc;
         }

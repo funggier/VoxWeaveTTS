@@ -20,9 +20,13 @@ from .tiktok_live_url import username_from_input
 EXTENSION_ID = re.compile(r"^[a-p]{32}$")
 MESSAGE_ID = re.compile(r"^[A-Za-z0-9_.:\-]{1,160}$")
 PAIR_WINDOW = 300.0
-HEARTBEAT_WINDOW = 15.0
+# Chrome may throttle hidden-tab timers to about one callback per minute.
+# A 15-second timeout incorrectly reported a live, paired extension as lost.
+HEARTBEAT_WINDOW = 90.0
 DIAGNOSTIC_FIELDS = frozenset(("list_found", "row_candidates", "parsed_rows",
-                              "fresh_rows", "author_nodes"))
+                              "fresh_rows", "author_nodes", "tab_visible",
+                              "tab_focused", "chat_change_age_seconds"))
+DIAGNOSTIC_BOOL_FIELDS = frozenset(("list_found", "tab_visible", "tab_focused"))
 
 
 def extension_id_from_origin(value: str | None) -> str | None:
@@ -104,10 +108,12 @@ class TikTokExtensionAdapter:
         if diagnostics is not None:
             if (not isinstance(diagnostics, dict)
                 or set(diagnostics) != DIAGNOSTIC_FIELDS
-                or type(diagnostics["list_found"]) is not bool
+                or any(type(diagnostics[key]) is not bool
+                       for key in DIAGNOSTIC_BOOL_FIELDS)
                 or any(type(diagnostics[key]) is not int
-                       or not 0 <= diagnostics[key] <= 10000
-                       for key in DIAGNOSTIC_FIELDS - {"list_found"})):
+                       or not 0 <= diagnostics[key] <=
+                       (86400 if key == "chat_change_age_seconds" else 10000)
+                       for key in DIAGNOSTIC_FIELDS - DIAGNOSTIC_BOOL_FIELDS)):
                 raise ExtensionBridgeError("invalid DOM diagnostic counts")
         if phase not in ("ready", "waiting_chat_dom", "comments_off"):
             raise ExtensionBridgeError("unsupported extension chat state")
