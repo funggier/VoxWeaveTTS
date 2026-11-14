@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Rules quick-add full schema editor
+
+- Expanded the Rules quick-add panel from two plain fields into a structured builder for `match_mode`, `match`, `mode`, optional `spoken` / `display`, `silence_ms`, and source filters, matching the existing backend schema without introducing unsupported regular expressions.
+- Added dynamic form visibility, precise validation, JSON preview, duplicate detection, source-specific processing tests and a selection of real source IDs, including Discord Bot/Client sharing `discord`.
+- The quick-add button updates local JSON only; the existing revision-protected Save persists changes. Tests can now choose the source so source-specific rules can be verified from the UI.
+- Added regression tests for the rule builder and an isolated Chrome UI round-trip against the real local text-processing API.
+
 ## Unreleased — TikTok LIVE emoji pronunciation parity
 
 - Added the same opt-in emoji pronunciation dictionary editor, save/load behavior and voice preview to TikTok LIVE (TikFinity) and TikTok LIVE (Extension). Each source keeps independent mappings.

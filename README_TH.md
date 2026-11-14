@@ -4,6 +4,10 @@
 
 **รุ่นสำหรับใช้งาน Windows Portable v0.5.1** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
+## เพิ่มกฎอ่านและกรองคำอย่างรวดเร็ว (Source Project)
+
+หน้า **Rules — กฎการอ่านและกรองคำ (JSON Array)** มีตัวช่วยเพิ่มกฎอย่างละเอียด รองรับข้อความตรงตัวหรือเลข 5 ต่อเนื่อง, **แทนคำ / ข้ามคำ / หยุดเสียง**, คำอ่าน, Subtitle, ระยะเวลาเงียบ และแหล่งข้อความที่ต้องการใช้ พร้อมตัวอย่าง JSON และเลือก Source เพื่อทดสอบกฎก่อนกดบันทึกในโปรแกรม ดู [คู่มือการเพิ่มกฎแบบละเอียด](docs/RULES_QUICK_ADD_TH.md) (ฟีเจอร์นี้เพิ่มหลัง Release v0.5.1 และยังไม่รวมใน Portable ที่เผยแพร่ก่อนหน้า)
+
 ## การอ่านอีโมจิแบบตั้งคำเอง (ทุกโหมด Live)
 
 โหมด **YouTube LIVE (API)**, **YouTube LIVE (Browser)**, **TikTok LIVE (TikFinity)**, **TikTok LIVE (Extension)**, **Discord** และ **Discord Client** มีตัวเลือก **อ่านอีโมจิด้วยคำที่กำหนดเอง** ในหัวข้อ **กำหนดการอ่านข้อความและข้อมูลพิเศษ** พร้อมพจนานุกรมแยกแต่ละโหมด เช่น `😂 = หัวเราะ`, `❤️ = หัวใจ`, `:party_parrot: = นกเต้น` รองรับอีโมจิ Unicode และรหัสอีโมจิ Discord แบบกำหนดเอง เริ่มต้นปิดเพื่อไม่เปลี่ยนการอ่านเดิม และบันทึกพร้อมการตั้งค่าโหมดใน `data/settings/mode-voices.json` [คู่มือการตั้งค่าอีโมจิ](docs/EMOJI_PRONUNCIATION_TH.md)

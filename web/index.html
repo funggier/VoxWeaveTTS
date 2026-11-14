@@ -26,6 +26,19 @@ button.small-button{padding:7px 10px;margin-top:5px;font-size:12px}
 .json-add{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin:8px 0}
 .json-add>div{flex:1;min-width:160px}
 .json-add input{width:100%}
+.rule-quick{border:1px solid #32425b;border-radius:10px;padding:12px;margin:12px 0}
+.rule-quick>summary{font-weight:650;color:#e1edff}
+.rule-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:4px 14px}
+.rule-quick-grid>div{min-width:0}
+.rule-quick-grid input,.rule-quick-grid select,.rule-sources input[type=text]{width:100%}
+.rule-quick-grid .small{margin:5px 0 8px}
+.rule-sources{border:1px solid #32425b;border-radius:9px;margin:13px 0;padding:10px;min-width:0}
+.rule-sources legend{padding:0 6px;color:#bfd1e9;font-size:13px}
+.rule-sources-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:3px 10px}
+.rule-sources-grid label{display:flex;align-items:center;gap:8px;margin:5px 0;cursor:pointer}
+.rule-quick-preview{min-height:68px;max-height:230px;white-space:pre-wrap;overflow:auto}
+.rule-quick-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rule-quick-actions .small{flex:1;min-width:200px}
 select,input[type=number],input[type=text]{background:#0e1929;color:#eaf0f9;border:1px solid #40516d;border-radius:9px;padding:9px;font:inherit}
 input[type=range]{accent-color:#8cc8ff;width:100%;min-width:145px}
 .voice-row{display:grid;grid-template-columns:155px minmax(130px,1fr) 125px 72px;gap:12px;align-items:center;margin:12px 0}
@@ -494,6 +507,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <h2>กฎการอ่านส่วนกลาง</h2>
 <label for="rulesTestText">ข้อความทดสอบกฎและคำอ่าน (เฉพาะหน้านี้)</label>
 <textarea id="rulesTestText">ชายหนุ่มพูดคำต้องห้าม แล้วหัวเราะ 55555</textarea>
+<label for="rulesTestSource">แหล่งข้อความสำหรับทดสอบกฎ (ใช้ตรวจเงื่อนไข sources)</label>
+<select id="rulesTestSource"></select>
 <div class="json-toolbar">
 <label for="rule">Rules — กฎการอ่านและกรองคำ (JSON Array)</label>
 <div class="json-actions">
@@ -511,12 +526,60 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
   {"match":"555","match_mode":"five_run","mode":"replace","spoken":"ฮ่า ฮ่า ฮ่า"}
 ]</textarea>
 <p class="json-status" id="ruleJsonStatus" role="status">ใช้ JSON มาตรฐาน · ค่าข้อความต้องอยู่ในเครื่องหมายคำพูดคู่</p>
-<details>
-<summary class="small" style="cursor:pointer">เพิ่มกฎแทนคำอย่างรวดเร็ว (รองรับเครื่องหมายพิเศษ)</summary>
-<div class="json-add">
-<div><label for="ruleMatch">ข้อความที่พบ</label><input id="ruleMatch" type="text" placeholder="เช่น “สวัสดี!”" maxlength="200"></div>
-<div><label for="ruleSpoken">ข้อความที่ให้อ่าน</label><input id="ruleSpoken" type="text" placeholder="เช่น สวัสดีครับ" maxlength="500"></div>
-<button id="ruleAdd" class="small-button" type="button">เพิ่มกฎ</button>
+<details class="rule-quick">
+<summary style="cursor:pointer">เพิ่มกฎอย่างรวดเร็ว — แทนคำ / ข้ามคำ / หยุดเสียง / จำกัดช่องทาง</summary>
+<p class="small">เลือกเงื่อนไขแล้วเพิ่มกฎลง JSON ได้ทันที โดยยังต้องกด <strong>บันทึกในโปรแกรม</strong> เพื่อใช้งานจริง ไม่รองรับ Regular Expression แบบกำหนดเอง</p>
+<div class="rule-quick-grid">
+<div>
+<label for="ruleMatchMode">รูปแบบการค้นหา (match_mode)</label>
+<select id="ruleMatchMode">
+<option value="literal">ข้อความตรงตัว (literal)</option>
+<option value="five_run">เลข 5 ติดต่อกันตั้งแต่ 3 ตัวขึ้นไป (five_run)</option>
+</select>
+<p class="small">ข้อความตรงตัวจะค้นหาทุกตำแหน่งที่พบ รวมถึงภายในคำอื่นและแยกตัวพิมพ์เล็ก/ใหญ่</p>
+</div>
+<div>
+<label for="ruleMatch">ข้อความที่ต้องการค้นหา (match)</label>
+<input id="ruleMatch" type="text" placeholder="เช่น คำต้องห้าม หรือ สวัสดี!" maxlength="200">
+<p class="small" id="ruleMatchHint">สูงสุด 200 ตัวอักษร · ป้อนเครื่องหมายพิเศษได้</p>
+</div>
+<div>
+<label for="ruleMode">การทำงาน (mode)</label>
+<select id="ruleMode">
+<option value="replace">แทนคำอ่าน (replace)</option>
+<option value="skip">ไม่อ่านคำนี้ (skip)</option>
+<option value="silence">หยุดเสียงชั่วคราว (silence)</option>
+</select>
+</div>
+<div id="ruleSpokenGroup">
+<label for="ruleSpoken">ข้อความที่ให้อ่านแทน (spoken)</label>
+<input id="ruleSpoken" type="text" placeholder="เช่น สวัสดีครับ" maxlength="500">
+<p class="small">เว้นว่าง = อ่านคำเดิมโดยไม่แทนเสียง</p>
+</div>
+<div>
+<label for="ruleDisplay">ข้อความที่จะแสดงใน Subtitle (display)</label>
+<input id="ruleDisplay" type="text" placeholder="เว้นว่างเพื่อใช้ค่าเริ่มต้นของโหมด" maxlength="500">
+<p class="small">เว้นว่าง = คำเดิมเมื่อแทนคำ หรือ *** เมื่อข้าม/หยุดเสียง</p>
+</div>
+<div id="ruleSilenceGroup" hidden>
+<label for="ruleSilenceMs">ระยะเวลาหยุดเสียง (silence_ms)</label>
+<input id="ruleSilenceMs" type="number" min="0" max="10000" step="1" value="400">
+<p class="small">หน่วยมิลลิวินาที 0–10000 (1000 = 1 วินาที)</p>
+</div>
+</div>
+<fieldset class="rule-sources">
+<legend>จำกัดแหล่งข้อความ (sources)</legend>
+<p class="small">หากไม่เลือกอะไรเลย กฎจะใช้กับทุกแหล่งข้อความ; Discord Bot และ Client ใช้แหล่งเดียวกันชื่อ discord</p>
+<div class="rule-sources-grid" id="ruleSourceChoices"></div>
+<label for="ruleSourcesExtra">ชื่อแหล่งอื่น ๆ เพิ่มเติม (คั่นด้วยเครื่องหมายจุลภาค)</label>
+<input type="text" id="ruleSourcesExtra" placeholder="เช่น my-app, external-api">
+<p class="small">เลือกได้สูงสุด 32 แหล่ง แหล่งละไม่เกิน 64 ตัวอักษร · ระบุรหัส source ที่ระบบรับจริง</p>
+</fieldset>
+<label for="ruleQuickPreview">ตัวอย่างกฎที่จะเพิ่ม (JSON)</label>
+<pre id="ruleQuickPreview" class="output rule-quick-preview" aria-live="polite">กรอกข้อความที่ต้องการค้นหาเพื่อดูตัวอย่าง</pre>
+<div class="rule-quick-actions">
+<button id="ruleAdd" class="small-button" type="button">เพิ่มกฎลง JSON</button>
+<span class="small" id="ruleQuickStatus" role="status">เมื่อเพิ่มแล้วให้ตรวจ JSON และกดบันทึกในโปรแกรม</span>
 </div>
 </details>
 <div class="json-toolbar">
@@ -621,6 +684,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </main>
 <script src="/audio_scheduler.js"></script>
 <script src="/emoji_pronunciation.js"></script>
+<script src="/rule_quick_add.js"></script>
 <script src="/mode_voice_settings.js"></script>
 <script src="/mode_workspace.js"></script>
 <script src="/mode_inputs.js"></script>
@@ -825,7 +889,96 @@ function addConfigValue(id, keyId, valueId) {
     configFeedback(id, "เพิ่มรายการไม่ได้: " + String(error.message || error), false);
   }
 }
-el("ruleAdd").addEventListener("click", () => addConfigValue("rule", "ruleMatch", "ruleSpoken"));
+// Match the backend Rule.parse capabilities exactly. A quick-added rule
+// updates the JSON editor only; the existing revision-guarded Save remains
+// the sole persistence operation.
+const quickRule=window.VoxRuleQuickAdd;
+const ruleSourceChecks=[];
+for(const item of quickRule.SOURCE_OPTIONS){
+  const option=document.createElement("option");
+  option.value=item.value;option.textContent=item.label;
+  el("rulesTestSource").appendChild(option);
+  const label=document.createElement("label");
+  const check=document.createElement("input");
+  check.type="checkbox";check.value=item.value;
+  label.appendChild(check);
+  const caption=document.createElement("span");
+  caption.textContent=item.label;label.appendChild(caption);
+  el("ruleSourceChoices").appendChild(label);
+  ruleSourceChecks.push(check);
+}
+let cachedLiteralRuleMatch="";
+let usingFiveRun=false;
+const getQuickRuleInput=()=>({
+  match_mode:el("ruleMatchMode").value,
+  match:el("ruleMatch").value,
+  mode:el("ruleMode").value,
+  spoken:el("ruleSpoken").value,
+  display:el("ruleDisplay").value,
+  silence_ms:el("ruleSilenceMs").value,
+  sources:ruleSourceChecks.filter(c=>c.checked).map(c=>c.value),
+  extra_sources:el("ruleSourcesExtra").value,
+});
+function previewQuickRule(){
+  try{
+    if(el("ruleMatchMode").value==="literal"&&!el("ruleMatch").value.trim()){
+      el("ruleQuickPreview").textContent="กรอกข้อความที่ต้องการค้นหาเพื่อดูตัวอย่าง";
+      return;
+    }
+    el("ruleQuickPreview").textContent=JSON.stringify(
+      quickRule.build(getQuickRuleInput()),null,2);
+    el("ruleQuickStatus").textContent="กฎพร้อมเพิ่มลง JSON (ยังไม่ได้บันทึกในโปรแกรม)";
+  }catch(error){
+    el("ruleQuickPreview").textContent="ข้อผิดพลาด: "+String(error.message||error);
+    el("ruleQuickStatus").textContent="ตรวจตัวเลือกกฎก่อนเพิ่ม";
+  }
+}
+function refreshRuleQuickFields(){
+  const five=el("ruleMatchMode").value==="five_run";
+  if(five&&!usingFiveRun){
+    cachedLiteralRuleMatch=el("ruleMatch").value;
+    el("ruleMatch").value="555";
+  }else if(!five&&usingFiveRun){
+    el("ruleMatch").value=cachedLiteralRuleMatch;
+  }
+  usingFiveRun=five;
+  el("ruleMatch").readOnly=five;
+  el("ruleMatchHint").textContent=five
+    ?"ใช้ 555 อัตโนมัติ · จับกลุ่มเลข 5 ตั้งแต่ 3 ตัวขึ้นไป ไม่จับตัวเลขยาวทั่วไป"
+    :"สูงสุด 200 ตัวอักษร · ป้อนเครื่องหมายพิเศษได้";
+  const mode=el("ruleMode").value;
+  el("ruleSpokenGroup").hidden=mode!=="replace";
+  el("ruleSilenceGroup").hidden=mode!=="silence";
+  previewQuickRule();
+}
+for(const id of ["ruleMatch","ruleSpoken","ruleDisplay","ruleSilenceMs",
+                 "ruleSourcesExtra","ruleMatchMode","ruleMode"]){
+  el(id).addEventListener("input",id==="ruleMatchMode"||id==="ruleMode"
+    ?refreshRuleQuickFields:previewQuickRule);
+  el(id).addEventListener("change",id==="ruleMatchMode"||id==="ruleMode"
+    ?refreshRuleQuickFields:previewQuickRule);
+}
+for(const check of ruleSourceChecks)
+  check.addEventListener("change",previewQuickRule);
+refreshRuleQuickFields();
+el("ruleAdd").addEventListener("click",()=>{
+  try{
+    const rules=parseConfigJson("rule");
+    const next=quickRule.append(rules,getQuickRuleInput());
+    el("rule").value=JSON.stringify(next,null,2);
+    configFeedback("rule","เพิ่มกฎลง JSON แล้ว · ตรวจสอบและกดบันทึกในโปรแกรมเพื่อใช้งานจริง",true);
+    el("ruleQuickStatus").textContent="เพิ่มกฎที่ "+next.length+
+      " ใน JSON แล้ว (ยังไม่ได้บันทึกในโปรแกรม)";
+    if(el("ruleMatchMode").value==="literal")el("ruleMatch").value="";
+    el("ruleSpoken").value="";
+    el("ruleDisplay").value="";
+    el("ruleQuickPreview").textContent="เพิ่มกฎแล้ว · กรอกข้อความเพื่อเพิ่มกฎถัดไป";
+  }catch(error){
+    const message="เพิ่มกฎไม่ได้: "+String(error.message||error);
+    el("ruleQuickStatus").textContent=message;
+    configFeedback("rule",message,false);
+  }
+});
 el("pronAdd").addEventListener("click", () => addConfigValue("pron", "pronMatch", "pronSpoken"));
 
 el("run").addEventListener("click", async () => {
@@ -834,6 +987,7 @@ el("run").addEventListener("click", async () => {
     const request = {
       text: el("rulesTestText").value,
       rules: parseConfigJson("rule"),
+      source: el("rulesTestSource").value,
       pronunciations: parseConfigJson("pron")
     };
     const response = await fetch("/v1/text/process", {

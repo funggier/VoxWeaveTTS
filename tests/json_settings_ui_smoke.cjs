@@ -3,6 +3,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
+const quickRule=require('../web/rule_quick_add.js');
 
 async function main(){
   const html=fs.readFileSync('web/index.html','utf8');
@@ -14,12 +15,16 @@ async function main(){
   function el(id){
     if(!nodes.has(id))nodes.set(id,{
       value:'', disabled:true, files:[], textContent:'', listeners:{},
-      classList:{toggle(){}},focus(){},
+      children:[],classList:{toggle(){}},focus(){},
+      appendChild(child){this.children.push(child);return child;},
       addEventListener(type,fn){this.listeners[type]=fn;},
       click(){return this.listeners.click?.();},
     });
     return nodes.get(id);
   }
+  el('ruleMatchMode').value='literal';
+  el('ruleMode').value='replace';
+  el('ruleSilenceMs').value='400';
   el('rule').value='[{"match":"first","spoken":"A"}]';
   el('pron').value='{"เดิม":"เดิม"}';
   const server={
@@ -54,9 +59,14 @@ async function main(){
       createObjectURL:()=> 'blob:test',revokeObjectURL:()=>{}
     },
     setTimeout:(fn)=>fn(),
-    window:{confirm:()=>true},
-    document:{body:{appendChild(){}},createElement:()=>({
-      download:'',href:'',click(){downloads.push(this.download);},remove(){}
+    window:{confirm:()=>true,VoxRuleQuickAdd:quickRule},
+    document:{body:{appendChild(){}},createElement:tag=>({
+      tagName:tag.toUpperCase(),value:'',checked:false,children:[],
+      download:'',href:'',textContent:'',listeners:{},
+      appendChild(child){this.children.push(child);return child;},
+      addEventListener(name,fn){this.listeners[name]=fn;},
+      click(){if(tag==='a')downloads.push(this.download);},
+      remove(){}
     })},
   };
   vm.createContext(sandbox);

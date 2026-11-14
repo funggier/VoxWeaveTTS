@@ -4,6 +4,10 @@
 
 > **Windows portable release v0.5.1:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
+## Rich Rules quick-add editor (source development)
+
+The Rules panel now offers a schema-accurate, guided quick-add form for literal or five-run matching, replace/skip/silence actions, optional spoken/display overrides, silence duration and per-source restrictions. A JSON preview shows the pending rule; the source-aware tester checks it against the local processing API. Adding only updates the editor, while **Save in app** persists after validation. [Thai guide](docs/RULES_QUICK_ADD_TH.md). Available in source after v0.5.1, not yet in the published portable archive.
+
 ## Configurable emoji pronunciation (all LIVE modes)
 
 YouTube LIVE (API/Browser), TikTok LIVE (TikFinity/Extension), and Discord (Bot/Client) have independent, opt-in emoji-to-speech dictionaries inside the source speech settings. Enter one Unicode or Discord custom emoji per line, e.g. `😂 = หัวเราะ` or `:party_parrot: = นกเต้น`; the mapping applies only to the synthesized text and not the original chat record. Disabled by default for existing users. YouTube Browser and TikTok Extension chat readers include emoji-image `alt` text when available so it can be mapped. TikTok remains comments-only (no Gift speech). [Thai setup guide](docs/EMOJI_PRONUNCIATION_TH.md).

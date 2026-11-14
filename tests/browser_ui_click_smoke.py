@@ -241,7 +241,67 @@ def main():
                 time.sleep(.15)
             else:
                 raise AssertionError("TikTok Extension pairing code was not cleared on stop")
-            print("PASS: real YouTube Browser/TikTok Extension UI, pairing and validation")
+            # Rich Rules quick-add: exercise actual UI in isolated Chrome,
+            # but never press Save (real data/filters/rules.json is untouched).
+            result = evaluate("""(()=>{
+              const $=id=>document.getElementById(id);
+              document.querySelector('[data-mode-target="rules"]').click();
+              $('rule').value='[]';
+              const change=(id,value)=>{
+                const node=$(id);node.value=value;
+                node.dispatchEvent(new Event('change',{bubbles:true}));
+              };
+              change('ruleMatchMode','five_run');
+              change('ruleMode','silence');
+              change('ruleSilenceMs','1250');
+              change('ruleDisplay','[พัก]');
+              const sources=[...document.querySelectorAll(
+                '#ruleSourceChoices input[type=checkbox]')];
+              const check=sources.find(c=>c.value==='tiktok-live-extension');
+              if(!check)throw Error('Missing TikTok Extension source filter');
+              check.checked=true;
+              check.dispatchEvent(new Event('change',{bubbles:true}));
+              const preview=JSON.parse($('ruleQuickPreview').textContent);
+              $('ruleAdd').click();
+              return {rules:JSON.parse($('rule').value),preview,
+                spokenHidden:$('ruleSpokenGroup').hidden,
+                silenceHidden:$('ruleSilenceGroup').hidden,
+                sourceCount:$('rulesTestSource').options.length,
+                status:$('ruleQuickStatus').textContent};
+            })()""")
+            expected={"match":"555","mode":"silence","match_mode":"five_run",
+                      "display":"[พัก]","silence_ms":1250,
+                      "sources":["tiktok-live-extension"]}
+            assert result["rules"]==[expected],result
+            assert result["preview"]==expected,result
+            assert result["spokenHidden"] is True and result["silenceHidden"] is False,result
+            assert result["sourceCount"]==7,result
+            assert "ยังไม่ได้บันทึก" in result["status"],result
+            evaluate("""(()=>{
+              document.getElementById('rulesTestText').value='55555';
+              document.getElementById('rulesTestSource').value='tiktok-live-extension';
+              document.getElementById('run').click();
+            })()""")
+            until=time.monotonic()+5
+            while time.monotonic()<until:
+                display=evaluate("document.getElementById('display').textContent")
+                if display=="[พัก]":break
+                time.sleep(.1)
+            else:
+                raise AssertionError("source-filtered rule test did not apply: "+str(display))
+            assert evaluate("JSON.parse(document.getElementById('segments').textContent)[0].silence_ms")==1250
+            evaluate("""(()=>{
+              document.getElementById('rulesTestSource').value='youtube-live';
+              document.getElementById('run').click();
+            })()""")
+            until=time.monotonic()+5
+            while time.monotonic()<until:
+                display=evaluate("document.getElementById('display').textContent")
+                if display=="55555":break
+                time.sleep(.1)
+            else:
+                raise AssertionError("source filter leaked into YouTube: "+str(display))
+            print("PASS: real YouTube/TikTok UI and full Rules builder with source-filtered test")
         finally:
             if ws:
                 ws.close()

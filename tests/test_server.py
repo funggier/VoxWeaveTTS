@@ -161,6 +161,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn("/audio_scheduler.js", paths)
         self.assertIn("/mode_voice_settings.js", paths)
         self.assertIn("/emoji_pronunciation.js", paths)
+        self.assertIn("/rule_quick_add.js", paths)
         for path in paths:
             with self.subTest(path=path):
                 self.assertTrue(path.startswith("/"))
