@@ -6,7 +6,7 @@
 
 ## AI Tool Calling (กำลังพัฒนาหลัง v0.6.0 — ยังไม่ออก Release)
 
-เพิ่มสิทธิ์ Tool Calling แบบ **ปิดเป็นค่าเริ่มต้น** สำหรับ Ollama + โหมด Custom Prompt สามารถอนุญาตการค้น **Wikipedia** และอ่านไฟล์อ้างอิงที่กำหนดใน Settings แยกจากกัน โดยจำกัด 1–3 ครั้งต่อข้อความ ไม่มีการค้นเว็บแบบทั่วไป, ไม่รัน Shell, ไม่เขียนไฟล์ และไม่รับสิทธิ์จากข้อความผู้ชม โมเดล qwen3.5:4b เรียก Wikipedia และอ่านไฟล์ตัวอย่างจาก Allowlist ได้จริงในการทดสอบครั้งล่าสุด แต่ยังต้องตรวจสอบความแม่นยำและความเสถียรระยะยาว ดู [คู่มือ AI Tool Calling](docs/AI_TOOL_CALLING_TH.md)
+เพิ่มสิทธิ์ Tool Calling แบบ **ปิดเป็นค่าเริ่มต้น** สำหรับ Ollama + โหมด Custom Prompt มี **Web Search Provider Dropdown**: Wikipedia (ฟรี/ไม่ใช้ Key), SearXNG (เซิร์ฟเวอร์ตัวเอง), Ollama Web Search และ Tavily (ใช้ API Key/โควตา) พร้อมการเก็บ Key แยกแบบ Windows DPAPI และการนำเข้า/ส่งออกโปรไฟล์ JSON ที่ไม่รวม Key สามารถอนุญาต Wikipedia และอ่านไฟล์อ้างอิงแยกได้ โดยจำกัด 1–3 ครั้งต่อข้อความ ค้นเว็บทั่วไปได้จาก Provider ที่เลือก แต่ไม่เปิดลิงก์ผลค้นเอง ไม่รัน Shell ไม่เขียนไฟล์ และไม่รับสิทธิ์จากข้อความผู้ชม โมเดล qwen3.5:4b เรียก Wikipedia และอ่านไฟล์ตัวอย่างจาก Allowlist ได้จริงในการทดสอบครั้งล่าสุด แต่ยังต้องตรวจสอบความแม่นยำและความเสถียรระยะยาว ดู [คู่มือ AI Tool Calling](docs/AI_TOOL_CALLING_TH.md)
 
 ## AI Processing / Translation (เพิ่มใน Release v0.6.0 — Tool Calling ยังไม่รวม)
 

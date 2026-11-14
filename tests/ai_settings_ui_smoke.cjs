@@ -25,9 +25,12 @@ const settings={
   display_mode:"processed",timeout_seconds:10,keep_alive_minutes:360,
   fallback:"filtered",allow_context_files:false,context_files:[],
   tool_calling_enabled:false,tool_web_lookup:false,tool_file_read:false,
-  tool_max_calls:2
+  tool_general_web_search:false,tool_search_provider:"wikipedia",
+  tool_searxng_url:"http://127.0.0.1:8080",tool_max_calls:2
 };
 const calls=[];
+let storedKey="";
+let keys={ollama:false,tavily:false};
 function response(body){return {ok:true,async json(){return body;}};}
 async function fetchMock(url,options={}){
   calls.push({url,options});
@@ -44,6 +47,20 @@ async function fetchMock(url,options={}){
       return response({settings:{...settings},revision:"r2"});
     }
     return response({settings:{...settings},revision:"r1",saved:false});
+  }
+  if(url==="/v1/ai/search-credentials"){
+    if(options.method==="POST"){
+      assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"save-ai-search-key");
+      const req=JSON.parse(options.body);
+      if(req.action==="save"){storedKey=req.key;keys[req.provider]=true;}
+      else {storedKey="";keys[req.provider]=false;}
+      return response({configured:{...keys}});
+    }
+    return response({configured:{...keys}});
+  }
+  if(url==="/v1/ai/search/test"){
+    assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"test-ai-search-provider");
+    return response({provider:settings.tool_search_provider,results:[{title:"Bangkok",snippet:"Capital",source:"https://example.org/bangkok"}]});
   }
   if(url==="/v1/ai/packages")return response({packages:[]});
   if(url.startsWith("/v1/ollama/models"))return response({
@@ -138,5 +155,45 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   el("aiSave").click();
   await tick();
   assert.equal(settings.tool_calling_enabled,false);
-  console.log("PASS: Ollama settings, target language, explicit read-only tool permissions");
+  // Search provider profiles never contain API keys or save automatically.
+  el("aiSearchProvider").value="searxng";
+  el("aiSearchProvider").change();
+  assert.equal(el("aiSearxngFields").hidden,false);
+  el("aiSearxngUrl").value="http://192.168.0.10:8080";
+  const exported=app.searchProfile();
+  assert.equal(exported.provider,"searxng");
+  assert.equal(exported.searxng_url,"http://192.168.0.10:8080");
+  assert.equal(JSON.stringify(exported).includes("api_key"),false);
+  assert.equal(JSON.stringify(exported).includes("token"),false);
+  const before=calls.filter(c=>c.url==="/v1/settings/ai"&&c.options.method==="POST").length;
+  app.importSearchProfile({format:"voxweavetts-ai-search-profile",version:1,
+    provider:"tavily",searxng_url:"http://127.0.0.1:8080",enabled:true});
+  assert.equal(el("aiSearchProvider").value,"tavily");
+  assert.equal(el("aiSearchApiFields").hidden,false);
+  assert.equal(calls.filter(c=>c.url==="/v1/settings/ai"&&c.options.method==="POST").length,before);
+  assert.throws(()=>app.importSearchProfile({format:"voxweavetts-ai-search-profile",
+    version:1,provider:"tavily",searxng_url:"http://127.0.0.1:8080",
+    enabled:true,api_key:"should-not-import"}));
+  el("aiSearchApiKey").value="example-key-not-real";
+  el("aiSearchKeySave").click();
+  await tick();
+  assert.equal(keys.tavily,true);
+  assert.equal(storedKey,"example-key-not-real");
+  assert.equal(el("aiSearchApiKey").value,"");
+  assert.equal(JSON.stringify(app.searchProfile()).includes("example-key-not-real"),false);
+  globalThis.confirm=()=>true;
+  el("aiSearchKeyClear").click();
+  await tick();
+  assert.equal(keys.tavily,false);
+  el("aiSave").click();
+  await tick();
+  assert.equal(settings.tool_search_provider,"tavily");
+  assert.equal(settings.tool_general_web_search,true);
+  assert.equal(settings.tool_searxng_url,"http://127.0.0.1:8080");
+  el("aiSearchTestQuery").value="Bangkok";
+  el("aiSearchTest").click();
+  await tick();
+  assert.match(el("aiSearchTestResult").textContent,/Bangkok/);
+  assert.equal(calls.filter(c=>c.url==="/v1/ai/search/test").length,1);
+  console.log("PASS: provider dropdown, direct search testing, encrypted-key controls and profile import/export");
 })().catch(e=>{console.error(e);process.exitCode=1;});

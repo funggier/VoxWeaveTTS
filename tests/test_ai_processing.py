@@ -377,6 +377,58 @@ class AIHttpTests(unittest.TestCase):
         cls.http.server_close()
         cls.thread.join(3)
 
+    def test_search_provider_manual_test_is_same_origin_and_uses_saved_provider(self):
+        url=self.base+"/v1/ai/search/test"
+        data=json.dumps({"query":"Bangkok"}).encode("utf-8")
+        headers={"Content-Type":"application/json",
+                 "X-VoxWeaveTTS-Intent":"test-ai-search-provider"}
+        fake_settings={"settings":config(tool_search_provider="wikipedia")}
+        with patch("voxweavetts.server.load_ai_settings",return_value=fake_settings), patch(
+            "voxweavetts.server.search_selected_provider",
+            return_value={"provider":"Wikipedia only","results":[
+                {"title":"Bangkok","snippet":"City","source":"https://example.org/city"}]}) as lookup:
+            bad=Request(url,method="POST",data=data,headers=headers)
+            with self.assertRaises(HTTPError) as error:
+                urlopen(bad,timeout=4)
+            self.assertEqual(error.exception.code,403)
+            error.exception.close()
+            lookup.assert_not_called()
+            good=Request(url,method="POST",data=data,
+                         headers={**headers,"Origin":self.base})
+            with urlopen(good,timeout=4) as response:
+                result=json.load(response)
+            self.assertEqual(result["provider"],"Wikipedia only")
+            lookup.assert_called_once_with("Bangkok",fake_settings["settings"])
+
+    def test_search_api_key_endpoint_requires_same_origin_and_never_returns_key(self):
+        from urllib.error import HTTPError
+        path=self.base+"/v1/ai/search-credentials"
+        body=json.dumps({"provider":"tavily","action":"save",
+                         "key":"example-only-not-a-real-secret"}).encode("utf-8")
+        headers={"Content-Type":"application/json",
+                 "X-VoxWeaveTTS-Intent":"save-ai-search-key"}
+        with patch("voxweavetts.server.update_ai_search_key",
+                   return_value={"ollama":False,"tavily":True}) as update:
+            unauthorized=Request(path,method="POST",data=body,headers=headers)
+            with self.assertRaises(HTTPError) as denied:
+                urlopen(unauthorized,timeout=4)
+            self.assertEqual(denied.exception.code,403)
+            denied.exception.close()
+            update.assert_not_called()
+            authorized=Request(path,method="POST",data=body,
+                               headers={**headers,"Origin":self.base})
+            with urlopen(authorized,timeout=4) as reply:
+                response=json.load(reply)
+            self.assertEqual(response,{"configured":{"ollama":False,"tavily":True}})
+            update.assert_called_once_with("tavily","save",
+                                          "example-only-not-a-real-secret")
+            self.assertNotIn("example-only-not-a-real-secret",json.dumps(response))
+        with patch("voxweavetts.server.ai_search_key_status",
+                   return_value={"ollama":False,"tavily":True}):
+            with urlopen(path,timeout=4) as reply:
+                read_only=json.load(reply)
+        self.assertEqual(read_only,{"configured":{"ollama":False,"tavily":True}})
+
     def test_http_uses_configured_private_ollama_host(self):
         addr = "http://192.168.1.25:11435"
         fake = {"settings": config(ollama_base_url=addr)}

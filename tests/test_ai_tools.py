@@ -67,6 +67,132 @@ class AIToolSettingsTests(unittest.TestCase):
                                   {"query": "cats", "url": "https://example.com"},
                                   config, [])
 
+
+    def test_search_provider_dropdown_is_validated(self):
+        for name in ("wikipedia", "searxng", "ollama", "tavily"):
+            cfg = settings(tool_search_provider=name)
+            self.assertEqual(cfg["tool_search_provider"], name)
+        for name in ("brave", "http://localhost", None, 1, [], {}):
+            with self.subTest(name=name), self.assertRaises(InputError):
+                settings(tool_search_provider=name)
+        for address in ("http://example.org:8080", "http://169.254.169.254:80",
+                        "https://localhost:8080", "http://localhost:8080/path"):
+            with self.subTest(address=address), self.assertRaises(InputError):
+                settings(tool_searxng_url=address)
+
+    def test_general_web_provider_routes_only_to_selected_adapter(self):
+        fake = {"results": [], "provider": "mock"}
+        for name,method in (("wikipedia", "wikipedia_lookup"),
+                            ("searxng", "searxng_search"),
+                            ("ollama", "ollama_web_search"),
+                            ("tavily", "tavily_search")):
+            config = settings(enabled=True, operation="custom", model="example:4b",
+                              tool_calling_enabled=True, tool_general_web_search=True,
+                              tool_search_provider=name)
+            with self.subTest(name=name), patch("voxweavetts.ai_tools."+method,
+                                                return_value=fake) as adapter:
+                result = ai_tools.execute_tool("search_web", {"query": "Bangkok"}, config, [])
+                self.assertEqual(result, fake)
+                self.assertEqual(adapter.call_count, 1)
+        with self.assertRaises(ai_tools.ToolDenied):
+            ai_tools.execute_tool("search_web", {"query": "Bangkok", "url": "x"}, config, [])
+
+    def test_ollama_cloud_search_uses_fixed_https_host_and_no_key_in_response(self):
+        config = settings(enabled=True, operation="custom",
+                          tool_calling_enabled=True, tool_general_web_search=True,
+                          tool_search_provider="ollama")
+        response = _Reply({"results": [
+            {"title": "Bangkok News", "content": "<b>Latest</b> world news",
+             "url": "https://example.org/news"},
+            {"title": "Unsafe", "content": "unsafe", "url": "http://127.0.0.1/private"},
+        ]})
+        requests = []
+        class FakeOpener:
+            def open(self, request, timeout):
+                requests.append(request)
+                return response
+        with patch("voxweavetts.ai_search_secrets.get_key",return_value="test-secret-not-real"), patch(
+            "voxweavetts.ai_tools.build_opener", return_value=FakeOpener()):
+            result = ai_tools.execute_tool("search_web", {"query": "Bangkok update"}, config, [])
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0].full_url, "https://ollama.com/api/web_search")
+        self.assertEqual(requests[0].get_header("Authorization"), "Bearer test-secret-not-real")
+        self.assertNotIn("test-secret-not-real", json.dumps(result))
+        self.assertEqual(result["results"][0]["snippet"], "Latest world news")
+        self.assertEqual(len(result["results"]), 1)
+
+    def test_searxng_is_private_lan_only_and_uses_json_endpoint(self):
+        config = settings(enabled=True, operation="custom",
+                          tool_calling_enabled=True, tool_general_web_search=True,
+                          tool_search_provider="searxng",
+                          tool_searxng_url="http://127.0.0.1:8080")
+        seen=[]
+        class FakeOpener:
+            def open(self,request,timeout):
+                seen.append(request.full_url)
+                return _Reply({"results":[{"title":"City","content":"Bangkok",
+                                          "url":"https://example.com/bangkok"}]})
+        with patch("voxweavetts.ai_tools.build_opener",return_value=FakeOpener()):
+            result=ai_tools.execute_tool("search_web",{"query":"Bangkok"},config,[])
+        self.assertIn("/search?q=Bangkok&format=json",seen[0])
+        self.assertEqual(result["results"][0]["snippet"],"Bangkok")
+
+    def test_tavily_fixed_https_endpoint_and_api_key(self):
+        config = settings(enabled=True, operation="custom",
+                          tool_calling_enabled=True, tool_general_web_search=True,
+                          tool_search_provider="tavily")
+        requests=[]
+        class FakeOpener:
+            def open(self,request,timeout):
+                requests.append(request)
+                return _Reply({"results":[{"title":"New","content":"New data",
+                                          "url":"https://example.org/new"}]})
+        with patch("voxweavetts.ai_search_secrets.get_key",return_value="key-secret-tavily"), patch(
+            "voxweavetts.ai_tools.build_opener",return_value=FakeOpener()):
+            result=ai_tools.execute_tool("search_web",{"query":"New data"},config,[])
+        self.assertEqual(requests[0].full_url,"https://api.tavily.com/search")
+        self.assertEqual(requests[0].get_header("Authorization"),"Bearer key-secret-tavily")
+        self.assertNotIn("key-secret-tavily",json.dumps(result))
+
+    def test_provider_error_does_not_expose_api_key(self):
+        class FailOpener:
+            def open(self, request, timeout):
+                raise OSError("provider secret in stack trace")
+        for method in (ai_tools.ollama_web_search, ai_tools.tavily_search):
+            with patch("voxweavetts.ai_search_secrets.get_key",return_value="secret-key-not-real"), patch(
+                "voxweavetts.ai_tools.build_opener",return_value=FailOpener()):
+                with self.subTest(method=method.__name__), self.assertRaises(ai_tools.ToolUnavailable) as failure:
+                    method("Bangkok")
+                self.assertNotIn("secret-key-not-real", str(failure.exception))
+                self.assertNotIn("provider secret", str(failure.exception))
+
+    def test_web_search_request_is_blocked_after_reference_file_read(self):
+        config = settings(enabled=True, operation="custom", model="example:4b",
+                          tool_calling_enabled=True, tool_general_web_search=True,
+                          tool_search_provider="ollama", tool_file_read=True, allow_context_files=True,
+                          context_files=[str(Path(tempfile.gettempdir()) / "terms.md")],
+                          tool_max_calls=2)
+        replies = [
+            _Reply({"message": {"tool_calls": [{"function": {
+                "name": "read_reference_file", "arguments": {"file_id": 0}}}]}}),
+            _Reply({"message": {"tool_calls": [{"function": {
+                "name": "search_web", "arguments": {"query": "secret from glossary"}}}]}}),
+        ]
+        sent = []
+        def mock_ollama(request, timeout):
+            sent.append(json.loads(request.data))
+            return replies.pop(0)
+        with patch("voxweavetts.ai_tools.urlopen", side_effect=mock_ollama), patch(
+            "voxweavetts.ai_tools.ollama_web_search") as search:
+            with self.assertRaises(ai_processing.AIUnavailable):
+                ai_tools.run_tool_chat(config, "system", "question",
+                                       [{"name": "terms.md", "text": "secret from glossary"}])
+            search.assert_not_called()
+        self.assertEqual([tool["function"]["name"] for tool in sent[0]["tools"]],
+                         ["search_web", "read_reference_file"])
+        self.assertEqual([tool["function"]["name"] for tool in sent[1]["tools"]],
+                         ["read_reference_file"])
+
     def test_file_read_is_restricted_by_index_to_whitelist(self):
         with tempfile.TemporaryDirectory() as d:
             file = Path(d) / "glossary.md"

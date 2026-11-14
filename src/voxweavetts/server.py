@@ -17,6 +17,8 @@ from . import __version__
 from .processing import InputError, process_text
 from .ai_pipeline import process_pipeline
 from .ai_engine_registry import ai_engines
+from .ai_search_secrets import key_status as ai_search_key_status, update_key as update_ai_search_key, SecretUnavailable
+from .ai_tools import search_selected_provider, ToolDenied, ToolUnavailable
 from .ollama_manager import (model_status as ollama_model_status,
                              preload as preload_ollama_model,
                              OllamaUnavailable)
@@ -598,6 +600,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, load_text_settings())
             elif route == "/v1/settings/ai":
                 self.send_json(200, load_ai_settings())
+            elif route == "/v1/ai/search-credentials":
+                try:
+                    self.send_json(200, {"configured": ai_search_key_status()})
+                except (SecretUnavailable, OSError):
+                    self.send_json(503, {"error": "secure local credential storage unavailable"})
             elif route == "/v1/ai/engines":
                 self.send_json(200, {"engines": [e.as_dict() for e in ai_engines().list()]})
             elif route == "/v1/ollama/models":
@@ -678,6 +685,54 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_extension_json(200, result)
             except (InputError, UnicodeDecodeError, ValueError, KeyError):
                 self._send_extension_json(403, {"error": "invalid or expired extension request"})
+            return
+        if route == "/v1/ai/search/test":
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "test-ai-search-provider"):
+                self.reject_unread_post(403, {"error": "same-origin search test required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "search test requires JSON"})
+                return
+            try:
+                payload = self._read_json(max_bytes=2048)
+                if set(payload) != {"query"}:
+                    raise ValueError("invalid search test request")
+                result = search_selected_provider(payload["query"], load_ai_settings()["settings"])
+                self.send_json(200, result)
+            except (InputError, ValueError, ToolDenied, UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid search query"})
+            except (ToolUnavailable, SecretUnavailable, OSError):
+                self.send_json(503, {"error": "selected search provider unavailable or no API credentials"})
+            return
+        if route == "/v1/ai/search-credentials":
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                    or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                    or self.headers.get("X-VoxWeaveTTS-Intent") != "save-ai-search-key"):
+                self.reject_unread_post(403, {"error": "same-origin API key update required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "API key update requires JSON"})
+                return
+            try:
+                data = self._read_json(max_bytes=2048)
+                if set(data) != {"provider", "action", "key"}:
+                    raise ValueError("invalid key update request")
+                result = update_ai_search_key(data["provider"], data["action"], data["key"])
+                self.send_json(200, {"configured": result})
+            except (ValueError, InputError, UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid API credential request"})
+            except (SecretUnavailable, OSError):
+                self.send_json(503, {"error": "secure local credential storage unavailable"})
             return
         if route == "/v1/ollama/preload":
             host = self.headers.get("Host", "").lower().strip()

@@ -17,11 +17,15 @@ function attach(document, fetcher){
     fallback:"aiFallback", allow_context_files:"aiAllowFiles",
     context_files:"aiContextFiles",
     tool_calling_enabled:"aiToolsEnabled", tool_web_lookup:"aiWebLookup",
+    tool_general_web_search:"aiGeneralWebSearch",
+    tool_search_provider:"aiSearchProvider", tool_searxng_url:"aiSearxngUrl",
     tool_file_read:"aiToolFileRead", tool_max_calls:"aiToolMaxCalls"
   };
   const booleanKeys=new Set(["enabled","auto_detect","allow_context_files",
-    "tool_calling_enabled","tool_web_lookup","tool_file_read"]);
+    "tool_calling_enabled","tool_web_lookup","tool_general_web_search","tool_file_read"]);
   let revision=null, lastLoaded=null, engines=[], packages=[];
+  let credentials={ollama:false,tavily:false};
+  let priorProvider=null;
   const status=text=>{get("aiSettingsStatus").textContent=text;};
   function readFields(){
     const data={};
@@ -68,10 +72,11 @@ function attach(document, fetcher){
     get("aiOllamaControls").hidden=get("aiEngine").value!=="ollama";
     get("aiModel").disabled=false;
     const toolMode=get("aiEngine").value==="ollama"&&get("aiOperation").value==="custom";
+    updateSearchProvider();
     get("aiToolHint").textContent=!toolMode
       ?"AI Tool Calling ใช้ได้เฉพาะ Ollama + โหมด AI ตาม Custom Prompt · เลือกโหมดนี้ก่อนเปิดใช้งาน"
       :get("aiToolsEnabled").checked
-      ?"อนุญาตเฉพาะเครื่องมือที่ติ๊กเปิดไว้ · Wikipedia ส่งคำค้นออกอินเทอร์เน็ต · ไฟล์อ่านได้เฉพาะรายการที่อนุญาต"
+      ?"เปิดเฉพาะเครื่องมือที่ติ๊กอนุญาตไว้ · Wikipedia และ Ollama Web Search ส่งคำค้นออกอินเทอร์เน็ต · เครื่องมืออ่านไฟล์ใช้เฉพาะ Allowlist"
       :"AI Tool Calling ปิดอยู่ · ไม่มีการส่งคำค้นออกอินเทอร์เน็ตหรือเรียกใช้ไฟล์เป็นเครื่องมือ";
     get("aiModelLabel").textContent=get("aiEngine").value==="m2m100"
       ?"M2M100 Package (เลือกจากรายการที่ติดตั้งด้านล่าง)"
@@ -225,6 +230,121 @@ function attach(document, fetcher){
     }finally{button.disabled=false;}
   });
 
+  const supportedProviders=new Set(["wikipedia","searxng","ollama","tavily"]);
+  function updateSearchProvider(){
+    const provider=get("aiSearchProvider").value;
+    const needsKey=provider==="ollama"||provider==="tavily";
+    get("aiSearxngFields").hidden=provider!=="searxng";
+    get("aiSearchApiFields").hidden=!needsKey;
+    if(priorProvider!==provider)get("aiSearchApiKey").value="";
+    priorProvider=provider;
+    const info={
+      wikipedia:"Wikipedia ใช้ฟรีโดยไม่ต้องใช้ API Key; ค้นเฉพาะสารานุกรม",
+      searxng:"SearXNG ต้องมีเซิร์ฟเวอร์ที่คุณดูแลและเปิด JSON API (/search?format=json)",
+      ollama:"Ollama Web Search ใช้บัญชี/โควตา Ollama และส่งคำค้นไป ollama.com",
+      tavily:"Tavily ใช้บัญชี/เครดิตตามผู้ให้บริการ และส่งคำค้นไป api.tavily.com"
+    };
+    get("aiSearchProviderStatus").textContent=info[provider]+(
+      needsKey ? (credentials[provider]?" · มี API Key เก็บไว้แล้ว":" · ยังไม่พบ API Key ที่บันทึก") : ""
+    );
+  }
+  async function refreshCredentials(){
+    const response=await requestJson("/v1/ai/search-credentials",{cache:"no-store"});
+    credentials=response.configured||{ollama:false,tavily:false};
+    updateSearchProvider();
+  }
+  async function changeSearchKey(action){
+    const provider=get("aiSearchProvider").value;
+    if(!["ollama","tavily"].includes(provider))throw Error("ผู้ให้บริการนี้ไม่ต้องใช้ API Key");
+    const input=get("aiSearchApiKey");
+    const key=action==="save"?input.value.trim():"";
+    if(action==="save"&&!key)throw Error("กรุณากรอก API Key");
+    if(action==="clear"&&!root.confirm("ลบ API Key ที่บันทึกไว้สำหรับ "+provider+" ใช่หรือไม่?"))return;
+    const result=await requestJson("/v1/ai/search-credentials",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"save-ai-search-key"},
+      body:JSON.stringify({provider,action,key})
+    });
+    input.value="";
+    credentials=result.configured;
+    updateSearchProvider();
+    status(action==="save"?"บันทึก API Key แบบเข้ารหัสในเครื่องแล้ว":"ลบ API Key ที่บันทึกแล้ว");
+  }
+  get("aiSearchProvider").addEventListener("change",updateSearchProvider);
+  get("aiSearchTest").addEventListener("click",async()=>{
+    const display=get("aiSearchTestResult");
+    const stored=lastLoaded?JSON.parse(lastLoaded):null;
+    if(!stored||stored.tool_search_provider!==get("aiSearchProvider").value||
+        stored.tool_searxng_url!==get("aiSearxngUrl").value){
+      display.textContent="กรุณาบันทึก AI Settings ก่อนทดลอง Provider ที่เลือก";
+      return;
+    }
+    const query=String(get("aiSearchTestQuery").value||"").trim();
+    if(query.length<2||query.length>160){
+      display.textContent="คำค้นต้องมี 2–160 ตัวอักษร";return;
+    }
+    const button=get("aiSearchTest");
+    button.disabled=true;
+    display.textContent="กำลังค้นจากผู้ให้บริการ...";
+    try{
+      const result=await requestJson("/v1/ai/search/test",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"test-ai-search-provider"},
+        body:JSON.stringify({query})
+      });
+      const hits=(result.results||[]).slice(0,3).map(x=>({
+        title:x.title,snippet:x.snippet,source:x.source
+      }));
+      display.textContent=JSON.stringify({provider:result.provider,results:hits},null,2);
+    }catch(e){display.textContent="ค้นหาไม่ได้: "+String(e.message||e);}
+    finally{button.disabled=false;}
+  });
+  get("aiSearchKeySave").addEventListener("click",()=>{
+    changeSearchKey("save").catch(e=>status("บันทึกคีย์ไม่ได้: "+String(e.message||e)));
+  });
+  get("aiSearchKeyClear").addEventListener("click",()=>{
+    changeSearchKey("clear").catch(e=>status("ลบคีย์ไม่ได้: "+String(e.message||e)));
+  });
+  function searchProfile(){
+    const data=readFields();
+    return {format:"voxweavetts-ai-search-profile",version:1,
+      provider:data.tool_search_provider,searxng_url:data.tool_searxng_url,
+      enabled:data.tool_general_web_search};
+  }
+  function importSearchProfile(record){
+    if(!record||typeof record!=="object"||Array.isArray(record)||
+       Object.keys(record).sort().join(",")!=="enabled,format,provider,searxng_url,version"||
+       record.format!=="voxweavetts-ai-search-profile"||record.version!==1||
+       !supportedProviders.has(record.provider)||typeof record.enabled!=="boolean"||
+       typeof record.searxng_url!=="string"||record.searxng_url.length>110||
+       !/^http:\/\/(?:localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):\d{1,5}$/.test(record.searxng_url))
+       throw Error("โปรไฟล์ค้นหาไม่ถูกต้อง หรือที่อยู่เซิร์ฟเวอร์ไม่ใช่ Private LAN");
+    get("aiSearchProvider").value=record.provider;
+    get("aiSearxngUrl").value=record.searxng_url;
+    get("aiGeneralWebSearch").checked=record.enabled;
+    updateSearchProvider();
+    status("นำเข้าโปรไฟล์ค้นหาแล้ว · ตรวจค่าก่อนกดบันทึก AI Settings · API Key ไม่ถูกนำเข้า");
+  }
+  get("aiSearchProfileExport").addEventListener("click",()=>{
+    const content=JSON.stringify(searchProfile(),null,2)+"\n";
+    const url=root.URL.createObjectURL(new Blob([content],{type:"application/json"}));
+    const link=document.createElement("a");
+    link.href=url;
+    link.download="VoxWeaveTTS-AISearchProfile.json";
+    link.click();
+    root.URL.revokeObjectURL(url);
+    status("ส่งออกโปรไฟล์ค้นหาโดยไม่รวม API Key แล้ว");
+  });
+  get("aiSearchProfileImport").addEventListener("change",async()=>{
+    const file=get("aiSearchProfileImport").files?.[0];
+    if(!file)return;
+    try{
+      if(file.size>4096)throw Error("ไฟล์โปรไฟล์ต้องไม่เกิน 4 KiB");
+      importSearchProfile(JSON.parse(await file.text()));
+    }catch(e){status("นำเข้าไม่ได้: "+String(e.message||e));}
+    finally{get("aiSearchProfileImport").value="";}
+  });
+
   async function load(){
     const [available,stored]=await Promise.all([
       requestJson("/v1/ai/engines",{cache:"no-store"}),
@@ -241,7 +361,9 @@ function attach(document, fetcher){
     }
     revision=stored.revision;
     lastLoaded=JSON.stringify(stored.settings);
+    get("aiSearchApiKey").value="";
     applyFields(stored.settings);
+    refreshCredentials().catch(e=>get("aiSearchProviderStatus").textContent="ตรวจ API Key ไม่ได้: "+String(e.message||e));
     // Read-only discovery. Do not pull, install or preload on page load.
     loadPackages().catch(e=>get("aiPackageStatus").textContent=String(e.message||e));
     if(get("aiEngine").value==="ollama")
@@ -253,7 +375,7 @@ function attach(document, fetcher){
     const value=readFields();
     if(value.tool_calling_enabled && (value.engine!=="ollama"||value.operation!=="custom"))
       throw Error("AI Tool Calling ต้องเลือก Ollama และโหมด Custom Prompt");
-    if(value.tool_calling_enabled && !(value.tool_web_lookup || value.tool_file_read))
+    if(value.tool_calling_enabled && !(value.tool_web_lookup || value.tool_general_web_search || value.tool_file_read))
       throw Error("กรุณาเลือกเครื่องมือที่ต้องการอนุญาตอย่างน้อยหนึ่งรายการ");
     if(value.tool_calling_enabled && value.tool_file_read &&
        (!value.allow_context_files||!value.context_files.length))
@@ -313,7 +435,7 @@ function attach(document, fetcher){
     element?.addEventListener?.("input",()=>{status("มีการแก้ไขที่ยังไม่ได้บันทึก");});
   }
   load().catch(e=>status("โหลดไม่ได้: "+String(e.message||e)));
-  return {readFields,applyFields,updateAvailability,load,save};
+  return {readFields,applyFields,updateAvailability,load,save,searchProfile,importSearchProfile};
 }
 root.VoxAISettings={attach};
 if(typeof module!=="undefined"&&module.exports)module.exports={attach};

@@ -6,7 +6,7 @@
 
 ## Unreleased development: read-only AI Tool Calling
 
-After v0.6.0, an **opt-in, default-disabled** Tool Calling framework is being developed for Ollama Custom Prompt mode. It offers strictly permissioned **Wikipedia-only encyclopedia search**, indexed read access to individually approved reference files, and a per-message call budget (1–3). It does **not** provide arbitrary website browsing, Shell, file writes, external account actions, or general search-engine access. A real qwen3.5:4b test called the Wikipedia tool and answered successfully, but reliability across models and live traffic is not yet established. See [Thai Tool Calling guide](docs/AI_TOOL_CALLING_TH.md). This code is **not included in the published v0.6.0 binaries**.
+After v0.6.0, an **opt-in, default-disabled** Tool Calling framework is being developed for Ollama Custom Prompt mode. It offers provider-selectable read-only web search (**Wikipedia, self-hosted SearXNG, Ollama Web Search, Tavily**), indexed read access to explicitly approved reference files, and a per-message call budget (1–3). Users can store search API keys encrypted per Windows account with DPAPI and import/export non-secret JSON search profiles. It does **not** follow arbitrary result URLs or grant Shell, file writes, or external account actions. A real qwen3.5:4b test called the Wikipedia tool and answered successfully, but reliability across models and live traffic is not yet established. See [Thai Tool Calling guide](docs/AI_TOOL_CALLING_TH.md). This code is **not included in the published v0.6.0 binaries**.
 
 ## AI Processing and Translation (v0.6.0)
 

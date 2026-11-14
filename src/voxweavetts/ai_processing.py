@@ -44,6 +44,9 @@ DEFAULTS: dict[str, Any] = {
     "context_files": [],
     "tool_calling_enabled": False,
     "tool_web_lookup": False,
+    "tool_general_web_search": False,
+    "tool_search_provider": "wikipedia",
+    "tool_searxng_url": "http://127.0.0.1:8080",
     "tool_file_read": False,
     "tool_max_calls": 2,
 }
@@ -89,9 +92,17 @@ def validate_settings(value: Any) -> dict[str, Any]:
         raise InputError("AI toggles must be booleans")
     if type(value["allow_context_files"]) is not bool:
         raise InputError("allow_context_files must be boolean")
-    for key in ("tool_calling_enabled", "tool_web_lookup", "tool_file_read"):
+    for key in ("tool_calling_enabled", "tool_web_lookup", "tool_general_web_search", "tool_file_read"):
         if type(value[key]) is not bool:
             raise InputError(f"{key} must be boolean")
+    if (not isinstance(value["tool_search_provider"], str) or
+            value["tool_search_provider"] not in {"wikipedia", "searxng", "ollama", "tavily"}):
+        raise InputError("invalid web search provider")
+    from .ollama_manager import validate_base_url
+    try:
+        value["tool_searxng_url"] = validate_base_url(value["tool_searxng_url"])
+    except ValueError as exc:
+        raise InputError("SearXNG server must use local or private LAN http://IP:port") from exc
     if type(value["tool_max_calls"]) is not int or not 1 <= value["tool_max_calls"] <= 3:
         raise InputError("tool_max_calls must be 1..3")
     from .ai_engine_registry import ai_engines
@@ -138,7 +149,7 @@ def validate_settings(value: Any) -> dict[str, Any]:
     if value["tool_calling_enabled"]:
         if value["engine"] != "ollama" or value["operation"] != "custom":
             raise InputError("read-only Tool Calling requires Ollama Custom operation")
-        if not (value["tool_web_lookup"] or value["tool_file_read"]):
+        if not (value["tool_web_lookup"] or value["tool_general_web_search"] or value["tool_file_read"]):
             raise InputError("enable at least one permitted AI tool")
         if value["tool_file_read"] and not (value["allow_context_files"] and files):
             raise InputError("file tool requires explicitly allowed reference files")

@@ -674,8 +674,42 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <summary>AI Tool Calling — เครื่องมืออ่านข้อมูล (ปิดเป็นค่าเริ่มต้น)</summary>
 <p class="small">ใช้ได้เฉพาะ Ollama + โหมดทำงานตาม Custom Prompt · เปิดสิทธิ์แยกแต่ละเครื่องมือ · ข้อความแชทและเนื้อหาเว็บไซต์ไม่สามารถเพิ่มสิทธิ์หรือสั่งรันโค้ดได้</p>
 <label><input id="aiToolsEnabled" type="checkbox"> อนุญาต AI Tool Calling</label>
-<label><input id="aiWebLookup" type="checkbox"> อนุญาตค้นข้อมูล Wikipedia ผ่านอินเทอร์เน็ต (จำกัดเฉพาะ Wikipedia ไม่ใช่การค้นเว็บทั่วไป)</label>
-<p class="small">การค้นหาจะส่งข้อความค้นไปยัง Wikipedia · ต้องเชื่อมต่ออินเทอร์เน็ต · แหล่งข้อมูลอาจไม่ทันสมัย · ไม่ใช้ Cloud AI เพิ่มเติม</p>
+<label><input id="aiWebLookup" type="checkbox"> อนุญาตค้นสารานุกรม Wikipedia</label>
+<label><input id="aiGeneralWebSearch" type="checkbox"> อนุญาตเครื่องมือค้นหาจากผู้ให้บริการที่เลือก</label>
+<div class="voice-grid">
+<div><label for="aiSearchProvider">Web Search Provider</label><select id="aiSearchProvider">
+<option value="wikipedia">Wikipedia — ฟรี ไม่ใช้ API Key (สารานุกรม)</option>
+<option value="searxng">SearXNG — ซอฟต์แวร์ฟรี ติดตั้งเซิร์ฟเวอร์เอง</option>
+<option value="ollama">Ollama Web Search — มีโควตาฟรี ต้องใช้ API Key</option>
+<option value="tavily">Tavily — มีโควตาฟรี ต้องใช้ API Key</option>
+</select></div>
+<div id="aiSearxngFields" hidden><label for="aiSearxngUrl">SearXNG Server (Local/LAN IP:Port)</label>
+<input id="aiSearxngUrl" type="text" maxlength="110" value="http://127.0.0.1:8080" placeholder="http://127.0.0.1:8080"></div>
+</div>
+<div id="aiSearchApiFields" hidden>
+<label for="aiSearchApiKey">API Key (ของผู้ให้บริการที่เลือก)</label>
+<input id="aiSearchApiKey" type="password" autocomplete="off" maxlength="512" placeholder="วางคีย์ใหม่เพื่อบันทึก ไม่แสดงคีย์เดิม">
+<div class="voice-grid">
+<button id="aiSearchKeySave" type="button">บันทึก API Key อย่างปลอดภัย</button>
+<button id="aiSearchKeyClear" type="button">ลบ API Key ที่บันทึก</button>
+</div>
+<p class="small">Windows จะเข้ารหัสคีย์ด้วย DPAPI ของบัญชีผู้ใช้ · ไม่ส่งคีย์กลับมาใน API หรือไฟล์ส่งออก · สามารถใช้ OLLAMA_API_KEY / TAVILY_API_KEY จาก Environment แทนได้</p>
+</div>
+<p id="aiSearchProviderStatus" class="small" role="status">Wikipedia เป็นค่าเริ่มต้น; การใช้ผู้ให้บริการอื่นขึ้นอยู่กับการตั้งค่า</p>
+<label for="aiSearchTestQuery">ทดลองค้นหาจาก Provider โดยตรง (ใช้ค่าที่บันทึกไว้)</label>
+<div class="voice-grid">
+<input id="aiSearchTestQuery" type="text" maxlength="160" value="Bangkok" placeholder="หัวข้อค้นหา">
+<button id="aiSearchTest" type="button">ทดลองค้นหา</button>
+</div>
+<pre id="aiSearchTestResult" class="output" aria-live="polite">–</pre>
+<p class="small">ปุ่มนี้ส่งคำค้นไปยังผู้ให้บริการที่เลือกโดยตรง อาจใช้โควตา API และไม่เรียกโมเดล Ollama ต้องบันทึก AI Settings ก่อนทดสอบ</p>
+<div class="voice-grid">
+<button id="aiSearchProfileExport" type="button">ส่งออกโปรไฟล์ค้นหา (.json)</button>
+<label for="aiSearchProfileImport">นำเข้าโปรไฟล์ค้นหา (.json)</label>
+<input id="aiSearchProfileImport" type="file" accept=".json,application/json">
+</div>
+<p class="small">นำเข้า/ส่งออกเฉพาะตัวเลือกผู้ให้บริการและ URL SearXNG ไม่รวม API Key · นำเข้าแล้วต้องกดบันทึก AI Settings ก่อนใช้ · ระบบไม่เปิดบริการค้นหาเองอัตโนมัติ</p>
+<p class="small">Wikipedia และผู้ให้บริการค้นเว็บเป็นสิทธิ์แยกกัน · ผลลัพธ์อาจล้าสมัยหรือไม่ถูกต้อง · คำค้นจากแชทอาจถูกส่งออกไปยังผู้ให้บริการที่เปิดสิทธิ์</p>
 <label><input id="aiToolFileRead" type="checkbox"> อนุญาต AI เรียกอ่านไฟล์ที่อยู่ในรายการอ้างอิงด้านบน (อ่านอย่างเดียว)</label>
 <p class="small">ต้องเปิด “อนุญาตให้ AI อ่านรายการไฟล์ที่ระบุ” และตั้งค่าไฟล์ด้วย · อ่านไฟล์อื่นนอกเหนือจากรายการไม่ได้</p>
 <label for="aiToolMaxCalls">จำนวนเรียกเครื่องมือสูงสุดต่อข้อความ</label>
