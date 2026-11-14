@@ -28,24 +28,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: JSON Editor browser smoke (no dependencies)
+      - name: All JavaScript browser smoke tests (no dependencies)
         shell: pwsh
         run: |
-          node tests/json_settings_ui_smoke.cjs
-          node tests/ai_settings_ui_smoke.cjs
-          node tests/reading_ui_smoke.cjs
-          node tests/playback_clock_smoke.cjs
-          node tests/overlay_sse_smoke.cjs
-          node tests/manual_alignment_ui_smoke.cjs
-          node tests/waveform_editor_smoke.cjs
-          node tests/mode_workspace_smoke.cjs
-          node tests/audio_scheduler_smoke.cjs
-          node tests/mode_voices_smoke.cjs
-          node tests/mode_inputs_smoke.cjs
-          node tests/read_sender_names_smoke.cjs
-          node tests/tiktok_live_smoke.cjs
-          node tests/model_packages_ui_smoke.cjs
-          node tests/live_queue_retention_smoke.cjs
-          node tests/source_settings_profile_smoke.cjs
-          node tests/source_feed_smoke.cjs
-          node tests/discord_client_ui_smoke.cjs
+          $ErrorActionPreference = "Stop"
+          $tests = Get-ChildItem tests -Filter "*_smoke.cjs" | Sort-Object Name
+          if ($tests.Count -lt 25) { throw "Expected at least 25 smoke tests" }
+          foreach ($test in $tests) {
+            node $test.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Failed: $($test.Name)" }
+          }
+          Write-Output "PASS JS suites: $($tests.Count)"

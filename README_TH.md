@@ -2,9 +2,9 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.7.1** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.7.2** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
-## หน้าโปรแกรมหลักเมื่ออยู่เบื้องหลัง — โค้ดพัฒนาหลัง v0.7.1 (ยังไม่ Release)
+## หน้าโปรแกรมหลักเมื่ออยู่เบื้องหลัง — เพิ่มใน Release v0.7.2
 
 ปรับเส้นทางรับข้อความในเว็บหลัก `http://127.0.0.1:8765` จาก Timer เป็น **Server-Sent Events (SSE) แบบเส้นเดียวสำหรับหลายโหมด** ที่ Python แจ้งข้อความใหม่ให้หน้าเว็บ โดยยังตรวจสิทธิ์ Mode Token ใน POST Drain และคง Polling สำรองเมื่อ SSE ไม่พร้อม; เปลี่ยนขั้นตอนรอ WAV ของ Live, Studio, Document และคิวเสียงเป็น **Server-side Wait** ไม่พึ่ง Timer ของแท็บที่ซ่อน; เพิ่มการส่ง Subtitle จาก Media `timeupdate` เมื่อเล่นเสียงจริง หน้าเว็บยังต้องไม่ถูก Browser/OS Suspend ทั้งหมดเพื่อให้มีเสียงอ่านต่อได้ ดู [คู่มือการอ่านต่อเมื่ออยู่เบื้องหลัง](docs/MAIN_BROWSER_BACKGROUND_TH.md)
 

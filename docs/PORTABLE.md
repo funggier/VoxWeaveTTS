@@ -1,10 +1,10 @@
-# VoxWeaveTTS v0.7.1 — Windows Portable User Guide
+# VoxWeaveTTS v0.7.2 — Windows Portable User Guide
 
 **Status:** Windows 10/11 x64 portable release with concurrent Live/Discord workspaces, per-mode voice controls, queue policy, presets and model package management; not a voice-cloning suite. Tested with its relocated Python runtime and bundled MakHam Paradee CPU ONNX Thai voice. Other engines may require extra model packs and license review.
 
 ## Install and launch
 
-1. Download `VoxWeaveTTS-v0.7.1-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.7.1.
+1. Download `VoxWeaveTTS-v0.7.2-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.7.2.
 2. Extract the **whole folder** to a writable location, for example `T:\Apps\VoxWeaveTTS`. Never run the EXE from inside the ZIP.
 3. Double-click **VoxWeaveTTS.exe**. The small Windows launcher starts a local Python server, checks readiness, and opens your default browser (Firefox or Chrome). No Python, Node or system installation is needed.
 4. Keep the launcher window open. The studio is at http://127.0.0.1:8765 and OBS Browser Source may use http://127.0.0.1:8765/overlay.
@@ -46,13 +46,17 @@ The M2M100 adapter is **experimental**, requires separately installed safetensor
 
 **Included since v0.7.0:** opt-in, permissioned read-only AI Tool Calling with Wikipedia, SearXNG, Ollama Web Search and Tavily search providers; approved reference-file access, Windows DPAPI-encrypted search API keys, key-free JSON profiles and direct provider testing. Tool Calling remains disabled unless you enable it and configure Ollama Custom Prompt. See [AI Tool Calling guide](AI_TOOL_CALLING_TH.md).
 
+## Main web tab source/TTS background fix in v0.7.2
+
+The main web UI at `http://127.0.0.1:8765` uses **one multiplexed Server-Sent Events (SSE) stream** for new YouTube/Discord/TikTok chat wake-ups, with per-mode revisions and token-authenticated message drains. Speech job readiness for Live, Studio, Document and Queue uses server-side long waits (`?wait=1`) rather than client timers. Media `timeupdate` improves OBS subtitle timing. A polling fallback remains when SSE disconnects. If the entire tab is frozen or discarded by the browser/OS, no browser-only solution can guarantee continued playback. See [Thai guide](MAIN_BROWSER_BACKGROUND_TH.md).
+
 ## YouTube LIVE (Browser) improvements in v0.7.1
 
 The app-owned isolated Chrome/Edge YouTube live chat popout attempts to choose **Live chat** instead of YouTube's filtered **Top chat** on initial connection. The new background timer/occlusion flags and Chrome DevTools focus/lifecycle settings mitigate frozen updates while the browser is hidden behind other windows, without activating it or modifying your usual browser profile. The UI reports the chat mode and page visibility. Existing chat history is not replayed and messages are deduplicated. **Not yet verified against a real YouTube LIVE session while minimized for an extended period; this is a mitigation, not a 100% delivery guarantee.** See [Thai guide](YOUTUBE_BROWSER_READER_TH.md).
 
 ## Optional Model Packages available separately
 
-The main Portable ZIP still bundles **MakHam Paradee only**. The separately downloadable [Vachana 4-Voice, FastThaiG2P Thai Som, and experimental M2M100 packages](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.7.1) include pinned-source SHA-256 checksums and embedded licenses/attributions. Rights are as declared upstream (Vachana MIT; FastThaiG2P Apache-2.0 and Som TTS dataset CC BY 4.0), **not an independent audit of every training voice/data right**. Both optional models were tested using the exact v0.4.2 Portable runtime, without changing the main ZIP. See [Model Pack Catalog](../model-packs/README_TH.md).
+The main Portable ZIP still bundles **MakHam Paradee only**. The separately downloadable [Vachana 4-Voice, FastThaiG2P Thai Som, and experimental M2M100 packages](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.7.2) include pinned-source SHA-256 checksums and embedded licenses/attributions. Rights are as declared upstream (Vachana MIT; FastThaiG2P Apache-2.0 and Som TTS dataset CC BY 4.0), **not an independent audit of every training voice/data right**. Both optional models were tested using the exact v0.4.2 Portable runtime, without changing the main ZIP. See [Model Pack Catalog](../model-packs/README_TH.md).
 
 ## v0.4.4 YouTube LIVE streamList and quota protection
 

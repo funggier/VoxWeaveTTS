@@ -1,12 +1,12 @@
 # Changelog
 
-## Unreleased — main browser tab background source/TTS resilience (after v0.7.1)
+## 0.7.2 — Main browser background source/TTS reliability (14 November 2026)
 
 - Replace hidden-tab-dependent source polling with one multiplexed, shared Server-Sent Events wake-up stream from Python SourceManager; only message counts, state and per-mode revisions are pushed, while authenticated POST drain remains the only text retrieval route. Bounded SSE subscribers and fallback polling when disconnected remain in place.
 - Main web UI Live, Document, Studio and Queue TTS preparation now use bounded server-side job conditions (`GET /v1/jobs/<id>?wait=1`) instead of client-side `setTimeout`/`setInterval` loops that browsers delay in background tabs.
 - OBS/Subtitle progress additionally reports actual HTMLAudioElement `timeupdate` timestamps; fallback Timer remains. On tab focus/visibility restoration, the source feed immediately catches up; outstanding messages are drained in batches while existing FIFO and overflow limits apply.
 - Offline hidden-tab simulation verifies receiving 23 queued chat messages without executing a browser timer; Chrome/YouTube prolonged real hidden-window end-to-end is not yet verified. This is not a guarantee against a browser fully freezing/discarding the page.
-- This change is source-only until a subsequent GitHub release is requested; v0.7.1 published binaries are unchanged. [Thai details](docs/MAIN_BROWSER_BACKGROUND_TH.md).
+- Included in Windows Portable v0.7.2. Historical v0.7.1 binaries remain unchanged. [Thai details](docs/MAIN_BROWSER_BACKGROUND_TH.md).
 
 ## 0.7.1 — YouTube Browser Live chat selection and background resilience (14 November 2026)
 
