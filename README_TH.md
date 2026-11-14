@@ -2,11 +2,11 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.5.1** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.5.2** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
-## เพิ่มกฎอ่านและกรองคำอย่างรวดเร็ว (Source Project)
+## เพิ่มกฎอ่านและกรองคำอย่างรวดเร็ว (v0.5.2)
 
-หน้า **Rules — กฎการอ่านและกรองคำ (JSON Array)** มีตัวช่วยเพิ่มกฎอย่างละเอียด รองรับข้อความตรงตัวหรือเลข 5 ต่อเนื่อง, **แทนคำ / ข้ามคำ / หยุดเสียง**, คำอ่าน, Subtitle, ระยะเวลาเงียบ และแหล่งข้อความที่ต้องการใช้ พร้อมตัวอย่าง JSON และเลือก Source เพื่อทดสอบกฎก่อนกดบันทึกในโปรแกรม ดู [คู่มือการเพิ่มกฎแบบละเอียด](docs/RULES_QUICK_ADD_TH.md) (ฟีเจอร์นี้เพิ่มหลัง Release v0.5.1 และยังไม่รวมใน Portable ที่เผยแพร่ก่อนหน้า)
+หน้า **Rules — กฎการอ่านและกรองคำ (JSON Array)** มีตัวช่วยเพิ่มกฎอย่างละเอียด รองรับข้อความตรงตัวหรือเลข 5 ต่อเนื่อง, **แทนคำ / ข้ามคำ / หยุดเสียง**, คำอ่าน, Subtitle, ระยะเวลาเงียบ และแหล่งข้อความที่ต้องการใช้ พร้อมตัวอย่าง JSON และเลือก Source เพื่อทดสอบกฎก่อนกดบันทึกในโปรแกรม ดู [คู่มือการเพิ่มกฎแบบละเอียด](docs/RULES_QUICK_ADD_TH.md) (รวมแล้วใน Release v0.5.2)
 
 ## การอ่านอีโมจิแบบตั้งคำเอง (ทุกโหมด Live)
 
@@ -16,11 +16,11 @@
 
 ใน Source Project แยกแท็บ YouTube เป็น **YouTube LIVE (Browser)** และ **YouTube LIVE (API)** โดย Tab API เดิมใช้รหัส `live` และค่าเดิมไม่เปลี่ยน ส่วน Tab Browser เป็นต้นแบบเปิดหน้าต่าง Chrome/Edge เฉพาะ Live Chat ผ่าน CDP แล้วส่งข้อความใหม่จาก DOM เข้า TTS/OBS Subtitle เดิมโดยไม่ใช้ YouTube Data API Key หรือ Quota ของ Data API **ยังไม่ยืนยันกับ YouTube LIVE จริงและไม่ใช่วิธีทางการของ YouTube** การเข้าถึงอัตโนมัติมีข้อจำกัดในเงื่อนไขของ YouTube โปรดตรวจสอบสิทธิ์ก่อนใช้ [คู่มือ YouTube Browser (ภาษาไทย)](docs/YOUTUBE_BROWSER_READER_TH.md)
 
-**TikTok LIVE (Extension) v0.2.5 (Source Project; ยังไม่ออก Release)** รับเฉพาะคอมเมนต์จากแท็บ Chrome ที่ผู้ใช้เลือกและจับคู่กับโปรแกรมผ่าน 127.0.0.1 ผู้ใช้ยืนยันการรับคอมเมนต์ LIVE จริงแล้ว ส่วน **TikTok LIVE (TikFinity)** รับแชทผ่าน WebSocket ในเครื่องเช่นเดิม ทั้งสองโหมด **ไม่รองรับการอ่าน Gift, Follow, Share, Join หรือ Like** อีกต่อไป ตัวเลือกการอ่านย้ายอยู่ในหัวข้อเดียวกันและมีการกำหนดคำนำหน้าชื่อผู้ส่ง คำเชื่อม และการอ่าน `@` ของชื่อ YouTube แยกจาก `@` ในข้อความ ดู [คู่มือ TikTok Extension](docs/TIKTOK_EXTENSION_READER_TH.md) และ [รายละเอียด Release v0.5.0](docs/RELEASE_NOTES_v0.5.0.md)
+**TikTok LIVE (Extension) v0.2.5 (รวมใน v0.5.2)** รับเฉพาะคอมเมนต์จากแท็บ Chrome ที่ผู้ใช้เลือกและจับคู่กับโปรแกรมผ่าน 127.0.0.1 ผู้ใช้ยืนยันการรับคอมเมนต์ LIVE จริงแล้ว ส่วน **TikTok LIVE (TikFinity)** รับแชทผ่าน WebSocket ในเครื่องเช่นเดิม ทั้งสองโหมด **ไม่รองรับการอ่าน Gift, Follow, Share, Join หรือ Like** อีกต่อไป ตัวเลือกการอ่านย้ายอยู่ในหัวข้อเดียวกันและมีการกำหนดคำนำหน้าชื่อผู้ส่ง คำเชื่อม และการอ่าน `@` ของชื่อ YouTube แยกจาก `@` ในข้อความ ดู [คู่มือ TikTok Extension](docs/TIKTOK_EXTENSION_READER_TH.md) และ [รายละเอียด Release v0.5.0](docs/RELEASE_NOTES_v0.5.0.md)
 
 ## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
 
-1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.5.1-portable.zip`
+1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.5.2-portable.zip`
 2. แตก ZIP **ทั้งโฟลเดอร์** ไปยังที่เขียนไฟล์ได้ เช่น `T:\\Apps\\VoxWeaveTTS` อย่าเปิด EXE จากใน ZIP
 3. เปิด `VoxWeaveTTS.exe` จะมีหน้าต่างควบคุมและเปิด Browser เริ่มต้น (Firefox/Chrome) ไปที่ `http://127.0.0.1:8765/` อัตโนมัติ
 4. เลือก Engine **MakHam Paradee** แล้วทดลองพิมพ์ข้อความไทยและสร้าง WAV ได้โดยไม่ต้องโหลดโมเดลเพิ่มเติม

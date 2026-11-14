@@ -2,11 +2,11 @@
 
 **Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
 
-> **Windows portable release v0.5.1:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
+> **Windows portable release v0.5.2:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
-## Rich Rules quick-add editor (source development)
+## Rich Rules quick-add editor (v0.5.2)
 
-The Rules panel now offers a schema-accurate, guided quick-add form for literal or five-run matching, replace/skip/silence actions, optional spoken/display overrides, silence duration and per-source restrictions. A JSON preview shows the pending rule; the source-aware tester checks it against the local processing API. Adding only updates the editor, while **Save in app** persists after validation. [Thai guide](docs/RULES_QUICK_ADD_TH.md). Available in source after v0.5.1, not yet in the published portable archive.
+The Rules panel now offers a schema-accurate, guided quick-add form for literal or five-run matching, replace/skip/silence actions, optional spoken/display overrides, silence duration and per-source restrictions. A JSON preview shows the pending rule; the source-aware tester checks it against the local processing API. Adding only updates the editor, while **Save in app** persists after validation. [Thai guide](docs/RULES_QUICK_ADD_TH.md). Available in the v0.5.2 portable release.
 
 ## Configurable emoji pronunciation (all LIVE modes)
 
