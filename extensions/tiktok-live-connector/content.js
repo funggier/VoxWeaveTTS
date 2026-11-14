@@ -129,6 +129,27 @@
     }
     return {rows:singleAuthorRows,authorNodes,method:"structured"};
   }
+  function chatText(element){
+    if(!element)return "";
+    // Chat emotes may be <img alt="😂"> or <img alt="GGWP">, with no
+    // textContent. Read only images within the comment body, not badges.
+    if(!element.childNodes)return element.textContent||""; // test DOM stubs
+    const visit=node=>{
+      if(node.nodeType===3)return node.nodeValue||"";
+      if(node.nodeType!==1)return "";
+      if(node.tagName==="IMG"){
+        const label=node.getAttribute("alt")||"";
+        // A named emote must be a distinct token even if the DOM has no
+        // whitespace around the image.
+        return /^[A-Za-z][A-Za-z0-9_-]{1,47}$/.test(label)
+          ?" "+label+" ":label;
+      }
+      let content="";
+      for(const child of node.childNodes)content+=visit(child);
+      return content;
+    };
+    return visit(element);
+  }
   function commentTail(node,nameNode,author,meta){
     // A LIVE header can wrap the nickname + "No. 2" on different DOM lines.
     // Never assume every line AFTER the nickname is part of the comment.
@@ -147,7 +168,7 @@
                           +'[class*="Level"],[class*="Rank"]');
     for(const element of messageNodes.reverse()){
       if(isHeaderOrBadge(element))continue;
-      const text=(element.textContent||"").replace(/\s+/g," ").trim();
+      const text=chatText(element).replace(/\s+/g," ").trim();
       if(text&&text!==author&&text.length<=280)return text;
     }
     const leaves=[...(node.querySelectorAll?.("span,p,div")||[])];
@@ -155,7 +176,7 @@
       if(isHeaderOrBadge(element))continue;
       if(element.querySelector?.("span,p,div"))continue;
       if(/badge|level|rank|icon/i.test(String(element.className||"")))continue;
-      const text=(element.textContent||"").replace(/\s+/g," ").trim();
+      const text=chatText(element).replace(/\s+/g," ").trim();
       if(text&&text!==author&&text.length<=280)return text;
     }
 

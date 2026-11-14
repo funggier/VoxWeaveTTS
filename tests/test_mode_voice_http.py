@@ -239,6 +239,37 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                         self.assertEqual(status,400)
                         self.assertEqual(voice.load_workspace_settings(target),snapshot)
 
+    def test_tiktok_emoji_settings_are_independent_of_youtube_and_gifts(self):
+        from voxweavetts.mode_voice_settings import DEFAULT_SPEECH_FORMAT
+        with tempfile.TemporaryDirectory() as tmp:
+            target=Path(tmp)/"tiktok-emojis.json"
+            with patch("voxweavetts.server.load_workspace_settings",
+                       side_effect=lambda:voice.load_workspace_settings(target)),patch(
+                "voxweavetts.server.save_workspace_settings",
+                side_effect=lambda data:voice.save_workspace_settings(data,target)
+            ):
+                for revision,mode,label in ((0,"tiktok","ขำ TikFinity"),
+                                            (1,"tiktok_browser","ขำ Extension")):
+                    format_settings={**DEFAULT_SPEECH_FORMAT,
+                                     "read_emojis":True,"read_gifts":True,
+                                     "emoji_dictionary":{"😂":label,"GGWP":"เก่ง"}}
+                    status,doc=self.post({
+                        "expected_revision":revision,"mode":"__speech_format__",
+                        "settings":{"source_mode":mode,"format":format_settings},
+                    })
+                    self.assertEqual(status,200)
+                    self.assertFalse(doc["speech_formats"][mode]["read_gifts"])
+                self.assertEqual(
+                    doc["speech_formats"]["tiktok"]["emoji_dictionary"]["😂"],
+                    "ขำ TikFinity")
+                self.assertEqual(
+                    doc["speech_formats"]["tiktok_browser"]["emoji_dictionary"]["😂"],
+                    "ขำ Extension")
+                self.assertNotIn("live",doc["speech_formats"])
+                self.assertEqual(
+                    voice.load_workspace_settings(target)["speech_formats"]
+                    ["tiktok_browser"]["emoji_dictionary"]["GGWP"],"เก่ง")
+
     def test_http_persists_policy_and_per_mode_without_crosswriting(self):
         with tempfile.TemporaryDirectory() as tmp:
             target=Path(tmp)/"voices.json"

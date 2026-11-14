@@ -345,9 +345,9 @@ function attach({document,engines,getDefault}){
       note.className="small";panel.appendChild(note);
       fields.read_name_at=box;
     }
-    // Unicode and Discord emoji dictionary is editable only in YouTube
-    // (API/Browser) and Discord (Bot/Client), independently per source.
-    const emojiEnabled=["live","youtube_browser","discord","discord_client"].includes(mode);
+    // Same Unicode / named-emote dictionary UI for all six LIVE sources.
+    // Each TikTok reader saves its own mappings, like YouTube and Discord.
+    const emojiEnabled=SENDER_MODES.includes(mode);
     let emojiEditor=null;
     if(emojiEnabled){
       const holder=create("div");holder.style.marginTop="12px";

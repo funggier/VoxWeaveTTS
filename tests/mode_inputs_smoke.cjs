@@ -147,6 +147,28 @@ async function main(){
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads.at(-1).text,"ข้อความ TikTok สอง");
   assert.equal(tiktok.pendingAuto,0);
+  get("tiktokAudio").paused=true;
+  get("tiktokAudio").events.ended();
+  get("tiktokFeedFormatread_emojis").checked=true;
+  get("tiktokFeedEmojiMappings").value="😂 = ขำ TikFinity\nGGWP = เก่ง TikFinity";
+  assert.equal(tiktok.receiveIncoming({
+    message_id:"tt-emoji",kind:"comment",text:"GGWP 😂 ❤️"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"เก่ง TikFinity ขำ TikFinity ❤️",
+    "TikFinity emote mappings apply only to configured tokens");
+  assert.equal(get("tiktokText").value,"GGWP 😂 ❤️",
+    "TikFinity message text remains unchanged");
+  get("tiktokAudio").paused=true;
+  get("tiktokAudio").events.ended();
+  get("tiktokFeedFormatread_emojis").checked=false;
+  assert.equal(tiktok.receiveIncoming({
+    message_id:"tt-emoji-off",kind:"comment",text:"GGWP 😂"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"GGWP 😂");
+  get("tiktokAudio").paused=true;
+  get("tiktokAudio").events.ended();
   tiktok.suspend();
   assert.equal(get("tiktokAudio").paused,true);
   // Playback failures and Stop MUST NOT silently change the user's stored
@@ -193,6 +215,27 @@ async function main(){
   assert.equal(browser.receiveIncoming(comment,true),"queued");
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads.at(-1).text,"ท่าน 🥒Sprite Pam🥒 กล่าวข้อความว่า สวัสดีครับ");
+  get("tiktokBrowserAudio").paused=true;
+  get("tiktokBrowserAudio").events.ended();
+  get("tiktokBrowserFeedFormatread_emojis").checked=true;
+  get("tiktokBrowserFeedEmojiMappings").value="😂 = ขำ Extension\nGGWP = เก่ง Extension";
+  assert.equal(browser.receiveIncoming({
+    message_id:"tt-extension-emoji",kind:"comment",author:"Sprite 😂 Pam",
+    text:"GGWP 😂 @เพื่อน"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,
+    "ท่าน Sprite ขำ Extension Pam กล่าวข้อความว่า เก่ง Extension ขำ Extension @เพื่อน");
+  assert.equal(get("tiktokBrowserText").value,"GGWP 😂 @เพื่อน",
+    "TikTok Extension source comment remains untouched");
+  get("tiktokBrowserAudio").paused=true;
+  get("tiktokBrowserAudio").events.ended();
+  get("tiktokBrowserFeedFormatread_emojis").checked=false;
+  assert.equal(browser.receiveIncoming({
+    message_id:"tt-extension-emoji-off",kind:"comment",text:"GGWP 😂"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).text,"GGWP 😂");
   get("tiktokBrowserAudio").paused=true;
   get("tiktokBrowserAudio").events.ended();
   // No gift events should enter the speech queue, including from an older

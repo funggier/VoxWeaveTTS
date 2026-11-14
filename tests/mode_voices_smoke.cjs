@@ -161,19 +161,34 @@ async function main(){
     "changing Browser @ does not change API @");
   assert.equal(manager.readSpeechFormat("tiktok_browser").sender_prefix,"ท่าน");
   assert.equal(manager.readSpeechFormat("tiktok").read_gifts,undefined);
-  for(const mode of ["live","youtube_browser","discord","discord_client"]){
+  for(const mode of ["live","youtube_browser","tiktok","tiktok_browser",
+                      "discord","discord_client"]){
     const prefix=mode==="youtube_browser"?"youtubeBrowser":
-      mode==="discord_client"?"discordClient":mode;
+      mode==="discord_client"?"discordClient":
+      mode==="tiktok_browser"?"tiktokBrowser":mode;
     const enabled=elementById(mode,prefix+"FeedFormatread_emojis");
     const editor=elementById(mode,prefix+"FeedEmojiMappings");
     assert.ok(enabled&&editor,"emoji editor must exist for "+mode);
     assert.equal(enabled.checked,false,"default emoji setting must not alter existing speech");
   }
-  for(const mode of ["tiktok","tiktok_browser"]){
-    const prefix=mode==="tiktok_browser"?"tiktokBrowser":"tiktok";
-    assert.equal(elementById(mode,prefix+"FeedFormatread_emojis"),null);
-    assert.equal(elementById(mode,prefix+"FeedEmojiMappings"),null);
-  }
+  const tikFinityMapping=elementById("tiktok","tiktokFeedEmojiMappings");
+  const tikExtensionMapping=elementById("tiktok_browser","tiktokBrowserFeedEmojiMappings");
+  tikFinityMapping.value="😂 = ขำ TikFinity";
+  elementById("tiktok","tiktokFeedFormatread_emojis").checked=true;
+  await manager.saveSpeechFormat("tiktok");
+  assert.equal(manager.readSpeechFormat("tiktok").read_emojis,true);
+  assert.equal(manager.readSpeechFormat("tiktok").emoji_dictionary["😂"],"ขำ TikFinity");
+  assert.equal(manager.readSpeechFormat("tiktok_browser").read_emojis,false,
+    "TikTok Extension does not inherit TikFinity rules");
+  tikExtensionMapping.value="😂 = ขำ Extension\nGGWP = เก่ง";
+  elementById("tiktok_browser","tiktokBrowserFeedFormatread_emojis").checked=true;
+  await manager.saveSpeechFormat("tiktok_browser");
+  assert.equal(manager.readSpeechFormat("tiktok_browser").emoji_dictionary["😂"],
+    "ขำ Extension");
+  assert.equal(manager.readSpeechFormat("tiktok_browser").emoji_dictionary.GGWP,"เก่ง");
+  assert.equal(manager.readSpeechFormat("tiktok").emoji_dictionary["😂"],"ขำ TikFinity");
+  assert.equal(manager.readSpeechFormat("tiktok_browser").read_gifts,undefined,
+    "Emoji reading must not re-enable removed gifts");
   const apiEmoji=elementById("live","liveFeedEmojiMappings");
   elementById("live","liveFeedFormatread_emojis").checked=true;
   apiEmoji.value="😂 = หัวเราะ\n❤️ = หัวใจ\nGGWP = เก่งมาก";
@@ -195,6 +210,12 @@ async function main(){
   assert.equal(elementById("discord","discordFeedEmojiMappings").value,discordEmoji.value);
   assert.equal(elementById("live","liveFeedFormatread_emojis").checked,true);
   assert.equal(elementById("discord","discordFeedFormatread_emojis").checked,true);
+  assert.equal(elementById("tiktok","tiktokFeedEmojiMappings").value,
+    tikFinityMapping.value);
+  assert.equal(elementById("tiktok_browser","tiktokBrowserFeedEmojiMappings").value,
+    tikExtensionMapping.value);
+  assert.equal(elementById("tiktok","tiktokFeedFormatread_emojis").checked,true);
+  assert.equal(elementById("tiktok_browser","tiktokBrowserFeedFormatread_emojis").checked,true);
   // Bad editor input is rejected without saving anything.
   const count=posts.length;
   apiEmoji.value="@ = เปลี่ยนทั้งข้อความ";

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — TikTok LIVE emoji pronunciation parity
+
+- Added the same opt-in emoji pronunciation dictionary editor, save/load behavior and voice preview to TikTok LIVE (TikFinity) and TikTok LIVE (Extension). Each source keeps independent mappings.
+- TikTok LIVE Extension v0.2.5 preserves emoji image alt labels inside actual chat bodies for speech mapping, including Unicode and named emotes such as GGWP; metadata badges and Gift events remain excluded.
+- Source comments are not rewritten; mappings apply only to new TTS jobs. Existing settings still load and Gift speech remains disabled.
+
+
 ## 0.5.1 — Configurable emoji speech for YouTube and Discord (14 November 2026)
 
 - Each YouTube LIVE (API/Browser) and Discord (Bot/Client) workspace can enable emoji reading and maintain an independent Unicode / custom-emoji pronunciation dictionary (up to 64 entries) in its existing portable source settings.

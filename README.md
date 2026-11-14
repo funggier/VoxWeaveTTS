@@ -4,9 +4,9 @@
 
 > **Windows portable release v0.5.1:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
-## Configurable emoji pronunciation (YouTube LIVE / Discord)
+## Configurable emoji pronunciation (all LIVE modes)
 
-YouTube LIVE (API/Browser) and Discord (Bot/Client) now have independent, opt-in emoji-to-speech dictionaries inside the source speech settings. Enter one Unicode or Discord custom emoji per line, e.g. `😂 = หัวเราะ` or `:party_parrot: = นกเต้น`; the mapping applies only to the synthesized text and not the original chat record. Disabled by default for existing users. YouTube Browser chat also includes emoji-image `alt` text when available so it can be mapped. [Thai setup guide](docs/EMOJI_PRONUNCIATION_TH.md).
+YouTube LIVE (API/Browser), TikTok LIVE (TikFinity/Extension), and Discord (Bot/Client) have independent, opt-in emoji-to-speech dictionaries inside the source speech settings. Enter one Unicode or Discord custom emoji per line, e.g. `😂 = หัวเราะ` or `:party_parrot: = นกเต้น`; the mapping applies only to the synthesized text and not the original chat record. Disabled by default for existing users. YouTube Browser and TikTok Extension chat readers include emoji-image `alt` text when available so it can be mapped. TikTok remains comments-only (no Gift speech). [Thai setup guide](docs/EMOJI_PRONUNCIATION_TH.md).
 
 ## LIVE integrations in v0.5.0
 

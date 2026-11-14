@@ -138,6 +138,11 @@ def main():
                    <span class="SpanUserName">Guest</span>
                    <span class="SpanChatMessageText">sent Heart Me × 3</span>
                 </div>
+                <div class="DivChatMessageItem" data-id="emoji-chat">
+                   <span class="SpanUserName">EmojiViewer</span>
+                   <span class="SpanChatMessageText">สวัสดี <img alt="😂">
+                     <img alt="GGWP"> และ <img alt="❤️"></span>
+                </div>
               `);
               return [...list.querySelectorAll(".DivChatMessageItem")].map(x=>x.innerText);
             })()"""
@@ -145,7 +150,7 @@ def main():
             time.sleep(.4)
             batches=evaluate(ws,54,"window.__vw_messages.flatMap(m=>m.items)")
             messages={x["id"]:x for x in batches}
-            assert len(messages)==4,(native_lines,batches)
+            assert len(messages)==5,(native_lines,batches)
             assert messages["rank-comment"]["text"]=="Trum up Trum up!! 😮",messages
             assert messages["rank-comment"]["rank"]=="2",messages
             assert messages["plain-comment"]["text"]=="No. 2 เป็นชื่อเพลงที่ชอบ",messages
@@ -153,10 +158,12 @@ def main():
             assert messages["rank-generic"]["rank"]=="2",messages
             assert messages["not-gift"]["kind"]=="comment",messages
             assert messages["not-gift"]["text"]=="sent Heart Me × 3",messages
+            assert messages["emoji-chat"]["kind"]=="comment",messages
+            assert messages["emoji-chat"]["text"]=="สวัสดี 😂 GGWP และ ❤️",messages
             assert not any(key in messages for key in
                 ("gift-system","gift-system-x","gift-generic")),messages
-            print("PASS: Chrome DOM isolates real chat comments, excludes gift "
-                  "notices, and preserves viewer-typed gift-like text")
+            print("PASS: Chrome DOM isolates chat, preserves emoji-image alt "
+                  "labels and named emotes, excludes gifts")
         finally:
             if ws:
                 try: ws.close()

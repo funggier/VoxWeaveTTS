@@ -84,8 +84,10 @@ def main():
                 "tiktokBrowserFeedFormatread_comments",
                 "liveFeedFormatread_emojis", "youtubeBrowserFeedFormatread_emojis",
                 "discordFeedFormatread_emojis", "discordClientFeedFormatread_emojis",
+                "tiktokFeedFormatread_emojis", "tiktokBrowserFeedFormatread_emojis",
                 "liveFeedEmojiMappings", "youtubeBrowserFeedEmojiMappings",
                 "discordFeedEmojiMappings", "discordClientFeedEmojiMappings",
+                "tiktokFeedEmojiMappings", "tiktokBrowserFeedEmojiMappings",
             )
             for element_id in required:
                 exists = evaluate("!!document.getElementById("
@@ -112,14 +114,12 @@ def main():
                              "tiktokBrowserFeedFormatread_gift_count",
                              "tiktokBrowserFeedFormatread_name_emojis"):
                 assert not evaluate("!!document.getElementById("+json.dumps(obsolete)+")"),obsolete
-            for source in ("live","youtubeBrowser","discord","discordClient"):
+            for source in ("live","youtubeBrowser","tiktok","tiktokBrowser",
+                           "discord","discordClient"):
                 enabled=evaluate("document.getElementById("+
                                  json.dumps(source+"FeedFormatread_emojis")+
                                  ").checked")
                 assert isinstance(enabled, bool),source+" emoji reading control invalid"
-            for source in ("tiktok","tiktokBrowser"):
-                assert not evaluate("!!document.getElementById("+
-                                    json.dumps(source+"FeedEmojiMappings")+")"),source
             # Editing the browser DOM is safe: do not POST/save user settings.
             example=evaluate("""(()=>{
               const area=document.getElementById('liveFeedEmojiMappings');
@@ -131,6 +131,20 @@ def main():
                 +'.source-format-settings p.small:last-of-type')?.textContent;
             })()""")
             assert example and "หัวเราะ" in example and "เก่งมาก" in example, example
+            for name,mode in (("tiktok","tiktok"),("tiktokBrowser","tiktok_browser")):
+                example=evaluate("""(()=>{
+                  const prefix=SOURCE_PREFIX,mode=SOURCE_MODE;
+                  const area=document.getElementById(prefix+'FeedEmojiMappings');
+                  const toggle=document.getElementById(prefix+'FeedFormatread_emojis');
+                  area.value='😂 = ขำ TikTok\\nGGWP = เก่ง TikTok';
+                  toggle.checked=true;
+                  area.dispatchEvent(new Event('input',{bubbles:true}));
+                  toggle.dispatchEvent(new Event('change',{bubbles:true}));
+                  return document.querySelector('[data-mode-view="'+mode+'"] '
+                    +'.source-format-settings p.small:last-of-type')?.textContent;
+                })()""".replace("SOURCE_PREFIX",json.dumps(name))
+                         .replace("SOURCE_MODE",json.dumps(mode)))
+                assert example and "ขำ TikTok" in example and "เก่ง TikTok" in example,example
             neutral_help=evaluate("""[...document.querySelectorAll(
               '[data-mode-view="live"] .source-format-settings small'
             )].map(e=>e.textContent).find(s=>s.includes('สูงสุด 64 รายการ'))""")

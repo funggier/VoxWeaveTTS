@@ -4,15 +4,15 @@
 
 **รุ่นสำหรับใช้งาน Windows Portable v0.5.1** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
-## การอ่านอีโมจิแบบตั้งคำเอง (YouTube/Discord)
+## การอ่านอีโมจิแบบตั้งคำเอง (ทุกโหมด Live)
 
-โหมด **YouTube LIVE (API)**, **YouTube LIVE (Browser)**, **Discord** และ **Discord Client** มีตัวเลือก **อ่านอีโมจิด้วยคำที่กำหนดเอง** ในหัวข้อ **กำหนดการอ่านข้อความและข้อมูลพิเศษ** พร้อมพจนานุกรมแยกแต่ละโหมด เช่น `😂 = หัวเราะ`, `❤️ = หัวใจ`, `:party_parrot: = นกเต้น` รองรับอีโมจิ Unicode และรหัสอีโมจิ Discord แบบกำหนดเอง เริ่มต้นปิดเพื่อไม่เปลี่ยนการอ่านเดิม และบันทึกพร้อมการตั้งค่าโหมดใน `data/settings/mode-voices.json` [คู่มือการตั้งค่าอีโมจิ](docs/EMOJI_PRONUNCIATION_TH.md)
+โหมด **YouTube LIVE (API)**, **YouTube LIVE (Browser)**, **TikTok LIVE (TikFinity)**, **TikTok LIVE (Extension)**, **Discord** และ **Discord Client** มีตัวเลือก **อ่านอีโมจิด้วยคำที่กำหนดเอง** ในหัวข้อ **กำหนดการอ่านข้อความและข้อมูลพิเศษ** พร้อมพจนานุกรมแยกแต่ละโหมด เช่น `😂 = หัวเราะ`, `❤️ = หัวใจ`, `:party_parrot: = นกเต้น` รองรับอีโมจิ Unicode และรหัสอีโมจิ Discord แบบกำหนดเอง เริ่มต้นปิดเพื่อไม่เปลี่ยนการอ่านเดิม และบันทึกพร้อมการตั้งค่าโหมดใน `data/settings/mode-voices.json` [คู่มือการตั้งค่าอีโมจิ](docs/EMOJI_PRONUNCIATION_TH.md)
 
 ## โหมด LIVE รุ่น v0.5.0 และข้อจำกัด
 
 ใน Source Project แยกแท็บ YouTube เป็น **YouTube LIVE (Browser)** และ **YouTube LIVE (API)** โดย Tab API เดิมใช้รหัส `live` และค่าเดิมไม่เปลี่ยน ส่วน Tab Browser เป็นต้นแบบเปิดหน้าต่าง Chrome/Edge เฉพาะ Live Chat ผ่าน CDP แล้วส่งข้อความใหม่จาก DOM เข้า TTS/OBS Subtitle เดิมโดยไม่ใช้ YouTube Data API Key หรือ Quota ของ Data API **ยังไม่ยืนยันกับ YouTube LIVE จริงและไม่ใช่วิธีทางการของ YouTube** การเข้าถึงอัตโนมัติมีข้อจำกัดในเงื่อนไขของ YouTube โปรดตรวจสอบสิทธิ์ก่อนใช้ [คู่มือ YouTube Browser (ภาษาไทย)](docs/YOUTUBE_BROWSER_READER_TH.md)
 
-**TikTok LIVE (Extension) v0.2.4** รับเฉพาะคอมเมนต์จากแท็บ Chrome ที่ผู้ใช้เลือกและจับคู่กับโปรแกรมผ่าน 127.0.0.1 ผู้ใช้ยืนยันการรับคอมเมนต์ LIVE จริงแล้ว ส่วน **TikTok LIVE (TikFinity)** รับแชทผ่าน WebSocket ในเครื่องเช่นเดิม ทั้งสองโหมด **ไม่รองรับการอ่าน Gift, Follow, Share, Join หรือ Like** อีกต่อไป ตัวเลือกการอ่านย้ายอยู่ในหัวข้อเดียวกันและมีการกำหนดคำนำหน้าชื่อผู้ส่ง คำเชื่อม และการอ่าน `@` ของชื่อ YouTube แยกจาก `@` ในข้อความ ดู [คู่มือ TikTok Extension](docs/TIKTOK_EXTENSION_READER_TH.md) และ [รายละเอียด Release v0.5.0](docs/RELEASE_NOTES_v0.5.0.md)
+**TikTok LIVE (Extension) v0.2.5 (Source Project; ยังไม่ออก Release)** รับเฉพาะคอมเมนต์จากแท็บ Chrome ที่ผู้ใช้เลือกและจับคู่กับโปรแกรมผ่าน 127.0.0.1 ผู้ใช้ยืนยันการรับคอมเมนต์ LIVE จริงแล้ว ส่วน **TikTok LIVE (TikFinity)** รับแชทผ่าน WebSocket ในเครื่องเช่นเดิม ทั้งสองโหมด **ไม่รองรับการอ่าน Gift, Follow, Share, Join หรือ Like** อีกต่อไป ตัวเลือกการอ่านย้ายอยู่ในหัวข้อเดียวกันและมีการกำหนดคำนำหน้าชื่อผู้ส่ง คำเชื่อม และการอ่าน `@` ของชื่อ YouTube แยกจาก `@` ในข้อความ ดู [คู่มือ TikTok Extension](docs/TIKTOK_EXTENSION_READER_TH.md) และ [รายละเอียด Release v0.5.0](docs/RELEASE_NOTES_v0.5.0.md)
 
 ## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
 
