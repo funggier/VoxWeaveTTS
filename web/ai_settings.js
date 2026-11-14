@@ -15,9 +15,12 @@ function attach(document, fetcher){
     display_mode:"aiDisplay", timeout_seconds:"aiTimeout",
     keep_alive_minutes:"aiKeepAlive",
     fallback:"aiFallback", allow_context_files:"aiAllowFiles",
-    context_files:"aiContextFiles"
+    context_files:"aiContextFiles",
+    tool_calling_enabled:"aiToolsEnabled", tool_web_lookup:"aiWebLookup",
+    tool_file_read:"aiToolFileRead", tool_max_calls:"aiToolMaxCalls"
   };
-  const booleanKeys=new Set(["enabled","auto_detect","allow_context_files"]);
+  const booleanKeys=new Set(["enabled","auto_detect","allow_context_files",
+    "tool_calling_enabled","tool_web_lookup","tool_file_read"]);
   let revision=null, lastLoaded=null, engines=[], packages=[];
   const status=text=>{get("aiSettingsStatus").textContent=text;};
   function readFields(){
@@ -26,7 +29,7 @@ function attach(document, fetcher){
       const element=get(id);
       if(name==="context_files"){
         data[name]=String(element.value||"").split(/[,\r\n]+/).map(x=>x.trim()).filter(Boolean);
-      }else if(name==="timeout_seconds"||name==="keep_alive_minutes"){
+      }else if(name==="timeout_seconds"||name==="keep_alive_minutes"||name==="tool_max_calls"){
         data[name]=Number(element.value);
       }else if(booleanKeys.has(name)){
         data[name]=Boolean(element.checked);
@@ -64,6 +67,12 @@ function attach(document, fetcher){
     }
     get("aiOllamaControls").hidden=get("aiEngine").value!=="ollama";
     get("aiModel").disabled=false;
+    const toolMode=get("aiEngine").value==="ollama"&&get("aiOperation").value==="custom";
+    get("aiToolHint").textContent=!toolMode
+      ?"AI Tool Calling ใช้ได้เฉพาะ Ollama + โหมด AI ตาม Custom Prompt · เลือกโหมดนี้ก่อนเปิดใช้งาน"
+      :get("aiToolsEnabled").checked
+      ?"อนุญาตเฉพาะเครื่องมือที่ติ๊กเปิดไว้ · Wikipedia ส่งคำค้นออกอินเทอร์เน็ต · ไฟล์อ่านได้เฉพาะรายการที่อนุญาต"
+      :"AI Tool Calling ปิดอยู่ · ไม่มีการส่งคำค้นออกอินเทอร์เน็ตหรือเรียกใช้ไฟล์เป็นเครื่องมือ";
     get("aiModelLabel").textContent=get("aiEngine").value==="m2m100"
       ?"M2M100 Package (เลือกจากรายการที่ติดตั้งด้านล่าง)"
       :"ชื่อโมเดล Ollama ที่ติดตั้งไว้";
@@ -242,6 +251,13 @@ function attach(document, fetcher){
   async function save(){
     if(revision===null)throw Error("ยังไม่โหลดการตั้งค่าจาก Backend");
     const value=readFields();
+    if(value.tool_calling_enabled && (value.engine!=="ollama"||value.operation!=="custom"))
+      throw Error("AI Tool Calling ต้องเลือก Ollama และโหมด Custom Prompt");
+    if(value.tool_calling_enabled && !(value.tool_web_lookup || value.tool_file_read))
+      throw Error("กรุณาเลือกเครื่องมือที่ต้องการอนุญาตอย่างน้อยหนึ่งรายการ");
+    if(value.tool_calling_enabled && value.tool_file_read &&
+       (!value.allow_context_files||!value.context_files.length))
+      throw Error("ต้องอนุญาตและระบุไฟล์อ้างอิงก่อนเปิดเครื่องมืออ่านไฟล์");
     if(value.enabled&&value.operation==="translate"&&value.engine==="ollama"&&
        value.target_language==="unspecified"&&
        !value.priority_instructions.trim()&&!value.custom_prompt.trim())
@@ -265,6 +281,7 @@ function attach(document, fetcher){
       !root.confirm("มีการแก้ไขที่ยังไม่บันทึก ต้องการโหลดค่าที่บันทึกจริงทับหรือไม่?"))return;
     load().catch(e=>status("โหลดไม่ได้: "+String(e.message||e)));
   });
+  get("aiToolsEnabled").addEventListener("change",updateAvailability);
   get("aiOperation").addEventListener("change",updateAvailability);
   get("aiTarget").addEventListener("change",updateAvailability);
   get("aiEngine").addEventListener("change",()=>{

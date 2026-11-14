@@ -670,6 +670,18 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <label><input id="aiAllowFiles" type="checkbox"> อนุญาตให้ AI อ่านรายการไฟล์ที่ระบุ</label>
 <textarea id="aiContextFiles" rows="3" placeholder="T:\Space\Translation\GameTerms.md, T:\Space\Translation\Names.json"></textarea>
 </details>
+<details style="margin-top:12px">
+<summary>AI Tool Calling — เครื่องมืออ่านข้อมูล (ปิดเป็นค่าเริ่มต้น)</summary>
+<p class="small">ใช้ได้เฉพาะ Ollama + โหมดทำงานตาม Custom Prompt · เปิดสิทธิ์แยกแต่ละเครื่องมือ · ข้อความแชทและเนื้อหาเว็บไซต์ไม่สามารถเพิ่มสิทธิ์หรือสั่งรันโค้ดได้</p>
+<label><input id="aiToolsEnabled" type="checkbox"> อนุญาต AI Tool Calling</label>
+<label><input id="aiWebLookup" type="checkbox"> อนุญาตค้นข้อมูล Wikipedia ผ่านอินเทอร์เน็ต (จำกัดเฉพาะ Wikipedia ไม่ใช่การค้นเว็บทั่วไป)</label>
+<p class="small">การค้นหาจะส่งข้อความค้นไปยัง Wikipedia · ต้องเชื่อมต่ออินเทอร์เน็ต · แหล่งข้อมูลอาจไม่ทันสมัย · ไม่ใช้ Cloud AI เพิ่มเติม</p>
+<label><input id="aiToolFileRead" type="checkbox"> อนุญาต AI เรียกอ่านไฟล์ที่อยู่ในรายการอ้างอิงด้านบน (อ่านอย่างเดียว)</label>
+<p class="small">ต้องเปิด “อนุญาตให้ AI อ่านรายการไฟล์ที่ระบุ” และตั้งค่าไฟล์ด้วย · อ่านไฟล์อื่นนอกเหนือจากรายการไม่ได้</p>
+<label for="aiToolMaxCalls">จำนวนเรียกเครื่องมือสูงสุดต่อข้อความ</label>
+<select id="aiToolMaxCalls"><option value="1">1 ครั้ง</option><option value="2">2 ครั้ง</option><option value="3">3 ครั้ง</option></select>
+<p id="aiToolHint" class="small" role="status">ไม่มีการเรียกเครื่องมือจนกว่าจะเปิดสิทธิ์และบันทึก Settings</p>
+</details>
 <div class="voice-grid" style="margin-top:12px">
 <button id="aiSave" type="button">บันทึก AI Settings</button>
 <button id="aiReload" type="button">โหลด AI Settings อีกครั้ง</button>

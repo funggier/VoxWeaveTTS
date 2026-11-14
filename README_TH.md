@@ -4,6 +4,10 @@
 
 **รุ่นสำหรับใช้งาน Windows Portable v0.6.0** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
+## AI Tool Calling (กำลังพัฒนาหลัง v0.6.0 — ยังไม่ออก Release)
+
+เพิ่มสิทธิ์ Tool Calling แบบ **ปิดเป็นค่าเริ่มต้น** สำหรับ Ollama + โหมด Custom Prompt สามารถอนุญาตการค้น **Wikipedia** และอ่านไฟล์อ้างอิงที่กำหนดใน Settings แยกจากกัน โดยจำกัด 1–3 ครั้งต่อข้อความ ไม่มีการค้นเว็บแบบทั่วไป, ไม่รัน Shell, ไม่เขียนไฟล์ และไม่รับสิทธิ์จากข้อความผู้ชม โมเดล qwen3.5:4b เรียก Wikipedia และอ่านไฟล์ตัวอย่างจาก Allowlist ได้จริงในการทดสอบครั้งล่าสุด แต่ยังต้องตรวจสอบความแม่นยำและความเสถียรระยะยาว ดู [คู่มือ AI Tool Calling](docs/AI_TOOL_CALLING_TH.md)
+
 ## AI Processing / Translation (เพิ่มใน Release v0.6.0 — Tool Calling ยังไม่รวม)
 
 เพิ่มระบบ AI Processing ที่ **Settings กลาง** ใช้กับทุกโหมด โดยค่าเริ่มต้นปิดเพื่อคงพฤติกรรมเดิม; กฎเฉพาะโหมดทำก่อนกฎกลางก่อน AI → AI แปล/ตอบตาม Prompt → กฎกลางหลัง AI → TTS โดยคำนำหน้า ตัวเลือก @ ชื่อผู้ส่ง และคำเชื่อมจะไม่ถูกส่งเข้า AI และไม่ผ่านกฎกลาง

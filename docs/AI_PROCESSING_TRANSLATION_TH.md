@@ -1,6 +1,8 @@
 # VoxWeaveTTS — AI Processing & Translation (ข้อกำหนดที่ตกลงกัน)
 
-สถานะ: **Specification / implementation plan** — ไม่ใช่คำยืนยันว่ามีความสามารถทั้งหมดแล้ว
+สถานะ: **Specification / implementation plan** — ใช้เป็นเอกสารหลักของ Release v0.6.0; งาน Tool Calling หลัง Release อยู่ใน [AI_TOOL_CALLING_TH.md](AI_TOOL_CALLING_TH.md) และยังไม่เผยแพร่เป็น Release ใหม่
+
+**อัปเดตการพัฒนาหลัง v0.6.0:** เพิ่ม Tool Calling แบบอ่านอย่างเดียวที่ปิดเป็นค่าเริ่มต้น รองรับ Wikipedia และการอ่านไฟล์ Allowlist เท่านั้น; ผลทดสอบจริงของ qwen3.5:4b ผ่านทั้งสองเครื่องมือ แต่ยังไม่ใช่เครื่องมือค้นเว็บทั่วไปหรือระบบ Agent ที่รองรับเครื่องมือไม่จำกัด
 อ้างอิงโค้ดตั้งต้น: `main` @ `be74e28` (v0.5.2) — 2026-11-14
 
 ## วัตถุประสงค์

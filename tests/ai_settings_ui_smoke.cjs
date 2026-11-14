@@ -23,7 +23,9 @@ const settings={
   source_language:"auto",target_language:"th",translation_mode:"whole_message",
   auto_detect:true,priority_instructions:"",custom_prompt:"",
   display_mode:"processed",timeout_seconds:10,keep_alive_minutes:360,
-  fallback:"filtered",allow_context_files:false,context_files:[]
+  fallback:"filtered",allow_context_files:false,context_files:[],
+  tool_calling_enabled:false,tool_web_lookup:false,tool_file_read:false,
+  tool_max_calls:2
 };
 const calls=[];
 function response(body){return {ok:true,async json(){return body;}};}
@@ -115,5 +117,26 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   assert.equal(settings.engine,"m2m100");
   assert.equal(settings.target_language,"unspecified");
   assert.equal(settings.custom_prompt,"");
-  console.log("PASS: Ollama memory preload, configurable target language, and prompt-defined unspecified language");
+  // Tool Calling must stay off unless enabled explicitly by the user.
+  assert.equal(settings.tool_calling_enabled,false);
+  el("aiEngine").value="ollama";
+  el("aiEngine").change();
+  el("aiOperation").value="custom";
+  el("aiOperation").change();
+  el("aiToolsEnabled").checked=true;
+  el("aiWebLookup").checked=true;
+  el("aiToolMaxCalls").value="2";
+  el("aiToolsEnabled").change();
+  assert.match(el("aiToolHint").textContent,/Wikipedia/);
+  el("aiSave").click();
+  await tick();
+  assert.equal(settings.tool_calling_enabled,true);
+  assert.equal(settings.tool_web_lookup,true);
+  assert.equal(settings.tool_file_read,false);
+  assert.equal(settings.tool_max_calls,2);
+  el("aiToolsEnabled").checked=false;
+  el("aiSave").click();
+  await tick();
+  assert.equal(settings.tool_calling_enabled,false);
+  console.log("PASS: Ollama settings, target language, explicit read-only tool permissions");
 })().catch(e=>{console.error(e);process.exitCode=1;});
