@@ -71,6 +71,22 @@ function attach(document, fetcher){
     });
     if(get("aiEngine").value==="m2m100"&&get("aiOperation").value==="custom")
       get("aiOperation").value="translate";
+    const operation=get("aiOperation").value;
+    const unspecified=get("aiTarget").value==="unspecified";
+    get("aiTarget").disabled=operation!=="translate";
+    get("aiTranslationMode").disabled=operation!=="translate"||unspecified;
+    get("aiAutoDetect").disabled=operation!=="translate"||unspecified;
+    const languageNames={th:"ภาษาไทย",en:"ภาษาอังกฤษ",ja:"ภาษาญี่ปุ่น",zh:"ภาษาจีน",ko:"ภาษาเกาหลี"};
+    get("aiLanguageHint").textContent=operation==="none"
+      ?"ไม่แปล / ไม่เรียก AI; กฎก่อนและหลัง AI ยังคงทำงาน"
+      :operation==="custom"
+      ?"โหมด Custom: ให้ Priority Instructions และ Custom Prompt กำหนดงานและภาษาตอบเอง (ไม่บังคับภาษาปลายทาง)"
+      :unspecified&&get("aiEngine").value==="m2m100"
+      ?"M2M100 + ไม่ระบุภาษา: ข้ามการแปลโดยไม่เรียกโมเดล และยังใช้กฎก่อน/หลัง AI ตามปกติ"
+      :unspecified
+      ?"Ollama + ไม่ระบุภาษา: ต้องกำหนดภาษาใน Priority Instructions หรือ Custom Prompt · ไม่ใช้ตรวจจับอักษรเพื่อข้ามแปล"
+      :"บังคับแปลเป็น"+(languageNames[get("aiTarget").value]||"ภาษาที่เลือก")+
+        "ตาม Settings แม้ Prompt จะระบุภาษาอื่น; Prompt ใช้ควบคุมสำนวนและเงื่อนไขเพิ่มเติม";
   }
   async function requestJson(url,options){
     const response=await fetcher(url,options);
@@ -207,6 +223,10 @@ function attach(document, fetcher){
   async function save(){
     if(revision===null)throw Error("ยังไม่โหลดการตั้งค่าจาก Backend");
     const value=readFields();
+    if(value.enabled&&value.operation==="translate"&&value.engine==="ollama"&&
+       value.target_language==="unspecified"&&
+       !value.priority_instructions.trim()&&!value.custom_prompt.trim())
+      throw Error("เมื่อเลือกไม่ระบุภาษา กรุณาเขียนภาษาที่ต้องการใน Priority Instructions หรือ Custom Prompt");
     const data=await requestJson("/v1/settings/ai",{
       method:"POST",
       headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":"save-ai-settings"},
@@ -226,6 +246,8 @@ function attach(document, fetcher){
       !root.confirm("มีการแก้ไขที่ยังไม่บันทึก ต้องการโหลดค่าที่บันทึกจริงทับหรือไม่?"))return;
     load().catch(e=>status("โหลดไม่ได้: "+String(e.message||e)));
   });
+  get("aiOperation").addEventListener("change",updateAvailability);
+  get("aiTarget").addEventListener("change",updateAvailability);
   get("aiEngine").addEventListener("change",()=>{
     updateAvailability();
     if(get("aiEngine").value==="ollama")

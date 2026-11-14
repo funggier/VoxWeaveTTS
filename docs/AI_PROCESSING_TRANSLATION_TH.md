@@ -23,7 +23,7 @@
 ## Settings ส่วนกลาง
 
 - เปิด/ปิด AI Processing ทั่วโปรแกรม (ค่าเริ่มต้นปิด)
-- เป้าหมายภาษา (เช่น `th`, `en`, `ja`, `zh`, `ko`) และตัวเลือกตรวจจับภาษา
+- เป้าหมายภาษา `th`, `en`, `ja`, `zh`, `ko` หรือ **ไม่ระบุ (`unspecified`)**: ในโหมดแปล Ollama ใช้ภาษาที่ผู้ใช้กำหนดไว้ใน Priority Instructions (สำคัญกว่า) หรือ Custom Prompt โดยไม่มีการตรวจอักษรเพื่อข้ามการแปล; หากเลือกภาษาชัดเจน ค่านั้นชนะคำสั่งภาษาที่ขัดกันใน Prompt; ถ้าเลือก M2M100 + ไม่ระบุ จะ **ไม่แปล ไม่เรียกโมเดล** แต่ยังทำกฎกลางก่อนและหลัง AI ตามปกติ และไม่บังคับให้ตั้ง Prompt
 - วิธีแปล: `foreign_spans` (แปลช่วงต่างภาษาและรวมต้นฉบับ) กับ `whole_message` (แปลข้อความรวมเมื่อพบภาษาอื่น เหมาะกับ LLM)
 - **Translation / AI Engine Registry** แยกจาก Voice Engine Registry แต่ใช้แนวคิดเดียวกัน: `EngineInfo` + Adapter Contract + Factory/Registry และ Model Package metadata/weights แบบ data-only. เลือก Engine และโมเดลได้จาก Settings โดยตรวจ runtime/assets/capabilities จริง; สามารถเพิ่ม adapter ใหม่ใน trusted application code และติดตั้ง model weights แยกภายหลังโดยไม่เปลี่ยนเส้นทางประมวลผลหลัก
 - Built-in adapters: `Ollama` สำหรับ LLM (ต้องมี Ollama และโมเดลติดตั้งในเครื่อง) และ `M2M100 418M` สำหรับแปลแบบดั้งเดิม (ต้องมี runtime และ weights แยก; ไม่รวมใน Portable ปกติ); แสดงสถานะ `not installed` เมื่อยังไม่พร้อม และไม่ปลอมว่าแปลได้
@@ -47,7 +47,8 @@
 - **M2M100**: Adapter และ Model Registry เป็นโมดูลแยกจาก Ollama; โมเดลน้ำหนักไม่รวมกับ Portable หลัก ต้องมีไฟล์โมเดลที่ติดตั้งไว้ในเครื่องและ runtime `torch/transformers/sentencepiece/safetensors` ก่อน โดยเลือกโมเดลจากรายการ AI Packages ที่ตรวจพบ หรือใช้โฟลเดอร์ `models/ai/m2m100_418m` ที่เตรียมไว้; ไม่มีปุ่มดาวน์โหลด/ติดตั้งโมเดลใน AI Settings
 - การมีชื่อโมเดลในรายการไม่เท่ากับการทดสอบ Inference ผ่านจริง: UI แยก Installed, Runtime Ready, In Memory จากผลทดสอบจริง
 - **ผลทดสอบ Ollama จริง 2026-11-14**: ด้วยโมเดล `qwen3.5:4b` ในเครื่อง ผ่านการแปลสั้น 6 กรณี: อังกฤษ→ไทย, ไทย→อังกฤษ, ไทย/อังกฤษผสม→ไทย, อังกฤษ→ญี่ปุ่น, อังกฤษ→จีน, อังกฤษ→เกาหลี (`tests/verify_live_translation.py`). เป็นเพียง functional smoke test ยังไม่รับรองความแม่นยำทุกประเภทข้อความ
-- ปัจจุบันการเรียก AI Translation ใน Backend ยังทำระหว่างการเตรียมงานผ่าน HTTP Request; **ยังไม่ใช่ asynchronous AI queue** และยังไม่ได้ทดสอบ M2M100 กับน้ำหนักโมเดลจริงหรือทดสอบเส้นทาง Live แบบโหลดสูง จึงยังไม่ควรถือว่าพร้อมสำหรับ Live ยาว ๆ
+- การส่งงานผ่าน `POST /v1/jobs` เมื่อ AI เปิดและมีการประมวลผลใช้ **Asynchronous AI Preparation Queue** แยก worker จาก TTS: คืน Job ID ทันทีพร้อมสถานะ `preparing`, จากนั้น `queued` → `rendering` → `ready`; ใช้การจำกัดจำนวนงานรวมของ SpeechCoordinator, source-message dedup, การยกเลิกและไม่เผยข้อความที่ยังไม่ผ่านกรองออกทาง Job API; การยกเลิกขณะ AI กำลังทำงานไม่หยุด HTTP Inference ที่เริ่มไปแล้วทันที แต่จะทิ้งผลลัพธ์ ไม่ส่งต่อเข้า TTS. เมื่อปิด AI / operation=`none` / M2M100+ไม่ระบุภาษา ใช้คิวเสียงเดิมตรง ไม่ต้องรอ AI
+- **ยังไม่ได้ทดสอบ M2M100 ด้วยน้ำหนักโมเดลจริงหรือทดสอบเส้นทาง Live แบบโหลดสูง** (เช่นหลายร้อยข้อความ); ไม่รับรองความพร้อม Live ยาว ๆ; การแปลแบบ synchronous ใน `/v1/text/process` สำหรับกดทดสอบยังคงรอผล AI ตาม timeout
 - มี UI สำหรับจัดการ Model Packages ของ **TTS เดิม** แยกต่างหากตามพฤติกรรมเดิม ไม่เกี่ยวกับการดาวน์โหลด AI Model
 - หลักฐานวิธีโหลด Ollama: https://github.com/ollama/ollama/blob/main/docs/api.md (การส่ง prompt ว่าง / keep_alive)
 - แหล่ง M2M100: https://huggingface.co/facebook/m2m100_418M (Model Card ระบุ MIT) แต่ไฟล์ใน repo อย่างเป็นทางการขณะตรวจสอบมี `pytorch_model.bin` ไม่ใช่ `model.safetensors`; Adapter นี้ **ตั้งใจไม่โหลดไฟล์ pickle/bin เพื่อความปลอดภัย** ต้องเตรียม safetensors ที่แปลงและตรวจสอบจากแหล่งที่เชื่อถือได้ไว้ในเครื่องก่อนใช้งานจริง ยังไม่ได้ทดสอบ Inference ด้วยน้ำหนัก M2M100 บนเครื่องนี้ จึงต้องรายงานสถานะ Not Ready ตามจริง

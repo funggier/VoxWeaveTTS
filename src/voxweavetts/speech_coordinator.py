@@ -1,9 +1,10 @@
 """Engine-neutral speech preparation queue, private jobs and versioned events.
 
-The coordinator consumes an already-filtered speech plan and a renderer
-callable. It has NO dependency on any specific model, voice package or ML
-framework. 'ready' means audio was synthesized, NOT played. Playback-clock
-events belong to a future dedicated player.
+The coordinator consumes an already-filtered speech plan or an optional
+asynchronous AI preparation callback, then a renderer callable. AI preparation
+and TTS rendering use separate workers with one bounded job registry. It has
+NO dependency on any specific model, voice package or ML framework. 'ready'
+means audio was synthesized, NOT played.
 """
 from __future__ import annotations
 
@@ -57,6 +58,7 @@ class _Job:
     voice_id: str
     plan: dict[str, Any] | None
     render_args: dict[str, Any]
+    prepare: Callable[[], tuple[dict[str, Any], dict[str, Any]]] | None = None
     state: str = "queued"
     created_at: str = field(default_factory=_now_utc)
     created_mono: float = field(default_factory=time.monotonic)
@@ -115,6 +117,7 @@ class SpeechCoordinator:
         self._ttl_seconds = ttl_seconds
         self._jobs: dict[str, _Job] = {}
         self._queue: deque[str] = deque()
+        self._prepare_queue: deque[str] = deque()
         self._dedupe: dict[tuple[str, str], str] = {}
         self._audio_bytes = 0
         self._cv = threading.Condition(threading.RLock())
@@ -123,6 +126,10 @@ class SpeechCoordinator:
             target=self._work, name="voxweavetts-speech-queue", daemon=True
         )
         self._thread.start()
+        self._prepare_thread = threading.Thread(
+            target=self._work_prepare, name="voxweavetts-ai-preparation", daemon=True
+        )
+        self._prepare_thread.start()
 
     @staticmethod
     def _public_timeline(
@@ -173,6 +180,7 @@ class SpeechCoordinator:
             self._audio_bytes -= len(job.audio)
         job.audio = None
         job.plan = None
+        job.prepare = None
 
     def _prune(self) -> None:
         now = time.monotonic()
@@ -228,6 +236,90 @@ class SpeechCoordinator:
             self._queue.append(job.id)
             self._cv.notify_all()
             return job.snapshot()
+
+    def submit_deferred(
+        self, prepare: Callable[[], tuple[dict[str, Any], dict[str, Any]]], *,
+        source: str, engine_id: str = "pending", voice_id: str = "pending",
+        source_message_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Reserve stable speech ID; prepare on a separate worker.
+
+        The prepare callable returns (processed speech plan, validated TTS args).
+        It must not expose raw chat through public job metadata.
+        """
+        if not callable(prepare):
+            raise InputError("prepare must be callable")
+        if not isinstance(source, str) or not 1 <= len(source) <= 80:
+            raise InputError("invalid deferred speech source")
+        if not isinstance(engine_id, str) or not isinstance(voice_id, str):
+            raise InputError("invalid engine or voice")
+        if source_message_id is not None and (
+            not isinstance(source_message_id, str)
+            or not 1 <= len(source_message_id) <= 128
+        ):
+            raise InputError("source_message_id must be 1–128 characters")
+        with self._cv:
+            if self._closed:
+                raise QueueFull("coordinator stopped")
+            self._prune()
+            key = (source, source_message_id) if source_message_id else None
+            if key is not None and key in self._dedupe:
+                existing = self._jobs.get(self._dedupe[key])
+                if existing:
+                    return existing.snapshot()
+            self._make_room()
+            if len(self._jobs) >= self._max_jobs:
+                raise QueueFull("speech queue is full; try again later")
+            job = _Job(
+                id=uuid4().hex, source=source, source_message_id=source_message_id,
+                display_text="", engine_id=engine_id, voice_id=voice_id,
+                plan=None, render_args={}, prepare=prepare,
+            )
+            self._jobs[job.id] = job
+            if key is not None:
+                self._dedupe[key] = job.id
+            self._transition(job, "preparing")
+            self._prepare_queue.append(job.id)
+            self._cv.notify_all()
+            return job.snapshot()
+
+    def _work_prepare(self) -> None:
+        while True:
+            with self._cv:
+                while not self._prepare_queue and not self._closed:
+                    self._cv.wait()
+                if self._closed:
+                    return
+                job = self._jobs.get(self._prepare_queue.popleft())
+                if job is None or job.state != "preparing" or job.prepare is None:
+                    continue
+                callback = job.prepare
+            try:
+                plan, arguments = callback()
+                if (not isinstance(plan, dict) or not isinstance(plan.get("segments"), list)
+                        or not isinstance(arguments, dict)
+                        or not isinstance(arguments.get("engine_id"), str)
+                        or not isinstance(arguments.get("voice_id"), str)):
+                    raise ValueError("invalid prepared speech data")
+                with self._cv:
+                    if job.state != "preparing" or self._closed:
+                        continue
+                    job.plan = plan
+                    job.render_args = dict(arguments)
+                    job.prepare = None
+                    job.engine_id = arguments["engine_id"]
+                    job.voice_id = arguments["voice_id"]
+                    job.display_text = plan["display_text"]
+                    self._transition(job, "queued")
+                    self._queue.append(job.id)
+                    self._cv.notify_all()
+            except Exception:
+                # Never expose AI errors or unfiltered text from tools, models,
+                # reference files, or the original message through job events.
+                with self._cv:
+                    if job.state == "preparing":
+                        job.prepare = None
+                        self._transition(job, "failed", error="AI speech preparation failed")
 
     def _work(self) -> None:
         while True:
@@ -369,6 +461,7 @@ class SpeechCoordinator:
                     self._audio_bytes -= len(job.audio)
                     job.audio = None
                 job.plan = None
+                job.prepare = None
                 job.timeline = None
                 self._transition(job, "cancelled")
             return job.snapshot()
@@ -394,6 +487,8 @@ class SpeechCoordinator:
             for job in self._jobs.values():
                 if job.state not in _TERMINAL:
                     job.plan = None
+                    job.prepare = None
                     self._transition(job, "cancelled")
             self._cv.notify_all()
         self._thread.join(timeout=1.0)
+        self._prepare_thread.join(timeout=1.0)

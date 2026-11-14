@@ -627,9 +627,10 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="aiEngine">AI / Translation Engine</label><select id="aiEngine"><option value="ollama">Ollama (Local LLM)</option><option value="m2m100">M2M100 418M (Local)</option></select></div>
 <div><label for="aiModel" id="aiModelLabel">ชื่อโมเดล (Ollama) / รหัสแพ็กเกจ (M2M100)</label><input id="aiModel" type="text" list="aiOllamaModels" maxlength="100" placeholder="เช่น qwen3.5:4b"><datalist id="aiOllamaModels"></datalist></div>
 <div><label for="aiOperation">การทำงาน</label><select id="aiOperation"><option value="none">ไม่แปล / ไม่เรียก AI</option><option value="translate">แปลภาษา</option><option value="custom">AI ทำงานตาม Prompt (เช่น ตอบคำถาม)</option></select></div>
-<div><label for="aiTarget">ภาษาปลายทาง</label><select id="aiTarget"><option value="th">ไทย</option><option value="en">English</option><option value="ja">日本語</option><option value="zh">中文</option><option value="ko">한국어</option></select></div>
+<div><label for="aiTarget">แปลข้อความเป็นภาษา (เลือกให้ชัดเจน หรือให้ Prompt กำหนด)</label><select id="aiTarget"><option value="unspecified">ไม่ระบุภาษา — ให้ Priority Instructions / Custom Prompt กำหนด</option><option value="th">ไทย</option><option value="en">English</option><option value="ja">日本語</option><option value="zh">中文</option><option value="ko">한국어</option></select></div>
 <div><label for="aiSourceLanguage">ภาษาต้นทาง (M2M100 ต้องระบุหากตรวจไม่แม่น)</label><select id="aiSourceLanguage"><option value="auto">ตรวจอัตโนมัติแบบคร่าว ๆ</option><option value="th">ไทย</option><option value="en">อังกฤษ</option><option value="ja">ญี่ปุ่น</option><option value="zh">จีน</option><option value="ko">เกาหลี</option></select></div>
 <div><label for="aiTranslationMode">วิธีแปล</label><select id="aiTranslationMode"><option value="whole_message">แปลทั้งข้อความ</option><option value="foreign_spans">แปลเฉพาะช่วงต่างภาษาแล้วรวม</option></select></div>
+<p class="small" id="aiLanguageHint" role="status">ในโหมดแปลภาษา หากเลือกภาษาชัดเจน ระบบจะยึดภาษานั้นก่อน Prompt</p>
 </div>
 <div id="aiOllamaControls" style="margin:12px 0">
 <div><label for="aiOllamaBaseUrl">ที่อยู่ Ollama Server (IP / Port)</label><input id="aiOllamaBaseUrl" type="text" maxlength="110" value="http://127.0.0.1:11434" placeholder="http://127.0.0.1:11434"></div>
@@ -654,7 +655,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ul id="aiPackageList" style="padding-left:22px"></ul>
 </details>
 <label><input id="aiAutoDetect" type="checkbox" checked> ข้ามแปลเมื่อไม่พบอักษรต่างภาษา (ตรวจแบบคร่าว ๆ)</label>
-<label for="aiPriority">Priority Instructions — คำสั่งสำคัญสูงกว่า Custom Prompt</label>
+<label for="aiPriority">Priority Instructions — คำสั่งสำคัญสูงกว่า Custom Prompt (ยกเว้นภาษาปลายทางที่เลือกไว้ชัดเจน)</label>
 <textarea id="aiPriority" rows="4" maxlength="4000" placeholder="เช่น ตอบภาษาไทยเสมอ และไม่เกิน 3 ประโยค"></textarea>
 <label for="aiPrompt">Custom Prompt — คำสั่งทั่วไป</label>
 <textarea id="aiPrompt" rows="5" maxlength="4000" placeholder="เช่น แปลแบบเป็นกันเอง ถ้าเป็นคำถามให้ตอบคำถาม"></textarea>
@@ -1941,7 +1942,7 @@ async function pollJob() {
   if (!response.ok) throw Error(job.error || "Speech job not found");
   el("queueMessage").textContent = "งาน " + job.speech_id.slice(0,8) +
     " · " + job.state + " · " + job.engine_id;
-  el("queueCancel").disabled = !["queued","rendering","ready"].includes(job.state);
+  el("queueCancel").disabled = !["preparing","queued","rendering","ready"].includes(job.state);
   await getQueueJobs();
   if (job.state === "ready") {
     stopJobPoll();
@@ -1977,7 +1978,7 @@ async function submitQueuePayload(payload) {
   el("queueAudio").style.display = "none";
   el("queueDownload").style.display = "none";
   const observedState = await pollJob();
-  if (jobPollTimer === null && ["queued","rendering"].includes(observedState)) {
+  if (jobPollTimer === null && ["preparing","queued","rendering"].includes(observedState)) {
     jobPollTimer = setInterval(() => {
       pollJob().catch(err => {
         stopJobPoll();

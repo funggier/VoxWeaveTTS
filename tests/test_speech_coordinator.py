@@ -69,6 +69,70 @@ class CoordinatorTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_deferred_ai_preparation_is_nonblocking_and_keeps_job_id(self):
+        entered, release = threading.Event(), threading.Event()
+        renders = []
+        def prepare():
+            entered.set()
+            self.assertTrue(release.wait(4))
+            return (
+                process_text("แปลแล้ว", source="test"),
+                {"engine_id": "fastthaig2p-cpu", "voice_id": "thai_som"},
+            )
+        def renderer(plan, **kwargs):
+            renders.append(plan["spoken_text"])
+            return fake_renderer(plan, **kwargs)
+        c = SpeechCoordinator(renderer, max_jobs=2)
+        try:
+            start = time.monotonic()
+            job = c.submit_deferred(
+                prepare, source="test", source_message_id="id-ai",
+            )
+            self.assertLess(time.monotonic()-start, 1.0)
+            self.assertEqual(job["state"], "preparing")
+            self.assertEqual(job["display_text"], "")
+            self.assertTrue(entered.wait(3))
+            duplicate = c.submit_deferred(
+                lambda: (_ for _ in ()).throw(AssertionError("dedup failed")),
+                source="test", source_message_id="id-ai"
+            )
+            self.assertEqual(duplicate["speech_id"], job["speech_id"])
+            release.set()
+            ready = c.wait(job["speech_id"], timeout=5.0)
+            self.assertEqual(ready["state"], "ready")
+            self.assertEqual(ready["display_text"], "แปลแล้ว")
+            self.assertEqual(renders, ["แปลแล้ว"])
+            self.assertEqual([x["type"] for x in c.events(job["speech_id"])],
+                             ["speech.preparing", "speech.queued", "speech.rendering", "speech.ready"])
+        finally:
+            release.set()
+            c.close()
+
+    def test_cancel_deferred_job_discards_ai_result(self):
+        entered, release = threading.Event(), threading.Event()
+        rendered = []
+        def prepare():
+            entered.set()
+            release.wait(4)
+            return (process_text("ห้ามอ่าน", source="test"),
+                    {"engine_id":"fastthaig2p-cpu","voice_id":"thai_som"})
+        def renderer(plan, **kwargs):
+            rendered.append(plan["spoken_text"])
+            return fake_renderer(plan, **kwargs)
+        c = SpeechCoordinator(renderer)
+        try:
+            job = c.submit_deferred(prepare, source="test")
+            self.assertTrue(entered.wait(3))
+            self.assertEqual(c.cancel(job["speech_id"])["state"], "cancelled")
+            release.set()
+            self.assertEqual(c.wait(job["speech_id"])["state"], "cancelled")
+            time.sleep(0.05)
+            self.assertEqual(rendered, [])
+            self.assertNotIn("ห้ามอ่าน", json.dumps(c.get(job["speech_id"]), ensure_ascii=False))
+        finally:
+            release.set()
+            c.close()
+
     def test_source_message_dedup(self):
         c = SpeechCoordinator(fake_renderer)
         try:
@@ -197,6 +261,54 @@ class CoordinatorAPITests(unittest.TestCase):
         cls.server.server_close()
         cls.thread.join(3)
         cls.coordinator.close()
+
+    def test_http_ai_preparation_does_not_block_job_submission(self):
+        entered, release = threading.Event(), threading.Event()
+        from voxweavetts.ai_processing import DEFAULTS, validate_settings
+        ai = validate_settings({
+            **DEFAULTS, "enabled": True, "operation": "custom",
+            "model": "example:4b",
+        })
+        def fake_text_plan(handler, data, *, ai_settings=None):
+            entered.set()
+            if not release.wait(4):
+                raise TimeoutError("test did not release preparation")
+            return process_text("ข้อความหลัง AI", source="test")
+        payload = json.dumps({
+            "text":"external private message", "source":"test",
+            "source_message_id":"deferred-ai-unique-id"
+        }).encode("utf-8")
+        req = Request(
+            self.base+"/v1/jobs", data=payload, method="POST",
+            headers={"Content-Type":"application/json",
+                     "X-VoxWeaveTTS-Intent":"queue-speech"},
+        )
+        with patch("voxweavetts.server.load_ai_settings", return_value={"settings":ai}), \
+             patch.object(Handler, "_text_plan", autospec=True,
+                          side_effect=fake_text_plan), \
+             patch.object(Handler, "_speech_params", autospec=True,
+                          return_value={
+                              "engine_id":"fastthaig2p-cpu",
+                              "voice_id":"thai_som"
+                          }):
+            try:
+                start = time.monotonic()
+                with urlopen(req, timeout=3) as response:
+                    self.assertEqual(response.status, 202)
+                    job = json.load(response)
+                self.assertLess(time.monotonic()-start, 2.5)
+                self.assertEqual(job["state"], "preparing")
+                self.assertEqual(job["display_text"], "")
+                self.assertTrue(entered.wait(3))
+                with urlopen(self.base+"/v1/jobs/"+job["speech_id"], timeout=3) as response:
+                    self.assertEqual(json.load(response)["state"], "preparing")
+                release.set()
+                ready = self.coordinator.wait(job["speech_id"], timeout=6)
+                self.assertEqual(ready["state"], "ready")
+                self.assertEqual(ready["display_text"], "ข้อความหลัง AI")
+                self.assertNotIn("external private message", json.dumps(ready))
+            finally:
+                release.set()
 
     def test_http_queue_ready_events_audio_and_cancel(self):
         real_descriptor = engine_info()

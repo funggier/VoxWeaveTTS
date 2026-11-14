@@ -624,7 +624,7 @@ class Handler(BaseHTTPRequestHandler):
             raise InputError("request must be a JSON object")
         return data
 
-    def _text_plan(self, data: dict[str, Any]) -> dict[str, Any]:
+    def _text_plan(self, data: dict[str, Any], *, ai_settings: dict[str, Any] | None = None) -> dict[str, Any]:
         rules = data.get("rules")
         if rules is None:
             rules = load_text_section("rules")["value"]
@@ -636,7 +636,7 @@ class Handler(BaseHTTPRequestHandler):
             rules=rules,
             pronunciations=dictionary,
             source=data.get("source", "manual"),
-            settings=load_ai_settings()["settings"],
+            settings=ai_settings if ai_settings is not None else load_ai_settings()["settings"],
             sender_prefix_text=data.get("sender_prefix_text", ""),
         )
 
@@ -973,13 +973,42 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 data = self._read_json()
-                plan = self._text_plan(data)
-                params = self._speech_params(data, plan)
-                job = self._coordinator().submit(
-                    plan, engine_id=params["engine_id"], voice_id=params["voice_id"],
-                    render_args=params,
-                    source_message_id=data.get("source_message_id"),
+                ai_settings = load_ai_settings()["settings"]
+                should_prepare = (
+                    ai_settings["enabled"] and ai_settings["operation"] != "none"
+                    and not (
+                        ai_settings["engine"] == "m2m100"
+                        and ai_settings["operation"] == "translate"
+                        and ai_settings["target_language"] == "unspecified"
+                    )
                 )
+                if should_prepare:
+                    # Capture rules, pronunciations and AI configuration at
+                    # submission, not after potentially waiting in the queue.
+                    # The HTTP handler does not block for local AI inference.
+                    queued_data = dict(data)
+                    if queued_data.get("rules") is None:
+                        queued_data["rules"] = load_text_section("rules")["value"]
+                    if queued_data.get("pronunciations") is None:
+                        queued_data["pronunciations"] = load_text_section("pronunciations")["value"]
+                    def prepare():
+                        plan = self._text_plan(queued_data, ai_settings=ai_settings)
+                        params = self._speech_params(queued_data, plan)
+                        return plan, params
+                    job = self._coordinator().submit_deferred(
+                        prepare, source=data.get("source", "manual"),
+                        engine_id=data.get("engine_id", "pending"),
+                        voice_id=data.get("voice_id", "pending"),
+                        source_message_id=data.get("source_message_id"),
+                    )
+                else:
+                    plan = self._text_plan(data, ai_settings=ai_settings)
+                    params = self._speech_params(data, plan)
+                    job = self._coordinator().submit(
+                        plan, engine_id=params["engine_id"], voice_id=params["voice_id"],
+                        render_args=params,
+                        source_message_id=data.get("source_message_id"),
+                    )
                 self.send_json(202 if job["state"] not in {"ready", "failed"} else 200, job)
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
