@@ -52,6 +52,79 @@ class BrowserAdapterTests(unittest.TestCase):
             self.assertEqual([x.message_id for x in a.poll().messages], ["new2"])
         a.close()
 
+    def test_switches_top_chat_to_live_before_initial_message_baseline(self):
+        reader = YouTubeBrowserAdapter(VIDEO)
+        reader._ws = DummySocket()
+        frames = [
+            {"ready": True, "chat_mode": "switching", "page_visibility": "hidden",
+             "items": [{"id": "old-top", "author": "A", "text": "Top only"}]},
+            {"ready": True, "chat_mode": "live", "page_visibility": "hidden",
+             "items": [{"id": "old-live", "author": "A", "text": "ก่อนเชื่อม"}]},
+            {"ready": True, "chat_mode": "live", "page_visibility": "hidden",
+             "items": [{"id": "old-live", "author": "A", "text": "ก่อนเชื่อม"},
+                       {"id": "new-live", "author": "B", "text": "เห็นข้อความใหม่"}]},
+        ]
+        with patch.object(reader, "_evaluate", side_effect=frames):
+            first = reader.poll()
+            self.assertFalse(reader._initialized)
+            self.assertFalse(reader.dom_ready)
+            self.assertEqual(reader.phase, "switching_live_chat")
+            self.assertEqual(first.messages, ())
+            self.assertEqual(first.delay_seconds, 0.5)
+            self.assertEqual(reader.page_visibility, "hidden")
+            self.assertEqual(reader.poll().messages, ())
+            self.assertTrue(reader._initialized)
+            self.assertEqual(reader.chat_mode, "live")
+            final = reader.poll()
+            self.assertEqual([m.message_id for m in final.messages], ["new-live"])
+        reader.close()
+
+    def test_live_chat_selection_has_bounded_wait_if_youtube_changes_ui(self):
+        reader = YouTubeBrowserAdapter(VIDEO)
+        reader._ws = DummySocket()
+        frame = {"ready": True, "chat_mode": "switching", "items": [
+            {"id": "old", "author": "A", "text": "ก่อนเชื่อม"}]}
+        with patch.object(reader, "_evaluate", return_value=frame):
+            self.assertFalse(reader._initialized)
+            self.assertEqual(reader.poll().messages, ())
+            reader._live_mode_deadline = time.monotonic() - 1
+            self.assertEqual(reader.poll().messages, ())
+            self.assertTrue(reader._initialized)
+            self.assertEqual(reader.phase, "chat_mode_unconfirmed")
+        reader.close()
+
+    def test_background_throttling_disabled_only_for_isolated_browser(self):
+        import tempfile
+        from pathlib import Path
+        from voxweavetts import youtube_browser
+        calls = []
+        class FakeProcess:
+            pid = 123
+            def poll(self):
+                return None
+        with tempfile.TemporaryDirectory() as directory:
+            def start(args, **kwargs):
+                calls.append(args)
+                portfile = Path(directory) / "data" / "browser-profiles" / "youtube-chat" / "DevToolsActivePort"
+                portfile.write_text("9333\n/devtools/browser/mock\n", encoding="ascii")
+                return FakeProcess()
+            with patch.object(youtube_browser, "ROOT", Path(directory)), patch.object(
+                youtube_browser, "find_chromium", return_value="chrome.exe"), patch.object(
+                youtube_browser.subprocess, "Popen", side_effect=start):
+                reader = YouTubeBrowserAdapter(VIDEO)
+                reader._launch()
+                self.assertEqual(reader._port, 9333)
+                args = calls[0]
+                for flag in ("--disable-background-timer-throttling",
+                             "--disable-backgrounding-occluded-windows",
+                             "--disable-renderer-backgrounding",
+                             "--disable-features=CalculateNativeWinOcclusion"):
+                    self.assertIn(flag, args)
+                self.assertIn("--remote-debugging-address=127.0.0.1", args)
+                self.assertTrue(any("--user-data-dir=" in a for a in args))
+                reader._process = None
+                reader.close()
+
     def test_source_manager_browser_without_api_key(self):
         instances = []
 
@@ -64,6 +137,8 @@ class BrowserAdapterTests(unittest.TestCase):
                 self.n = 0
                 self.phase = "preparing"
                 self.dom_ready = False
+                self.chat_mode = "live"
+                self.page_visibility = "hidden"
                 instances.append(self)
 
             def set_cancel(self, event):
@@ -97,6 +172,8 @@ class BrowserAdapterTests(unittest.TestCase):
                 time.sleep(0.05)
             self.assertEqual(manager.status("youtube_browser")["transport"], "browser-dom")
             self.assertEqual(manager.status("youtube_browser")["connection_phase"], "ready")
+            self.assertEqual(manager.status("youtube_browser")["chat_mode"], "live")
+            self.assertEqual(manager.status("youtube_browser")["page_visibility"], "hidden")
             self.assertEqual(manager.status("youtube_browser")["received"], 1)
             messages = manager.drain({"mode": "youtube_browser",
                                       "mode_token": owner["mode_token"],

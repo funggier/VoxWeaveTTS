@@ -27,8 +27,48 @@ from .source_adapters import PollResult, SourceFailure, SourceMessage, _normal_t
 ROOT = Path(__file__).resolve().parents[2]
 VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 CHAT_SCRIPT = r"""(() => {
+  // Top chat filters messages before the reader sees them. Switch the
+  // isolated browser popout to unfiltered Live chat when the menu is present.
+  const norm = value => (value || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const liveLabels = new Set(["live chat", "all chat", "แชทสด", "แชททั้งหมด"]);
+  const topLabels = new Set(["top chat", "แชทยอดนิยม", "แชทเด่น"]);
+  const menu = document.querySelector("yt-live-chat-header-renderer yt-sort-filter-sub-menu-renderer")
+    || document.querySelector("yt-sort-filter-sub-menu-renderer");
+  let chatMode = "unknown";
+  if (menu) {
+    const current = norm(menu.querySelector("#label-text")?.textContent ||
+      menu.querySelector("yt-dropdown-menu")?.getAttribute("aria-label"));
+    chatMode = liveLabels.has(current) ? "live"
+      : topLabels.has(current) ? "top" : "unknown";
+    if (chatMode === "top") {
+      // YouTube renders dropdown options asynchronously. Every retry comes
+      // from the Python CDP poll, not throttled background page timers.
+      const options = [...document.querySelectorAll(
+        "yt-sort-filter-sub-menu-renderer tp-yt-paper-item, " +
+        "yt-sort-filter-sub-menu-renderer a.yt-simple-endpoint, " +
+        "tp-yt-paper-listbox tp-yt-paper-item")];
+      const liveOption = options.find(el => liveLabels.has(norm(el.textContent)));
+      if (liveOption) {
+        (liveOption.closest("a") || liveOption).click();
+        window.__vwttsLiveChatLastClick = Date.now();
+        chatMode = "switching";
+      } else if (Date.now() - (window.__vwttsLiveChatLastClick || 0) > 2500) {
+        const opener = menu.querySelector("yt-dropdown-menu #label, " +
+          "yt-dropdown-menu [role=button], yt-dropdown-menu button, " +
+          "yt-dropdown-menu") || menu.querySelector("#label-text");
+        if (opener) {
+          opener.click();
+          window.__vwttsLiveChatLastClick = Date.now();
+          chatMode = "switching";
+        }
+      } else {
+        chatMode = "switching";
+      }
+    }
+  }
   const list = document.querySelector("yt-live-chat-item-list-renderer #items");
-  if (!list) return {ready:false, items:[]};
+  if (!list) return {ready:false, items:[], chat_mode:chatMode,
+                      page_visibility:document.visibilityState || "unknown"};
   const items = [...list.querySelectorAll("yt-live-chat-text-message-renderer")].slice(-100);
   // Images in YouTube chat carry emoji text in alt attributes rather
   // than textContent; preserve those tokens for the optional TTS dictionary.
@@ -51,7 +91,9 @@ CHAT_SCRIPT = r"""(() => {
     visit(element);
     return text;
   };
-  return {ready:true, items: items.map(node => {
+  return {ready:true, chat_mode:chatMode,
+          page_visibility:document.visibilityState || "unknown",
+          items: items.map(node => {
     let id = node.id || node.getAttribute("data-id") || node.getAttribute("data-vwtts-id");
     if (!id) {
       window.__vwttsChatSequence = (window.__vwttsChatSequence || 0) + 1;
@@ -232,6 +274,9 @@ class YouTubeBrowserAdapter:
         self._initialized = False
         self.dom_ready = False
         self.phase = "preparing"
+        self.chat_mode = "unknown"
+        self.page_visibility = "unknown"
+        self._live_mode_deadline: float | None = None
         self._seen: set[str] = set()
         self._closed = False
 
@@ -276,7 +321,14 @@ class YouTubeBrowserAdapter:
         args = [
             browser, "--remote-debugging-address=127.0.0.1",
             "--remote-debugging-port=0", f"--user-data-dir={profile}",
-            "--no-first-run", "--no-default-browser-check", f"--app={url}",
+            "--no-first-run", "--no-default-browser-check",
+            # Keep Chromium chat continuations running when its isolated app
+            # window is behind others or occluded. Do not force foreground.
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+            "--disable-features=CalculateNativeWinOcclusion",
+            f"--app={url}",
         ]
         try:
             self._process = subprocess.Popen(
@@ -316,6 +368,16 @@ class YouTubeBrowserAdapter:
                                     fatal=self._initialized, retry_after=3)
             self.phase = "connecting_dom"
             self._ws = _CDPWebSocket(target["webSocketDebuggerUrl"])
+            # Emulate focus without actually stealing Windows focus. CDP
+            # replies are ignored by _evaluate until its request ID arrives.
+            self._ws.send(json.dumps({
+                "id": 2, "method": "Emulation.setFocusEmulationEnabled",
+                "params": {"enabled": True}
+            }).encode("utf-8"))
+            self._ws.send(json.dumps({
+                "id": 3, "method": "Page.setWebLifecycleState",
+                "params": {"state": "active"}
+            }).encode("utf-8"))
         except SourceFailure:
             raise
         except (OSError, ValueError, KeyError):
@@ -343,6 +405,12 @@ class YouTubeBrowserAdapter:
         try:
             self.phase = "reading_dom"
             result = self._evaluate()
+            if isinstance(result, dict):
+                mode = result.get("chat_mode")
+                self.chat_mode = mode if mode in ("top", "live", "switching", "unknown") else "unknown"
+                visibility = result.get("page_visibility")
+                self.page_visibility = (visibility if visibility in ("visible", "hidden", "prerender")
+                                        else "unknown")
             if isinstance(result, dict) and result.get("status") == "login_rate_limited":
                 self.dom_ready = False
                 self.phase = "login_rate_limited"
@@ -359,8 +427,22 @@ class YouTubeBrowserAdapter:
                     "comments_off", "comments_off_login_prompt", "login_prompt")
                     else "waiting_chat_dom")
                 return PollResult((), 2.0)
+            # Before the first delivery, finish switching to Live chat so
+            # Top chat rows do not become the initial message baseline. If
+            # YouTube changes its UI, keep reading after bounded attempts.
+            if self.chat_mode == "switching" and not self._initialized:
+                if self._live_mode_deadline is None:
+                    self._live_mode_deadline = time.monotonic() + 12
+                if time.monotonic() < self._live_mode_deadline:
+                    self.dom_ready = False
+                    self.phase = "switching_live_chat"
+                    return PollResult((), 0.5)
+            else:
+                self._live_mode_deadline = None
             self.dom_ready = True
-            self.phase = "ready"
+            self.phase = ("ready" if self.chat_mode == "live"
+                          else "chat_mode_unconfirmed" if self.chat_mode in ("top", "switching")
+                          else "ready")
             rows = result.get("items", [])
             if not isinstance(rows, list):
                 raise ValueError("invalid chat DOM")

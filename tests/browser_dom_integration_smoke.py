@@ -22,11 +22,17 @@ def main():
         profile = base / "profile"
         html = base / "fixture.html"
         html.write_text(
-            '<html><body><yt-live-chat-item-list-renderer><div id="items">'
+            '<html><body><yt-live-chat-header-renderer><yt-sort-filter-sub-menu-renderer>'
+            '<yt-dropdown-menu><button id="label"><span id="label-text">Top chat</span></button>'
+            '<tp-yt-paper-listbox><tp-yt-paper-item id="live-option">Live chat</tp-yt-paper-item>'
+            '</tp-yt-paper-listbox></yt-dropdown-menu></yt-sort-filter-sub-menu-renderer>'
+            '</yt-live-chat-header-renderer><yt-live-chat-item-list-renderer><div id="items">'
             '<yt-live-chat-text-message-renderer id="msg-a"><span id="author-name">'
             'Tester</span><span id="message">สวัสดีครับ <img alt="😂"> '
             '<img alt=":face-blue-smiling:"><img alt="GGWP">แล้วนะ</span>'
             '</yt-live-chat-text-message-renderer></div></yt-live-chat-item-list-renderer>'
+            '<script>document.getElementById("live-option").addEventListener("click",'
+            '()=>{document.getElementById("label-text").textContent="Live chat";});</script>'
             '</body></html>', encoding="utf-8")
         args = [find_chromium(), "--headless=new", "--disable-gpu",
                 "--remote-debugging-address=127.0.0.1",
@@ -50,6 +56,19 @@ def main():
                           and t.get("url", "").startswith("file:"))
             ws = _CDPWebSocket(target["webSocketDebuggerUrl"])
             try:
+                # Verify the CDP lifecycle/focus commands are supported by
+                # the actual installed browser, not just mocked in unit tests.
+                for cid, method, params in (
+                    (101, "Emulation.setFocusEmulationEnabled", {"enabled": True}),
+                    (102, "Page.setWebLifecycleState", {"state": "active"}),
+                ):
+                    ws.send(json.dumps({"id": cid, "method": method, "params": params}).encode())
+                    while True:
+                        reply = json.loads(ws.receive())
+                        if reply.get("id") == cid:
+                            assert "error" not in reply, (method, reply)
+                            break
+                observed_switch = False
                 for attempt in range(25):
                     ws.send(json.dumps({"id": attempt + 1, "method": "Runtime.evaluate",
                                         "params": {"expression": CHAT_SCRIPT,
@@ -59,15 +78,18 @@ def main():
                         if data.get("id") == attempt + 1:
                             break
                     result = data["result"]["result"].get("value", {})
-                    if result.get("ready"):
+                    observed_switch = observed_switch or result.get("chat_mode") == "switching"
+                    if result.get("ready") and result.get("chat_mode") == "live":
                         break
                     time.sleep(0.2)
                 assert result["ready"] is True, result
+                assert observed_switch, "Top chat dropdown was not changed"
+                assert result["chat_mode"] == "live", result
                 assert result["items"][0]["text"] == "สวัสดีครับ 😂 :face-blue-smiling: GGWP แล้วนะ", result
                 assert result["items"][0]["author"] == "Tester", result
             finally:
                 ws.close()
-            print("PASS: local isolated Chrome CDP, Browser DOM chat extraction")
+            print("PASS: local isolated Chrome CDP, automatic Top chat -> Live chat + DOM extraction")
         finally:
             if os.name == "nt":
                 subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],

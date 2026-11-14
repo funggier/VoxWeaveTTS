@@ -93,6 +93,8 @@ const BROWSER_PHASE_NAMES=Object.freeze({
   finding_chat_page:"ขั้นตอน 4/5 · ค้นหาหน้า YouTube Live Chat ใน Browser",
   connecting_dom:"ขั้นตอน 4/5 · เชื่อมระบบควบคุม DOM ของ Browser",
   reading_dom:"ขั้นตอน 5/5 · ตรวจสอบองค์ประกอบข้อความในหน้า Chat",
+  switching_live_chat:"ขั้นตอน 5/5 · กำลังเปลี่ยนจาก Top chat เป็น Live chat",
+  chat_mode_unconfirmed:"เชื่อมต่อแชทแล้ว · ยังยืนยันการเลือก Live chat ไม่ได้",
   waiting_chat_dom:"ขั้นตอน 5/5 · รอให้หน้า Live Chat โหลดหรือเปิดแชท",
   ready:"เชื่อมต่อสำเร็จ · พร้อมอ่านข้อความใหม่จาก YouTube Live Chat",
   comments_off:"TikTok ใน Browser นี้แสดง Comments off · ไม่ได้แปลว่าเจ้าของไลฟ์ปิดคอมเมนต์ ตรวจสอบสิทธิ์การเข้าถึงในหน้าต่างนี้",
@@ -581,7 +583,14 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
             : "";
         const retry=status.state==="retrying"
           ? " · ลองใหม่ใน "+Math.round(status.next_poll_seconds||0)+" วินาที":"";
-        browserStage(browserPhase,statistics+note+retry);
+        const ytMode=!extensionMode && status.chat_mode
+          ? " · โหมดแชท "+({live:"Live chat ✓",top:"Top chat (ยังกรองข้อความ)",
+              switching:"กำลังสลับเป็น Live chat",unknown:"ยืนยันไม่ได้"}[status.chat_mode]||"ไม่ทราบ")
+          : "";
+        const ytVisibility=!extensionMode && status.page_visibility
+          ? " · หน้าต่าง "+({visible:"แสดงอยู่",hidden:"เบื้องหลัง",prerender:"กำลังเริ่มแสดง"}[status.page_visibility]||"ไม่ทราบ")
+          : "";
+        browserStage(browserPhase,statistics+note+retry+ytMode+ytVisibility);
         if(extensionMode){
           const diag=status.dom_diagnostics;
           let desc="DOM: รอส่วนเสริมส่งผลตรวจหน้า LIVE";

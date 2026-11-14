@@ -69,6 +69,12 @@ class _Session:
                if self.mode == "tiktok_browser"
                and isinstance(getattr(self.adapter, "diagnostics", None), dict)
                else {}),
+            **({"chat_mode": self.adapter.chat_mode,
+                "page_visibility": self.adapter.page_visibility}
+               if self.mode == "youtube_browser"
+               and isinstance(getattr(self.adapter, "chat_mode", None), str)
+               and isinstance(getattr(self.adapter, "page_visibility", None), str)
+               else {}),
             **({"connection_phase": self.adapter.phase}
                if self.mode in ("discord_client", "youtube_browser", "tiktok_browser")
                and isinstance(getattr(self.adapter, "phase", None), str)

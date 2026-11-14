@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — YouTube Browser Live chat selection and background resilience
+
+- The isolated YouTube Live Chat popout now attempts to switch **Top chat** (filtered) to **Live chat** automatically and reports the current mode or an unconfirmed selection in the UI. Initial message baseline waits briefly for the mode switch; no old chat is replayed and repeated message IDs stay deduplicated.
+- Launches only its managed Chrome/Edge app window with background-timer/occlusion/renderer-throttling mitigations and uses supported DevTools Focus Emulation and Active Page Lifecycle commands without stealing window focus or changing the user's normal browser.
+- Displays the chat mode and page visibility to help diagnose hidden-window stalls. Tested on an isolated Chrome fixture (actual CDP calls and Top→Live click) and in unit tests; prolonged minimized YouTube LIVE on a real stream is **not yet verified** and may still depend on YouTube's DOM/network behavior.
+- This code is not part of the published v0.7.0 ZIP until another release is requested.
+
 ## 0.7.0 — AI Tool Calling, Search Providers and Secure Portable Profiles (14 November 2026)
 
 - Added opt-in Tool Calling settings (disabled by default), with separate Wikipedia lookup and explicitly allowlisted reference-file read permissions, and a 1–3 calls/message budget.
