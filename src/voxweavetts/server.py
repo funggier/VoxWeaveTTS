@@ -589,7 +589,8 @@ class Handler(BaseHTTPRequestHandler):
                 params = parse_qs(urlsplit(self.path).query)
                 name = params.get("model", [""])[0]
                 try:
-                    self.send_json(200, ollama_model_status(name))
+                    ai_settings = load_ai_settings()["settings"]
+                    self.send_json(200, ollama_model_status(name, ai_settings["ollama_base_url"]))
                 except ValueError:
                     self.send_json(400, {"error": "invalid model name"})
             elif route == "/v1/ai/packages":
@@ -680,8 +681,10 @@ class Handler(BaseHTTPRequestHandler):
                 request = self._read_json(max_bytes=1024)
                 if set(request) != {"model", "keep_alive_minutes"}:
                     raise ValueError("invalid preload request")
+                ai_settings = load_ai_settings()["settings"]
                 self.send_json(200, preload_ollama_model(
-                    request["model"], request["keep_alive_minutes"]
+                    request["model"], request["keep_alive_minutes"],
+                    ai_settings["ollama_base_url"]
                 ))
             except ValueError:
                 self.send_json(400, {"error": "invalid preload settings"})

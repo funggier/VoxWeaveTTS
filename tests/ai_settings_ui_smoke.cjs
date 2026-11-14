@@ -18,7 +18,8 @@ const doc={
 };
 const el=id=>doc.getElementById(id);
 const settings={
-  enabled:false, engine:"ollama", model:"", operation:"translate",
+  enabled:false, engine:"ollama", ollama_base_url:"http://127.0.0.1:11434",
+  model:"", operation:"translate",
   source_language:"auto",target_language:"th",translation_mode:"whole_message",
   auto_detect:true,priority_instructions:"",custom_prompt:"",
   display_mode:"processed",timeout_seconds:10,keep_alive_minutes:360,
@@ -81,10 +82,14 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   assert.equal(calls.some(c=>/\/api\/pull|\/api\/create|\/install/.test(c.url)),false,
     "no install/download endpoints are used");
   el("aiOperation").value="none";
+  el("aiContextFiles").value="T:\\Games\\Glossary.md, T:\\Games\\Names.json";
+  el("aiOllamaBaseUrl").value="http://192.168.1.25:11434";
   el("aiSave").click();
   await tick();
   assert.equal(settings.operation,"none");
   assert.equal(settings.model,"qwen3.5:4b");
   assert.equal(settings.keep_alive_minutes,120);
+  assert.equal(settings.ollama_base_url,"http://192.168.1.25:11434");
+  assert.deepEqual(settings.context_files,["T:\\Games\\Glossary.md","T:\\Games\\Names.json"]);
   console.log("PASS: Ollama discovery, explicit RAM preload, no download/install, and global AI settings");
 })().catch(e=>{console.error(e);process.exitCode=1;});

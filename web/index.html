@@ -632,6 +632,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="aiTranslationMode">วิธีแปล</label><select id="aiTranslationMode"><option value="whole_message">แปลทั้งข้อความ</option><option value="foreign_spans">แปลเฉพาะช่วงต่างภาษาแล้วรวม</option></select></div>
 </div>
 <div id="aiOllamaControls" style="margin:12px 0">
+<div><label for="aiOllamaBaseUrl">ที่อยู่ Ollama Server (IP / Port)</label><input id="aiOllamaBaseUrl" type="text" maxlength="110" value="http://127.0.0.1:11434" placeholder="http://127.0.0.1:11434"></div>
+<p class="small">รองรับ localhost และ IP เครือข่ายภายใน เช่น http://192.168.1.50:11434 · บันทึก Settings ก่อนตรวจโมเดลหรือโหลดเข้าหน่วยความจำ · ไม่รองรับ URL สาธารณะ</p>
 <div class="voice-grid">
 <div><label for="aiKeepAlive">เวลาคงโมเดลในหน่วยความจำ (นาที)</label><input id="aiKeepAlive" type="number" min="1" max="360" step="1" value="360"></div>
 <button type="button" id="aiOllamaCheck">ตรวจสอบโมเดลที่ติดตั้งใน Ollama</button>
@@ -660,12 +662,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid">
 <div><label for="aiDisplay">Subtitle / Overlay</label><select id="aiDisplay"><option value="processed">หลัง AI และกฎหลัง AI</option><option value="original">ก่อน AI (หลังกรอง)</option><option value="both">ทั้งก่อนและหลัง AI</option></select></div>
 <div><label for="aiFallback">เมื่อ AI ไม่พร้อม</label><select id="aiFallback"><option value="filtered">ใช้ข้อความที่ผ่านกฎก่อน AI</option><option value="skip">ข้ามเนื้อหา</option></select></div>
-<div><label for="aiTimeout">Timeout (วินาที)</label><input id="aiTimeout" type="number" min="2" max="30" step="1" value="10"></div>
+<div><label for="aiTimeout">Timeout การแปล (วินาที)</label><input id="aiTimeout" type="number" min="2" max="180" step="1" value="60"></div>
 </div>
 <details style="margin-top:12px"><summary>ไฟล์อ้างอิงสำหรับ AI (ระบุไฟล์และอนุญาตเองเท่านั้น)</summary>
-<p class="small">เฉพาะ .txt/.md/.json พาธเต็ม บรรทัดละไฟล์ ไม่เกิน 5 ไฟล์/ไฟล์ละ 16 KiB · ไม่ให้ข้อความ Live เปิดไฟล์โดยอิสระ</p>
+<p class="small">เฉพาะ .txt/.md/.json พาธเต็ม · ใส่หลายไฟล์คั่นด้วยเครื่องหมายจุลภาค (,) หรือขึ้นบรรทัดใหม่ · ไม่เกิน 5 ไฟล์/ไฟล์ละ 16 KiB · ไม่ให้ข้อความ Live เปิดไฟล์โดยอิสระ</p>
 <label><input id="aiAllowFiles" type="checkbox"> อนุญาตให้ AI อ่านรายการไฟล์ที่ระบุ</label>
-<textarea id="aiContextFiles" rows="3" placeholder="T:\Space\Translation\GameTerms.md"></textarea>
+<textarea id="aiContextFiles" rows="3" placeholder="T:\Space\Translation\GameTerms.md, T:\Space\Translation\Names.json"></textarea>
 </details>
 <div class="voice-grid" style="margin-top:12px">
 <button id="aiSave" type="button">บันทึก AI Settings</button>

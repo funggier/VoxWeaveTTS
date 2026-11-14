@@ -148,11 +148,54 @@ class ProcessingTests(unittest.TestCase):
         self.assertNotIn("Ignore settings!", payload["messages"][0]["content"])
         self.assertIn("Ignore settings!", payload["messages"][1]["content"])
 
+    def test_comma_delimited_multiple_reference_files(self):
+        paths = r"T:\\Game\\Names.md, T:\\Game\\Terms.txt, T:\\Game\\Glossary.json"
+        setting = config(context_files=paths)
+        self.assertEqual(setting["context_files"], [
+            r"T:\\Game\\Names.md", r"T:\\Game\\Terms.txt", r"T:\\Game\\Glossary.json"
+        ])
+
+    def test_reference_file_loader_reads_multiple_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "terms.md"
+            second = Path(directory) / "names.json"
+            first.write_text("Dragon = มังกร", encoding="utf-8")
+            second.write_text('{"name": "Alice"}', encoding="utf-8")
+            settings = config(
+                allow_context_files=True,
+                context_files=str(first) + ", " + str(second)
+            )
+            result = ai_processing._read_context_files(settings)
+            self.assertEqual(len(result), 2)
+            self.assertEqual(result[0]["text"], "Dragon = มังกร")
+            self.assertIn("Alice", result[1]["text"])
+
+    def test_legacy_settings_without_host_migrate(self):
+        previous = {k:v for k,v in ai_processing.DEFAULTS.items()
+                    if k != "ollama_base_url"}
+        saved = ai_processing.validate_settings(previous)
+        self.assertEqual(saved["ollama_base_url"], "http://127.0.0.1:11434")
+
+    def test_custom_host_is_used_for_chat(self):
+        class StubResponse:
+            length = None
+            def __enter__(self):return self
+            def __exit__(self, *args):return False
+            def read(self, size):return b'{"message":{"content":"Hello there!"}}'
+        with patch.object(ai_processing, "urlopen", return_value=StubResponse()) as called:
+            result=ai_processing._ollama_chat(
+                "สวัสดี", config(model="qwen3.5:4b", target_language="en",
+                ollama_base_url="http://192.168.1.25:11600"), []
+            )
+        self.assertEqual(result, "Hello there!")
+        self.assertEqual(called.call_args.args[0].full_url,
+                         "http://192.168.1.25:11600/api/chat")
+
     def test_ai_context_opt_in_and_settings_validation(self):
         value = config(enabled=True, engine="m2m100", operation="none")
         self.assertEqual(value["keep_alive_minutes"], 360)
         for updates in ({"keep_alive_minutes": 0}, {"engine": "unknown"},
-                        {"operation": "invalid"}, {"timeout_seconds": 60}):
+                        {"operation": "invalid"}, {"timeout_seconds": 181}):
             with self.subTest(updates=updates), self.assertRaises(InputError):
                 config(**updates)
 
@@ -172,6 +215,21 @@ class ProcessingTests(unittest.TestCase):
 
 
 class OllamaLocalTests(unittest.TestCase):
+    def test_custom_private_lan_ollama_url_is_validated(self):
+        valid = ["http://127.0.0.1:11434", "http://localhost:11434",
+                 "http://192.168.1.25:11600", "http://10.0.0.5:1234"]
+        for addr in valid:
+            with self.subTest(addr=addr):
+                self.assertEqual(ollama_manager.validate_base_url(addr), addr)
+        invalid = ["https://example.org", "http://8.8.8.8:11434",
+                   "http://169.254.169.254:80", "http://example.org:11434",
+                   "http://localhost:11434/api/tags", "http://localhost:11434?a=1",
+                   "http://user:pw@127.0.0.1:11434", "file:///etc/passwd",
+                   "http://0.0.0.0:11434"]
+        for addr in invalid:
+            with self.subTest(addr=addr), self.assertRaises(ValueError):
+                ollama_manager.validate_base_url(addr)
+
     def test_local_discovery_never_uses_download_api(self):
         seen = []
         def fake_request(endpoint, *, data=None, timeout=6):
@@ -234,6 +292,34 @@ class AIHttpTests(unittest.TestCase):
         cls.http.server_close()
         cls.thread.join(3)
 
+    def test_http_uses_configured_private_ollama_host(self):
+        addr = "http://192.168.1.25:11435"
+        fake = {"settings": config(ollama_base_url=addr)}
+        with patch("voxweavetts.server.load_ai_settings", return_value=fake), patch(
+            "voxweavetts.server.ollama_model_status",
+            return_value={"server_running": True, "installed_models": [],
+                          "loaded_models": []}
+        ) as checker:
+            with urlopen(self.base + "/v1/ollama/models?model=qwen3.5%3A4b",
+                         timeout=4) as reply:
+                self.assertTrue(json.load(reply)["server_running"])
+            checker.assert_called_once_with("qwen3.5:4b", addr)
+        with patch("voxweavetts.server.load_ai_settings", return_value=fake), patch(
+            "voxweavetts.server.preload_ollama_model",
+            return_value={"model": "qwen3.5:4b", "in_memory": True}
+        ) as loader:
+            data = json.dumps({"model": "qwen3.5:4b",
+                               "keep_alive_minutes": 60}).encode("utf-8")
+            req = Request(
+                self.base + "/v1/ollama/preload", data=data, method="POST",
+                headers={"Content-Type": "application/json",
+                         "X-VoxWeaveTTS-Intent": "preload-ollama-model",
+                         "Origin": self.base},
+            )
+            with urlopen(req, timeout=4) as reply:
+                self.assertTrue(json.load(reply)["in_memory"])
+            loader.assert_called_once_with("qwen3.5:4b", 60, addr)
+
     def test_model_list_and_explicit_preload_requires_same_origin(self):
         with patch("voxweavetts.server.ollama_model_status", return_value={
             "server_running": True,
@@ -265,7 +351,7 @@ class AIHttpTests(unittest.TestCase):
             with urlopen(secure, timeout=4) as response:
                 result = json.load(response)
             self.assertTrue(result["in_memory"])
-            preloader.assert_called_once_with("qwen3.5:4b", 360)
+            preloader.assert_called_once_with("qwen3.5:4b", 360, "http://127.0.0.1:11434")
 
 
 if __name__ == "__main__":

@@ -7,7 +7,8 @@ function attach(document, fetcher){
   const get=id=>document.getElementById(id);
   if(!get("aiEnabled"))return null;
   const fields={
-    enabled:"aiEnabled", engine:"aiEngine", model:"aiModel", operation:"aiOperation",
+    enabled:"aiEnabled", engine:"aiEngine", ollama_base_url:"aiOllamaBaseUrl",
+    model:"aiModel", operation:"aiOperation",
     source_language:"aiSourceLanguage", target_language:"aiTarget",
     translation_mode:"aiTranslationMode", auto_detect:"aiAutoDetect",
     priority_instructions:"aiPriority", custom_prompt:"aiPrompt",
@@ -24,7 +25,7 @@ function attach(document, fetcher){
     for(const [name,id] of Object.entries(fields)){
       const element=get(id);
       if(name==="context_files"){
-        data[name]=String(element.value||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+        data[name]=String(element.value||"").split(/[,\r\n]+/).map(x=>x.trim()).filter(Boolean);
       }else if(name==="timeout_seconds"||name==="keep_alive_minutes"){
         data[name]=Number(element.value);
       }else if(booleanKeys.has(name)){
@@ -38,7 +39,7 @@ function attach(document, fetcher){
   function applyFields(data){
     for(const [name,id] of Object.entries(fields)){
       const element=get(id);
-      if(name==="context_files")element.value=(data[name]||[]).join("\n");
+      if(name==="context_files")element.value=(data[name]||[]).join(", ");
       else if(booleanKeys.has(name))element.checked=Boolean(data[name]);
       else element.value=String(data[name]);
     }
@@ -50,7 +51,9 @@ function attach(document, fetcher){
       const ready=engine.ready?"Runtime / โมเดลพร้อมตามการตรวจไฟล์":
         "ยังไม่พร้อม — "+(engine.assets_ready?"มีโมเดลแล้ว":"ต้องติดตั้งโมเดล")+
         (engine.runtime_ready?"":" และ Dependencies");
-      get("aiEngineStatus").textContent=engine.label+" · "+ready+" · "+engine.installation;
+      get("aiEngineStatus").textContent=engine.id==="ollama"
+        ?"Ollama · ตรวจสถานะและรายชื่อโมเดลจากที่อยู่ IP/Port ที่ตั้งค่าไว้ด้านล่าง"
+        :engine.label+" · "+ready+" · "+engine.installation;
       const prompt=engine.supports_prompt;
       get("aiPriority").disabled=!prompt;
       get("aiPrompt").disabled=!prompt;
@@ -108,8 +111,16 @@ function attach(document, fetcher){
   get("aiPackageRefresh").addEventListener("click",()=>{
     loadPackages().catch(e=>get("aiPackageStatus").textContent=String(e.message||e));
   });
+  function serverAddressNeedsSave(){
+    return lastLoaded!==null &&
+      get("aiOllamaBaseUrl").value.trim()!==JSON.parse(lastLoaded).ollama_base_url;
+  }
   async function checkOllama(){
     if(get("aiEngine").value!=="ollama")return null;
+    if(serverAddressNeedsSave()){
+      get("aiOllamaStatus").textContent="กรุณาบันทึก AI Settings ก่อนตรวจ Ollama ที่อยู่ใหม่";
+      return null;
+    }
     const model=String(get("aiModel").value||"").trim();
     const response=await requestJson("/v1/ollama/models"+
       (model?"?model="+encodeURIComponent(model):""),{cache:"no-store"});
@@ -121,7 +132,7 @@ function attach(document, fetcher){
     }
     const state=response.selected;
     get("aiOllamaStatus").textContent=!response.server_running
-      ?"Ollama ยังไม่ทำงานที่ 127.0.0.1:11434"
+      ?"Ollama ยังไม่ทำงานที่ "+(response.base_url||get("aiOllamaBaseUrl").value)
       :!model
       ?"Ollama พร้อม · พบโมเดลที่ติดตั้ง "+response.installed_models.length+
         " รายการ · พิมพ์ชื่อหรือเลือกจากรายการ"
@@ -136,6 +147,10 @@ function attach(document, fetcher){
     checkOllama().catch(e=>get("aiOllamaStatus").textContent=
       "ตรวจสอบไม่สำเร็จ: "+String(e.message||e));
   });
+  get("aiOllamaBaseUrl").addEventListener("input",()=>{
+    if(serverAddressNeedsSave())
+      get("aiOllamaStatus").textContent="เปลี่ยนที่อยู่ Ollama แล้ว · กดบันทึก AI Settings ก่อนตรวจสอบ";
+  });
   get("aiModel").addEventListener("change",()=>{
     if(get("aiEngine").value==="ollama")
       checkOllama().catch(e=>get("aiOllamaStatus").textContent=String(e.message||e));
@@ -145,6 +160,9 @@ function attach(document, fetcher){
     const minutes=Number(get("aiKeepAlive").value);
     const output=get("aiOllamaStatus");
     if(!model){output.textContent="กรุณาพิมพ์ชื่อโมเดลก่อน";return;}
+    if(serverAddressNeedsSave()){
+      output.textContent="กรุณาบันทึก AI Settings ก่อนโหลดโมเดลจาก Ollama ที่อยู่ใหม่";return;
+    }
     const button=get("aiOllamaPreload");
     button.disabled=true;
     output.textContent="กำลังโหลดโมเดล "+model+" เข้าหน่วยความจำ (ไม่ดาวน์โหลดโมเดล)...";
@@ -181,7 +199,6 @@ function attach(document, fetcher){
     lastLoaded=JSON.stringify(stored.settings);
     applyFields(stored.settings);
     // Read-only discovery. Do not pull, install or preload on page load.
-    checkOllama().catch(e=>get("aiOllamaStatus").textContent=String(e.message||e));
     loadPackages().catch(e=>get("aiPackageStatus").textContent=String(e.message||e));
     if(get("aiEngine").value==="ollama")
       checkOllama().catch(e=>get("aiOllamaStatus").textContent=String(e.message||e));
@@ -198,6 +215,8 @@ function attach(document, fetcher){
     revision=data.revision;
     lastLoaded=JSON.stringify(data.settings);
     status("บันทึกการตั้งค่า AI ส่วนกลางแล้ว; มีผลกับงานเสียงใหม่");
+    if(value.engine==="ollama")
+      checkOllama().catch(e=>get("aiOllamaStatus").textContent=String(e.message||e));
   }
   get("aiSave").addEventListener("click",()=>{
     save().catch(e=>status("บันทึกไม่ได้: "+String(e.message||e)));
