@@ -310,6 +310,18 @@ class CoordinatorAPITests(unittest.TestCase):
             finally:
                 release.set()
 
+    def test_wait_for_job_result_uses_server_condition_not_browser_timer(self):
+        job_id="a"*32
+        snapshot={"speech_id":job_id,"state":"ready","audio_ready":True}
+        with patch.object(self.coordinator,"wait",return_value=snapshot) as backend:
+            with urlopen(self.base+"/v1/jobs/"+job_id+"?wait=1",timeout=3) as response:
+                self.assertEqual(json.load(response),snapshot)
+            backend.assert_called_once_with(job_id,timeout=10.0)
+        with self.assertRaises(HTTPError) as invalid:
+            urlopen(self.base+"/v1/jobs/"+job_id+"?wait=999",timeout=3)
+        self.assertEqual(invalid.exception.code,400)
+        invalid.exception.close()
+
     def test_http_queue_ready_events_audio_and_cancel(self):
         real_descriptor = engine_info()
         ready_descriptor = replace(real_descriptor, assets_ready=True, runtime_ready=True)

@@ -379,6 +379,63 @@ class ManagerTests(unittest.TestCase):
     def tearDown(self):
         self.manager.stop_all()
 
+    def test_background_wakeup_revision_exposes_no_chat_and_needs_no_timer(self):
+        snapshot=self.manager.wake_snapshot("live")
+        self.assertEqual(snapshot["state"], "idle")
+        self.assertEqual(snapshot["pending"], 0)
+        self.assertNotIn("mode_token",snapshot)
+        self.assertIsNone(self.manager.watch("live", snapshot["revision"], timeout=.01))
+        base={"mode":"live","mode_token":self.owner["mode_token"],
+              "source_id":"Cg0K_livechat_id","credential":"test_api_key_12345"}
+        self.manager.start(base,self.modes)
+        change=self.manager.watch("live",snapshot["revision"],timeout=1.0)
+        self.assertIsNotNone(change)
+        self.assertGreater(change["revision"],snapshot["revision"])
+        deadline=time.monotonic()+2
+        while self.manager.status("live")["received"]<1 and time.monotonic()<deadline:
+            time.sleep(.01)
+        later=self.manager.wake_snapshot("live")
+        self.assertGreater(later["pending"],0)
+        self.assertNotIn("messages",later)
+        self.assertNotIn("test_api_key",str(later))
+        self.assertNotIn("mode_token",str(later))
+        self.assertNotIn("สวัสดี",str(later))
+        self.manager.stop_all()
+        stopped=self.manager.wake_snapshot("live")
+        self.assertEqual(stopped["state"],"idle")
+        self.assertGreater(stopped["revision"],later["revision"])
+
+    def test_all_source_wake_stream_has_single_revision_and_no_private_messages(self):
+        before=self.manager.wake_all_snapshot()
+        self.assertEqual(before["mode"],"all")
+        self.assertEqual(len(before["sources"]),5)
+        self.assertEqual(set(before),{"mode","revision","sources"})
+        self.assertIsNone(self.manager.watch_all(before["revision"],timeout=.01))
+        base={"mode":"live","mode_token":self.owner["mode_token"],
+              "source_id":"Cg0K_livechat_id","credential":"test_api_key_12345"}
+        self.manager.start(base,self.modes)
+        changed=self.manager.watch_all(before["revision"],timeout=1)
+        self.assertGreater(changed["revision"],before["revision"])
+        self.assertEqual({s["mode"] for s in changed["sources"]},
+                         {"live","youtube_browser","tiktok_browser",
+                          "discord","discord_client"})
+        self.assertNotIn("mode_token",str(changed))
+        self.assertNotIn("test_api_key",str(changed))
+        self.assertNotIn("messages",str(changed))
+
+    def test_watcher_limit_is_bounded_and_released(self):
+        from voxweavetts.source_manager import MAX_SOURCE_WATCHERS, SourceStreamFull
+        for _ in range(MAX_SOURCE_WATCHERS):
+            self.manager.subscribe()
+        try:
+            with self.assertRaises(SourceStreamFull):
+                self.manager.subscribe()
+        finally:
+            for _ in range(MAX_SOURCE_WATCHERS):
+                self.manager.unsubscribe()
+        self.manager.subscribe()
+        self.manager.unsubscribe()
+
     def test_owner_required_and_bounded_queue_moderation(self):
         base={"mode":"live","mode_token":self.owner["mode_token"],
               "source_id":"Cg0K_livechat_id","credential":"test_api_key_12345",
@@ -511,6 +568,35 @@ class SourceHTTPTests(unittest.TestCase):
                     data=json.dumps(body).encode("utf-8"))
         with urlopen(req,timeout=5) as response:
             return json.load(response)
+
+    def test_all_mode_sse_uses_single_public_multiplex_connection(self):
+        with urlopen(self.base+"/v1/sources/stream?mode=all",timeout=3) as response:
+            self.assertIn("text/event-stream",response.headers.get("Content-Type",""))
+            packet=[response.readline().decode("utf-8") for _ in range(4)]
+        self.assertTrue(packet[1].startswith("event: source"))
+        content=json.loads(packet[2][6:])
+        self.assertEqual(content["mode"],"all")
+        self.assertEqual(len(content["sources"]),5)
+        self.assertNotIn("credential","".join(packet))
+        self.assertNotIn("mode_token","".join(packet))
+
+    def test_source_stream_initial_event_is_content_free_and_invalid_mode_rejected(self):
+        with self.assertRaises(HTTPError) as bad:
+            urlopen(self.base+"/v1/sources/stream?mode=invalid",timeout=3)
+        self.assertEqual(bad.exception.code,400)
+        bad.exception.close()
+        with urlopen(self.base+"/v1/sources/stream?mode=live",timeout=3) as response:
+            self.assertEqual(response.status,200)
+            self.assertIn("text/event-stream",response.headers["Content-Type"])
+            lines=[response.readline().decode("utf-8") for _ in range(4)]
+        self.assertTrue(lines[0].startswith("id: "))
+        self.assertEqual(lines[1].strip(),"event: source")
+        self.assertTrue(lines[2].startswith("data: "))
+        update=json.loads(lines[2][6:])
+        self.assertEqual(update["mode"],"live")
+        self.assertEqual(set(update),{"mode","revision","state","pending"})
+        self.assertNotIn("mode_token","".join(lines))
+        self.assertNotIn("test_api_key","".join(lines))
 
     def test_http_read_only_source_lifecycle(self):
         with self.assertRaises(HTTPError) as error:

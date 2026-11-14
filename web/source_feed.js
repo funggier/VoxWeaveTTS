@@ -106,11 +106,57 @@ const BROWSER_PHASE_NAMES=Object.freeze({
   ended:"ไลฟ์สิ้นสุดหรือหน้าต่าง Chat ปิดแล้ว",
   stopped:"หยุดรับข้อความจาก Browser แล้ว",
 });
+// One SSE socket for ALL connected source modes. Browsers typically allow only
+// a few simultaneous HTTP/1.1 connections per origin; a separate EventSource
+// for every channel could exhaust them and block the actual POST /drain.
+let sharedSourceStream=null;
+const sourceListeners=new Map();
+function subscribeSource(mode,wake){
+  if(typeof root.EventSource!=="function")return null;
+  sourceListeners.set(mode,{wake,revision:null,lastWake:0});
+  if(!sharedSourceStream){
+    try{
+      const stream=new root.EventSource("/v1/sources/stream?mode=all");
+      sharedSourceStream=stream;
+      stream.addEventListener("source",event=>{
+        let data;
+        try{data=JSON.parse(event.data);}catch{return;}
+        if(data?.mode!=="all"||!Array.isArray(data.sources)||data.sources.length>5)return;
+        const now=Date.now();
+        for(const signal of data.sources){
+          const listener=sourceListeners.get(signal?.mode);
+          if(!listener||!Number.isInteger(signal?.revision))continue;
+          // Ignore changes to other modes; still retry a possibly failed
+          // drain on the server's periodic (~6s) snapshot.
+          if(listener.revision!==signal.revision||now-listener.lastWake>=5000){
+            listener.revision=signal.revision;
+            listener.lastWake=now;
+            listener.wake();
+          }
+        }
+      });
+    }catch{
+      sourceListeners.delete(mode);
+      sharedSourceStream=null;
+      return null;
+    }
+  }
+  const owned=sharedSourceStream;
+  return ()=>{
+    sourceListeners.delete(mode);
+    if(!sourceListeners.size&&sharedSourceStream===owned){
+      sharedSourceStream.close();
+      sharedSourceStream=null;
+    }
+  };
+}
+
 function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPreference,onConnect}){
   if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
   const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
   const get=id=>el(prefix+id);
   let timer=null, generation=0, connected=false, inFlight=false;
+  let streamSubscription=null, pendingWake=false;
   let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
   const seen=new Set();
   let visible=[], overflow=0;
@@ -340,10 +386,29 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     if(!response.ok)throw Error(result.error||"source operation failed");
     return result;
   }
+  function wake(){
+    if(!connected||!guard(mode))return;
+    // A push arriving during a pending POST /drain must not be lost.
+    if(inFlight){pendingWake=true;return;}
+    poll().catch(error=>message(String(error.message||error)));
+  }
+  function openSourceStream(ticket){
+    streamSubscription=subscribeSource(mode,()=>{
+      if(ticket===generation&&connected&&guard(mode))wake();
+    });
+    // The single EventSource automatically reconnects and receives
+    // source snapshots for every connected mode without exhausting sockets.
+  }
+  function closeSourceStream(){
+    streamSubscription?.();
+    streamSubscription=null;
+  }
   function localSuspend(){
     generation++;
     connected=false;
     inFlight=false;
+    pendingWake=false;
+    closeSourceStream();
     if(timer!==null){clearInterval(timer);timer=null;}
     if(socket){
       const former=socket;socket=null;
@@ -522,7 +587,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       if(browserMode)browserStage(result.connection_phase
         ||(extensionMode?"waiting_extension_pair":"preparing"));
       else message("เริ่มกระบวนการเชื่อมต่อแล้ว · รอตรวจสอบสิทธิ์และสมัครรับข้อความจากผู้ให้บริการ");
-      timer=setInterval(()=>poll().catch(error=>message(String(error.message||error))),1200);
+      // EventSource delivers backend wake-ups while ordinary timers in a
+      // hidden tab are throttled. Keep polling only as a disconnected fallback.
+      openSourceStream(ticket);
+      timer=setInterval(()=>{
+        if(!streamSubscription||!sharedSourceStream||sharedSourceStream.readyState!==1)wake();
+      },1200);
       await poll();
       return result;
     }catch(error){
@@ -536,7 +606,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     }
   }
   async function poll(){
-    if(!connected||inFlight||!guard(mode))return;
+    if(!connected||!guard(mode))return;
+    if(inFlight){pendingWake=true;return;}
     const ticket=generation;
     inFlight=true;
     try{
@@ -562,6 +633,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         }
       }
       render();
+      // A source may be producing faster than a single 10-message drain.
+      // Continue immediately without waiting for a throttled timer or SSE.
+      if(status.pending>0)pendingWake=true;
       if(browserMode){
         const browserPhase=status.state==="error"?"error"
           :status.state==="retrying"?"retrying"
@@ -590,7 +664,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
         const ytVisibility=!extensionMode && status.page_visibility
           ? " · หน้าต่าง "+({visible:"แสดงอยู่",hidden:"เบื้องหลัง",prerender:"กำลังเริ่มแสดง"}[status.page_visibility]||"ไม่ทราบ")
           : "";
-        browserStage(browserPhase,statistics+note+retry+ytMode+ytVisibility);
+        const delivery=streamSubscription&&sharedSourceStream?.readyState===1
+          ? " · รับข้อความแบบ Server Push"
+          : " · ใช้ Polling สำรอง (Push กำลังเชื่อมต่อ)";
+        browserStage(browserPhase,statistics+note+retry+ytMode+ytVisibility+delivery);
         if(extensionMode){
           const diag=status.dom_diagnostics;
           let desc="DOM: รอส่วนเสริมส่งผลตรวจหน้า LIVE";
@@ -633,6 +710,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       if(status.state==="ended"||status.state==="error"){
         connected=false;
         if(timer!==null){clearInterval(timer);timer=null;}
+        closeSourceStream();
+        pendingWake=false;
         get("FeedStart").disabled=false;
         get("FeedStop").disabled=true;
         // Clear pending speech after an authorization or transport failure.
@@ -648,7 +727,16 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
           message(String(error.message||error));
         }
       }
-    }finally{if(ticket===generation)inFlight=false;}
+    }finally{
+      if(ticket===generation){
+        inFlight=false;
+        if(pendingWake && connected){
+          pendingWake=false;
+          // Microtask/fetch progression is not a browser background timer.
+          Promise.resolve().then(()=>wake());
+        }
+      }
+    }
   }
   async function stop(){
     if(mode==="tiktok"){
@@ -706,6 +794,13 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       get("FeedPairingCode").select();
       message("เลือกข้อความรหัสจับคู่ให้แล้ว · กด Ctrl+C เพื่อคัดลอก");
     }
+  });
+  // React immediately when a hidden tab becomes visible again. This also
+  // catches up if a browser temporarily suspended the entire page runtime.
+  root.addEventListener?.("focus",wake);
+  root.addEventListener?.("pageshow",wake);
+  document.addEventListener?.("visibilitychange",()=>{
+    if(!document.hidden)wake();
   });
   get("FeedStop").disabled=true;
   get("FeedKeepRead").addEventListener("input",()=>{

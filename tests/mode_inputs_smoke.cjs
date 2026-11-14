@@ -28,7 +28,7 @@ async function main(){
       createObjectURL(blob){assert.ok(blob instanceof Blob);const u="blob:"+blobUrl.size;blobUrl.add(u);return u;},
       revokeObjectURL(url){blobUrl.delete(url);},
     },Blob,Promise,Number,
-    setTimeout(fn){queueMicrotask(fn);return 1;},
+    setTimeout(){throw Error("Live TTS job progression must not depend on hidden-tab timers");},
     async fetch(path,opts={}){
       if(path==="/v1/jobs"&&opts.method==="POST"){
         const body=JSON.parse(opts.body);
@@ -44,13 +44,15 @@ async function main(){
       }
       if(path.endsWith("/audio"))
         return{ok:true,async blob(){return new Blob(["RIFF-test"]);}};
-      if(path.startsWith("/v1/jobs/"))
+      if(path.startsWith("/v1/jobs/")){
+        assert.ok(path.endsWith("?wait=1"),"Live job status must use server-side long-poll");
         return{ok:true,async json(){return{
-          speech_id:path.split("/").at(-1),
-          state:skippedIds.has(path.split("/").at(-1))?"skipped":"ready",audio:{
+          speech_id:path.split("/").at(-1).split("?")[0],
+          state:skippedIds.has(path.split("/").at(-1).split("?")[0])?"skipped":"ready",audio:{
             duration_ms:1000,segments:[{kind:"speech",display_text:"ทดสอบ",
             start_ms:0,end_ms:1000}]},
         };}};
+      }
       throw Error("Unexpected URL "+path);
     },
   };

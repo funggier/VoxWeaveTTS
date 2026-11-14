@@ -1635,9 +1635,10 @@ async function readerPlayChunk(index) {
   const item=await request.json();
   if(!request.ok)throw new Error(item.error||"ส่งช่วงเข้าคิวไม่สำเร็จ");
   readerJobId=item.speech_id;
-  for(let attempt=0;attempt<240;attempt++){
+  const deadline=Date.now()+120000;
+  while(Date.now()<deadline){
     if(generation!==readingGeneration)return;
-    const response=await fetch("/v1/jobs/"+item.speech_id,{cache:"no-store"});
+    const response=await fetch("/v1/jobs/"+item.speech_id+"?wait=1",{cache:"no-store"});
     const state=await response.json();
     if(!response.ok)throw new Error(state.error||"ตรวจสถานะไม่ได้");
     if(state.state==="ready"){
@@ -1660,7 +1661,7 @@ async function readerPlayChunk(index) {
     }
     if(["failed","cancelled","skipped"].includes(state.state))
       throw new Error("งานสังเคราะห์จบด้วยสถานะ "+state.state);
-    await new Promise(resolve=>setTimeout(resolve,500));
+    // Await the next server-side job condition instead of a hidden-tab timer.
   }
   throw new Error("หมดเวลารอเสียง โปรดลองใหม่");
 }
@@ -1943,7 +1944,7 @@ el("audioPolicy").addEventListener("change",async()=>{
   }
 });
 let latestQueuedId = null;
-let jobPollTimer = null;
+let jobWatchGeneration = 0;
 let queuedAudioUrl = null;
 const queueAudio=el("queueAudio");
 const studioAudio=el("audioPreview");
@@ -1966,10 +1967,8 @@ const manualEditor=VoxManualAlignment.attach({
 });
 
 function stopJobPoll() {
-  if (jobPollTimer !== null) {
-    clearInterval(jobPollTimer);
-    jobPollTimer = null;
-  }
+  // Invalidates a pending server wait; never schedules a hidden-tab timer.
+  jobWatchGeneration++;
 }
 async function getQueueJobs() {
   const response = await fetch("/v1/jobs");
@@ -1981,11 +1980,15 @@ async function getQueueJobs() {
     })), null, 2
   );
 }
-async function pollJob() {
+async function pollJob(snapshot=null) {
   if (!latestQueuedId) return;
-  const response = await fetch("/v1/jobs/" + latestQueuedId);
-  const job = await response.json();
-  if (!response.ok) throw Error(job.error || "Speech job not found");
+  let job=snapshot;
+  if(!job){
+    const response = await fetch("/v1/jobs/" + latestQueuedId);
+    job = await response.json();
+    if (!response.ok) throw Error(job.error || "Speech job not found");
+  }
+  if(job.speech_id!==latestQueuedId)return;
   el("queueMessage").textContent = "งาน " + job.speech_id.slice(0,8) +
     " · " + job.state + " · " + job.engine_id;
   el("queueCancel").disabled = !["preparing","queued","rendering","ready"].includes(job.state);
@@ -2011,6 +2014,25 @@ async function pollJob() {
   }
   return job.state;
 }
+async function watchQueueJob(speechId,ticket) {
+  const deadline=Date.now()+240000;
+  while(ticket===jobWatchGeneration && latestQueuedId===speechId && Date.now()<deadline){
+    try{
+      const response=await fetch("/v1/jobs/"+speechId+"?wait=1",{cache:"no-store"});
+      const snapshot=await response.json();
+      if(ticket!==jobWatchGeneration||latestQueuedId!==speechId)return;
+      if(!response.ok)throw Error(snapshot.error||"อ่านสถานะงานเสียงไม่ได้");
+      const state=await pollJob(snapshot);
+      if(!["preparing","queued","rendering"].includes(state))return;
+    }catch(error){
+      if(ticket===jobWatchGeneration && latestQueuedId===speechId){
+        stopJobPoll();
+        el("queueMessage").textContent=String(error.message||error);
+      }
+      return;
+    }
+  }
+}
 async function submitQueuePayload(payload) {
   el("queueMessage").textContent = "กำลังส่งงานเข้าคิว...";
   stopJobPoll();
@@ -2027,13 +2049,10 @@ async function submitQueuePayload(payload) {
   el("queueAudio").style.display = "none";
   el("queueDownload").style.display = "none";
   const observedState = await pollJob();
-  if (jobPollTimer === null && ["preparing","queued","rendering"].includes(observedState)) {
-    jobPollTimer = setInterval(() => {
-      pollJob().catch(err => {
-        stopJobPoll();
-        el("queueMessage").textContent=String(err.message||err);
-      });
-    }, 800);
+  if(["preparing","queued","rendering"].includes(observedState)) {
+    const ticket=++jobWatchGeneration;
+    // Network long-poll wakes the UI when the job finishes in the backend.
+    watchQueueJob(job.speech_id,ticket);
   }
   return job;
 }
@@ -2110,14 +2129,15 @@ el("synthesize").addEventListener("click", async () => {
     }
     studioJobId=queued.speech_id;
     let ready=null;
-    for(let i=0;i<220;i++){
+    const deadline=Date.now()+120000;
+    while(Date.now()<deadline){
       if(generation!==studioGeneration || (modeRuntime&&!modeRuntime.guard("studio")))return;
-      const result=await fetch("/v1/jobs/"+queued.speech_id,{cache:"no-store"});
+      const result=await fetch("/v1/jobs/"+queued.speech_id+"?wait=1",{cache:"no-store"});
       const job=await result.json();
       if(!result.ok)throw Error(job.error||"อ่านสถานะงานเสียงไม่ได้");
       if(job.state==="ready"){ready=job;break;}
       if(["failed","cancelled"].includes(job.state))throw Error("งานเสียง "+job.state);
-      await new Promise(resolve=>setTimeout(resolve,250));
+      // No timer: repeat the bounded server-side job wait.
     }
     if(!ready)throw Error("การสร้างเสียงยังไม่เสร็จ กรุณาตรวจคิว");
     const wavResponse=await fetch("/v1/jobs/"+ready.speech_id+"/audio");

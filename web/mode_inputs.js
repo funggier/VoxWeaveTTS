@@ -169,9 +169,15 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         return;
       }
       jobId=created.speech_id;
-      for(let i=0;i<960;i++){
+      // The server waits on its speech-job condition (up to 10s) and wakes
+      // the browser via a network response. A hidden tab may throttle timers
+      // to 60s or longer, so no setTimeout drives Live TTS progression.
+      const deadline=Date.now()+240000;
+      while(Date.now()<deadline){
         if(my!==generation||!guard(mode))return;
-        const r=await fetch("/v1/jobs/"+created.speech_id,{cache:"no-store"});
+        const r=await fetch("/v1/jobs/"+created.speech_id+"?wait=1",{
+          cache:"no-store"
+        });
         const job=await r.json();
         if(!r.ok)throw Error(job.error||"ไม่สามารถอ่านสถานะงานเสียง");
         if(job.state==="ready"){
@@ -207,9 +213,9 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         }
         if(["failed","cancelled"].includes(job.state))
           throw Error("งานเสียง "+job.state);
-        await new Promise(resolve=>setTimeout(resolve,250));
+        // No client-side timer: immediately request the next bounded wait.
       }
-      throw Error("งานเสียงยังไม่เสร็จตามช่วงทดสอบ กรุณาตรวจคิว");
+      throw Error("งานเสียงยังไม่เสร็จใน 4 นาที กรุณาตรวจคิว");
     }catch(e){
       if(my===generation)feedback(String(e.message||e));
     }finally{

@@ -36,7 +36,7 @@ const context={
     if(path.endsWith("/cancel"))return{ok:true,async json(){return{};}};
     if(path.endsWith("/audio"))return{ok:true,async blob(){return new Blob(["RIFF-fixture"])}};
     if(path.startsWith("/v1/jobs/"))return{ok:true,async json(){return{
-      state:"ready",speech_id:path.split("/").at(-1),audio:{
+      state:"ready",speech_id:path.split("/").at(-1).split("?")[0],audio:{
         duration_ms:800,segments:[{kind:"speech",start_ms:0,end_ms:800,display_text:"ข้อความ"}],
       },
     }}};

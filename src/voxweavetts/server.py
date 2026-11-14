@@ -52,7 +52,7 @@ from .reading_progress import load_position, save_position, clear_position, Prog
 from .playback_state import PlaybackState, PlaybackConflict, StreamFull
 from .playback_hub import PlaybackHub
 from .mode_state import ModeState, ModeConflict, MODES
-from .source_manager import SourceManager
+from .source_manager import SourceManager, SourceStreamFull
 from .tiktok_extension import extension_id_from_origin, ExtensionBridgeError
 from .profile_export import (save_source_profile_dialog, SaveDialogBusy,
                              SaveDialogUnavailable)
@@ -78,6 +78,7 @@ _COORDINATOR: SpeechCoordinator | None = None
 _PLAYBACK_STATE = PlaybackHub()
 _MODE_LOCK = threading.Lock()
 _SOURCE_LOCK = threading.Lock()
+_JOB_WAIT_LIMIT = threading.BoundedSemaphore(12)
 
 
 def _load_json(relative: str, default: Any) -> Any:
@@ -383,6 +384,73 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             state.unsubscribe()
 
+    def _stream_sources(self) -> None:
+        """Push lightweight source wake-ups independently of hidden-tab timers.
+
+        Only mode, pending count, state and revision are sent. Message content
+        is still returned exclusively by token-authorized POST /sources/drain.
+        The 20-second bounded stream is automatically reconnected by EventSource.
+        """
+        params = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        choices = params.get("mode", [])
+        if (len(choices) != 1 or set(params) != {"mode"}
+                or choices[0] not in ("all", "live", "youtube_browser",
+                                      "tiktok_browser", "discord",
+                                      "discord_client")):
+            self.send_json(400, {"error": "source stream requires a valid mode"})
+            return
+        mode = choices[0]
+        manager = self._source_manager()
+        try:
+            manager.subscribe()
+        except SourceStreamFull:
+            self.send_json(429, {"error": "too many local source watchers"})
+            return
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-transform")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+
+            def publish(snapshot: dict[str, Any]) -> None:
+                payload = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":"))
+                self.wfile.write((
+                    "id: " + str(snapshot["revision"]) + "\n"
+                    + "event: source\n"
+                    + "data: " + payload + "\n\n"
+                ).encode("utf-8"))
+                self.wfile.flush()
+
+            # Initial snapshot closes the reconnect gap without a replay log.
+            initial = (manager.wake_all_snapshot() if mode == "all"
+                       else manager.wake_snapshot(mode))
+            publish(initial)
+            revision = initial["revision"]
+            deadline = time.monotonic() + 20
+            keepalive = time.monotonic()
+            while time.monotonic() < deadline:
+                update = (manager.watch_all(revision, timeout=0.5) if mode == "all"
+                          else manager.watch(mode, revision, timeout=0.5))
+                if update is not None:
+                    publish(update)
+                    revision = update["revision"]
+                    keepalive = time.monotonic()
+                elif time.monotonic() - keepalive >= 6:
+                    # A full, content-free snapshot retries a failed browser
+                    # drain even when no further chat arrives. Unlike SSE
+                    # comments, the client receives this as an actual event.
+                    publish(manager.wake_all_snapshot() if mode == "all"
+                            else manager.wake_snapshot(mode))
+                    keepalive = time.monotonic()
+        except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
+            pass
+        finally:
+            manager.unsubscribe()
+
     def _stream_playback(self) -> None:
         """Short-lived SSE snapshot stream; reconnect requires no replay log.
 
@@ -490,6 +558,8 @@ class Handler(BaseHTTPRequestHandler):
                         "voice_cloning": False,
                         "websocket_streaming": False,
                         "live_connectors": True,
+                        "live_source_sse_wakeup": True,
+                        "speech_job_wait": True,
                         "youtube_live_polling": True,
                         "youtube_browser_dom_preview": True,
                         "youtube_browser_live_verified": False,
@@ -524,6 +594,8 @@ class Handler(BaseHTTPRequestHandler):
                         "portable_executable": False,
                     },
                 })
+            elif route == "/v1/sources/stream":
+                self._stream_sources()
             elif route == "/v1/sources/status":
                 params = parse_qs(urlsplit(self.path).query)
                 mode = params.get("mode", [""])[0]
@@ -542,7 +614,21 @@ class Handler(BaseHTTPRequestHandler):
             elif self._job_route(route):
                 job_id, action = self._job_route(route)
                 try:
-                    if action in ("", "alignment"):
+                    if action == "":
+                        params = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                        if params and params != {"wait": ["1"]}:
+                            raise InputError("invalid speech-job wait parameter")
+                        if params:
+                            if not _JOB_WAIT_LIMIT.acquire(blocking=False):
+                                self.send_json(429, {"error": "too many job waiters"})
+                            else:
+                                try:
+                                    self.send_json(200, self._coordinator().wait(job_id, timeout=10.0))
+                                finally:
+                                    _JOB_WAIT_LIMIT.release()
+                        else:
+                            self.send_json(200, self._coordinator().get(job_id))
+                    elif action == "alignment":
                         self.send_json(200, self._coordinator().get(job_id))
                     elif action == "events":
                         self.send_json(200, {

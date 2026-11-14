@@ -6,7 +6,7 @@ const vm=require('node:vm');
 async function main(){
   const source=fs.readFileSync('web/playback_clock.js','utf8');
   const handlers={};
-  let tick=null;
+  let tick=null,fakeNow=0;
   const media={
     paused:true,ended:false,currentTime:0,
     addEventListener(type,fn){handlers[type]=fn;},
@@ -24,7 +24,7 @@ async function main(){
       tick=fn;return 1;
     },
     clearInterval(){tick=null;},
-    Promise,Number,console,
+    Promise,Number,console,Date:{now:()=>fakeNow},
   };
   vm.createContext(sandbox);
   vm.runInContext(source,sandbox);
@@ -48,6 +48,7 @@ async function main(){
   assert.equal(sent[0].position_ms,0);
   assert.equal(sent[0].sequence,1);
   assert.equal(updates.at(-1).text,'เซียนผู้นี้');
+  fakeNow=300;
   media.currentTime=0.97;
   handlers.timeupdate?.();
   assert.equal(updates.at(-1).text,'');

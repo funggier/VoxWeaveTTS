@@ -24,6 +24,12 @@ from .source_adapters import (
 )
 
 MAX_PENDING = 40
+MAX_SOURCE_WATCHERS = 16
+
+
+class SourceStreamFull(Exception):
+    """Too many event subscribers to the local source wake-up stream."""
+
 MAX_SEEN = 512
 MAX_BLOCKED_WORDS = 20
 MAX_TEXT_CHARS = 280
@@ -50,6 +56,7 @@ class _Session:
     polls: int = 0
     next_poll_seconds: float = 0
     thread: threading.Thread | None = None
+    last_signaled_phase: str = ""
 
     def public(self) -> dict[str, Any]:
         return {
@@ -94,6 +101,10 @@ class SourceManager:
                  browser_factory: Callable[..., Any] = YouTubeBrowserAdapter,
                  tiktok_browser_factory: Callable[..., Any] = TikTokExtensionAdapter):
         self._lock = threading.RLock()
+        self._changed = threading.Condition(self._lock)
+        self._revisions: dict[str, int] = {}
+        self._global_revision = 0
+        self._watchers = 0
         self._sessions: dict[str, _Session] = {}
         self._youtube_factory = youtube_factory
         self._discord_factory = discord_factory
@@ -169,6 +180,7 @@ class SourceManager:
             self._authorized(mode, token, mode_state)
             self._cancel_unlocked(mode)
             self._sessions[mode] = session
+            self._notify_unlocked(mode)
             thread = threading.Thread(
                 target=self._run, args=(session, mode_state),
                 name="VoxWeaveTTS-"+mode+"-source", daemon=True,
@@ -228,6 +240,7 @@ class SourceManager:
                 except OSError:
                     pass
             session.pending.clear()
+            self._notify_unlocked(target)
 
     def stop_mode(self, mode: str) -> None:
         """Revoke only the source belonging to a newly claimed workspace."""
@@ -244,6 +257,82 @@ class SourceManager:
         with self._lock:
             self._cancel_unlocked(data["mode"])
             return {"state": "stopped", "pending": 0}
+
+
+    def _notify_unlocked(self, mode: str) -> None:
+        """Signal status/new-message changes without exposing chat contents."""
+        self._revisions[mode] = self._revisions.get(mode, 0) + 1
+        self._global_revision += 1
+        self._changed.notify_all()
+
+    def subscribe(self) -> None:
+        with self._lock:
+            if self._watchers >= MAX_SOURCE_WATCHERS:
+                raise SourceStreamFull("too many source watchers")
+            self._watchers += 1
+
+    def unsubscribe(self) -> None:
+        with self._lock:
+            self._watchers = max(0, self._watchers - 1)
+
+    def _wake_snapshot_unlocked(self, mode: str) -> dict[str, Any]:
+        session = self._sessions.get(mode)
+        return {"mode": mode, "revision": self._revisions.get(mode, 0),
+                "state": session.state if session else "idle",
+                "pending": len(session.pending) if session else 0}
+
+    def _all_wake_snapshot_unlocked(self) -> dict[str, Any]:
+        modes = ("live", "youtube_browser", "tiktok_browser",
+                 "discord", "discord_client")
+        return {"mode": "all", "revision": self._global_revision,
+                "sources": [self._wake_snapshot_unlocked(mode) for mode in modes]}
+
+    def wake_all_snapshot(self) -> dict[str, Any]:
+        with self._changed:
+            return self._all_wake_snapshot_unlocked()
+
+    def watch_all(self, previous_revision: int,
+                  timeout: float = 0.5) -> dict[str, Any] | None:
+        if type(previous_revision) is not int or previous_revision < 0:
+            raise InputError("invalid source watcher revision")
+        if not 0 < timeout <= 5:
+            raise InputError("source watcher timeout out of bounds")
+        with self._changed:
+            current = self._all_wake_snapshot_unlocked()
+            if current["revision"] != previous_revision:
+                return current
+            self._changed.wait(timeout)
+            current = self._all_wake_snapshot_unlocked()
+            return current if current["revision"] != previous_revision else None
+
+    def wake_snapshot(self, mode: str) -> dict[str, Any]:
+        if mode not in ("live", "youtube_browser", "tiktok_browser",
+                        "discord", "discord_client"):
+            raise InputError("unsupported source watcher mode")
+        with self._changed:
+            return self._wake_snapshot_unlocked(mode)
+
+    def watch(self, mode: str, previous_revision: int,
+              timeout: float = 0.5) -> dict[str, Any] | None:
+        """Wait for new source data or a state transition, not browser timers.
+
+        No message text, credentials or owner token is emitted in this wake-up
+        notification. The token-authenticated POST /drain remains authoritative.
+        """
+        if mode not in ("live", "youtube_browser", "tiktok_browser",
+                        "discord", "discord_client"):
+            raise InputError("unsupported source watcher mode")
+        if type(previous_revision) is not int or previous_revision < 0:
+            raise InputError("invalid source watcher revision")
+        if not 0 < timeout <= 5:
+            raise InputError("source watcher timeout out of bounds")
+        with self._changed:
+            current = self._wake_snapshot_unlocked(mode)
+            if current["revision"] != previous_revision:
+                return current
+            self._changed.wait(timeout)
+            current = self._wake_snapshot_unlocked(mode)
+            return current if current["revision"] != previous_revision else None
 
     def status(self, mode: str) -> dict[str, Any]:
         if mode not in ("live", "youtube_browser", "tiktok_browser", "discord", "discord_client"):
@@ -283,6 +372,9 @@ class SourceManager:
                         break
                     if not mode_state.is_owner(session.mode, session.owner_token):
                         break
+                    before = (session.state, session.received,
+                              session.discarded, session.duplicates,
+                              session.last_signaled_phase)
                     session.polls += 1
                     session.state = ("connecting" if session.mode in ("youtube_browser", "tiktok_browser")
                                      and not getattr(session.adapter, "dom_ready", True)
@@ -340,6 +432,7 @@ class SourceManager:
                         session.state = "ended"
                         session.info = "live broadcast ended"
                         session.next_poll_seconds = 0
+                        self._notify_unlocked(session.mode)
                         break
                     delay = (min(5, max(0.5, batch.delay_seconds))
                              if session.mode in ("youtube_browser", "tiktok_browser") else
@@ -349,6 +442,12 @@ class SourceManager:
                                    if session.mode == "discord_client"
                                    else min(3600, max(5, batch.delay_seconds)))))
                     session.next_poll_seconds = delay
+                    phase = str(getattr(session.adapter, "phase", ""))[:90]
+                    after = (session.state, session.received,
+                             session.discarded, session.duplicates, phase)
+                    if after != before:
+                        session.last_signaled_phase = phase
+                        self._notify_unlocked(session.mode)
                 backoff = 5
             except SourceFailure as exc:
                 with self._lock:
@@ -359,9 +458,11 @@ class SourceManager:
                     session.info = str(exc)
                     if exc.fatal:
                         session.next_poll_seconds = 0
+                        self._notify_unlocked(session.mode)
                         break
                     delay = max(exc.retry_after, backoff, 5)
                     session.next_poll_seconds = min(3600, delay)
+                    self._notify_unlocked(session.mode)
                 backoff = min(120, backoff * 2)
             except Exception:
                 with self._lock:
@@ -370,6 +471,7 @@ class SourceManager:
                     session.state = "retrying"
                     session.info = "unexpected source error; retry later"
                     session.next_poll_seconds = backoff
+                    self._notify_unlocked(session.mode)
                 delay = backoff
                 backoff = min(120, backoff * 2)
             session.cancelled.wait(delay)

@@ -91,7 +91,7 @@ async function exercise(mode){
       if(path.endsWith("/audio"))
         return {ok:true,async blob(){return new Blob(["WAV"]);}};
       if(path.startsWith("/v1/jobs/"))
-        return {ok:true,async json(){return {speech_id:path.split("/").at(-1),
+        return {ok:true,async json(){return {speech_id:path.split("/").at(-1).split("?")[0],
           state:"ready",audio:{duration_ms:100,segments:[]}};}};
       throw Error("Unexpected fake API "+path);
     },
