@@ -1,13 +1,13 @@
 # Changelog
 
-## Unreleased — read-only AI Tool Calling MVP (after v0.6.0)
+## 0.7.0 — AI Tool Calling, Search Providers and Secure Portable Profiles (14 November 2026)
 
 - Added opt-in Tool Calling settings (disabled by default), with separate Wikipedia lookup and explicitly allowlisted reference-file read permissions, and a 1–3 calls/message budget.
 - Ollama Custom Prompt mode can call a bounded, read-only tool registry; no arbitrary URLs, user-supplied paths, Shell commands, settings writes or account actions are permitted.
 - External chat text and tool output remain untrusted task data; application Settings are the only source of tool permissions. Reference file content is no longer automatically embedded in model prompts when Tool Calling is enabled.
 - Added search provider dropdown for Wikipedia, self-hosted SearXNG, Ollama Web Search and Tavily; optional per-provider user API keys protected with Windows DPAPI and safe JSON profile import/export that excludes keys.
 - Verified Wikipedia lookup on the network, real Ollama qwen3.5:4b Wikipedia Tool Calling, and an actual allowlisted reference-file tool call; expanded automated permission and fallback tests. SearXNG/Ollama cloud/Tavily adapters are verified with mocked provider responses, not live paid-provider credentials. Not yet a production-wide search agent or general internet research feature.
-- The published v0.6.0 Release and tag are unchanged.
+- v0.6.0 remains a historical release; this change is included in new v0.7.0.
 
 ## 0.6.0 — Opt-in AI Processing, Multilingual Translation, and Nonblocking Live Queue (14 November 2026)
 

@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.6.0', [switch]$SkipZip)
+param([string]$Version = '0.7.0', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'

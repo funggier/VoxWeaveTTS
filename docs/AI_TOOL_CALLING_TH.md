@@ -1,6 +1,6 @@
-# AI Tool Calling (หลัง Release v0.6.0)
+# AI Tool Calling (VoxWeaveTTS v0.7.0)
 
-**สถานะ:** อยู่ในโค้ดพัฒนา ยังไม่รวมใน Release v0.6.0 และยังไม่ได้ออก Release ใหม่
+**สถานะ:** รวมใน Windows Portable Release v0.7.0; v0.6.0 เดิมไม่มีระบบ Tool Calling
 
 ## การใช้งาน
 

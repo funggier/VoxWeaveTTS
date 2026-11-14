@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voxweavetts"
-version = "0.6.0"
+version = "0.7.0"
 description = "Thai-first modular TTS with engine-neutral TXT/Markdown reader, speech queue and local WAV API."
 requires-python = ">=3.11"
 license = {text = "MIT"}
