@@ -2,7 +2,11 @@
 
 **Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
 
-> **Windows portable release v0.7.0:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
+> **Windows portable release v0.7.1:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
+
+## YouTube Browser: Live chat by default and background resilience (v0.7.1)
+
+The isolated YouTube Chrome/Edge chat popout attempts to switch **Top chat** to **Live chat** automatically. Added background-throttling mitigation for the app-owned window, CDP focus/lifecycle adjustments, and visible mode/visibility diagnostics. It preserves message deduplication and does not replay the initial chat history. Tested using an isolated real Chrome/CDP fixture, **not** a prolonged minimized authorized YouTube LIVE session; YouTube page/network behavior may still prevent guaranteed capture. [Thai guide](docs/YOUTUBE_BROWSER_READER_TH.md).
 
 ## AI Tool Calling and selectable search providers (v0.7.0)
 

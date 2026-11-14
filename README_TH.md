@@ -2,9 +2,9 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.7.0** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.7.1** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
-## YouTube LIVE (Browser) — ปรับปรุงใน Source Project หลัง v0.7.0 (ยังไม่ Release)
+## YouTube LIVE (Browser) — Live chat และ Background Fix (รวมใน v0.7.1)
 
 ระบบเปิด Chrome/Edge แยกเฉพาะ Chat-only พร้อมพยายามเลือก **Live chat** อัตโนมัติแทน **Top chat** ที่ YouTube อาจกรองข้อความ; เพิ่มการลด Background Throttling เมื่อหน้าต่างถูกบัง/ไม่อยู่ในโฟกัส และแสดงสถานะประเภทแชทกับความมองเห็นของหน้าใน UI ผ่าน Source Status โดยไม่แย่งโฟกัสหน้าต่างผู้ใช้ ไม่อ่านประวัติเดิม และยังป้องกันข้อความซ้ำ เหตุการณ์ที่ YouTube หยุดส่งข้อมูลหรือ Chrome ถูกพักจริงอาจยังเกิดขึ้นได้ โปรดตรวจโดยทดลองกับไลฟ์จริง ดู [คู่มือ YouTube Browser](docs/YOUTUBE_BROWSER_READER_TH.md)
 

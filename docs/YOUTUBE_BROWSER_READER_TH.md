@@ -1,6 +1,6 @@
 # YouTube LIVE (Browser) — Chat-only DOM Reader (ทดลอง)
 
-สถานะ: **โหมดทดลองรวมใน Release v0.7.0 แล้ว** · การปรับปรุงหลัง v0.7.0 เรื่อง Live chat เป็นค่าเริ่มต้นและลด Background Throttling อยู่ใน Source Project ยังไม่รวมใน ZIP ที่เผยแพร่
+สถานะ: **โหมดทดลองรวมใน Release v0.7.1** และเพิ่ม Live chat อัตโนมัติกับมาตรการลด Background Throttling แล้ว (ยังไม่ได้รับประกันเมื่อ YouTube หยุดอัปเดตจริง)
 
 ## การทำงาน
 
@@ -16,7 +16,7 @@
 1. เปิดโปรเจกต์จาก `Start-Dev.cmd` (Chrome หรือ Edge ต้องติดตั้งอยู่ในเครื่อง)
 2. เปิด Tab **YouTube LIVE (Browser)** และกรอก YouTube Video ID 11 ตัว หรือ URL เช่น `https://www.youtube.com/watch?v=VIDEO_ID`
 3. ตั้งค่ากรองข้อความ ความยาวสูงสุด อ่านอัตโนมัติ และอ่านชื่อผู้ส่ง ตามต้องการ
-4. กด **เชื่อมต่อ** — โปรแกรมจะเปิดหน้าต่างใหม่เฉพาะ `https://www.youtube.com/live_chat?is_popout=1&v=VIDEO_ID` ไม่เปิดหน้าวิดีโอ; ในโค้ดพัฒนาหลัง v0.7.0 จะพยายามเลือก **Live chat** แทน **Top chat** อัตโนมัติเมื่อพบเมนู
+4. กด **เชื่อมต่อ** — โปรแกรมจะเปิดหน้าต่างใหม่เฉพาะ `https://www.youtube.com/live_chat?is_popout=1&v=VIDEO_ID` ไม่เปิดหน้าวิดีโอ; ตั้งแต่ v0.7.1 โปรแกรมจะพยายามเลือก **Live chat** แทน **Top chat** อัตโนมัติเมื่อพบเมนู
 5. เมื่อ Browser แสดง Chat ให้เปิดหน้าต่างนั้นไว้ (สามารถสลับไปทำงานหน้าต่างอื่นได้) โปรแกรมจะเก็บเฉพาะข้อความประเภท text chat ที่มาหลังครั้งแรกที่เห็น DOM; **ไม่อ่านประวัติก่อนหน้า** เพื่อหลีกเลี่ยงการอ่านข้อความย้อนหลังซ้ำ หากตรวจพบ Top chat ระบบจะพยายามเปลี่ยนเป็น Live chat ก่อนเริ่ม baseline สูงสุดประมาณ 12 วินาที; หากยืนยันไม่ได้ จะยังอ่านต่อพร้อมแสดงคำเตือน ไม่ค้างเชื่อมต่อตลอดไป
 6. ข้อความใหม่จะเข้าคิวเดิม ผ่านตัวกรองคำ/URL/สแปมและสร้างเสียงด้วย Engine/Voice ของ Tab นี้; เมื่อ Browser เล่น WAV จะใช้ OBS Subtitle เดิม
 7. กด **หยุดรับข้อความ** เพื่อหยุด Source Worker และปิดหน้าต่าง Browser ที่โปรแกรมเปิดไว้
@@ -41,7 +41,7 @@
 
 - Backend `src/voxweavetts/youtube_browser.py` ใช้ Python Standard Library สำหรับ CDP WebSocket และอ่าน DOM; ไม่มี dependency Browser Automation เพิ่ม
 - เปิด Chrome ก่อน หากไม่มีจึงใช้ Edge, โดยใช้ `--remote-debugging-port=0` (พอร์ตสุ่ม), `--remote-debugging-address=127.0.0.1` และหน้าแชทผ่าน HTTPS เท่านั้น
-- หลัง v0.7.0 เพิ่ม Chromium flags `--disable-background-timer-throttling`, `--disable-backgrounding-occluded-windows`, `--disable-renderer-backgrounding` และ `--disable-features=CalculateNativeWinOcclusion` **เฉพาะหน้าต่าง Chrome/Edge ที่โปรแกรมเปิดเอง** พร้อม CDP Focus Emulation และการตั้ง Page Lifecycle เป็น Active เพื่อช่วยลดปัญหาหน้าต่างถูกบัง/ไม่อยู่ในโฟกัส ไม่ย้ายหน้าต่างขึ้นหน้า ไม่แก้การตั้งค่า Firefox/Chrome ส่วนตัว
+- ใน v0.7.1 เพิ่ม Chromium flags `--disable-background-timer-throttling`, `--disable-backgrounding-occluded-windows`, `--disable-renderer-backgrounding` และ `--disable-features=CalculateNativeWinOcclusion` **เฉพาะหน้าต่าง Chrome/Edge ที่โปรแกรมเปิดเอง** พร้อม CDP Focus Emulation และการตั้ง Page Lifecycle เป็น Active เพื่อช่วยลดปัญหาหน้าต่างถูกบัง/ไม่อยู่ในโฟกัส ไม่ย้ายหน้าต่างขึ้นหน้า ไม่แก้การตั้งค่า Firefox/Chrome ส่วนตัว
 - สถานะ YouTube Browser แสดง **Top chat / Live chat / กำลังเปลี่ยน / ยืนยันไม่ได้** และสถานะการมองเห็นหน้า หากยังเป็น Top chat อาจทำให้ไม่ได้รับข้อความทั้งหมด
 - แยก Browser Profile ใน `data/browser-profiles/youtube-chat/` (ไฟล์นี้อยู่ใน .gitignore) ไม่ใช่ Browser Profile Firefox/Chrome ส่วนตัว ไม่คัดลอกคุกกี้หรือรหัสผ่าน
 - ไม่ส่ง API Key, Account Token หรือ Cookie เข้า Source API; ไม่ใส่ CDP endpoint ใน API Status/Logs
@@ -56,4 +56,4 @@
 - ทดสอบจริงกับ Chrome ในโปรไฟล์แยก โดยเปิดหน้า HTML จำลองแชทและอ่าน DOM ผ่าน CDP (เรียก `python tests/browser_dom_integration_smoke.py`) — ผ่าน
 - ทดสอบจริงกับ Chrome ที่ติดตั้งในเครื่องอีกครั้งโดยใช้ **DOM จำลอง Top chat และ Live chat** ยืนยันว่าเปลี่ยน Top → Live ได้ผ่าน CDP และคำสั่ง Focus/Lifecycle ได้รับการยอมรับจาก Chrome
 - **ยังไม่ได้ทดสอบปัญหาการไม่อัปเดตกับ YouTube LIVE จริงขณะย่อ/ซ่อนหน้าต่างเป็นเวลานาน** เนื่องจากต้องมีไลฟ์ที่เข้าถึงได้และการอนุญาตที่เหมาะสม จึงไม่รับรองว่าจะไม่มีการหยุดเมื่อ YouTube เองไม่ส่งข้อมูลหรือ Chromium ระงับเพจในบางสถานการณ์ หากต้องการความเสถียรของข้อมูลให้ใช้ YouTube LIVE (API)
-- โหมด YouTube Browser รวมใน Windows Portable Release v0.7.0 แล้ว แต่ **การแก้ Top chat/Background เป็นโค้ดพัฒนาหลัง v0.7.0 ยังไม่ได้ Release ใหม่**
+- **การแก้ Top chat และ Background Throttling รวมใน Windows Portable Release v0.7.1** แต่ยังต้องทดลองบน YouTube LIVE จริงเป็นเวลานานเพื่อยืนยันความเสถียร
