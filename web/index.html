@@ -531,6 +531,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p class="small">เลือกเงื่อนไขแล้วเพิ่มกฎลง JSON ได้ทันที โดยยังต้องกด <strong>บันทึกในโปรแกรม</strong> เพื่อใช้งานจริง ไม่รองรับ Regular Expression แบบกำหนดเอง</p>
 <div class="rule-quick-grid">
 <div>
+<label for="ruleStage">ช่วงของกฎ (stage)</label>
+<select id="ruleStage"><option value="post_ai">หลัง AI (ค่าเริ่มต้นและกฎเดิม)</option><option value="pre_ai">ก่อน AI (เฉพาะข้อความ)</option></select>
 <label for="ruleMatchMode">รูปแบบการค้นหา (match_mode)</label>
 <select id="ruleMatchMode">
 <option value="literal">ข้อความตรงตัว (literal)</option>
@@ -618,6 +620,64 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 </div>
 <div class="mode-view" data-mode-view="settings" hidden><section class="panel" style="margin-top:18px">
+<h2>AI Processing &amp; Translation — ตั้งค่ากลางทุกโหมด</h2>
+<p class="small">ค่าเริ่มต้นปิด ไม่กระทบระบบอ่านเดิม · ใช้โมเดลภายในเครื่องเท่านั้น · โมเดลที่ยังไม่พร้อมจะแจ้งสถานะจริง</p>
+<label><input id="aiEnabled" type="checkbox"> เปิดใช้งาน AI Processing สำหรับงานเสียงใหม่ทุกโหมด</label>
+<div class="voice-grid" style="margin:12px 0">
+<div><label for="aiEngine">AI / Translation Engine</label><select id="aiEngine"><option value="ollama">Ollama (Local LLM)</option><option value="m2m100">M2M100 418M (Local)</option></select></div>
+<div><label for="aiModel" id="aiModelLabel">ชื่อโมเดล (Ollama) / รหัสแพ็กเกจ (M2M100)</label><input id="aiModel" type="text" list="aiOllamaModels" maxlength="100" placeholder="เช่น qwen3.5:4b"><datalist id="aiOllamaModels"></datalist></div>
+<div><label for="aiOperation">การทำงาน</label><select id="aiOperation"><option value="none">ไม่แปล / ไม่เรียก AI</option><option value="translate">แปลภาษา</option><option value="custom">AI ทำงานตาม Prompt (เช่น ตอบคำถาม)</option></select></div>
+<div><label for="aiTarget">ภาษาปลายทาง</label><select id="aiTarget"><option value="th">ไทย</option><option value="en">English</option><option value="ja">日本語</option><option value="zh">中文</option><option value="ko">한국어</option></select></div>
+<div><label for="aiSourceLanguage">ภาษาต้นทาง (M2M100 ต้องระบุหากตรวจไม่แม่น)</label><select id="aiSourceLanguage"><option value="auto">ตรวจอัตโนมัติแบบคร่าว ๆ</option><option value="th">ไทย</option><option value="en">อังกฤษ</option><option value="ja">ญี่ปุ่น</option><option value="zh">จีน</option><option value="ko">เกาหลี</option></select></div>
+<div><label for="aiTranslationMode">วิธีแปล</label><select id="aiTranslationMode"><option value="whole_message">แปลทั้งข้อความ</option><option value="foreign_spans">แปลเฉพาะช่วงต่างภาษาแล้วรวม</option></select></div>
+</div>
+<div id="aiOllamaControls" style="margin:12px 0">
+<div class="voice-grid">
+<div><label for="aiKeepAlive">เวลาคงโมเดลในหน่วยความจำ (นาที)</label><input id="aiKeepAlive" type="number" min="1" max="360" step="1" value="360"></div>
+<button type="button" id="aiOllamaCheck">ตรวจสอบโมเดลที่ติดตั้งใน Ollama</button>
+<button type="button" id="aiOllamaPreload">โหลดโมเดลเข้าหน่วยความจำ</button>
+</div>
+<p id="aiOllamaStatus" class="small" role="status">ยังไม่ได้ตรวจสอบ Ollama · พิมพ์ชื่อโมเดลที่ติดตั้งแล้วหรือเลือกจากรายการ</p>
+<p class="small">ปุ่มโหลดเข้าหน่วยความจำไม่ดาวน์โหลดหรือติดตั้งโมเดลใหม่ และไม่ทำงานอัตโนมัติเมื่อพิมพ์ชื่อโมเดลหรือบันทึก Settings</p>
+</div>
+<p id="aiEngineStatus" class="small" role="status">กำลังตรวจสอบ Engine...</p>
+<details style="margin:12px 0">
+<summary>รายการ AI / Translation Model Packages ที่ติดตั้งในเครื่อง</summary>
+<p class="small">เลือกใช้โมเดล M2M100 ที่ติดตั้งไว้แล้วได้ · ไม่มีปุ่มดาวน์โหลดหรือติดตั้งโมเดลจากหน้านี้ · ต้องมี Adapter/Runtime ที่รองรับ</p>
+<div class="voice-grid">
+
+<button id="aiPackageRefresh" type="button">รีเฟรชรายการ</button>
+</div>
+<p id="aiPackageStatus" class="small" role="status">กำลังโหลดรายการ...</p>
+<ul id="aiPackageList" style="padding-left:22px"></ul>
+</details>
+<label><input id="aiAutoDetect" type="checkbox" checked> ข้ามแปลเมื่อไม่พบอักษรต่างภาษา (ตรวจแบบคร่าว ๆ)</label>
+<label for="aiPriority">Priority Instructions — คำสั่งสำคัญสูงกว่า Custom Prompt</label>
+<textarea id="aiPriority" rows="4" maxlength="4000" placeholder="เช่น ตอบภาษาไทยเสมอ และไม่เกิน 3 ประโยค"></textarea>
+<label for="aiPrompt">Custom Prompt — คำสั่งทั่วไป</label>
+<textarea id="aiPrompt" rows="5" maxlength="4000" placeholder="เช่น แปลแบบเป็นกันเอง ถ้าเป็นคำถามให้ตอบคำถาม"></textarea>
+<p id="aiPromptHint" class="small">คำสั่งใช้กับ Engine ที่รองรับ Prompt เช่น Ollama; M2M100 เป็นเครื่องแปลโดยตรง ไม่รองรับคำสั่งอิสระ</p>
+<div class="voice-grid">
+<div><label for="aiDisplay">Subtitle / Overlay</label><select id="aiDisplay"><option value="processed">หลัง AI และกฎหลัง AI</option><option value="original">ก่อน AI (หลังกรอง)</option><option value="both">ทั้งก่อนและหลัง AI</option></select></div>
+<div><label for="aiFallback">เมื่อ AI ไม่พร้อม</label><select id="aiFallback"><option value="filtered">ใช้ข้อความที่ผ่านกฎก่อน AI</option><option value="skip">ข้ามเนื้อหา</option></select></div>
+<div><label for="aiTimeout">Timeout (วินาที)</label><input id="aiTimeout" type="number" min="2" max="30" step="1" value="10"></div>
+</div>
+<details style="margin-top:12px"><summary>ไฟล์อ้างอิงสำหรับ AI (ระบุไฟล์และอนุญาตเองเท่านั้น)</summary>
+<p class="small">เฉพาะ .txt/.md/.json พาธเต็ม บรรทัดละไฟล์ ไม่เกิน 5 ไฟล์/ไฟล์ละ 16 KiB · ไม่ให้ข้อความ Live เปิดไฟล์โดยอิสระ</p>
+<label><input id="aiAllowFiles" type="checkbox"> อนุญาตให้ AI อ่านรายการไฟล์ที่ระบุ</label>
+<textarea id="aiContextFiles" rows="3" placeholder="T:\Space\Translation\GameTerms.md"></textarea>
+</details>
+<div class="voice-grid" style="margin-top:12px">
+<button id="aiSave" type="button">บันทึก AI Settings</button>
+<button id="aiReload" type="button">โหลด AI Settings อีกครั้ง</button>
+</div>
+<p id="aiSettingsStatus" class="small" role="status">กำลังโหลดการตั้งค่า...</p>
+<details style="margin-top:12px"><summary>ทดลองข้อความ (ไม่สร้างเสียง; ใช้การตั้งค่าที่บันทึกแล้ว)</summary>
+<label for="aiTestText">ข้อความทดสอบ</label><textarea id="aiTestText" rows="3">This game looks amazing!</textarea>
+<button id="aiTest" type="button">ทดลองประมวลผล</button><pre id="aiTestResult" class="output">–</pre>
+</details>
+</section>
+<section class="panel" style="margin-top:18px">
 <h2>จัดการ Model Packages</h2>
 <p class="small">ติดตั้งโมเดลและเสียงเพิ่มเติม ดูแหล่งที่มาและลิขสิทธิ์ และถอนการติดตั้งแพ็กเกจที่ไม่ต้องการได้ที่นี่</p>
 <details style="width:100%;margin:12px 0;border:1px solid #32425b;border-radius:10px;padding:12px">
@@ -685,6 +745,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <script src="/audio_scheduler.js"></script>
 <script src="/emoji_pronunciation.js"></script>
 <script src="/rule_quick_add.js"></script>
+<script src="/ai_settings.js"></script>
 <script src="/mode_voice_settings.js"></script>
 <script src="/mode_workspace.js"></script>
 <script src="/mode_inputs.js"></script>
@@ -911,6 +972,7 @@ let cachedLiteralRuleMatch="";
 let usingFiveRun=false;
 const getQuickRuleInput=()=>({
   match_mode:el("ruleMatchMode").value,
+  stage:el("ruleStage").value,
   match:el("ruleMatch").value,
   mode:el("ruleMode").value,
   spoken:el("ruleSpoken").value,
@@ -952,7 +1014,7 @@ function refreshRuleQuickFields(){
   previewQuickRule();
 }
 for(const id of ["ruleMatch","ruleSpoken","ruleDisplay","ruleSilenceMs",
-                 "ruleSourcesExtra","ruleMatchMode","ruleMode"]){
+                 "ruleSourcesExtra","ruleMatchMode","ruleMode","ruleStage"]){
   el(id).addEventListener("input",id==="ruleMatchMode"||id==="ruleMode"
     ?refreshRuleQuickFields:previewQuickRule);
   el(id).addEventListener("change",id==="ruleMatchMode"||id==="ruleMode"

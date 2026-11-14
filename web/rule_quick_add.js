@@ -37,7 +37,11 @@ function build(options){
     fail("ข้อความที่ค้นหาต้องไม่ว่างและยาวไม่เกิน 200 ตัวอักษร");
   const mode=options.mode||"replace";
   if(!ACTIONS.includes(mode))fail("เลือกการทำงานของกฎ");
+  const stage=options.stage||"post_ai";
+  if(!["pre_ai","post_ai"].includes(stage))fail("เลือกช่วงกฎก่อน AI หรือหลัง AI");
+  if(stage==="pre_ai"&&mode==="silence")fail("หยุดเสียงได้หลัง AI เท่านั้น เพราะการแปลจะทำให้เวลาหยุดเสียงสูญหาย");
   const rule={match,mode};
+  if(stage==="pre_ai")rule.stage=stage;
   if(match_mode==="five_run")rule.match_mode=match_mode;
   if(mode==="replace"){
     const spoken=options.spoken??"";

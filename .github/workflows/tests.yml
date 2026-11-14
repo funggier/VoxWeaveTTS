@@ -32,6 +32,7 @@ jobs:
         shell: pwsh
         run: |
           node tests/json_settings_ui_smoke.cjs
+          node tests/ai_settings_ui_smoke.cjs
           node tests/reading_ui_smoke.cjs
           node tests/playback_clock_smoke.cjs
           node tests/overlay_sse_smoke.cjs

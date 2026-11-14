@@ -15,6 +15,20 @@ import zipfile
 
 from . import __version__
 from .processing import InputError, process_text
+from .ai_pipeline import process_pipeline
+from .ai_engine_registry import ai_engines
+from .ollama_manager import (model_status as ollama_model_status,
+                             preload as preload_ollama_model,
+                             OllamaUnavailable)
+from .ai_model_packages import (
+    installed_packages as installed_ai_packages,
+    package_key as ai_package_key,
+    install_model_package_dialog as install_ai_model_package_dialog,
+    remove_model_package as remove_ai_model_package,
+    AIModelPackageError, AIModelPickerUnavailable,
+)
+from .ai_processing import (load_settings as load_ai_settings, save_settings as save_ai_settings,
+                            AISettingsConflict)
 from .document_reader import prepare_document, MAX_DOCUMENT_REQUEST_BYTES
 from .speech import (
     ENGINE_ID,
@@ -412,11 +426,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js"}:
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js"}:
                 name = ("audio_scheduler.js" if route == "/audio_scheduler.js" else
                         "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
                         "emoji_pronunciation.js" if route == "/emoji_pronunciation.js" else
                         "rule_quick_add.js" if route == "/rule_quick_add.js" else
+                        "ai_settings.js" if route == "/ai_settings.js" else
                         "source_feed.js" if route == "/source_feed.js" else
                         "mode_inputs.js" if route == "/mode_inputs.js" else
                         "mode_workspace.js" if route == "/mode_workspace.js" else
@@ -450,6 +465,9 @@ class Handler(BaseHTTPRequestHandler):
                         "audio_playback_clock": False,
                         "pronunciation_hints": True,
                         "persistent_text_settings": True,
+                        "ai_processing_settings": True,
+                        "ai_processing_engine": "ollama-loopback-optional",
+                        "ai_web_search_tools": False,
                         "tts_audio": any(e.assets_ready and e.runtime_ready for e in list_engine_info()),
                         "reproducible_seed": info.assets_ready and info.runtime_ready,
                         "voice_cloning": False,
@@ -563,6 +581,24 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, {"presets": load_presets()})
             elif route == "/v1/settings/text":
                 self.send_json(200, load_text_settings())
+            elif route == "/v1/settings/ai":
+                self.send_json(200, load_ai_settings())
+            elif route == "/v1/ai/engines":
+                self.send_json(200, {"engines": [e.as_dict() for e in ai_engines().list()]})
+            elif route == "/v1/ollama/models":
+                params = parse_qs(urlsplit(self.path).query)
+                name = params.get("model", [""])[0]
+                try:
+                    self.send_json(200, ollama_model_status(name))
+                except ValueError:
+                    self.send_json(400, {"error": "invalid model name"})
+            elif route == "/v1/ai/packages":
+                self.send_json(200, {"packages": [{
+                    "key": ai_package_key(manifest),
+                    "package_id": manifest["package_id"], "version": manifest["version"],
+                    "title": manifest["title"], "adapter": manifest["engine_adapter"],
+                    "license": manifest["license"],
+                } for manifest, _path in installed_ai_packages()]})
             elif route == "/v1/reading/progress":
                 params = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
                 values = params.get("document_id", [])
@@ -594,11 +630,13 @@ class Handler(BaseHTTPRequestHandler):
         dictionary = data.get("pronunciations")
         if dictionary is None:
             dictionary = load_text_section("pronunciations")["value"]
-        return process_text(
-            text=data.get("text"),
+        return process_pipeline(
+            text=data.get("content_text", data.get("text")),
             rules=rules,
             pronunciations=dictionary,
             source=data.get("source", "manual"),
+            settings=load_ai_settings()["settings"],
+            sender_prefix_text=data.get("sender_prefix_text", ""),
         )
 
     def do_POST(self) -> None:
@@ -624,6 +662,68 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_extension_json(200, result)
             except (InputError, UnicodeDecodeError, ValueError, KeyError):
                 self._send_extension_json(403, {"error": "invalid or expired extension request"})
+            return
+        if route == "/v1/ollama/preload":
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "preload-ollama-model"):
+                self.reject_unread_post(403, {"error": "same-origin preload permission required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "preload requires JSON"})
+                return
+            try:
+                request = self._read_json(max_bytes=1024)
+                if set(request) != {"model", "keep_alive_minutes"}:
+                    raise ValueError("invalid preload request")
+                self.send_json(200, preload_ollama_model(
+                    request["model"], request["keep_alive_minutes"]
+                ))
+            except ValueError:
+                self.send_json(400, {"error": "invalid preload settings"})
+            except OllamaUnavailable:
+                self.send_json(503, {"error": "Ollama model is not installed, unavailable, or busy"})
+            return
+        if route in ("/v1/ai/packages/install-local", "/v1/ai/packages/remove"):
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            intent = ("install-ai-model-package" if route.endswith("install-local")
+                      else "remove-ai-model-package")
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != intent):
+                self.reject_unread_post(403, {"error": "same-origin AI model operation required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "AI model operation requires JSON"})
+                return
+            try:
+                data = self._read_json(max_bytes=2048)
+                if route.endswith("install-local"):
+                    if data:
+                        raise AIModelPackageError("unexpected AI package install request")
+                    installed = install_ai_model_package_dialog()
+                    self.send_json(200, {"cancelled": installed is None, **({
+                        "installed": True, "package_id": installed["package_id"],
+                        "version": installed["version"],
+                    } if installed else {})})
+                else:
+                    if set(data) != {"package_id", "version"}:
+                        raise AIModelPackageError("invalid AI model removal request")
+                    self.send_json(200, {"removed": remove_ai_model_package(
+                        data["package_id"], data["version"]
+                    )})
+            except AIModelPickerUnavailable:
+                self.send_json(503, {"error": "AI model picker unavailable"})
+            except (AIModelPackageError, ValueError, InputError, UnicodeDecodeError,
+                    json.JSONDecodeError, OSError, zipfile.BadZipFile):
+                self.send_json(400, {"error": "invalid AI model package or integrity check"})
             return
         if route in ("/v1/model-packages/install-local", "/v1/model-packages/remove"):
             host = self.headers.get("Host", "").lower().strip()
@@ -911,6 +1011,21 @@ class Handler(BaseHTTPRequestHandler):
             except ProgressConflict as exc:
                 self.send_json(409, {"error": str(exc)})
             except (InputError, UnicodeDecodeError, json.JSONDecodeError, OSError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
+        if route == "/v1/settings/ai":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-ai-settings":
+                self.reject_unread_post(403, {"error": "missing AI settings update intent"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "AI settings must be application/json"})
+                return
+            try:
+                data = self._read_json()
+                self.send_json(200, save_ai_settings(data.get("settings"), data.get("expected_revision")))
+            except AISettingsConflict as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError, OSError, ValueError) as exc:
                 self.send_json(400, {"error": str(exc)})
             return
         if route == "/v1/settings/text":

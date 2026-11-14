@@ -37,6 +37,7 @@ class Rule:
     silence_ms: int = 0
     sources: tuple[str, ...] = ()
     match_mode: str = "literal"
+    stage: str = "post_ai"
 
     @classmethod
     def parse(cls, raw: Any) -> "Rule":
@@ -53,6 +54,11 @@ class Rule:
         mode = raw.get("mode", "replace")
         if mode not in {"replace", "skip", "silence"}:
             raise InputError("mode must be replace, skip, or silence")
+        stage = raw.get("stage", "post_ai")
+        if stage not in {"pre_ai", "post_ai"}:
+            raise InputError("stage must be pre_ai or post_ai")
+        if stage == "pre_ai" and mode == "silence":
+            raise InputError("silence cannot be preserved through AI; use post_ai for silence")
         spoken = raw.get("spoken")
         if spoken is not None:
             spoken = _text(spoken, "spoken", 500)
@@ -67,7 +73,7 @@ class Rule:
             isinstance(v, str) and 0 < len(v) <= 64 for v in sources
         ):
             raise InputError("sources must be a list of non-empty short strings")
-        return cls(match, mode, spoken, display, duration, tuple(sources), match_mode)
+        return cls(match, mode, spoken, display, duration, tuple(sources), match_mode, stage)
 
     def applies_to(self, source: str) -> bool:
         return not self.sources or source in self.sources

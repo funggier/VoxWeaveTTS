@@ -62,11 +62,11 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       read_emojis:readEmojis,emoji_dictionary:dictionary,
     };
   }
-  function speechText(item,plainText){
+  function speechParts(item,plainText){
     const opts=readOptions();
     const speakEmoji=value=>opts.read_emojis&&Emoji
       ?Emoji.replace(value,opts.emoji_dictionary):value;
-    if(!item)return speakEmoji(plainText);
+    if(!item)return {content:speakEmoji(plainText),sender_prefix_text:""};
     const clean=value=>typeof value==="string"
       ?value.replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim()
       :"";
@@ -80,7 +80,10 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     const salutation=author&&opts.sender_prefix&&!author.startsWith(opts.sender_prefix)
       ?opts.sender_prefix:"";
     const named=author?[salutation,speakEmoji(author)].filter(Boolean).join(" "):"";
-    return [named,named?opts.separator:"",speakEmoji(plainText)].filter(Boolean).join(" ");
+    return {
+      content:speakEmoji(plainText),
+      sender_prefix_text:[named,named?opts.separator:""].filter(Boolean).join(" ")
+    };
   }
   function pickMessage(item){
     if(!item || typeof item.text!=="string")return;
@@ -143,7 +146,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       // latest choice. Source history / editable message text remain untouched.
       const sender=autoPlay ? activeIncoming
         : (pickedMessage?.text===text ? pickedMessage : null);
-      body.text=speechText(sender,text);
+      const parts=speechParts(sender,text);
+      // Preserve legacy merged payload for older clients/tests, but provide
+      // content separately so AI/shared rules never touch the sender header.
+      body.text=[parts.sender_prefix_text,parts.content].filter(Boolean).join(" ");
+      body.content_text=parts.content;
+      body.sender_prefix_text=parts.sender_prefix_text;
       body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":mode==="tiktok_browser"?"tiktok-live-extension":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
