@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.5.2', [switch]$SkipZip)
+param([string]$Version = '0.6.0', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -17,12 +17,12 @@ $zip=Join-Path $root ("dist\VoxWeaveTTS-v{0}-portable.zip" -f $Version)
 if (Test-Path $stage) {Remove-Item -LiteralPath $stage -Recurse -Force}
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
-function Copy-Tree([string]$source,[string]$destination,[string[]]$skip=@()) {
+function Copy-Tree([string]$source,[string]$destination,[string[]]$skip=@(),[string[]]$skipDirs=@()) {
   if (!(Test-Path $source)) {throw "Required input missing: $source"}
   New-Item -ItemType Directory -Force -Path $destination | Out-Null
   $opts=@($source,$destination,'/E','/NFL','/NDL','/NJH','/NJS','/NP',
-          '/XD','__pycache__','.git','.venv','tests','test','.pytest_cache',
-          '/XF','*.pyc','*.pyo')+$skip
+          '/XD','__pycache__','.git','.venv','tests','test','.pytest_cache')+$skipDirs+
+          @('/XF','*.pyc','*.pyo')+$skip
   & robocopy @opts | Out-Null
   if ($LASTEXITCODE -ge 8) {throw "File copy failed: $source"}
 }
@@ -46,7 +46,16 @@ Copy-Tree (Join-Path $pythonHome 'DLLs') (Join-Path $runtime 'DLLs')
 Copy-Tree (Join-Path $pythonHome 'tcl') (Join-Path $runtime 'tcl')
 # Freeze package dependencies but never copy arbitrary pretrained model weights
 # or private voice files from the development environment.
-Copy-Tree $site (Join-Path $runtime 'Lib\site-packages') @('*.onnx','*.npy','*.pt','*.pth','*.wav','*.mp3','*.flac')
+# Optional M2M100 development runtime is deliberately excluded from the
+# basic portable ZIP. Its 418M weights and torch/transformers dependencies
+# remain user-installed add-ons; Ollama needs no embedded ML dependencies.
+Copy-Tree $site (Join-Path $runtime 'Lib\site-packages') @('*.onnx','*.npy','*.pt','*.pth','*.wav','*.mp3','*.flac') @(
+  'torch','torchgen','functorch','transformers','tokenizers','safetensors',
+  'sentencepiece','sympy','networkx',
+  'torch-*.dist-info','transformers-*.dist-info','tokenizers-*.dist-info',
+  'safetensors-*.dist-info','sentencepiece-*.dist-info',
+  'sympy-*.dist-info','networkx-*.dist-info'
+)
 $modelDir=Join-Path $stage 'models\makham-paradee'
 New-Item -ItemType Directory -Force -Path $modelDir | Out-Null
 foreach ($name in @('paradee_thai_int8.onnx','config.json')) {
@@ -57,7 +66,7 @@ foreach ($name in @('paradee_thai_int8.onnx','config.json')) {
 foreach ($dir in @('presets','models\packages','models\fastthaig2p','cache\temp','cache\torch',
                    'cache\huggingface','voices','output','logs','data\settings',
                    'data\reading','data\filters','data\dictionaries',
-                   'data\presets','data\profiles','config')) {
+                   'data\presets','data\profiles','models\ai','models\ai\packages','models\ai\m2m100_418m','config')) {
   New-Item -ItemType Directory -Force -Path (Join-Path $stage $dir) | Out-Null
 }
 $hash=(Get-FileHash (Join-Path $modelDir 'paradee_thai_int8.onnx') -Algorithm SHA256).Hash

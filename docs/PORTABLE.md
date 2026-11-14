@@ -1,10 +1,10 @@
-# VoxWeaveTTS v0.4.4 — Windows Portable User Guide
+# VoxWeaveTTS v0.6.0 — Windows Portable User Guide
 
 **Status:** Windows 10/11 x64 portable release with concurrent Live/Discord workspaces, per-mode voice controls, queue policy, presets and model package management; not a voice-cloning suite. Tested with its relocated Python runtime and bundled MakHam Paradee CPU ONNX Thai voice. Other engines may require extra model packs and license review.
 
 ## Install and launch
 
-1. Download `VoxWeaveTTS-v0.4.4-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.4.
+1. Download `VoxWeaveTTS-v0.6.0-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.6.0.
 2. Extract the **whole folder** to a writable location, for example `T:\Apps\VoxWeaveTTS`. Never run the EXE from inside the ZIP.
 3. Double-click **VoxWeaveTTS.exe**. The small Windows launcher starts a local Python server, checks readiness, and opens your default browser (Firefox or Chrome). No Python, Node or system installation is needed.
 4. Keep the launcher window open. The studio is at http://127.0.0.1:8765 and OBS Browser Source may use http://127.0.0.1:8765/overlay.
@@ -37,6 +37,14 @@ VoxWeaveTTS/
 ```
 
 All app-generated settings, output and cache paths are relative to the extracted folder. The app binds to **127.0.0.1 only**. Do not forward port 8765 publicly: the local API does not provide remote authentication.
+
+## AI Processing / Translation in v0.6.0
+
+Open Settings → AI Processing to select **not translating**, **translation**, or **custom AI processing**. Translation language can be selected explicitly (Thai, English, Japanese, Chinese, Korean) or left unspecified for Ollama to follow Priority Instructions/Custom Prompt. With M2M100 and unspecified language, translation is skipped. Ollama is an **external, already-installed optional service** (default `http://127.0.0.1:11434`, configurable LAN IP/port); its model weights are not inside this ZIP. Local AI source text is sent to the configured Ollama service, which may be on a different LAN machine: review your privacy/network settings. Keep Alive retains the model in memory. Chat sender name/prefix and connector are not translated.
+
+The M2M100 adapter is **experimental**, requires separately installed safetensors weights and Python dependencies (Torch, Transformers, SentencePiece, safetensors). It was tested locally but semantic quality was incorrect in some short cases, and is not suitable as an automatically trusted translator for public Live without further validation. [Optional M2M100 setup](M2M100_SETUP_TH.md) · [AI processing spec](AI_PROCESSING_TRANSLATION_TH.md).
+
+Tool Calling and web search are **not included** in v0.6.0 and will be developed separately after this release.
 
 ## Optional Model Packages available separately
 

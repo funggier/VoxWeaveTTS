@@ -160,6 +160,18 @@ class ProcessingTests(unittest.TestCase):
                             custom_prompt="แปลข้อความเป็นภาษาเกาหลี")
         self.assertEqual(configured["target_language"], "unspecified")
 
+    def test_m2m_explicit_source_translation_not_skipped_for_shared_script(self):
+        calls=[]
+        result=ai_processing.process_ai("東京",config(
+            enabled=True, engine="m2m100", source_language="ja",
+            target_language="zh", operation="translate", auto_detect=True,
+        ),model_call=lambda text,settings,context:
+           calls.append((text,settings["source_language"],settings["target_language"]))
+             or "东京")
+        self.assertEqual(result["text"],"东京")
+        self.assertEqual(result["status"],"processed")
+        self.assertEqual(calls,[("東京","ja","zh")])
+
     def test_m2m100_unspecified_skips_without_model_and_applies_post_rules(self):
         calls = []
         plan = process_pipeline(

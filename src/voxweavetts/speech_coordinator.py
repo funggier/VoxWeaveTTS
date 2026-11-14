@@ -25,7 +25,7 @@ MAX_JOBS = 12
 MAX_AUDIO_BYTES = 16_000_000
 MAX_TOTAL_AUDIO_BYTES = 64_000_000
 JOB_TTL_SECONDS = 900
-_TERMINAL = frozenset({"ready", "failed", "cancelled"})
+_TERMINAL = frozenset({"ready", "failed", "cancelled", "skipped"})
 
 
 class QueueFull(Exception):
@@ -181,6 +181,13 @@ class SpeechCoordinator:
         job.audio = None
         job.plan = None
         job.prepare = None
+        # Drop queued IDs as well as metadata, otherwise repeated cancellation
+        # under load may accumulate unbounded stale references.
+        for pending in (self._prepare_queue, self._queue):
+            try:
+                pending.remove(job.id)
+            except ValueError:
+                pass
 
     def _prune(self) -> None:
         now = time.monotonic()
@@ -232,8 +239,13 @@ class SpeechCoordinator:
             self._jobs[job.id] = job
             if key is not None:
                 self._dedupe[key] = job.id
-            self._transition(job, "queued")
-            self._queue.append(job.id)
+            if not plan.get("spoken_text", "").strip() and not any(
+                    x.get("kind") == "silence" for x in plan["segments"]):
+                job.plan = None
+                self._transition(job, "skipped")
+            else:
+                self._transition(job, "queued")
+                self._queue.append(job.id)
             self._cv.notify_all()
             return job.snapshot()
 
@@ -310,8 +322,13 @@ class SpeechCoordinator:
                     job.engine_id = arguments["engine_id"]
                     job.voice_id = arguments["voice_id"]
                     job.display_text = plan["display_text"]
-                    self._transition(job, "queued")
-                    self._queue.append(job.id)
+                    if not plan.get("spoken_text", "").strip() and not any(
+                            x.get("kind") == "silence" for x in plan["segments"]):
+                        job.plan = None
+                        self._transition(job, "skipped")
+                    else:
+                        self._transition(job, "queued")
+                        self._queue.append(job.id)
                     self._cv.notify_all()
             except Exception:
                 # Never expose AI errors or unfiltered text from tools, models,
@@ -456,13 +473,19 @@ class SpeechCoordinator:
             job = self._jobs.get(job_id)
             if job is None:
                 raise JobMissing("unknown speech_id")
-            if job.state not in {"cancelled", "failed"}:
+            # Ready audio remains cancellable to preserve existing UI stop.
+            if job.state not in {"cancelled", "failed", "skipped"}:
                 if job.audio is not None:
                     self._audio_bytes -= len(job.audio)
                     job.audio = None
                 job.plan = None
                 job.prepare = None
                 job.timeline = None
+                for pending in (self._prepare_queue, self._queue):
+                    try:
+                        pending.remove(job.id)
+                    except ValueError:
+                        pass
                 self._transition(job, "cancelled")
             return job.snapshot()
 

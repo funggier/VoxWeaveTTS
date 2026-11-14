@@ -53,13 +53,14 @@ function attach(document, fetcher){
         (engine.runtime_ready?"":" และ Dependencies");
       get("aiEngineStatus").textContent=engine.id==="ollama"
         ?"Ollama · ตรวจสถานะและรายชื่อโมเดลจากที่อยู่ IP/Port ที่ตั้งค่าไว้ด้านล่าง"
-        :engine.label+" · "+ready+" · "+engine.installation;
+        :engine.label+" · "+ready+" · "+engine.installation+
+          (engine.id==="m2m100"?" · ใช้โมเดลใน models/ai/m2m100_418m ได้โดยไม่ต้องกดติดตั้ง":"");
       const prompt=engine.supports_prompt;
       get("aiPriority").disabled=!prompt;
       get("aiPrompt").disabled=!prompt;
       get("aiPromptHint").textContent=prompt
         ?"Priority Instructions สำคัญกว่า Custom Prompt; ข้อความ Live เป็นข้อมูลเท่านั้น"
-        :"Engine นี้แปลภาษาโดยตรง ไม่รองรับ Priority/Custom Prompt; ค่าจะเก็บไว้สำหรับสลับกลับไปใช้ LLM";
+        :"M2M100 ทดลอง: ไม่รองรับ Priority/Custom Prompt และความหมายของคำแปลอาจผิดได้ · ควรทดสอบก่อนใช้ Live";
     }
     get("aiOllamaControls").hidden=get("aiEngine").value!=="ollama";
     get("aiModel").disabled=false;
@@ -99,9 +100,27 @@ function attach(document, fetcher){
     packages=Array.isArray(result.packages)?result.packages:[];
     const list=get("aiPackageList");
     list.textContent="";
-    if(!packages.length){
+    const m2m=engines.find(e=>e.id==="m2m100");
+    if(m2m?.assets_ready){
+      const local=document.createElement("li");
+      const title=document.createElement("span");
+      title.textContent="M2M100 418M — พบไฟล์โมเดลที่ติดตั้งในเครื่อง · ทดลอง";
+      local.appendChild(title);
+      const select=document.createElement("button");
+      select.type="button";select.textContent="เลือก M2M100 ในเครื่อง";
+      select.addEventListener("click",()=>{
+        get("aiEngine").value="m2m100";
+        get("aiModel").value="";
+        get("aiOperation").value="translate";
+        updateAvailability();
+        status("เลือก M2M100 local แล้ว · กดบันทึก AI Settings; ควรทดลองตรวจความหมายก่อน Live");
+      });
+      local.appendChild(select);
+      list.appendChild(local);
+    }
+    if(!packages.length&&!m2m?.assets_ready){
       const line=document.createElement("li");
-      line.textContent="ยังไม่มี AI Model Package ติดตั้ง";
+      line.textContent="ยังไม่พบ AI Model Package หรือโมเดล M2M100 ในโฟลเดอร์ที่รองรับ";
       list.appendChild(line);
     }
     for(const item of packages){

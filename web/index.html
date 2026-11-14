@@ -1612,7 +1612,7 @@ async function readerPlayChunk(index) {
       }
       return;
     }
-    if(["failed","cancelled"].includes(state.state))
+    if(["failed","cancelled","skipped"].includes(state.state))
       throw new Error("งานสังเคราะห์จบด้วยสถานะ "+state.state);
     await new Promise(resolve=>setTimeout(resolve,500));
   }
@@ -1957,6 +1957,9 @@ async function pollJob() {
     el("queueDownload").href = queuedAudioUrl;
     el("queueDownload").download = "VoxWeaveTTS-job-" + job.speech_id.slice(0,8) + ".wav";
     el("queueDownload").style.display = "inline-block";
+  } else if (job.state === "skipped") {
+    stopJobPoll();
+    el("queueMessage").textContent="ข้ามข้อความตามกฎกรองหรือการตั้งค่า AI";
   } else if (job.state === "cancelled" || job.state === "failed") {
     stopJobPoll();
   }

@@ -162,7 +162,8 @@ class M2M100Adapter:
             tokens = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
             output = model.generate(**tokens,
                                     forced_bos_token_id=tokenizer.get_lang_id(target),
-                                    max_new_tokens=512)
+                                    max_new_tokens=192, num_beams=4,
+                                    early_stopping=True)
             decoded = tokenizer.batch_decode(output, skip_special_tokens=True)
         return decoded[0] if decoded else ""
 
@@ -194,10 +195,11 @@ def m2m_info() -> AIEngineInfo:
     deps = all(find_spec(name) is not None
                for name in ("torch", "transformers", "sentencepiece", "safetensors"))
     return AIEngineInfo(
-        "m2m100", "M2M100 418M (Local Translation)", "translation", False, False,
+        "m2m100", "M2M100 418M (ทดลอง / accuracy varies)", "translation", False, False,
         ready_files, deps,
         "Optional local safetensors + tokenizer under models/ai/m2m100_418m; "
-        "requires torch, transformers, sentencepiece, safetensors",
+        "requires torch, transformers, sentencepiece, safetensors; "
+        "experimental translation quality - verify meaning before live use",
     )
 
 

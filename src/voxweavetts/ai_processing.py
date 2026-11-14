@@ -315,8 +315,11 @@ def process_ai(text: str, settings: dict[str, Any],
         # M2M100 cannot obey a prompt to choose a target language. Treat this
         # setting as a passthrough, even when weights/runtime are unavailable.
         return {"text": text, "status": "no_target_language", "applied": False}
+    explicitly_foreign_m2m = (settings["engine"] == "m2m100"
+        and settings["source_language"] not in {"auto", settings["target_language"]})
     if (settings["operation"] == "translate" and settings["auto_detect"]
             and settings["target_language"] != UNSPECIFIED_LANGUAGE
+            and not explicitly_foreign_m2m
             and not _has_foreign_script(text, settings["target_language"])):
         return {"text": text, "status": "same_script", "applied": False}
     from .ai_engine_registry import ai_engines

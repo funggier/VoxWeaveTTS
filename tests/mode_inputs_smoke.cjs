@@ -19,6 +19,7 @@ async function main(){
     return elements.get(id);
   };
   const reports=[],payloads=[],created=[],clockCalls=[],cancelled=[];
+  const skippedIds=new Set();
   let current="live", renderCount=0;
   const voiceByMode={live:"youtube-voice-model",discord:"discord-voice-v1",tiktok:"tiktok-voice"};
   const blobUrl=new Set();
@@ -34,6 +35,7 @@ async function main(){
         payloads.push(body);
         const id=String(payloads.length).repeat(32);
         created.push(id);
+        if(body.content_text==="__SKIP__")skippedIds.add(id);
         return{ok:true,async json(){return{speech_id:id,state:"queued"};}};
       }
       if(path.endsWith("/cancel")){
@@ -44,7 +46,8 @@ async function main(){
         return{ok:true,async blob(){return new Blob(["RIFF-test"]);}};
       if(path.startsWith("/v1/jobs/"))
         return{ok:true,async json(){return{
-          speech_id:path.split("/").at(-1),state:"ready",audio:{
+          speech_id:path.split("/").at(-1),
+          state:skippedIds.has(path.split("/").at(-1))?"skipped":"ready",audio:{
             duration_ms:1000,segments:[{kind:"speech",display_text:"ทดสอบ",
             start_ms:0,end_ms:1000}]},
         };}};
@@ -357,6 +360,20 @@ async function main(){
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads.at(-1).text,"คุณ เพื่อน พิมพ์ว่า ขำ 👍🏽",
     "Discord Client emoji rules are independent of Discord Bot");
-  console.log("PASS: YouTube/Discord emoji speech mapping and sender-only @, original chat preserved");
+  // AI fallback=skip must advance the Live queue rather than pause it.
+  get("discordClientAudio").paused=true;
+  get("discordClientAudio").events.ended();
+  assert.equal(discordClient.receiveIncoming({
+    message_id:"skip-ai",author:"เพื่อน",text:"__SKIP__"
+  },true),"queued");
+  assert.equal(discordClient.receiveIncoming({
+    message_id:"after-skip",author:"เพื่อน",text:"อ่านต่อ"
+  },true),"queued");
+  for(let spin=0;spin<8;spin++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(discordClient.autoPaused,false,
+    "skipped AI output must not stop automatic chat reading");
+  assert.equal(payloads.at(-1).content_text,"อ่านต่อ",
+    "next message must be submitted automatically after skipped output");
+  console.log("PASS: YouTube/Discord emoji speech, sender isolation and AI skip continuity");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

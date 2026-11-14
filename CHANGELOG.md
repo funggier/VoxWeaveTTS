@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0 — Opt-in AI Processing, Multilingual Translation, and Nonblocking Live Queue (14 November 2026)
+
+- Added a shared AI Processing settings panel for every workspace with **Priority Instructions** and **Custom Prompt**, explicit target language or **unspecified** (controlled by the trusted prompts on Ollama), local/LAN Ollama endpoint, model selection, local model preload/Keep Alive and read-only reference files delimited by commas.
+- Split shared Rules into pre-AI/post-AI phases; old Rules implicitly remain post-AI. Source-specific emoji normalization stays before the shared pipeline. Sender salutation, optional `@`, sender name and connector phrase are not translated or subjected to shared AI rules.
+- Added an opt-in, bounded asynchronous AI preparation stage ahead of the existing TTS queue: `preparing -> queued -> rendering -> ready`. Stable IDs, deduplication, cancellation, terminal `skipped`, and no raw chat text in public job status. AI stays disabled by default.
+- Ollama `qwen3.5:4b` verified in live local inference for Thai, English, Japanese, Chinese, Korean and mixed-language examples; prompt language priority cases were separately tested. LLM output can still be inaccurate.
+- M2M100 418M adapter is **EXPERIMENTAL**. Real official safetensors (SHA-256 `c061a21eec15453944783ceb4a13a216477dd4765c98fac10811818adf994968`) loads and generates translations. **The semantic quality gate failed 2/3 sample translations** despite correctly using the requested writing system; do not rely on it for unattended Live translation. Weights/optional Torch runtime are never bundled in the core Portable ZIP; it is not enabled by default. M2M100 with an unspecified target language skips translation without invoking the model.
+- Simulated high-volume Live ingestion tested with cancellation/backpressure and all seven backend source identifiers. Live-account/provider validation remains dependent on user authorization; YouTube/Discord Bot live accounts were not accessed for this release.
+- AI Tool Calling, automatic web search and arbitrary filesystem action execution are **deliberately excluded** from v0.6.0; they are planned *after* this release.
+
 ## 0.5.2 — Guided Rules editor and TikTok emoji mapping (14 November 2026)
 
 - Expanded the Rules quick-add panel from two plain fields into a structured builder for `match_mode`, `match`, `mode`, optional `spoken` / `display`, `silence_ms`, and source filters, matching the existing backend schema without introducing unsupported regular expressions.

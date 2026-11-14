@@ -169,7 +169,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         return;
       }
       jobId=created.speech_id;
-      for(let i=0;i<220;i++){
+      for(let i=0;i<960;i++){
         if(my!==generation||!guard(mode))return;
         const r=await fetch("/v1/jobs/"+created.speech_id,{cache:"no-store"});
         const job=await r.json();
@@ -201,6 +201,10 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           }
           return true;
         }
+        if(job.state==="skipped"){
+          feedback("ข้ามข้อความนี้ตามกฎกรองหรือการตั้งค่า AI · ไม่ส่งเข้า TTS");
+          return "skipped";
+        }
         if(["failed","cancelled"].includes(job.state))
           throw Error("งานเสียง "+job.state);
         await new Promise(resolve=>setTimeout(resolve,250));
@@ -227,6 +231,13 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     try{
       const played=await submit({autoPlay:true,messageId:next.message_id});
       if(ticket!==queueEpoch)return; // stop/mode switch cancelled this job
+      if(played==="skipped"){
+        mark(next,"skipped");
+        activeIncoming=null;
+        autoBusy=false;
+        pumpIncoming();
+        return;
+      }
       if(!played){
         // Do not pretend a generated WAV was actually read if autoplay fails.
         clearAutoQueue({includeActive:true});

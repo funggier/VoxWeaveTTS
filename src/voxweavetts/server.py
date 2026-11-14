@@ -248,6 +248,18 @@ class Handler(BaseHTTPRequestHandler):
             "voice_controls": controls, "seed": seed,
         }
 
+    def _queue_params(self, data: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
+        # A completely suppressed message should not initialize TTS or fail
+        # because of a missing optional voice model. SpeechCoordinator will
+        # publish a terminal "skipped" event with no audio.
+        if (not plan.get("spoken_text", "").strip()
+                and not any(s.get("kind") == "silence" for s in plan["segments"])):
+            return {
+                "engine_id": str(data.get("engine_id") or "none"),
+                "voice_id": str(data.get("voice_id") or "none"),
+            }
+        return self._speech_params(data, plan)
+
     def _headers(self, status: int, content_type: str, length: int,
                  extra: dict[str, str] | None = None) -> None:
         self.send_response(status)
@@ -993,7 +1005,7 @@ class Handler(BaseHTTPRequestHandler):
                         queued_data["pronunciations"] = load_text_section("pronunciations")["value"]
                     def prepare():
                         plan = self._text_plan(queued_data, ai_settings=ai_settings)
-                        params = self._speech_params(queued_data, plan)
+                        params = self._queue_params(queued_data, plan)
                         return plan, params
                     job = self._coordinator().submit_deferred(
                         prepare, source=data.get("source", "manual"),
@@ -1003,7 +1015,7 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 else:
                     plan = self._text_plan(data, ai_settings=ai_settings)
-                    params = self._speech_params(data, plan)
+                    params = self._queue_params(data, plan)
                     job = self._coordinator().submit(
                         plan, engine_id=params["engine_id"], voice_id=params["voice_id"],
                         render_args=params,
