@@ -48,7 +48,7 @@
 - ปัจจุบันการเรียก AI Translation ใน Backend ยังทำระหว่างการเตรียมงานผ่าน HTTP Request; **ยังไม่ใช่ asynchronous AI queue** และยังไม่ได้ทดสอบ M2M100 กับน้ำหนักโมเดลจริงหรือทดสอบเส้นทาง Live แบบโหลดสูง จึงยังไม่ควรถือว่าพร้อมสำหรับ Live ยาว ๆ
 - มี UI สำหรับจัดการ Model Packages ของ **TTS เดิม** แยกต่างหากตามพฤติกรรมเดิม ไม่เกี่ยวกับการดาวน์โหลด AI Model
 - หลักฐานวิธีโหลด Ollama: https://github.com/ollama/ollama/blob/main/docs/api.md (การส่ง prompt ว่าง / keep_alive)
-- แหล่ง M2M100: https://huggingface.co/facebook/m2m100_418M (license MIT ตาม Model Card; `model.safetensors` ต้องตรวจ Revision ของไฟล์และสิทธิ์ต้นทางก่อนใช้งานหรือแจกจ่าย)
+- แหล่ง M2M100: https://huggingface.co/facebook/m2m100_418M (Model Card ระบุ MIT) แต่ไฟล์ใน repo อย่างเป็นทางการขณะตรวจสอบมี `pytorch_model.bin` ไม่ใช่ `model.safetensors`; Adapter นี้ **ตั้งใจไม่โหลดไฟล์ pickle/bin เพื่อความปลอดภัย** ต้องเตรียม safetensors ที่แปลงและตรวจสอบจากแหล่งที่เชื่อถือได้ไว้ในเครื่องก่อนใช้งานจริง ยังไม่ได้ทดสอบ Inference ด้วยน้ำหนัก M2M100 บนเครื่องนี้ จึงต้องรายงานสถานะ Not Ready ตามจริง
 
 ## Trust Boundary และ Tool Calling
 
