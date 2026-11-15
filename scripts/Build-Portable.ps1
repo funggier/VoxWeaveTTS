@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.9.0', [switch]$SkipZip)
+param([string]$Version = '0.9.1', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -9,6 +9,12 @@ if (!(Test-Path $venv) -or !(Test-Path $compiler)) {throw 'Windows build prerequ
 if (!(Test-Path (Join-Path $site 'onnxruntime')) -or !(Test-Path (Join-Path $site 'pythaitts'))) {throw 'TTS runtime prerequisites missing'}
 & $venv -c 'import grpc,google.protobuf,kokoro_onnx,phonemizer,espeakng_loader; from pathlib import Path; from espeakng_loader import get_library_path,get_data_path; assert Path(get_library_path()).is_file(); assert Path(get_data_path()).is_dir()'
 if ($LASTEXITCODE -ne 0) {throw 'Portable build requires grpc, protobuf, Kokoro ONNX, phonemizer, espeakng-loader DLL and dictionaries'}
+# A Japanese Kokoro voice is not usable with eSpeak alone. Validate the
+# bundled MeCab dictionary and Misaki G2P before distributing Portable.
+& $venv -c 'from misaki import ja; import unidic_lite; p,_=ja.JAG2P()(chr(0x591a)+chr(0x5206)+chr(0x6bbb)+chr(0x3054)+chr(0x3068)+chr(0x98df)+chr(0x3063)+chr(0x3066)+chr(0x308b)+chr(0x3082)+chr(0x3093)+chr(0x306d)); assert p and len(p)<100'
+if ($LASTEXITCODE -ne 0) {throw 'Portable build requires misaki[ja]==0.8.0 and unidic-lite==1.0.8 for Kokoro Japanese speech'}
+& $venv -c 'import sherpa_onnx; assert sherpa_onnx.OfflineTtsSupertonicModelConfig'
+if ($LASTEXITCODE -ne 0) {throw 'Portable build requires sherpa-onnx==2.0.1 for Chinese/Korean/31-language add-on models'}
 $pythonHome=(& $venv -c 'import sys; print(sys.base_prefix)').Trim()
 if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $pythonHome 'LICENSE.txt'))) {throw 'Python runtime not found'}
 
@@ -83,12 +89,16 @@ $notice=@(
   "Training dataset credit: https://huggingface.co/datasets/pythainlp/MakHamTTS-dataset",
   "Authors: PyThaiNLP / Wannaphong Phatthiyaphaibun; Paradee / Sahil Mahendrakar",
   "Kokoro-ONNX v0.6.0: https://github.com/thewh1teagle/kokoro-onnx (license in site-packages).",
+  "Japanese Kokoro G2P: Misaki 0.8.0 (Apache-2.0), https://github.com/hexgrad/misaki; requires fugashi, jaconv, mojimoji and UniDic Lite (their individual license metadata are bundled).",
+  "sherpa-onnx 2.0.1: Apache-2.0 runtime (see bundled dist-info licenses), https://github.com/k2-fsa/sherpa-onnx.",
+  "Optional Chinese MeloTTS model: MIT model-card license; source https://huggingface.co/myshell-ai/MeloTTS-Chinese; review separate voice and training rights.",
+  "Optional Supertonic 3 model: BigScience OpenRAIL-M with use restrictions, NOT MIT despite MIT sample code; source https://huggingface.co/Supertone/supertonic-3. Model pack includes full license.",
   "Kokoro-82M multilingual model: Apache-2.0 upstream; installed separately as .vwmodel; rights to voices/training require review.",
   "eSpeak NG DLL/data: GPL-3.0, source https://github.com/espeak-ng/espeak-ng; full GPL text in docs/third-party/ESPEAK_NG_GPL-3.0.txt. Redistributors must follow source and notice obligations.",
   "phonemizer: https://github.com/bootphon/phonemizer (license in bundled package metadata).",
   "Third-party Python package license metadata/files are in runtime/python/Lib/site-packages/*dist-info/.",
   "User-generated speech, recordings and chat messages have their own rights.",
-  "Only MakHam Paradee weights are bundled. Other models are optional .vwmodel packages: FastThaiG2P, Vachana, Kokoro, experimental M2M100.",
+  "Only MakHam Paradee weights are bundled. Other models are optional .vwmodel packages: FastThaiG2P, Vachana, Kokoro, MeloTTS Chinese, Supertonic 3, experimental M2M100.",
   "FastThaiG2P 325MB model, personal voices and private local settings are NOT bundled."
 )
 $notice | Set-Content (Join-Path $stage 'THIRD_PARTY_NOTICES.txt') -Encoding UTF8

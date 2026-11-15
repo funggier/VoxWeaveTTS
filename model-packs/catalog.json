@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "project": "VoxWeaveTTS",
-  "release_tag": "v0.9.0",
+  "release_tag": "v0.9.1",
   "note": "Licenses are as declared at pinned upstream sources. VoxWeaveTTS has not independently certified all training data or voice rights. No warranty of commercial use or compatibility.",
   "packages": [
     {
@@ -10,7 +10,7 @@
       "file": "VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
       "size_bytes": 115562300,
       "sha256": "cb69aaf6b92d2effa6069a208d17410902d49b6f0ce6e1a88fc7cb0e102b75ee",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.0/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
       "engine_adapter": "kokoro-onnx-v1",
       "voices": [
         "af_heart",
@@ -53,7 +53,7 @@
       "file": "VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
       "size_bytes": 234436558,
       "sha256": "c782818d6bc99f7da1e3540d308cedde20f41dc204d2b34ee002089a8057f5f3",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.0/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
       "engine_adapter": "vachana-onnx-v1",
       "voices": [
         "th_f_1",
@@ -84,7 +84,7 @@
       "file": "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
       "size_bytes": 302412020,
       "sha256": "6aff293704ec5e9f25941eafb897b434c3be47f75eecd89aadc9cb6df9cc6016",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.0/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
       "engine_adapter": "fastthaig2p-kokoro-v1",
       "voices": [
         "thai_som"
@@ -103,6 +103,126 @@
       "embedded_notices": [
         "legal/license.txt",
         "legal/notice.txt",
+        "legal/attribution.md"
+      ]
+    },
+    {
+      "package_id": "melo-chinese-onnx",
+      "version": "1.0.0",
+      "file": "VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
+      "size_bytes": 160222867,
+      "sha256": "917aee8035eb18a8682dbda1da0db380075316a5d2c3cb17fa521e4552484838",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
+      "engine_adapter": "sherpa-melo-zh-v1",
+      "voices": [
+        "zh_melo"
+      ],
+      "upstream_source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models",
+      "source_revision": "vits-melo-tts-zh_en (converted from MyShell.ai MeloTTS Chinese)",
+      "upstream_declared_license": "MIT",
+      "training_license": null,
+      "conditions": "MeloTTS Chinese / MyShell.ai model card reports MIT. ONNX conversion by k2-fsa/sherpa-onnx; voice/data provenance has not been independently audited for commercial redistribution.",
+      "review_status": "review_required",
+      "upstream_asset_sha256": {
+        "model.onnx": "bf30582eb1b012250a35b1a4a80e7dfbcf8485e7bb9de0d95efbbeef0e4ad86d",
+        "tokens.txt": "d18664a7e12bd7ea1022ddaf951e534e136815016c5a809d6b64156bffb4369d",
+        "lexicon.txt": "7236884b02435ac5d10cf69b4be40a61b45aa676b5300f0e412f185748fee528"
+      },
+      "embedded_notices": [
+        "legal/license.txt",
+        "legal/attribution.md"
+      ]
+    },
+    {
+      "package_id": "supertonic3-multilingual-int8",
+      "version": "1.0.0",
+      "file": "VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
+      "size_bytes": 125365097,
+      "sha256": "d0566bc75e318685a22e6f3f10d81ad7a370bd0ff03c5ca8f383e807842e0c71",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
+      "engine_adapter": "sherpa-supertonic-v1",
+      "voices": [
+        "ar_s0",
+        "ar_s1",
+        "bg_s0",
+        "bg_s1",
+        "hr_s0",
+        "hr_s1",
+        "cs_s0",
+        "cs_s1",
+        "da_s0",
+        "da_s1",
+        "nl_s0",
+        "nl_s1",
+        "en_s0",
+        "en_s1",
+        "et_s0",
+        "et_s1",
+        "fi_s0",
+        "fi_s1",
+        "fr_s0",
+        "fr_s1",
+        "de_s0",
+        "de_s1",
+        "el_s0",
+        "el_s1",
+        "hi_s0",
+        "hi_s1",
+        "hu_s0",
+        "hu_s1",
+        "id_s0",
+        "id_s1",
+        "it_s0",
+        "it_s1",
+        "ja_s0",
+        "ja_s1",
+        "ko_s0",
+        "ko_s1",
+        "lv_s0",
+        "lv_s1",
+        "lt_s0",
+        "lt_s1",
+        "pl_s0",
+        "pl_s1",
+        "pt_s0",
+        "pt_s1",
+        "ro_s0",
+        "ro_s1",
+        "ru_s0",
+        "ru_s1",
+        "sk_s0",
+        "sk_s1",
+        "sl_s0",
+        "sl_s1",
+        "es_s0",
+        "es_s1",
+        "sv_s0",
+        "sv_s1",
+        "tr_s0",
+        "tr_s1",
+        "uk_s0",
+        "uk_s1",
+        "vi_s0",
+        "vi_s1"
+      ],
+      "upstream_source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models",
+      "source_revision": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11",
+      "upstream_declared_license": "OpenRAIL-M",
+      "training_license": null,
+      "conditions": "Supertone Supertonic 3 is under BigScience OpenRAIL-M with use-based restrictions; its model weights are NOT blanket MIT. k2-fsa CPU ONNX conversion. Follow enclosed full license; training and voice rights not independently certified.",
+      "review_status": "review_required",
+      "upstream_asset_sha256": {
+        "duration_predictor.int8.onnx": "c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db",
+        "text_encoder.int8.onnx": "c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff",
+        "vector_estimator.int8.onnx": "20cd86fa5c6effedfda0e7cffe5b0569ca401c440a0c3a1d72bf39286c0db3fd",
+        "vocoder.int8.onnx": "e923d60f53f95eb1ce235f1dc33ec56d9c057823c96fa6f8acf98f32b0da6152",
+        "tts.json": "42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09",
+        "unicode_indexer.bin": "8402ca48e5189a8950138580b0fff64db6f072f24ac07cd54ba8b2fbb9883b30",
+        "voice.bin": "67d5209b0ee8ce6c74105ffbe12fe6a7628aea3b4ba2fcb308a4a67938a93ce8"
+      },
+      "embedded_notices": [
+        "legal/license.txt",
+        "legal/conversion-license.txt",
         "legal/attribution.md"
       ]
     }

@@ -248,6 +248,10 @@ class CoordinatorTests(unittest.TestCase):
 class CoordinatorAPITests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        from voxweavetts.ai_processing import DEFAULTS
+        cls.ai_patch = patch("voxweavetts.server.load_ai_settings",
+                             return_value={"settings": DEFAULTS})
+        cls.ai_patch.start()
         cls.coordinator = SpeechCoordinator(fake_renderer)
         cls.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         cls.server.speech_coordinator = cls.coordinator
@@ -261,6 +265,7 @@ class CoordinatorAPITests(unittest.TestCase):
         cls.server.server_close()
         cls.thread.join(3)
         cls.coordinator.close()
+        cls.ai_patch.stop()
 
     def test_http_ai_preparation_does_not_block_job_submission(self):
         entered, release = threading.Event(), threading.Event()

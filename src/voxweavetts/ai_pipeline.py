@@ -21,6 +21,7 @@ def process_pipeline(
     settings: dict[str, Any] | None = None,
     sender_prefix_text: str = "",
     model_call: Callable | None = None,
+    speech_language: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(text, str) or len(text) > MAX_TEXT:
         raise InputError("text must be a string of at most 8000 characters")
@@ -38,12 +39,27 @@ def process_pipeline(
     config = validate_settings(DEFAULTS if settings is None else settings)
     ai = process_ai(filtered, config, model_call=model_call)
     processed = ai["text"]
+    # Resolve the language of the text actually reaching TTS before replacing
+    # post-AI words. A Thai-only pronunciation (e.g. 555 -> ฮ่า ฮ่า ฮ่า)
+    # must not be injected into Chinese/Korean/Japanese speech models.
+    from .language_routes import LANGUAGES, detect_language
+    if speech_language is not None and speech_language not in (set(LANGUAGES) | {"auto"}):
+        raise InputError("unsupported speech language")
+    if speech_language and speech_language != "auto":
+        language = speech_language
+    elif (ai["status"] == "processed" and config["operation"] in {"translate", "custom"}
+          and config["target_language"] in LANGUAGES):
+        language = config["target_language"]
+    else:
+        language = detect_language(processed)
 
     # Post-AI rules always execute, including when the AI is disabled, skips
     # translation or fails. Only content, NEVER the sender, passes here.
-    post_plain = process_text(processed, rules=post, source=source, pronunciations={})
+    post_plain = process_text(processed, rules=post, source=source,
+                              pronunciations={}, language=language if language != "und" else None)
     plan = process_text(processed, rules=post, source=source,
-                        pronunciations=pronunciations)
+                        pronunciations=pronunciations,
+                        language=language if language != "und" else None)
 
     mode = config["display_mode"] if config["enabled"] else "processed"
     # Never let the alternative original-display mode bypass a suppression
@@ -86,6 +102,7 @@ def process_pipeline(
         "ai_status": ai["status"],
         "ai_applied": ai["applied"],
         "target_language": config["target_language"],
+        "speech_language": language,
         "display_mode": mode,
         "original_text": safe_pre,
         "pre_ai_text": None if suppressed else filtered,

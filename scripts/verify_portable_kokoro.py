@@ -41,9 +41,14 @@ with tempfile.TemporaryDirectory(prefix="verify-kokoro-cpu-", dir=temp_parent) a
             info = speech.get_engine_info(identifier)
             assert info.assets_ready and info.runtime_ready and info.language == "multi"
             assert len(info.voice_ids) == 18
-            for voice_id in ("af_heart",):  # short CPU smoke, other languages are unit-tested
+            # Verify both English and Japanese in the embedded runtime.
+            # Japanese must use Misaki (not eSpeak letter-name fallback).
+            for voice_id, sample in (
+                ("af_heart", "Hello, this is a portable multilingual speech test."),
+                ("jf_nezumi", "多分殻ごと食ってるもんね"),
+            ):
                 wav, detail = speech.render_wav(
-                    process_text("Hello, this is a portable multilingual speech test."),
+                    process_text(sample),
                     engine_id=identifier, voice_id=voice_id,
                     speed=1.0, seed=100,
                 )

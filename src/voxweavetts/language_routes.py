@@ -25,6 +25,13 @@ LANGUAGES = {
     "ko": "한국어", "es": "Español", "fr": "Français",
     "hi": "हिन्दी", "it": "Italiano", "pt": "Português",
     "de": "Deutsch", "ru": "Русский",
+    "ar": "العربية", "bg": "Български", "hr": "Hrvatski",
+    "cs": "Čeština", "da": "Dansk", "nl": "Nederlands",
+    "et": "Eesti", "fi": "Suomi", "el": "Ελληνικά",
+    "hu": "Magyar", "id": "Bahasa Indonesia", "lv": "Latviešu",
+    "lt": "Lietuvių", "pl": "Polski", "ro": "Română",
+    "sk": "Slovenčina", "sl": "Slovenščina", "sv": "Svenska",
+    "tr": "Türkçe", "uk": "Українська", "vi": "Tiếng Việt",
 }
 _LOCK = threading.RLock()
 _ROUTE_KEYS = frozenset({"engine_id", "voice_id", "speed", "voice_controls", "seed"})
@@ -84,6 +91,9 @@ def voice_languages(engine_id: str, voice_id: str) -> set[str]:
     info = get_engine_info(engine_id)
     if voice_id not in info.voice_ids:
         raise InputError("unknown voice ID in language route")
+    if info.voice_language_map:
+        code = info.voice_language_map.get(voice_id)
+        return {code} if code else set()
     if info.language == "multi":
         from .kokoro_engine import LANGUAGE_CODES
         language = LANGUAGE_CODES.get(voice_id[0], "")
@@ -130,7 +140,7 @@ def detect_language(text: str) -> str:
     """Unicode-script heuristic; intentionally does not pretend to identify
     French/Spanish/Italian/Portuguese from their shared Latin script."""
     counts = {"th": 0, "ja": 0, "ko": 0, "zh": 0,
-              "hi": 0, "ru": 0, "en": 0}
+              "hi": 0, "ru": 0, "el": 0, "ar": 0, "en": 0}
     for ch in text:
         cp = ord(ch)
         if 0x0E00 <= cp <= 0x0E7F:
@@ -143,14 +153,25 @@ def detect_language(text: str) -> str:
             counts["zh"] += 1
         elif 0x0900 <= cp <= 0x097F:
             counts["hi"] += 2
+        elif 0x0370 <= cp <= 0x03FF:
+            counts["el"] += 2
+        elif 0x0600 <= cp <= 0x06FF:
+            counts["ar"] += 2
         elif 0x0400 <= cp <= 0x052F:
             counts["ru"] += 2
         elif "LATIN" in unicodedata.name(ch, "") and ch.isalpha():
             counts["en"] += 1
     if counts["ja"] and counts["zh"]:
         counts["ja"] += counts["zh"]
-    winner = max(counts, key=counts.get)
-    return winner if counts[winner] else "und"
+    # Latin text often comes from a sender name or a fixed phrase such as
+    # "writes:" in live-chat speech. Do not let that metadata override a
+    # recognizable non-Latin script (e.g. "LongEnglishName: じゃない"), or the
+    # English Kokoro voice will spell Japanese characters as letter names.
+    # Explicit language choices still take precedence in choose_route().
+    scripts = {code: amount for code, amount in counts.items() if code != "en"}
+    if any(scripts.values()):
+        return max(scripts, key=scripts.get)
+    return "en" if counts["en"] else "und"
 
 
 def choose_route(text: str, *, language: str | None = None,

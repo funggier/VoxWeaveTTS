@@ -66,11 +66,32 @@ class KokoroOnnxEngine:
         self.voices = {identifier for identifier, _ in voices}
         self.voice_id = voices[0][0]
         self._native = None
+        self._japanese_g2p = None
 
     def select_voice(self, voice_id: str) -> None:
         if voice_id not in self.voices or voice_id[0] not in VOICE_LANGUAGES:
             raise InputError("unsupported Kokoro voice")
         self.voice_id = voice_id
+
+    def _japanese_phonemes(self, text: str) -> str:
+        """Use Kokoro's Japanese frontend; eSpeak spells kanji as letter names."""
+        from .speech import EngineUnavailable, SpeechFailure
+        if self._japanese_g2p is None:
+            try:
+                from misaki import ja
+                self._japanese_g2p = ja.JAG2P()
+            except (ImportError, OSError, RuntimeError) as exc:
+                raise EngineUnavailable(
+                    "Japanese Kokoro G2P is unavailable: install misaki[ja]==0.8.0 "
+                    "and unidic-lite==1.0.8 in the active Python runtime"
+                ) from exc
+        try:
+            phonemes, _ = self._japanese_g2p(text)
+        except Exception as exc:
+            raise SpeechFailure("Japanese Kokoro G2P failed to parse text") from exc
+        if not isinstance(phonemes, str) or not phonemes.strip():
+            raise SpeechFailure("Japanese Kokoro G2P produced no phonemes")
+        return phonemes
 
     def generate(self, text: str, speed: float) -> bytes:
         if not isinstance(text, str) or not text.strip():
@@ -87,10 +108,19 @@ class KokoroOnnxEngine:
                     raise EngineUnavailable("Kokoro model weights are not installed")
                 from kokoro_onnx import Kokoro
                 self._native = Kokoro(str(onnx_file), str(voices_file))
-            audio, sample_rate = self._native.create(
-                text, voice=self.voice_id, speed=float(speed),
-                lang=VOICE_LANGUAGES[self.voice_id[0]],
-            )
+            if self.voice_id[0] == "j":
+                # The ONNX wrapper defaults to eSpeak, which reads kanji as
+                # "Chinese letter"/"Japanese letter" even with lang="ja".
+                # Misaki returns model-native phonemes; bypass eSpeak entirely.
+                audio, sample_rate = self._native.create(
+                    self._japanese_phonemes(text), voice=self.voice_id,
+                    speed=float(speed), lang="ja", is_phonemes=True,
+                )
+            else:
+                audio, sample_rate = self._native.create(
+                    text, voice=self.voice_id, speed=float(speed),
+                    lang=VOICE_LANGUAGES[self.voice_id[0]],
+                )
             if sample_rate != self.sample_rate:
                 raise RuntimeError("Kokoro output rate mismatch")
             from .speech import _float32_to_pcm

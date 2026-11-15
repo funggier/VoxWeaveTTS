@@ -27,6 +27,37 @@ class ProcessingTests(unittest.TestCase):
                     "5" * len(text[replaced[0]["source_start"]:replaced[0]["source_end"]])
                 )
 
+    def test_repeated_fives_follow_spoken_language_without_changing_thai(self):
+        rule = {"match": "555", "match_mode": "five_run", "mode": "replace",
+                "spoken": "ฮ่า ฮ่า ฮ่า"}
+        for lang, spoken in (
+            ("th", "ฮ่า ฮ่า ฮ่า"), ("zh", "哈哈哈"),
+            ("ja", "ははは"), ("ko", "하하하"),
+            ("en", "ha ha ha"), ("de", "ha ha ha"),
+        ):
+            with self.subTest(language=lang):
+                result = process_text("笑了 55555", rules=[rule], language=lang)
+                self.assertEqual(result["spoken_text"], "笑了 " + spoken)
+                self.assertEqual(result["display_text"], "笑了 55555")
+                self.assertEqual(result["segments"][-1]["source_start"], 3)
+        self.assertEqual(process_text("555", rules=[rule])["spoken_text"], "ฮ่า ฮ่า ฮ่า")
+        self.assertEqual(process_text("555", rules=[{**rule,
+            "spoken": "my custom voice"}], language="zh")["spoken_text"],
+            "my custom voice")
+
+    def test_language_specific_replacement_customization(self):
+        rule = {"match": "555", "match_mode": "five_run", "mode": "replace",
+                "spoken": "ฮ่า ฮ่า ฮ่า",
+                "spoken_by_language": {"zh": "呵呵呵", "ko": "ㅎㅎㅎ"}}
+        self.assertEqual(process_text("555", rules=[rule], language="zh")["spoken_text"], "呵呵呵")
+        self.assertEqual(process_text("555", rules=[rule], language="ko")["spoken_text"], "ㅎㅎㅎ")
+        self.assertEqual(process_text("555", rules=[rule], language="th")["spoken_text"], "ฮ่า ฮ่า ฮ่า")
+        for bad in ({"ZH": "wrong"}, {"z": "wrong"}, {"ja": 3}):
+            with self.assertRaises(InputError):
+                process_text("555", rules=[{**rule, "spoken_by_language": bad}])
+        with self.assertRaises(InputError):
+            process_text("555", rules=[{**rule, "stage": "pre_ai"}])
+
     def test_repeated_fives_ignore_numeric_literals(self):
         rule={"match":"555","match_mode":"five_run","mode":"replace",
               "spoken":"ฮ่า ฮ่า ฮ่า"}

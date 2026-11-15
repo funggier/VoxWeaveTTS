@@ -780,6 +780,7 @@ class Handler(BaseHTTPRequestHandler):
             source=data.get("source", "manual"),
             settings=ai_settings if ai_settings is not None else load_ai_settings()["settings"],
             sender_prefix_text=data.get("sender_prefix_text", ""),
+            speech_language=data.get("language"),
         )
 
     def do_POST(self) -> None:

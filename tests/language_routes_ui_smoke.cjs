@@ -34,7 +34,14 @@ const engines=[
    voices:[{id:"paradee_thai",label:"Paradee"}]},
   {id:engine,label:"Kokoro INT8",language:"multi",assets_ready:true,runtime_ready:true,
    voices:[{id:"af_heart",label:"English"},{id:"ff_siwis",label:"French"},
-           {id:"jf_alpha",label:"Japanese"}]}
+           {id:"jf_alpha",label:"Japanese"}]},
+  {id:"model-supertonic3-multilingual-int8-1_0_0",label:"Supertonic 3",language:"multi",
+   assets_ready:true,runtime_ready:true,
+   voice_language_map:{"ko_s0":"ko","en_s0":"en"},
+   voices:[{id:"ko_s0",label:"Korean"},{id:"en_s0",label:"English"}]},
+  {id:"model-melo-chinese-onnx-1_0_0",label:"Melo Chinese",language:"zh",
+   assets_ready:true,runtime_ready:true,
+   voices:[{id:"zh_melo",label:"Chinese"}]}
 ];
 let stored={revision:0,routes:{}};
 const sent=[],voicePresets=[];
@@ -59,7 +66,8 @@ async function fetchMock(url,options={}){
       return {ok:true,json:async()=>stored};
     }
     return {ok:true,json:async()=>({
-      ...stored,languages:{th:"Thai",en:"English",fr:"French",ja:"Japanese"}
+      ...stored,languages:{th:"Thai",en:"English",fr:"French",ja:"Japanese",
+                           zh:"Chinese",ko:"Korean"}
     })};
   }
   throw Error("Unexpected request: "+url);
@@ -153,5 +161,17 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   ids.languageRouteReload.click();await tick();
   assert.equal(ids.languageRouteLanguage.options.some(o=>o.value==="fr"),false,
     "reload retains server-side assignments, not unsaved local removals");
-  console.log("PASS: single-assignment language picker, delete-before-description, restore, revision save");
+  // The same Supertonic ONNX engine supports multiple languages; do not
+  // rely on the first-letter voice ID convention used for Kokoro.
+  ids.languageRouteLanguage.value="ko";ids.languageRouteLanguage.change();
+  assert.equal(ids.languageRouteEngine.value,"model-supertonic3-multilingual-int8-1_0_0");
+  assert.equal(ids.languageRouteVoice.value,"ko_s0");
+  ids.languageRouteSet.click();ids.languageRouteSave.click();await tick();
+  assert.equal(stored.routes.ko.voice_id,"ko_s0");
+  ids.languageRouteLanguage.value="zh";ids.languageRouteLanguage.change();
+  assert.equal(ids.languageRouteEngine.value,"model-melo-chinese-onnx-1_0_0");
+  assert.equal(ids.languageRouteVoice.value,"zh_melo");
+  ids.languageRouteSet.click();ids.languageRouteSave.click();await tick();
+  assert.equal(stored.routes.zh.voice_id,"zh_melo");
+  console.log("PASS: independent English/Japanese/Korean/Chinese engine routing");
 })().catch(e=>{console.error(e);process.exitCode=1;});

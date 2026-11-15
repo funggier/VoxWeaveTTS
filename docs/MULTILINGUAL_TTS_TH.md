@@ -13,6 +13,8 @@
 - แพ็กเกจที่สร้างในเครื่อง: `dist/ModelPackages/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel`
 - ติดตั้งแพ็กเกจไว้ที่ `models/packages/kokoro-multilingual-int8/1.0.0/`
 - Dependencies: `kokoro-onnx==0.6.0`, ONNX Runtime, numpy, phonemizer, espeakng-loader
+- **Japanese G2P fix:** การส่งคันจิให้ `kokoro-onnx` พร้อม `lang="ja"` ตรง ๆ ยังใช้ eSpeak และออกเสียงชื่ออักษร (`Chinese letter` / `Japanese letter`) แทนการพูดจริง ตั้งแต่ Portable v0.9.1 มี `misaki[ja]==0.8.0` + `unidic-lite==1.0.8` ติดตั้งไว้ให้แล้ว (Development Python ต้องติดตั้งเอง) และส่ง phonemes จาก `misaki.ja.JAG2P()` เข้า `Kokoro.create(..., is_phonemes=True)` สำหรับเสียง `j*` เท่านั้น เสียงอังกฤษและภาษาอื่นยังใช้เส้นทางเดิม
+- สำหรับ Development: ใช้ `.venv\\Scripts\\python.exe -m pip install "misaki[ja]==0.8.0" "unidic-lite==1.0.8"` จากโฟลเดอร์โปรเจกต์; การสร้าง Portable ใหม่ต้องแนบแพ็กเกจและพจนานุกรมเหล่านี้ใน Python Runtime และทดสอบเสียงญี่ปุ่นจริง ห้ามเปลี่ยนกลับไปใช้ eSpeak ญี่ปุ่นโดยอัตโนมัติเมื่อ G2P ไม่พร้อม
 - บันทึก Model SHA256: ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c
 - บันทึก Voices SHA256: bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
 

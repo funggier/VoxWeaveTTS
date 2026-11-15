@@ -120,6 +120,37 @@ class ProcessingTests(unittest.TestCase):
         self.assertIsNone(result["processing"]["ai_result_text"])
 
 
+    def test_chinese_translation_555_laugh_uses_chinese_pronunciation(self):
+        # Exact reported Thai input: Ollama preserves the numeric laugh, then
+        # post-translation rules must NOT inject Thai phonemes into Melo zh.
+        source = "ชายหนุ่มกลายเป็นอมตะ และพูดคำต้องห้าม ก่อนหัวเราะ 555"
+        translation = "年轻人获得了永生，说出了禁忌之词，然后笑了 555"
+        rule = {"match": "555", "match_mode": "five_run", "mode": "replace",
+                "spoken": "ฮ่า ฮ่า ฮ่า"}
+        for style in ("whole_message", "foreign_spans"):
+            with self.subTest(style=style):
+                # foreign_spans may call once per Thai substring; each result
+                # is Chinese, while numeric 555 is left untranslated.
+                fake = (lambda *_: translation if style == "whole_message" else "哈哈")
+                plan = process_pipeline(
+                    source, rules=[rule],
+                    settings=config(enabled=True, operation="translate", model="test",
+                                    target_language="zh", translation_mode=style),
+                    model_call=fake)
+                self.assertEqual(plan["processing"]["speech_language"], "zh")
+                self.assertEqual(plan["processing"]["ai_status"], "processed")
+                self.assertIn("哈哈哈", plan["spoken_text"])
+                self.assertNotIn("ฮ่า", plan["spoken_text"])
+                self.assertIn("555", plan["display_text"])
+        direct = process_pipeline("年轻人笑了555", rules=[rule],
+                                  settings=config(enabled=False))
+        self.assertEqual(direct["spoken_text"], "年轻人笑了哈哈哈")
+        self.assertEqual(direct["processing"]["speech_language"], "zh")
+        explicit = process_pipeline("555", rules=[rule], speech_language="zh")
+        self.assertEqual(explicit["spoken_text"], "哈哈哈")
+        thai = process_pipeline("ชายหนุ่มหัวเราะ 555", rules=[rule])
+        self.assertIn("ฮ่า ฮ่า ฮ่า", thai["spoken_text"])
+
     def test_ollama_chat_sends_external_data_separately_and_keeps_model_loaded(self):
         class FakeReply:
             length = None

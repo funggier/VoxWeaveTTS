@@ -6,7 +6,7 @@ factories. Nothing is automatically imported from user-supplied directories.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import RLock
 from typing import Any, Callable, Protocol, runtime_checkable
 
@@ -46,6 +46,9 @@ class EngineInfo:
     # Optional list of selectable fixed voices (id, display label).
     # The legacy voice_id remains the default and existing adapters unchanged.
     voice_options: tuple[tuple[str, str], ...] = ()
+    # Explicit per-voice language mapping for non-Kokoro multilingual engines.
+    # Keeps each synthesis request's language independent from another voice.
+    voice_language_map: dict[str, str] = field(default_factory=dict)
 
     @property
     def voice_ids(self) -> tuple[str, ...]:
@@ -65,6 +68,7 @@ class EngineInfo:
             "capabilities": dict(self.capabilities),
             "adapter_api_version": self.adapter_api_version,
             "commercial_status": self.commercial_status,
+            "voice_language_map": dict(self.voice_language_map),
         }
 
 
@@ -122,6 +126,11 @@ class EngineRegistry:
             or any(not voice or not label or len(voice) > 100 or len(label) > 120
                    for voice, label in (info.voice_options or ((info.voice_id, info.voice_id),)))):
             raise ValueError("invalid selectable voice list")
+        if (not isinstance(info.voice_language_map, dict)
+            or not set(info.voice_language_map) <= set(info.voice_ids)
+            or any(not isinstance(lang, str) or len(lang) != 2 or not lang.isalpha()
+                   or not lang.islower() for lang in info.voice_language_map.values())):
+            raise ValueError("invalid per-voice language mapping")
         if info.commercial_status not in {
             "review_required", "hold", "excluded", "cleared"
         }:

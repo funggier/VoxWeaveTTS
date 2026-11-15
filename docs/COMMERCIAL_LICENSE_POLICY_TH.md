@@ -13,6 +13,12 @@
 
 รายการสินทรัพย์ที่แจกจริงอยู่ใน [Model Packages Catalog](../model-packs/README_TH.md) และ [ข้อมูล SHA-256](../model-packs/catalog.json) นโยบาย Commercial-safe-first ด้านล่างยังใช้กับ **การรับรองเชิงพาณิชย์และการบันเดิลเป็นโมเดลหลัก** ไม่ใช่การเปลี่ยน MIT/Apache/CC BY เป็นเงื่อนไขห้ามใช้เชิงพาณิชย์
 
+## หมายเหตุโมเดลเสียงใหม่ใน v0.9.1
+
+- **Supertonic 3** ใช้ **BigScience OpenRAIL-M** มีข้อจำกัดการใช้ตาม License ที่แนบใน `.vwmodel`; ห้ามระบุว่าเป็น MIT หรือได้รับอนุมัติใช้เชิงพาณิชย์ทุกกรณี ไม่รวมใน Portable หลัก แต่แจกแยกเป็น Optional Package โดยต้องอ่านข้อกำหนดก่อนใช้งาน/เผยแพร่ต่อ
+- **MeloTTS Chinese** โมเดลต้นทางรายงาน MIT และ ONNX conversion จาก k2-fsa โดยตรวจสอบ SHA-256/เครดิตของไฟล์ที่แพ็กไว้ แต่ยังไม่ได้รับรองสิทธิ์เสียงและข้อมูลฝึกโดยอิสระ
+- **Kokoro Japanese G2P** เพิ่ม Misaki + UniDic Lite พร้อม Runtime ที่มีข้อกำหนดสิทธิ์ของตนเอง ผู้เผยแพร่ต่อควรเก็บประกาศสิทธิ์ใน Portable
+
 ## นโยบายหลัก
 
 **Default = Commercial-safe-first / Fail-closed สำหรับการแจกจ่ายและการประกาศว่าใช้เชิงพาณิชย์ได้**

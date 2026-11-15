@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased — Chinese TTS `555` laughter after translation
+
+- Fix speech jobs failing when a legacy post-AI `five_run` rule (`555` -> `ฮ่า ฮ่า ฮ่า`) injects Thai pronunciation into a translated Chinese sentence routed to MeloTTS Chinese. Confirmed sherpa-onnx previously ignored the Thai codepoints, failed to generate token IDs and returned 0 Hz/empty audio. Seed 100 was not responsible.
+- Resolve the actual speech language after AI translation but before shared post-AI rules; map the legacy Thai `555` laughter to speech-safe Chinese `哈哈哈`, Japanese `ははは`, Korean `하하하`, and other language-appropriate approximations without changing Thai reading or subtitle display. Respect explicit TTS `language` when supplied.
+- Support optional `spoken_by_language` overrides on post-AI replacement rules for user-defined pronunciations. Avoid modifying non-laugh user replacements. Add regression tests for original Thai text, Chinese translation, numeric five-run boundaries, language overrides and real MeloTTS output (Seed 100).
+
+## Unreleased — Chinese, Korean and 31-language local CPU models
+
+- Register two new data-only ONNX voice adapters: MeloTTS Chinese (Mandarin, 44.1 kHz) and sherpa-onnx Supertonic 3 (31 languages including Korean, 44.1 kHz). Both work through the existing per-mode language routing and VoiceEngine render/queue API; model weights are independent optional .vwmodel packages.
+- Expose an explicit per-voice language mapping so one Supertonic engine can select Korean/English/Japanese/etc. by language without colliding with Kokoro voice prefixes. Fix pybind11 GenerationConfig.extra assignment (mutating the returned dict silently lost the language code).
+- Preserve existing Thai/English/Japanese routes, add zh/ko routes to the local development settings, expand language picker to Supertonic's 31 codes, and add unit and UI regression tests. Other languages require explicit routing for scripts that cannot be confidently identified automatically.
+- Distribute model license notices in each optional package. Supertonic 3 uses OpenRAIL-M with additional restrictions, not an unconditional MIT license. Avoid noncommercial-only Korean Piper KSS voice (training data CC BY-NC-SA). Model rights remain review_required and assets are not included in the main ZIP.
+
+## Unreleased — Kokoro Japanese G2P hotfix
+
+- Fix Japanese Kokoro voices spelling kanji as repeated "Chinese letter" / "Japanese letter" even with a correct Japanese voice. The `kokoro-onnx==0.6.0` text frontend uses eSpeak, which is not suitable for Japanese kanji. Japanese voices now use Misaki 0.8.0 with UniDic Lite for G2P and call `Kokoro.create(..., is_phonemes=True)`; other languages keep their existing paths.
+- Include optional Japanese G2P dependencies, Portable build prerequisite validation and a Japanese WAV smoke test. Missing Japanese G2P fails explicitly rather than falling back to eSpeak.
+- Retain the prior language-route fix so an English sender name cannot override the Japanese voice for a short Japanese comment. Verify `多分殻ごと食ってるもんね` with the installed Kokoro INT8 model.
+
 ## 0.9.0 — Structured AI, M2M100 safeguards, Ollama Speech scaffold and Live FIFO/random queues (16 November 2026)
 
 - Ensure manual speech-preview Submit does not silently erase Live pending items: requeue an interrupted active item at the front, hold auto-read until the manual preview is played, then resume FIFO. Remove the fixed 12-item browser auto-read and 40-item server source backlog overflow policies. Keep accepted comments in FIFO order until read, explicit Reset, or Stop. Read-history display limits remain independent; accepted messages are no longer dropped solely because text-to-speech is slower than chat.

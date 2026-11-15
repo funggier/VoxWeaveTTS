@@ -364,46 +364,65 @@ def refresh_engine_registry() -> None:
 
 
 def _register_model_packages(registry: EngineRegistry) -> None:
-    """A package selects an existing adapter, never imports package code."""
+    """A package selects an existing trusted adapter, never imports pack code."""
+    allowed = {"vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1",
+               "sherpa-supertonic-v1", "sherpa-melo-zh-v1"}
     for manifest, model_dir in installed_packages():
-        if manifest["engine_adapter"] not in ("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1"):
+        if manifest["engine_adapter"] not in allowed:
             continue
         engine_id = engine_id_for(manifest)
         voices = tuple((entry["id"], entry["label"]) for entry in manifest["voices"])
         label = manifest["title"] + " · " + manifest["version"]
         commercial = manifest["license"]["review_status"]
         adapter = manifest["engine_adapter"]
+
         def description(engine_id=engine_id, voices=voices, model_dir=model_dir,
                         label=label, commercial=commercial, manifest=manifest,
                         adapter=adapter):
-            ready = all((model_dir / file["path"]).is_file() and
-                        (model_dir / file["path"]).stat().st_size == file["size"]
-                        for file in manifest["files"])
+            ready = all((model_dir / row["path"]).is_file()
+                        and (model_dir / row["path"]).stat().st_size == row["size"]
+                        for row in manifest["files"])
             is_vachana = adapter == "vachana-onnx-v1"
             is_kokoro = adapter == "kokoro-onnx-v1"
+            is_sherpa = adapter in ("sherpa-supertonic-v1", "sherpa-melo-zh-v1")
             flags = dict(_vachana_descriptor().capabilities if is_vachana
                          else engine_info().capabilities)
-            if is_kokoro:
-                from .kokoro_engine import runtime_ready as kokoro_runtime_ready
+            if is_kokoro or is_sherpa:
                 flags.update({"seed_control": False, "voice_cloning": False,
                               "phoneme_dictionary": False})
+            if is_kokoro:
+                from .kokoro_engine import runtime_ready as adapter_ready
+            elif is_sherpa:
+                from .sherpa_voice_engine import runtime_ready as adapter_ready
+            elif is_vachana:
+                adapter_ready = vachana_runtime_ready
+            else:
+                adapter_ready = runtime_ready
             return EngineInfo(
-                id=engine_id, label=label, language="multi" if is_kokoro else "th",
+                id=engine_id, label=label, language=manifest["language"],
                 voice_id=voices[0][0], voice_options=voices,
-                sample_rate=VACHANA_RATE if is_vachana else SAMPLE_RATE,
-                assets_ready=ready,
-                runtime_ready=(kokoro_runtime_ready() if is_kokoro else
-                               vachana_runtime_ready() if is_vachana else runtime_ready()),
-                capabilities=flags,
-                commercial_status=commercial,
+                voice_language_map=({voice_id: voice_id[:2] for voice_id, _ in voices}
+                                    if adapter == "sherpa-supertonic-v1" else {}),
+                sample_rate=manifest["sample_rate"],
+                assets_ready=ready, runtime_ready=adapter_ready(),
+                capabilities=flags, commercial_status=commercial,
             )
+
         voice_assets = {voice["id"]: voice["asset"] for voice in manifest["voices"]}
+
         def create(seed: int, engine_id=engine_id, model_dir=model_dir,
                    voices=voices, voice_assets=voice_assets, adapter=adapter):
             if adapter == "kokoro-onnx-v1":
                 from .kokoro_engine import KokoroOnnxEngine
                 return KokoroOnnxEngine(model_dir=model_dir, engine_id=engine_id,
                                        voices=voices)
+            if adapter in ("sherpa-supertonic-v1", "sherpa-melo-zh-v1"):
+                from .sherpa_voice_engine import SherpaVoiceEngine
+                return SherpaVoiceEngine(
+                    model_dir=model_dir, engine_id=engine_id,
+                    adapter=adapter, voices=voices,
+                    sample_rate=44_100,
+                )
             if adapter == "fastthaig2p-kokoro-v1":
                 return FastThaiG2PEngine(
                     seed=seed, model_dir=model_dir, engine_id=engine_id,

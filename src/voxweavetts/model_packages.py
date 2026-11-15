@@ -30,8 +30,8 @@ _PACKAGE_ID = re.compile(r"[a-z][a-z0-9_-]{1,47}\Z")
 _VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
 _VOICE = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{0,63}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
-_EXTENSIONS = frozenset((".onnx", ".json", ".npy", ".bin", ".txt", ".md"))
-_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1"))
+_EXTENSIONS = frozenset((".onnx", ".json", ".npy", ".bin", ".txt", ".md", ".fst", ".utf8"))
+_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1", "sherpa-supertonic-v1", "sherpa-melo-zh-v1"))
 _LOCK = threading.RLock()
 _DIALOG_LOCK = threading.Lock()
 
@@ -120,8 +120,9 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
     if not isinstance(manifest["title"], str) or not 1 <= len(manifest["title"]) <= 100:
         raise ModelPackageError("invalid model title")
     adapter = manifest["engine_adapter"]
-    expected_rate = 22_050 if adapter == "vachana-onnx-v1" else 24_000
-    expected_language = "multi" if adapter == "kokoro-onnx-v1" else "th"
+    expected_rate = {"vachana-onnx-v1": 22_050, "sherpa-melo-zh-v1": 44_100, "sherpa-supertonic-v1": 44_100}.get(adapter, 24_000)
+    expected_language = ("multi" if adapter in ("kokoro-onnx-v1", "sherpa-supertonic-v1")
+                         else "zh" if adapter == "sherpa-melo-zh-v1" else "th")
     if manifest["language"] != expected_language or type(manifest["sample_rate"]) is not int or manifest["sample_rate"] != expected_rate:
         raise ModelPackageError("unsupported sample rate/language for this adapter")
     lic = manifest["license"]
@@ -162,6 +163,13 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         if adapter == "kokoro-onnx-v1":
             if asset != "voices-v1.0.bin" or not re.fullmatch(r"[abefhijpz][fm]_[a-z][a-z0-9_]*", identifier):
                 raise ModelPackageError("unsupported Kokoro voice asset or identifier")
+        elif adapter == "sherpa-supertonic-v1":
+            from .sherpa_voice_engine import SUPER_LANGUAGES
+            if asset != "voice.bin" or not re.fullmatch(r"[a-z]{2}_s[01]", identifier) or identifier[:2] not in SUPER_LANGUAGES:
+                raise ModelPackageError("unsupported Supertonic voice mapping")
+        elif adapter == "sherpa-melo-zh-v1":
+            if asset != "model.onnx" or identifier != "zh_melo":
+                raise ModelPackageError("unsupported Chinese Melo voice mapping")
         else:
             required_extension = ".onnx" if adapter == "vachana-onnx-v1" else ".npy"
             if not asset.startswith("voices/") or not asset.endswith(required_extension) or asset.lower() in seen_paths:
@@ -184,6 +192,8 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         total += entry["size"]
     required_files = (("speaker_config.json",) if adapter == "vachana-onnx-v1" else
                       ("kokoro-v1.0.int8.onnx", "voices-v1.0.bin") if adapter == "kokoro-onnx-v1" else
+                      ("duration_predictor.int8.onnx", "text_encoder.int8.onnx", "vector_estimator.int8.onnx", "vocoder.int8.onnx", "tts.json", "unicode_indexer.bin", "voice.bin") if adapter == "sherpa-supertonic-v1" else
+                      ("model.onnx", "tokens.txt", "lexicon.txt") if adapter == "sherpa-melo-zh-v1" else
                       ("config.json", "kokoro_thai.onnx"))
     if total > PACKAGE_LIMIT or not all(name in file_index for name in required_files):
         raise ModelPackageError("model exceeds size limit or has no speaker config")

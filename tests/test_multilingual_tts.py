@@ -27,6 +27,69 @@ class LanguageRoutingTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(detect_language(text), expected)
 
+    def test_latin_sender_name_must_not_override_japanese_voice(self):
+        # A short Japanese comment with a long Latin display name used to
+        # route to the English voice, producing "Japanese letter" repeatedly.
+        text = "VeryLongDisplayName writes: じゃない"
+        self.assertEqual(detect_language(text), "ja")
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "routes.json"
+            with patch("voxweavetts.language_routes.voice_languages",
+                       side_effect=lambda _engine, voice: {"ja"} if voice.startswith("j") else {"en"}):
+                save_routes({"expected_revision": 0, "routes": {
+                    "en": {"engine_id": "shared-kokoro", "voice_id": "af_heart"},
+                    "ja": {"engine_id": "shared-kokoro", "voice_id": "jf_nezumi"},
+                }}, path)
+            self.assertEqual(choose_route(text, path=path)[1]["voice_id"], "jf_nezumi")
+            self.assertEqual(choose_route("Hello world", path=path)[1]["voice_id"], "af_heart")
+            self.assertEqual(choose_route(text, language="en", path=path)[1]["voice_id"], "af_heart")
+
+    def test_kokoro_switches_phonemizer_language_with_voice(self):
+        from voxweavetts.kokoro_engine import KokoroOnnxEngine
+
+        class RecordingNative:
+            def __init__(self):
+                self.calls = []
+
+            def create(self, text, *, voice, speed, lang, is_phonemes=False):
+                self.calls.append((text, voice, lang, is_phonemes))
+                return [0.0], 24_000
+
+        engine = KokoroOnnxEngine(
+            model_dir=Path("unused"), engine_id="shared-kokoro",
+            voices=(("jf_nezumi", "Japanese"), ("af_heart", "English")))
+        native = RecordingNative()
+        engine._native = native
+        with (patch("voxweavetts.kokoro_engine.runtime_ready", return_value=True),
+              patch.object(engine, "_japanese_phonemes", side_effect=["ɲippon", "ʥa nai"]),
+              patch("voxweavetts.speech._float32_to_pcm", return_value=b"\x00\x00")):
+            engine.select_voice("jf_nezumi")
+            engine.generate("日本", 1.0)
+            engine.select_voice("af_heart")
+            engine.generate("Hello", 1.0)
+            engine.select_voice("jf_nezumi")
+            engine.generate("じゃない", 1.0)
+        self.assertEqual(native.calls, [
+            ("ɲippon", "jf_nezumi", "ja", True),
+            ("Hello", "af_heart", "en-us", False),
+            ("ʥa nai", "jf_nezumi", "ja", True),
+        ])
+
+    def test_real_japanese_g2p_does_not_spell_kanji_letter_names(self):
+        from importlib.util import find_spec
+        if not all(find_spec(name) for name in ("misaki", "fugashi", "unidic_lite")):
+            self.skipTest("optional Japanese G2P is not installed")
+        from voxweavetts.kokoro_engine import KokoroOnnxEngine
+        engine = KokoroOnnxEngine(
+            model_dir=Path("unused"), engine_id="shared-kokoro",
+            voices=(("jf_nezumi", "Japanese"),))
+        phones = engine._japanese_phonemes("多分殻ごと食ってるもんね")
+        self.assertIn("ta", phones)
+        self.assertNotIn("Chinese", phones)
+        self.assertNotIn("Japanese", phones)
+        self.assertNotIn("(en)", phones)
+        self.assertTrue(phones.strip())
+
     def test_save_reload_revision_and_route(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "voices.json"

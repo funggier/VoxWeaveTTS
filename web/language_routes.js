@@ -10,6 +10,8 @@ function attach(document, fetcher){
     return ({a:"en",b:"en",e:"es",f:"fr",h:"hi",i:"it",j:"ja",p:"pt"})[family]||"";
   };
   const supports=(engine,voice,language)=>
+    engine?.voice_language_map&&Object.keys(engine.voice_language_map).length
+      ?engine.voice_language_map[voice]===language:
     engine.language==="multi"?voiceLanguage(voice)===language:
     engine.language===language;
   function status(message){el("languageRouteStatus").textContent=message;}

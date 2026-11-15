@@ -83,6 +83,52 @@ PACKS = (
         ),
         "additional_training_license": "CC-BY-4.0 (Som TTS dataset)",
     },
+    {
+        "file": "VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
+        "id": "melo-chinese-onnx",
+        "version": "1.0.0",
+        "adapter": "sherpa-melo-zh-v1",
+        "license": "MIT",
+        "source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models",
+        "pinned_revision": "vits-melo-tts-zh_en (converted from MyShell.ai MeloTTS Chinese)",
+        "assets": {
+            "model.onnx": "bf30582eb1b012250a35b1a4a80e7dfbcf8485e7bb9de0d95efbbeef0e4ad86d",
+            "tokens.txt": "d18664a7e12bd7ea1022ddaf951e534e136815016c5a809d6b64156bffb4369d",
+            "lexicon.txt": "7236884b02435ac5d10cf69b4be40a61b45aa676b5300f0e412f185748fee528",
+        },
+        "notices": ("legal/license.txt", "legal/attribution.md"),
+        "conditions": (
+            "MeloTTS Chinese / MyShell.ai model card reports MIT. "
+            "ONNX conversion by k2-fsa/sherpa-onnx; voice/data provenance "
+            "has not been independently audited for commercial redistribution."
+        ),
+        "additional_training_license": None,
+    },
+    {
+        "file": "VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
+        "id": "supertonic3-multilingual-int8",
+        "version": "1.0.0",
+        "adapter": "sherpa-supertonic-v1",
+        "license": "OpenRAIL-M",
+        "source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models",
+        "pinned_revision": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11",
+        "assets": {
+            "duration_predictor.int8.onnx": "c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db",
+            "text_encoder.int8.onnx": "c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff",
+            "vector_estimator.int8.onnx": "20cd86fa5c6effedfda0e7cffe5b0569ca401c440a0c3a1d72bf39286c0db3fd",
+            "vocoder.int8.onnx": "e923d60f53f95eb1ce235f1dc33ec56d9c057823c96fa6f8acf98f32b0da6152",
+            "tts.json": "42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09",
+            "unicode_indexer.bin": "8402ca48e5189a8950138580b0fff64db6f072f24ac07cd54ba8b2fbb9883b30",
+            "voice.bin": "67d5209b0ee8ce6c74105ffbe12fe6a7628aea3b4ba2fcb308a4a67938a93ce8",
+        },
+        "notices": ("legal/license.txt", "legal/conversion-license.txt", "legal/attribution.md"),
+        "conditions": (
+            "Supertone Supertonic 3 is under BigScience OpenRAIL-M with use-based restrictions; "
+            "its model weights are NOT blanket MIT. k2-fsa CPU ONNX conversion. "
+            "Follow enclosed full license; training and voice rights not independently certified."
+        ),
+        "additional_training_license": None,
+    },
 )
 
 
@@ -93,7 +139,7 @@ def sha256_stream(handle) -> str:
     return digest.hexdigest()
 
 
-def verify_one(package_spec: dict, *, release_tag: str = "v0.9.0") -> dict:
+def verify_one(package_spec: dict, *, release_tag: str = "v0.9.1") -> dict:
     file = ROOT / "dist" / "ModelPackages" / package_spec["file"]
     if not file.is_file():
         raise ValueError(f"missing package: {file}")
@@ -154,7 +200,7 @@ def verify_one(package_spec: dict, *, release_tag: str = "v0.9.0") -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write-catalog", action="store_true")
-    parser.add_argument("--release-tag", default="v0.9.0")
+    parser.add_argument("--release-tag", default="v0.9.1")
     args = parser.parse_args()
     items = []
     for source in PACKS:

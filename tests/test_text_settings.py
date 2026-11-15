@@ -130,6 +130,10 @@ class TextSettingsTests(unittest.TestCase):
 class TextSettingsHttpTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        from voxweavetts.ai_processing import DEFAULTS
+        cls.ai_patch = patch("voxweavetts.server.load_ai_settings",
+                             return_value={"settings": DEFAULTS})
+        cls.ai_patch.start()
         cls.server=ThreadingHTTPServer(("127.0.0.1",0),Handler)
         cls.thread=threading.Thread(target=cls.server.serve_forever,daemon=True)
         cls.thread.start()
@@ -140,6 +144,7 @@ class TextSettingsHttpTests(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
         cls.thread.join(3)
+        cls.ai_patch.stop()
 
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()

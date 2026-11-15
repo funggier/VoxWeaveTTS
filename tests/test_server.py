@@ -9,6 +9,13 @@ from voxweavetts.speech import engine_info, list_engine_info
 class ServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # General API tests are independent of the user's active AI setting.
+        # Otherwise a real translation request may replace the asserted text.
+        from unittest.mock import patch
+        from voxweavetts.ai_processing import DEFAULTS
+        cls.ai_patch = patch("voxweavetts.server.load_ai_settings",
+                             return_value={"settings": DEFAULTS})
+        cls.ai_patch.start()
         cls.server=ThreadingHTTPServer(("127.0.0.1",0),Handler)
         cls.thread=threading.Thread(target=cls.server.serve_forever,daemon=True)
         cls.thread.start()
@@ -19,6 +26,7 @@ class ServerTests(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
         cls.thread.join(timeout=3)
+        cls.ai_patch.stop()
 
     def test_status(self):
         with urlopen(self.base+"/v1/status",timeout=3) as r:
@@ -71,11 +79,17 @@ class ServerTests(unittest.TestCase):
                 self.assertEqual(response.read(),sample)
 
     def test_unknown_voice_rejected_without_model(self):
+        from unittest.mock import patch
         from urllib.error import HTTPError
         payload=json.dumps({"text":"hello","voice_id":"not-a-voice"}).encode("utf-8")
         req=Request(self.base+"/v1/speech",data=payload,headers={"Content-Type":"application/json"},method="POST")
-        with self.assertRaises(HTTPError) as err:
-            urlopen(req,timeout=3)
+        # A developer may have enabled a Japanese/Korean route locally;
+        # that routing intentionally overrides the submitted default voice.
+        # Isolate this validation test from persistent workstation settings.
+        with patch("voxweavetts.server.load_workspace_settings",
+                   return_value={"language_routes": {}}):
+            with self.assertRaises(HTTPError) as err:
+                urlopen(req,timeout=3)
         self.assertEqual(err.exception.code,400)
         err.exception.close()
 
@@ -91,7 +105,8 @@ class ServerTests(unittest.TestCase):
 
         with TemporaryDirectory() as path, patch.object(
             server, "SYNTHESIS_SETTINGS", Path(path) / "data" / "settings" / "synthesis.json"
-        ):
+        ), patch("voxweavetts.server.load_workspace_settings",
+                 return_value={"language_routes": {}}):
             with urlopen(self.base + "/v1/settings/synthesis", timeout=3) as response:
                 self.assertEqual(json.load(response), {"seed": 100})
 

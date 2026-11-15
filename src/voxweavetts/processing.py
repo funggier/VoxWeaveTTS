@@ -14,6 +14,15 @@ MAX_SILENCE_MS = 10_000
 # Predefined, bounded pattern; it is not arbitrary user-supplied regex.
 # Exclude digit sequences within larger numbers and decimal/grouped numbers.
 _FIVE_RUN = re.compile(r'(?<!\d)(?<!\d[.,])5{3,}(?!\d)(?![.,]\d)')
+# These are spoken laugh approximations, NOT language translation. Only the
+# known legacy Thai 555 rule is localized; arbitrary user replacements remain
+# exactly as specified unless spoken_by_language explicitly overrides them.
+_FIVE_LAUGH = {
+    "zh": "哈哈哈", "ja": "ははは", "ko": "하하하", "en": "ha ha ha",
+    "hi": "हा हा हा", "ru": "ха ха ха", "uk": "ха ха ха",
+    "bg": "ха ха ха", "ar": "ها ها ها", "el": "χα χα χα",
+}
+_THAI_FIVE_LAUGHS = frozenset({"ฮ่า ฮ่า ฮ่า", "ฮ่าฮ่าฮ่า", "ฮ่าๆ", "ฮ่า ฮ่า"})
 
 
 class InputError(ValueError):
@@ -38,6 +47,7 @@ class Rule:
     sources: tuple[str, ...] = ()
     match_mode: str = "literal"
     stage: str = "post_ai"
+    spoken_by_language: tuple[tuple[str, str], ...] = ()
 
     @classmethod
     def parse(cls, raw: Any) -> "Rule":
@@ -62,6 +72,17 @@ class Rule:
         spoken = raw.get("spoken")
         if spoken is not None:
             spoken = _text(spoken, "spoken", 500)
+        localized = raw.get("spoken_by_language", {})
+        if (not isinstance(localized, Mapping) or len(localized) > 48
+                or any(not isinstance(lang, str) or not re.fullmatch(r"[a-z]{2}", lang)
+                       for lang in localized)):
+            raise InputError("spoken_by_language must map 2-letter language codes")
+        spoken_by_language = tuple(
+            (lang, _text(translation, "localized spoken", 500))
+            for lang, translation in localized.items()
+        )
+        if (mode != "replace" or stage != "post_ai") and spoken_by_language:
+            raise InputError("localized spoken text is only valid for post-AI replacement")
         display = raw.get("display")
         if display is not None:
             display = _text(display, "display", 500)
@@ -73,7 +94,8 @@ class Rule:
             isinstance(v, str) and 0 < len(v) <= 64 for v in sources
         ):
             raise InputError("sources must be a list of non-empty short strings")
-        return cls(match, mode, spoken, display, duration, tuple(sources), match_mode, stage)
+        return cls(match, mode, spoken, display, duration, tuple(sources),
+                   match_mode, stage, spoken_by_language)
 
     def applies_to(self, source: str) -> bool:
         return not self.sources or source in self.sources
@@ -128,12 +150,16 @@ def process_text(
     rules: list[dict[str, Any]] | list[Rule] | None = None,
     pronunciations: dict[str, str] | None = None,
     source: str = "manual",
+    language: str | None = None,
 ) -> dict[str, Any]:
     """Create a speech plan and a separately masked subtitle string."""
     text = _text(text, "text", MAX_TEXT)
     source = _text(source, "source", 64)
     if not source:
         raise InputError("source cannot be empty")
+    if language is not None and (not isinstance(language, str)
+                                 or not re.fullmatch(r"[a-z]{2}", language)):
+        raise InputError("invalid speech replacement language")
     rules = [] if rules is None else rules
     active = (
         rules if all(isinstance(rule, Rule) for rule in rules) else parse_rules(rules)
@@ -181,6 +207,13 @@ def process_text(
         end = index + len(matched)
         if rule.mode == "replace":
             spoken = matched if rule.spoken is None else rule.spoken
+            if language:
+                overrides = dict(rule.spoken_by_language)
+                if language in overrides:
+                    spoken = overrides[language]
+                elif (rule.stage == "post_ai" and rule.match_mode == "five_run"
+                      and spoken in _THAI_FIVE_LAUGHS and language != "th"):
+                    spoken = _FIVE_LAUGH.get(language, "ha ha ha")
             display = matched if rule.display is None else rule.display
             add_segment("speech", apply_pronunciations(spoken, pronunciations),
                         display, index, end)

@@ -1,12 +1,14 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**Windows Portable v0.9.1 (ครบชุด):** แก้ Kokoro ญี่ปุ่นด้วย Misaki G2P, เพิ่มเสียงจีน MeloTTS และเกาหลี/ภาษาอื่นจาก Supertonic 3, แก้การแปลเป็นจีนที่มี `555` แล้วงานเสียงล้มเหลว, กำหนดเสียงแยกภาษาโดยไม่สับสน และคงความสามารถคิว LIVE/AI จาก v0.9.0 ดาวน์โหลด Portable, โมเดล TTS 5 ชุด, M2M100, TikTok Extension และ SHA-256 ได้ในหน้าเดียว [Release v0.9.1](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.1) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.1.md)
+
 **Windows Portable v0.9.0 (Release ครบชุด):** แก้ Firefox Auto-play ให้เก็บคิว, ให้ YouTube LIVE (Browser) **เลือก Top chat/Live chat เอง**, ถอดเพดานคิวรอ 12/40 ที่เคยทำให้ข้ามข้อความ, เพิ่ม **สุ่มลดคิวเมื่อสะสมมากเกินกำหนด** (ค่าเริ่มต้นปิด; เกิน 20 สุ่มเก็บ 5), เพิ่ม **รีเซ็ตคิวข้อความ** โดยไม่ขัดจังหวะเสียงที่กำลังทำงาน, ปรับ AI Translation/Custom Prompt และ M2M100 เป็นโครงสร้าง รวมทั้ง Ollama Speech Adapter ทดลอง. **ดาวน์โหลด Portable + แพ็กโมเดล 4 ชุด + TikTok Extension + SHA256 ได้ใน Release เดียว** [ดาวน์โหลด v0.9.0](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.0) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.0.md) · [คู่มือคิว](docs/LIVE_QUEUE_POLICY_TH.md)
 
 **Windows Portable v0.8.0 — Multilingual TTS และการกำหนดเสียงตามภาษา:** เพิ่ม Kokoro-82M INT8 CPU แบบ `.vwmodel` พร้อมเสียงเลือกได้ 18 แบบใน 7 ภาษา (EN/ES/FR/HI/IT/JA/PT); กำหนด Engine/Voice ตามภาษาได้, ขยายภาษาของ AI Translation และเพิ่มการติดตั้ง/ถอน AI Package และ M2M100 รุ่นเดิมจาก UI โดยไม่ลบโมเดลเดิมอัตโนมัติ [รายละเอียดและข้อจำกัด](docs/MULTILINGUAL_TTS_TH.md)
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.9.0** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.9.1** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
 ## ปรับปรุงการแปลภาษาสำหรับ LLM ขนาดเล็ก (รวมใน v0.9.0)
 
@@ -21,6 +23,20 @@
 เพิ่ม `ollama-speech` เป็น Voice Engine Adapter แบบ **ปิดไว้ก่อน** ใน Engine Registry เชื่อม WAV/PCM16 24kHz กับคิวเสียงและ Subtitle เดิม มีการตรวจโมเดล `speech` ผ่าน Metadata ของ Ollama แต่ **ไม่ดาวน์โหลดโมเดลและยังไม่มี UI สำหรับตั้งค่าโดยตรง** เหมาะกับการเตรียมโครงสร้างรองรับ Speech Server ผ่าน Loopback/Private LAN ที่รองรับจริง โดยยังไม่ใช่การรับรอง Ollama Speech บน Windows อ่าน [คู่มือ Ollama Speech](docs/OLLAMA_SPEECH_ADAPTER_TH.md)
 
 ปรับ **M2M100** ให้ใช้ Structured Pipeline ฝั่งโปรแกรมเพื่อกำหนดภาษาต้นทาง แบ่งข้อความโดยไม่ตัดหาย ตรวจผลแปล และรองรับ Bypass ความหมาย/ภาษา การทดสอบด้วยน้ำหนักจริงยังผิดความหมาย 2/3 ตัวอย่างตามเดิม จึงไม่ควรคาดหวังว่าความแม่นยำดีขึ้นเพียงเพราะเพิ่มโครงสร้าง อ่าน [คู่มือ M2M100](docs/M2M100_SETUP_TH.md)
+
+## แก้ `555` ทำให้งานเสียงจีนล้มเหลว (รวมใน v0.9.1)
+
+กรณีแปลไทยเป็นจีนแล้วมีตัวเลขหัวเราะ `555` ในคำแปล กฎหลังแปลเดิมอาจแทนด้วย `ฮ่า ฮ่า ฮ่า` ทำให้ MeloTTS Chinese ไม่สามารถสร้างเสียงได้ ตอนนี้ระบบเลือกคำอ่านหัวเราะตามภาษาที่ใช้สังเคราะห์เสียง เช่น จีน `哈哈哈`, ญี่ปุ่น `ははは`, เกาหลี `하하하`, ไทยยังคง `ฮ่า ฮ่า ฮ่า` และสามารถระบุ `spoken_by_language` ใน JSON Rules ได้ ตรวจด้วยโมเดลจีนจริงและ Seed 100 แล้ว โดยไม่แก้ค่าตั้งเสียงของคุณ ดู [คู่มือโมเดลหลายภาษา](docs/MULTILINGUAL_31_LANG_TH.md)
+
+## เพิ่มจีน เกาหลี และโมเดลรองรับรวม 31 ภาษา (รวมใน v0.9.1)
+
+เพิ่ม MeloTTS Chinese ONNX สำหรับจีนกลาง และ Supertonic 3 ONNX สำหรับเกาหลีและอีก 30 ภาษา ผ่าน Engine Registry/`.vwmodel` ที่แยกติดตั้งได้ โดยมี Runtime `sherpa-onnx==2.0.1` ใช้ CPU ได้ เพิ่มการเลือก Voice/Language รายภาษาและการทดสอบ WAV จริงใน `scripts/verify_portable_multilingual.py` สำหรับภาษาอื่น ๆ ที่ใช้ตัวอักษรละตินหรือซีริลลิกเดียวกัน ต้องกำหนดภาษาเอง ไม่สามารถเดาจากตัวอักษรได้แน่นอน ดู [การติดตั้งและข้อจำกัดของโมเดลใหม่](docs/MULTILINGUAL_31_LANG_TH.md)
+
+**สิทธิ์:** MeloTTS Chinese model card ระบุ MIT; Supertonic 3 ใช้ OpenRAIL-M (มีข้อห้ามการใช้บางประเภท) จึงเป็นโมเดลเสริมที่ต้องตรวจเงื่อนไขก่อนเผยแพร่และใช้งานเชิงพาณิชย์ ไม่มีการใช้ Korean Piper KSS ซึ่งข้อมูลฝึกมี CC BY-NC-SA
+
+## แก้ Kokoro อ่านญี่ปุ่นเป็นชื่ออักษร (รวมใน v0.9.1)
+
+พบว่าการเลือกเสียงญี่ปุ่น `j*` ถูกต้องอย่างเดียวไม่พอ เพราะ `kokoro-onnx` ส่งข้อความคันจิผ่าน eSpeak ทำให้ได้เสียง “Chinese letter / Japanese letter” ซ้ำ ๆ แก้เส้นทางญี่ปุ่นใน Source ให้ใช้ Misaki G2P และ `is_phonemes=True` โดยไม่เปลี่ยนพฤติกรรมเสียงอังกฤษ; ต้องมี `misaki[ja]==0.8.0` และ `unidic-lite==1.0.8` ใน Runtime ด้วย **v0.9.1 รวมการแก้ไขนี้และติดตั้ง Japanese G2P ไว้ใน Runtime แล้ว** ดู [คู่มือภาษาและการติดตั้ง](docs/MULTILINGUAL_TTS_TH.md)
 
 ## โมเดลเสียงหลายภาษาและค่าปรับเสียงแยกภาษา — Release v0.8.0
 
@@ -72,7 +88,7 @@
 
 ## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
 
-1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.6.0-portable.zip`
+1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.9.1-portable.zip`
 2. แตก ZIP **ทั้งโฟลเดอร์** ไปยังที่เขียนไฟล์ได้ เช่น `T:\\Apps\\VoxWeaveTTS` อย่าเปิด EXE จากใน ZIP
 3. เปิด `VoxWeaveTTS.exe` จะมีหน้าต่างควบคุมและเปิด Browser เริ่มต้น (Firefox/Chrome) ไปที่ `http://127.0.0.1:8765/` อัตโนมัติ
 4. เลือก Engine **MakHam Paradee** แล้วทดลองพิมพ์ข้อความไทยและสร้าง WAV ได้โดยไม่ต้องโหลดโมเดลเพิ่มเติม

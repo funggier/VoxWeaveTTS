@@ -15,6 +15,10 @@ dependencies = []
 [project.optional-dependencies]
 youtube-stream = ["grpcio>=1.66,<2", "protobuf>=5,<8"]
 kokoro-cpu = ["kokoro-onnx==0.6.0"]
+# Kokoro ONNX by itself uses eSpeak for Japanese and spells kanji as
+# "Chinese letter"; Japanese voices require model-native Misaki phonemes.
+kokoro-ja = ["kokoro-onnx==0.6.0", "misaki[ja]==0.8.0", "unidic-lite==1.0.8"]
+multilingual-cpu = ["sherpa-onnx==2.0.1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
