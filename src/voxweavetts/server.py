@@ -64,7 +64,7 @@ from .model_packages import (
 from .manual_alignment import timing_metrics
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
-from .mode_voice_settings import load_workspace_settings, save_workspace_settings
+from .mode_voice_settings import load_workspace_settings, save_workspace_settings, VOICE_MODES
 from .language_routes import load_routes, save_routes, choose_route, LANGUAGES
 from .speech_coordinator import (
     SpeechCoordinator, QueueFull, JobMissing, JobNotReady, AlignmentConflict, EVENT_SCHEMA_VERSION,
@@ -238,15 +238,22 @@ class Handler(BaseHTTPRequestHandler):
         central = _read_global_voice()["settings"] or {}
         engine_id = data.get("engine_id", central.get("engine_id", ENGINE_ID))
         voice_id_override = None
-        requested_language = data.get("language")
-        if requested_language is None:
-            ai = load_ai_settings()["settings"]
-            if (ai["enabled"] and ai["operation"] == "translate"
-                    and ai["target_language"] != "unspecified"):
-                requested_language = ai["target_language"]
-        language, route = choose_route(plan.get("spoken_text", ""), language=requested_language)
-        if route is not None:
-            engine_id, voice_id_override = route["engine_id"], route["voice_id"]
+        # The per-workspace checkbox controls whether shared language routes
+        # override that workspace's default Engine/Model and voice.
+        workspace = data.get("mode", "studio")
+        if not isinstance(workspace, str) or workspace not in VOICE_MODES:
+            raise InputError("unknown speech workspace mode")
+        if load_workspace_settings()["language_routes"].get(workspace, False):
+            requested_language = data.get("language")
+            if requested_language is None:
+                ai = load_ai_settings()["settings"]
+                if (ai["enabled"] and ai["operation"] == "translate"
+                        and ai["target_language"] != "unspecified"):
+                    requested_language = ai["target_language"]
+            _language, route = choose_route(
+                plan.get("spoken_text", ""), language=requested_language)
+            if route is not None:
+                engine_id, voice_id_override = route["engine_id"], route["voice_id"]
         info = get_engine_info(engine_id)
         default_voice = central.get("voice_id") if central.get("engine_id") == engine_id else info.voice_id
         voice_id = voice_id_override or data.get("voice_id", default_voice)

@@ -33,20 +33,20 @@ class LanguageRoutingTests(unittest.TestCase):
             with patch("voxweavetts.language_routes.voice_languages",
                        return_value={"en"}):
                 saved = save_routes({
-                    "expected_revision": 0, "enabled": True,
+                    "expected_revision": 0,
                     "routes": {"en": {
                         "engine_id": "model-kokoro-multilingual-int8-1_0_0",
                         "voice_id": "af_heart",
                     }}
                 }, path)
             self.assertEqual(saved["revision"], 1)
+            self.assertNotIn("enabled", saved)
             self.assertEqual(load_routes(path), saved)
             language, voice = choose_route("Hello", path=path)
             self.assertEqual(language, "en")
             self.assertEqual(voice["voice_id"], "af_heart")
             with self.assertRaises(ValueError):
-                save_routes({"expected_revision": 0, "enabled": False,
-                             "routes": {}}, path)
+                save_routes({"expected_revision": 0, "routes": {}}, path)
             with self.assertRaises(InputError):
                 choose_route("Hello", language=[], path=path)
 
@@ -55,7 +55,7 @@ class LanguageRoutingTests(unittest.TestCase):
             with patch("voxweavetts.language_routes.voice_languages",
                        return_value={"th"}):
                 with self.assertRaises(InputError):
-                    save_routes({"expected_revision": 0, "enabled": True,
+                    save_routes({"expected_revision": 0,
                                  "routes": {"fr": {"engine_id": "thai",
                                                     "voice_id": "thai_som"}}},
                                 Path(temp) / "voices.json")

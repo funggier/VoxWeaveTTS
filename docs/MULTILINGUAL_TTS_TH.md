@@ -24,11 +24,12 @@
 
 ## การตั้งค่าอ่านเสียงตามภาษา
 
-1. เข้า **กำหนดโมเดลเสียงตามภาษา (Multilingual TTS)** ในหน้าโปรแกรม
-2. เลือกภาษา → TTS Engine → Voice แล้วกด **กำหนดโมเดลให้ภาษา**
-3. เพิ่มหลายภาษาได้โดยไม่ต้องเปลี่ยน Engine ของโหมด Studio / Reader / Live
-4. ติ๊ก **เปิดการเลือกโมเดลตามภาษา (ทุกโหมด)** และกด **บันทึกการตั้งค่า**
-5. หากภาษาหนึ่งยังไม่ได้กำหนด จะใช้ Engine ที่เลือกไว้ในโหมดนั้นตามปกติ
+1. เข้าแท็บ **โมเดลเสียงตามภาษา** เพื่อกำหนด Engine / Voice แยกตามภาษาเพียงจุดเดียว
+2. เลือกภาษา → TTS Engine → Voice แล้วกด **กำหนดโมเดลให้ภาษา** ภาษาที่กำหนดแล้วจะหายจากช่องเพิ่มภาษา
+3. หากต้องการกำหนดภาษาเดิมใหม่ กดปุ่ม **ลบ** หน้ารายการ จากนั้นภาษาจะกลับมาในช่องเพิ่มภาษา
+4. กด **บันทึกการตั้งค่า** เมื่อเปลี่ยนรายการหรือกดลบ
+5. เปิดโหมดที่ต้องการ เช่น สร้างเสียง อ่านเอกสาร คิว YouTube Discord หรือ TikTok แล้วเปิดหัวข้อ **กำหนดการอ่านข้อความและข้อมูลพิเศษ** จากนั้นเลือก **เปิดใช้การเลือกโมเดลตามภาษา** ของโหมดนั้น (บันทึกอัตโนมัติ)
+6. ในหัวข้อ **ปรับเสียงและโมเดล** ของแต่ละโหมด ช่อง **Default Engine / Model** กำหนดโมเดลสำรองสำหรับโหมดนั้น ซึ่งใช้เมื่อปิดการเลือกโมเดลตามภาษาหรือไม่มีภาษาตรงกับรายการที่กำหนด
 
 ระบบอ่านอักษรของ `spoken_text` หลังผ่าน Rules และ AI Translation ก่อนเลือก Engine
 แต่เป็น **Script Detection ไม่ใช่ Language Classification**: สเปน ฝรั่งเศส อิตาลี
@@ -39,13 +40,15 @@
 
 API:
 
-- `GET /v1/settings/language-routes`: รายชื่อภาษา, revision, enabled, routes
+- `GET /v1/settings/language-routes`: รายชื่อภาษา, revision, routes (ไม่มีสวิตช์ส่วนกลาง)
 - `POST /v1/settings/language-routes` + `X-VoxWeaveTTS-Intent: save-language-routes`
-  Body: `{"expected_revision":0,"enabled":true,"routes":{"th":{"engine_id":"makham-paradee-cpu","voice_id":"paradee_thai"},"fr":{"engine_id":"model-kokoro-multilingual-int8-1_0_0","voice_id":"ff_siwis"}}}`
+  Body: `{"expected_revision":0,"routes":{"th":{"engine_id":"makham-paradee-cpu","voice_id":"paradee_thai"},"fr":{"engine_id":"model-kokoro-multilingual-int8-1_0_0","voice_id":"ff_siwis"}}}`
 - `GET /v1/engines`: Kokoro Engine ประกาศ `language="multi"` และแสดงเสียงทุกตัว
-- `POST /v1/jobs`: ยังคงรูปแบบเดิม; `language` (optional) จะใช้ระบุภาษาเหนือการตรวจอัตโนมัติเมื่อเปิด Routing
+- `GET /v1/settings/mode-voices`: มี `language_routes` เป็นแผนที่ `mode → enabled` สำหรับแต่ละโหมด
+- `POST /v1/settings/mode-voices` + `X-VoxWeaveTTS-Intent: save-mode-voice`: ตั้งค่า `{"expected_revision":0,"mode":"__language_route__","settings":{"source_mode":"live","enabled":true}}`
+- `POST /v1/jobs` และ `/v1/speech`: ส่ง `mode` (เช่น `studio`, `live`, `reader`) เพื่อเลือกสวิตช์ของโหมดนั้น; ไม่ส่งจะถือว่าเป็น `studio` ส่วน `language` เป็นค่า optional สำหรับระบุภาษาเหนือการตรวจอัตโนมัติ
 
-ไฟล์ตั้งค่าอยู่ใน `data/settings/language-voices.json` ใช้พาธสัมพันธ์กับตัวโปรแกรม
+ไฟล์การกำหนดภาษาอยู่ใน `data/settings/language-voices.json` และสวิตช์แต่ละโหมดอยู่ใน `data/settings/mode-voices.json` ซึ่งใช้พาธสัมพันธ์กับตัวโปรแกรม
 และตรวจ revision ก่อนแก้ไขเพื่อป้องกันหน้าเว็บหลายแท็บเขียนทับกัน
 
 ## ติดตั้งและถอนโมเดล

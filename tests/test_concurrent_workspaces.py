@@ -95,6 +95,36 @@ class ConcurrentPlaybackTests(unittest.TestCase):
 
 
 class ModeVoiceSettingsTests(unittest.TestCase):
+    def test_language_routing_toggle_is_per_voice_workspace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mode-voices.json"
+            self.assertEqual(load_workspace_settings(path)["language_routes"], {})
+            updated = save_workspace_settings({
+                "expected_revision": 0, "mode": "__language_route__",
+                "settings": {"source_mode": "live", "enabled": True},
+            }, path)
+            self.assertEqual(updated["language_routes"], {"live": True})
+            self.assertFalse(updated["language_routes"].get("studio", False))
+            updated = save_workspace_settings({
+                "expected_revision": 1, "mode": "__language_route__",
+                "settings": {"source_mode": "reader", "enabled": True},
+            }, path)
+            self.assertEqual(updated["language_routes"], {"live": True, "reader": True})
+            updated = save_workspace_settings({
+                "expected_revision": 2, "mode": "__language_route__",
+                "settings": {"source_mode": "live", "enabled": False},
+            }, path)
+            self.assertFalse(updated["language_routes"]["live"])
+            self.assertTrue(updated["language_routes"]["reader"])
+            for invalid in ({"source_mode": "settings", "enabled": True},
+                            {"source_mode": "studio", "enabled": "yes"}):
+                with self.assertRaises(InputError):
+                    save_workspace_settings({
+                        "expected_revision": 3, "mode": "__language_route__",
+                        "settings": invalid
+                    }, path)
+            self.assertEqual(load_workspace_settings(path), updated)
+
     def test_mode_profiles_persist_independently_and_policy(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/"data"/"settings.json"

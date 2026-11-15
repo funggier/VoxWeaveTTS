@@ -16,6 +16,7 @@ const MODES=Object.freeze([
   {id:"discord_client",label:"Discord Client"},
   {id:"queue",label:"คิวและ Subtitle"},
   {id:"rules",label:"คำอ่านและกฎ"},
+  {id:"language_routes",label:"โมเดลเสียงตามภาษา"},
   {id:"settings",label:"ตั้งค่ากลาง"},
 ]);
 function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,pollMs=1200}){

@@ -102,7 +102,7 @@ def validate_voice_profile(raw: Any) -> dict[str, Any]:
 def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
     with _LOCK:
         if not path.is_file():
-            return {"revision": 0, "policy": "serial", "modes": {}, "sender_names": {}, "speech_formats": {}}
+            return {"revision": 0, "policy": "serial", "modes": {}, "sender_names": {}, "speech_formats": {}, "language_routes": {}}
         try:
             if path.stat().st_size > 96_000:
                 raise InputError("workspace settings file too large")
@@ -110,7 +110,7 @@ def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
         except (OSError, ValueError) as exc:
             raise InputError("invalid workspace voice settings file") from exc
         if (not isinstance(doc, dict) or not {"revision", "policy", "modes"} <= set(doc)
-            or set(doc) - {"revision", "policy", "modes", "sender_names", "speech_formats"}
+            or set(doc) - {"revision", "policy", "modes", "sender_names", "speech_formats", "language_routes"}
             or type(doc["revision"]) is not int or doc["revision"] < 0
             or doc["policy"] not in AUDIO_POLICIES or not isinstance(doc["modes"], dict)
             or not set(doc["modes"]) <= VOICE_MODES):
@@ -133,8 +133,14 @@ def load_workspace_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
             migrated_formats[name] = validate_speech_format({
                 **DEFAULT_SPEECH_FORMAT, **config,
             })
+        language_routes = doc.get("language_routes", {})
+        if (not isinstance(language_routes, dict)
+                or not set(language_routes) <= VOICE_MODES
+                or any(type(enabled) is not bool for enabled in language_routes.values())):
+            raise InputError("invalid saved per-mode language routing settings")
         return {**doc, "sender_names": dict(sender_names),
-                "speech_formats": migrated_formats}
+                "speech_formats": migrated_formats,
+                "language_routes": dict(language_routes)}
 
 
 def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) -> dict[str, Any]:
@@ -144,7 +150,7 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
     if type(revision) is not int or revision < 0:
         raise InputError("invalid workspace settings revision")
     mode = data["mode"]
-    if not isinstance(mode, str) or (mode not in ("__policy__", "__sender__", "__speech_format__") and mode not in VOICE_MODES):
+    if not isinstance(mode, str) or (mode not in ("__policy__", "__sender__", "__speech_format__", "__language_route__") and mode not in VOICE_MODES):
         raise InputError("unknown voice workspace")
     if mode == "__policy__":
         value = data["settings"]
@@ -157,6 +163,13 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
             or value["source_mode"] not in SENDER_MODES
             or type(value["enabled"]) is not bool):
             raise InputError("invalid sender-name preference")
+    elif mode == "__language_route__":
+        value = data["settings"]
+        if (not isinstance(value, dict) or set(value) != {"source_mode", "enabled"}
+                or not isinstance(value["source_mode"], str)
+                or value["source_mode"] not in VOICE_MODES
+                or type(value["enabled"]) is not bool):
+            raise InputError("invalid per-mode language routing preference")
     elif mode == "__speech_format__":
         value = data["settings"]
         if (not isinstance(value, dict) or set(value) != {"source_mode", "format"}
@@ -176,6 +189,7 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
             "modes": dict(current["modes"]),
             "sender_names": dict(current["sender_names"]),
             "speech_formats": dict(current["speech_formats"]),
+            "language_routes": dict(current["language_routes"]),
         }
         if mode == "__policy__":
             next_doc["policy"] = value
@@ -183,6 +197,8 @@ def save_workspace_settings(data: dict[str, Any], path: Path = SETTINGS_PATH) ->
             next_doc["sender_names"][value["source_mode"]] = value["enabled"]
         elif mode == "__speech_format__":
             next_doc["speech_formats"][value["source_mode"]] = value["format"]
+        elif mode == "__language_route__":
+            next_doc["language_routes"][value["source_mode"]] = value["enabled"]
         else:
             next_doc["modes"][mode] = value
         path.parent.mkdir(parents=True, exist_ok=True)

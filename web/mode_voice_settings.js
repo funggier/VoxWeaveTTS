@@ -37,6 +37,7 @@ const TUNING=[
 function attach({document,engines,getDefault}){
   const controls=new Map();
   const speechControls=new Map();
+  const languageRouteToggles=new Map(),languageRoutePrefs=new Map();
   let revision=0, serial=Promise.resolve(),presets=[];
   const create=(tag,label)=>{
     const node=document.createElement(tag);
@@ -185,6 +186,48 @@ function attach({document,engines,getDefault}){
     }catch(error){ui.status.textContent=String(error.message||error);}
     finally{ui.save.disabled=false;}
   }
+  function addLanguageRouteSwitch(mode,panel){
+    const label=create("label");
+    label.style.display="flex";label.style.alignItems="center";label.style.gap="8px";
+    const checkbox=create("input");checkbox.type="checkbox";
+    checkbox.id=mode+"LanguageRoutesEnabled";checkbox.checked=false;
+    label.append(checkbox,create("span","เปิดใช้การเลือกโมเดลตามภาษา"));
+    const help=create("small",
+      "เมื่อพบภาษาที่กำหนดไว้ในแท็บโมเดลเสียงตามภาษา จะใช้เสียงที่กำหนดนั้น หากไม่ตรงจะใช้ Default Engine / Model ของโหมดนี้");
+    help.className="small";help.style.display="block";
+    const status=create("small","ค่าเริ่มต้น: ปิด");
+    status.className="small";status.style.display="block";
+    panel.append(label,help,status);
+    languageRouteToggles.set(mode,{checkbox,status});
+    checkbox.addEventListener("change",async()=>{
+      const wanted=checkbox.checked;
+      checkbox.disabled=true;status.textContent="กำลังบันทึก...";
+      try{
+        await saveLanguageRoutePreference(mode,wanted);
+        status.textContent="บันทึกแล้ว · มีผลกับข้อความใหม่";
+      }catch(error){
+        checkbox.checked=Boolean(languageRoutePrefs.get(mode));
+        status.textContent="บันทึกไม่สำเร็จ: "+String(error.message||error);
+      }finally{checkbox.disabled=false;}
+    });
+  }
+  async function saveLanguageRoutePreference(mode,enabled){
+    if(!controls.has(mode)||typeof enabled!=="boolean")
+      throw Error("invalid language routing preference");
+    await (serial=serial.catch(()=>{}).then(async()=>{
+      const response=await fetch("/v1/settings/mode-voices",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",
+                 "X-VoxWeaveTTS-Intent":"save-mode-voice"},
+        body:JSON.stringify({expected_revision:revision,mode:"__language_route__",
+          settings:{source_mode:mode,enabled}})
+      });
+      const result=await response.json();
+      if(!response.ok)throw Error(result.error||"บันทึกการเลือกภาษาไม่สำเร็จ");
+      revision=result.revision;
+      languageRoutePrefs.set(mode,enabled);
+    }));
+  }
   for(const [mode,label] of VOICE_MODES){
     const view=document.querySelector('[data-mode-view="'+mode+'"]');
     if(!view)continue;
@@ -197,7 +240,7 @@ function attach({document,engines,getDefault}){
     desc.className="small";panel.appendChild(desc);
     const grid=create("div");grid.className="mode-voice-grid";
     const engine=create("select"),voice=create("select");
-    for(const [name,element] of [["Engine / Model",engine],["Voice",voice]]){
+    for(const [name,element] of [["Default Engine / Model",engine],["Voice",voice]]){
       const holder=create("div");
       holder.appendChild(create("label",name));holder.appendChild(element);
       grid.appendChild(holder);
@@ -291,6 +334,7 @@ function attach({document,engines,getDefault}){
     panel.appendChild(create("summary","กำหนดการอ่านข้อความและข้อมูลพิเศษ"));
     const help=create("p","เลือกประเภทข้อมูลและคำเชื่อมสำหรับโหมดนี้โดยเฉพาะ · ค่าใหม่ใช้กับข้อความที่สร้างเสียงครั้งถัดไป");
     help.className="small";panel.appendChild(help);
+    addLanguageRouteSwitch(mode,panel);
     // Move the original live controls rather than cloning them. Existing
     // listeners, checkbox values and mode-ownership behavior are preserved.
     for(const suffix of ["FeedAuto","FeedReadSender"]){
@@ -413,6 +457,19 @@ function attach({document,engines,getDefault}){
     view.insertBefore(panel,view.firstChild);
     refreshPreview();
   }
+  // Studio, Document and Queue have no source-format fields, but still
+  // expose the same per-mode routing preference under the same section title.
+  for(const [mode] of VOICE_MODES){
+    if(languageRouteToggles.has(mode))continue;
+    const view=document.querySelector('[data-mode-view="'+mode+'"]');
+    if(!view)continue;
+    const panel=create("details");panel.className="source-format-settings";
+    panel.style.margin="12px 0";panel.style.padding="12px";
+    panel.style.border="1px solid #40516d";panel.style.borderRadius="10px";
+    panel.appendChild(create("summary","กำหนดการอ่านข้อความและข้อมูลพิเศษ"));
+    addLanguageRouteSwitch(mode,panel);
+    view.insertBefore(panel,view.firstChild);
+  }
   function readSpeechFormat(mode){
     const ui=speechControls.get(mode);
     const fields=ui?.fields;
@@ -467,6 +524,12 @@ function attach({document,engines,getDefault}){
     refreshEngines();
     for(const [mode] of controls)
       set(mode,data.modes?.[mode]||getDefault());
+    for(const [mode,ui] of languageRouteToggles){
+      const enabled=data.language_routes?.[mode]===true;
+      ui.checkbox.checked=enabled;
+      languageRoutePrefs.set(mode,enabled);
+      ui.status.textContent=enabled?"เปิดใช้งานแล้ว":"ปิดใช้งาน";
+    }
     for(const mode of SENDER_MODES){
       const prefix=sourcePrefix(mode);
       const checkbox=document.getElementById?.(prefix+"FeedReadSender");
@@ -536,7 +599,8 @@ function attach({document,engines,getDefault}){
   }
   return {load,read,save,savePolicy,saveSenderName,saveSpeechFormat,readSpeechFormat,
           loadPresets,refreshEngines,
-          settingsFor:mode=>read(mode),
+          languageRoutesEnabled:mode=>Boolean(languageRoutePrefs.get(mode)),
+    settingsFor:mode=>read(mode),
           get modes(){return [...controls.keys()];}};
 }
 root.VoxModeVoiceSettings={attach};

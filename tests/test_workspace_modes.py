@@ -73,7 +73,8 @@ class WorkspaceModeTests(unittest.TestCase):
         with self.assertRaises(InputError):
             modes.activate("unknown",playback)
         self.assertEqual(modes.snapshot()["active_mode"],"reader")
-        self.assertEqual(len(MODES),11)
+        self.assertEqual(len(MODES),12)
+        self.assertIn("language_routes", MODES)
         self.assertIn("tiktok", MODES)
         self.assertIn("tiktok_browser", MODES)
 

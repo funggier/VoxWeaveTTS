@@ -34,7 +34,7 @@ const document={
     return match?views.get(match[1]):null;
   },
 };
-let revision=0,posts=[],speechFormats={};
+let revision=0,posts=[],speechFormats={},languageRoutePrefs={};
 let presetData=[];
 const voices=[
   {id:"makham-paradee-cpu",label:"MakHam",voice_id:"paradee_thai",
@@ -56,6 +56,7 @@ global.fetch=async(path,options)=>{
   if(!options?.method)return{ok:true,async json(){return{
     revision,policy:"serial",modes:overrides,
     sender_names:{live:true,discord_client:true},speech_formats:speechFormats,
+    language_routes:languageRoutePrefs,
   };}};
   assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"save-mode-voice");
   const body=JSON.parse(options.body);
@@ -64,6 +65,8 @@ global.fetch=async(path,options)=>{
   posts.push(body);
   if(body.mode==="__speech_format__")
     speechFormats[body.settings.source_mode]=body.settings.format;
+  if(body.mode==="__language_route__")
+    languageRoutePrefs[body.settings.source_mode]=body.settings.enabled;
   return{ok:true,async json(){return{revision};}};
 };
 async function main(){
@@ -77,6 +80,29 @@ async function main(){
   assert.equal(document.getElementById("discordClientFeedReadSender").checked,true);
   assert.equal(manager.read("live").engine_id,"vachana-cpu");
   assert.equal(manager.read("discord").engine_id,"makham-paradee-cpu");
+  const allVoiceModes=["studio","reader","queue","live","youtube_browser",
+    "tiktok","tiktok_browser","discord","discord_client"];
+  for(const speechMode of allVoiceModes){
+    const checkbox=(()=>{
+      const visit=node=>{
+        if(node.id===speechMode+"LanguageRoutesEnabled")return node;
+        for(const child of node.children){const match=visit(child);if(match)return match;}
+        return null;
+      };
+      return visit(views.get(speechMode));
+    })();
+    assert.ok(checkbox, "every voice mode has the language route toggle: "+speechMode);
+    assert.equal(checkbox.checked,false);
+    const section=views.get(speechMode).children.find(c=>
+      c.className==="source-format-settings");
+    assert.ok(section && section.children[0].textContent==="กำหนดการอ่านข้อความและข้อมูลพิเศษ",
+      "language route switch belongs in reading-special-data section");
+    const label=(()=>{
+      let matches=[];const walk=n=>{if(n.textContent==="เปิดใช้การเลือกโมเดลตามภาษา")matches.push(n);
+        for(const child of n.children)walk(child);};walk(section);return matches;
+    })();
+    assert.equal(label.length,1);
+  }
   assert.equal(manager.read("live").speed,1.1);
   // User edits the live channel mid-stream; new job reads current values,
   // existing WAV isn't mutated or re-synthesized.
@@ -84,6 +110,8 @@ async function main(){
   const all=live.children.find(node=>node.className==="mode-voice-settings").children;
   const grid=all[2];
   const engine=grid.children[0].children[1];
+  assert.equal(grid.children[0].children[0].textContent,"Default Engine / Model",
+    "each speech workspace must explicitly label the fallback TTS engine");
   const voice=grid.children[1].children[1];
   const speed=grid.children[2].children[2];
   assert.equal(engine.value,"vachana-cpu");
@@ -252,6 +280,15 @@ async function main(){
   applyButton.handlers.click();
   assert.equal(manager.read("live").engine_id,pendingModel);
   assert.equal(manager.read("live").voice_id,"speaker_f");
-  console.log("PASS: independent voices, portable presets with missing models, model activation and serial/overlap policy");
+  const routeToggle=elementById("live","liveLanguageRoutesEnabled");
+  routeToggle.checked=true;
+  await routeToggle.handlers.change();
+  assert.equal(posts.at(-1).mode,"__language_route__");
+  assert.deepEqual(posts.at(-1).settings,{source_mode:"live",enabled:true});
+  assert.equal(manager.languageRoutesEnabled("live"),true);
+  assert.equal(manager.languageRoutesEnabled("discord"),false);
+  await manager.load();
+  assert.equal(routeToggle.checked,true,"enabled preference persists after reload");
+  console.log("PASS: independent voices, language routes per mode, portable presets and playback policy");
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

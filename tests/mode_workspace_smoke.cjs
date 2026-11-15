@@ -5,7 +5,7 @@ const fs=require("node:fs");
 const vm=require("node:vm");
 const source=fs.readFileSync("web/mode_workspace.js","utf8");
 const html=fs.readFileSync("web/index.html","utf8");
-const names=["studio","reader","youtube_browser","live","tiktok","tiktok_browser","discord","discord_client","queue","rules","settings"];
+const names=["studio","reader","youtube_browser","live","tiktok","tiktok_browser","discord","discord_client","queue","rules","language_routes","settings"];
 const views=names.map(mode=>({
   attrs:{"data-mode-view":mode},hidden:false,
   getAttribute(name){return this.attrs[name];},
@@ -81,7 +81,16 @@ async function test(){
   assert.match(html,/<h2>YouTube LIVE \(API\)<\/h2>/);
   assert.match(html,/<h2>YouTube LIVE \(Browser\)<\/h2>/);
   const modes=sandbox.window.VoxWorkspaceModes.MODES;
-  assert.equal(modes.length,11);
+  assert.equal(modes.length,12);
+  assert.match(html,/data-mode-target="language_routes"[^>]*>โมเดลเสียงตามภาษา</);
+  assert.match(html,/data-mode-view="language_routes"[^>]*hidden/);
+  assert.equal((html.match(/id="languageRoutingPanel"/g)||[]).length,1);
+  const pane=html.match(/<div class="mode-view" data-mode-view="language_routes" hidden>[\s\S]*?<\/section><\/div>/);
+  assert.ok(pane && pane[0].includes('id="languageRoutingPanel"'));
+  assert.match(html,/data-mode-view="language_routes" hidden><section[^>]*id="languageRoutingPanel"/,
+    "model language assignments belong only in central language tab");
+  assert.equal(html.includes('id="languageRoutesEnabled"'),false,
+    "global all-modes toggle has been removed");
   const app=sandbox.window.VoxWorkspaceModes.attach({
     document,stopLocal(){stopped++;},onLostMode(mode){revoked.push(mode);},
   });
@@ -109,6 +118,10 @@ async function test(){
   assert.notEqual(fresh.mode_token,youTube.mode_token);
   assert.equal(app.credentials("discord").mode_token,discord.mode_token,
                "reclaiming YouTube must not change Discord owner");
+  await app.select("language_routes");
+  assert.equal(app.activeMode,"language_routes");
+  assert.ok(views.find(x=>x.attrs["data-mode-view"]==="language_routes").hidden===false);
+  assert.ok(app.guard("live")&&app.guard("discord"));
   await app.select("tiktok");
   assert.ok(app.guard("discord"));
   assert.ok(app.guard("tiktok"));

@@ -54,7 +54,7 @@ class MultilingualHttpTests(unittest.TestCase):
                     initial = json.load(res)
                 self.assertEqual(initial["revision"], 0)
                 self.assertIn("ja", initial["languages"])
-                body = {"expected_revision": 0, "enabled": True,
+                body = {"expected_revision": 0,
                         "routes": {"th": {
                             "engine_id": "makham-paradee-cpu",
                             "voice_id": "paradee_thai"}}}
@@ -87,7 +87,7 @@ class MultilingualHttpTests(unittest.TestCase):
                 "engine_id": kwargs["engine_id"], "duration_ms": 50,
                 "seed": kwargs["seed"],
             }
-        payload = {"text": "Bonjour", "language": "fr",
+        payload = {"text": "Bonjour", "language": "fr", "mode": "studio",
                    "engine_id": "makham-paradee-cpu",
                    "voice_id": "paradee_thai"}
         request = Request(
@@ -96,7 +96,9 @@ class MultilingualHttpTests(unittest.TestCase):
             headers={"Content-Type": "application/json"},
         )
         from voxweavetts.ai_processing import DEFAULTS
-        with (patch("voxweavetts.server.load_ai_settings",
+        with (patch("voxweavetts.server.load_workspace_settings",
+                    return_value={"language_routes": {"studio": True}}),
+              patch("voxweavetts.server.load_ai_settings",
                     return_value={"settings": {**DEFAULTS, "enabled": False}}),
               patch("voxweavetts.server.choose_route", return_value=(
                 "fr", {"engine_id": info.id, "voice_id": "ff_siwis"})),
@@ -108,6 +110,28 @@ class MultilingualHttpTests(unittest.TestCase):
                 self.assertEqual(response.headers["X-VoxWeaveTTS-Engine"], info.id)
         self.assertEqual(received["engine_id"], info.id)
         self.assertEqual(received["voice_id"], "ff_siwis")
+
+    def test_unconfigured_mode_does_not_use_language_route(self):
+        from voxweavetts.processing import process_text
+        from voxweavetts.server import Handler
+        plan = process_text("Bonjour")
+        data = {"mode": "reader", "language": "fr",
+                "engine_id": "makham-paradee-cpu", "voice_id": "paradee_thai"}
+        with patch("voxweavetts.server.load_workspace_settings",
+                   return_value={"language_routes": {"studio": True, "reader": False}}), \
+             patch("voxweavetts.server.choose_route") as routed:
+            params = Handler._speech_params(None, data, plan)
+        routed.assert_not_called()
+        self.assertEqual(params["engine_id"], data["engine_id"])
+        self.assertEqual(params["voice_id"], data["voice_id"])
+
+    def test_invalid_source_mode_rejected(self):
+        from voxweavetts.server import Handler
+        from voxweavetts.processing import process_text
+        from voxweavetts.processing import InputError
+        with self.assertRaises(InputError):
+            Handler._speech_params(None, {"mode":"unknown", "language":"en"},
+                                   process_text("Hello"))
 
     def test_legacy_removal_requires_intent_no_arbitrary_path(self):
         with patch("voxweavetts.server.remove_legacy_m2m", return_value=True) as remove:

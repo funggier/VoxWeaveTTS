@@ -27,7 +27,7 @@ _LOCK = threading.RLock()
 
 
 def _default() -> dict[str, Any]:
-    return {"revision": 0, "enabled": False, "routes": {}}
+    return {"revision": 0, "routes": {}}
 
 
 def load_routes(path: Path = PATH) -> dict[str, Any]:
@@ -38,9 +38,10 @@ def load_routes(path: Path = PATH) -> dict[str, Any]:
             if path.stat().st_size > 16_384:
                 raise ValueError("large language routing file")
             value = json.loads(path.read_text(encoding="utf-8-sig"))
-            if (not isinstance(value, dict) or set(value) != {"revision", "enabled", "routes"}
+            if (not isinstance(value, dict) or set(value) not in (
+                    {"revision", "routes"}, {"revision", "enabled", "routes"})
                     or type(value["revision"]) is not int or value["revision"] < 0
-                    or type(value["enabled"]) is not bool
+                    or ("enabled" in value and type(value["enabled"]) is not bool)
                     or not isinstance(value["routes"], dict)
                     or not set(value["routes"]) <= set(LANGUAGES)
                     or any(not isinstance(route, dict)
@@ -51,7 +52,8 @@ def load_routes(path: Path = PATH) -> dict[str, Any]:
                 raise ValueError("invalid language routes")
         except (OSError, ValueError, TypeError) as exc:
             raise InputError("invalid saved language routing settings") from exc
-        return value
+        # Ignore the obsolete global switch; each speech workspace now owns its own toggle.
+        return {"revision": value["revision"], "routes": value["routes"]}
 
 
 def voice_languages(engine_id: str, voice_id: str) -> set[str]:
@@ -68,10 +70,9 @@ def voice_languages(engine_id: str, voice_id: str) -> set[str]:
 
 def save_routes(request: Any, path: Path = PATH) -> dict[str, Any]:
     if (not isinstance(request, dict)
-            or set(request) != {"expected_revision", "enabled", "routes"}
+            or set(request) != {"expected_revision", "routes"}
             or type(request["expected_revision"]) is not int
             or request["expected_revision"] < 0
-            or type(request["enabled"]) is not bool
             or not isinstance(request["routes"], dict)
             or not set(request["routes"]) <= set(LANGUAGES)):
         raise InputError("invalid language routing update")
@@ -87,8 +88,7 @@ def save_routes(request: Any, path: Path = PATH) -> dict[str, Any]:
         current = load_routes(path)
         if current["revision"] != request["expected_revision"]:
             raise ValueError("language routes changed in another tab")
-        value = {"revision": current["revision"] + 1,
-                 "enabled": request["enabled"], "routes": validated}
+        value = {"revision": current["revision"] + 1, "routes": validated}
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = None
         try:
@@ -140,5 +140,5 @@ def choose_route(text: str, *, language: str | None = None,
     lang = language if language and language != "auto" else detect_language(text)
     if lang not in LANGUAGES and lang != "und":
         raise InputError("unsupported speech language")
-    route = snapshot["routes"].get(lang) if snapshot["enabled"] else None
+    route = snapshot["routes"].get(lang)
     return lang, route

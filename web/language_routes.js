@@ -3,7 +3,7 @@
 "use strict";
 function attach(document, fetcher){
   const el=id=>document.getElementById(id);
-  if(!el("languageRoutesEnabled"))return null;
+  if(!el("languageRouteLanguage"))return null;
   let revision=0, routes={}, languages={}, engines=[];
   const voiceLanguage=voice=>{
     const family=String(voice||"")[0];
@@ -51,6 +51,24 @@ function attach(document, fetcher){
     }
     if([...select.options].some(o=>o.value===selected))select.value=selected;
   }
+  function refreshLanguageChoices(){
+    const select=el("languageRouteLanguage");
+    const previous=select.value;
+    select.replaceChildren();
+    for(const [code,label] of Object.entries(languages)){
+      if(Object.hasOwn(routes,code))continue;
+      const option=document.createElement("option");
+      option.value=code;
+      option.textContent=label+" ("+code+")";
+      select.appendChild(option);
+    }
+    if([...select.options].some(option=>option.value===previous))
+      select.value=previous;
+    const hasAvailable=select.options.length>0;
+    select.disabled=!hasAvailable;
+    el("languageRouteSet").disabled=!hasAvailable;
+    selectLanguage();
+  }
   function selectLanguage(){
     updateEngineChoices();
     const language=el("languageRouteLanguage").value;
@@ -74,12 +92,12 @@ function attach(document, fetcher){
       title.textContent=name+" ("+language+") : "+(info?.label||route.engine_id)+
         " / "+route.voice_id+(ready?"":" [โมเดลยังไม่พร้อม]");
       const remove=document.createElement("button");
-      remove.type="button";remove.textContent="ลบการกำหนด";
+      remove.type="button";remove.textContent="ลบ";
       remove.addEventListener("click",()=>{
-        delete routes[language];drawRoutes();
+        delete routes[language];refreshLanguageChoices();drawRoutes();
         status("ยังไม่ได้บันทึก: ลบการกำหนดภาษา "+language+" แล้ว");
       });
-      row.appendChild(title);row.appendChild(remove);list.appendChild(row);
+      row.appendChild(remove);row.appendChild(title);list.appendChild(row);
     }
     if(!Object.keys(routes).length){
       const row=document.createElement("li");
@@ -95,17 +113,8 @@ function attach(document, fetcher){
     revision=config.revision;routes={...config.routes};
     languages=config.languages||{};
     engines=registry.engines||[];
-    el("languageRoutesEnabled").checked=config.enabled;
-    const select=el("languageRouteLanguage");
-    const previous=select.value;
-    select.replaceChildren();
-    for(const [code,label] of Object.entries(languages)){
-      const option=document.createElement("option");
-      option.value=code;option.textContent=label+" ("+code+")";
-      select.appendChild(option);
-    }
-    if(languages[previous])select.value=previous;
-    selectLanguage();drawRoutes();
+
+    refreshLanguageChoices();drawRoutes();
     status("โหลดรายการภาษาและโมเดลแล้ว; การตั้งค่ามีผลกับงานเสียงใหม่");
   }
   el("languageRouteLanguage").addEventListener("change",selectLanguage);
@@ -122,7 +131,7 @@ function attach(document, fetcher){
       status("ไม่สามารถกำหนดเสียงนี้ให้ภาษาที่เลือก");return;
     }
     routes[language]={engine_id,voice_id};
-    drawRoutes();status("กำหนดแล้ว โปรดกดบันทึกการตั้งค่า");
+    refreshLanguageChoices();drawRoutes();status("กำหนดแล้ว โปรดกดบันทึกการตั้งค่า");
   });
   el("languageRouteSave").addEventListener("click",async()=>{
     const button=el("languageRouteSave");button.disabled=true;
@@ -132,7 +141,7 @@ function attach(document, fetcher){
         headers:{"Content-Type":"application/json",
                  "X-VoxWeaveTTS-Intent":"save-language-routes"},
         body:JSON.stringify({expected_revision:revision,
-          enabled:el("languageRoutesEnabled").checked,routes})
+          routes})
       });
       revision=saved.revision;
       status("บันทึกแล้ว; งานอ่านเสียงถัดไปจะเลือกโมเดลตามภาษา");
@@ -142,14 +151,12 @@ function attach(document, fetcher){
   el("languageRouteReload").addEventListener("click",()=>{
     load().catch(e=>status(String(e.message||e)));
   });
-  el("languageRoutesEnabled").addEventListener("change",()=>{
-    status("โปรดกดบันทึก เพื่อใช้การเลือกโมเดลตามภาษา");
-  });
+
   load().catch(e=>status(String(e.message||e)));
   return {load};
 }
 root.VoxLanguageRoutes={attach};
 if(typeof module!=="undefined"&&module.exports)module.exports={attach};
-if(typeof document!=="undefined"&&document.getElementById("languageRoutesEnabled"))
+if(typeof document!=="undefined"&&document.getElementById("languageRouteLanguage"))
   attach(document,root.fetch.bind(root));
 })(typeof window==="undefined"?globalThis:window);

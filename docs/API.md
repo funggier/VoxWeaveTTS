@@ -4,15 +4,24 @@
 
 Speech APIs accept optional `language` ISO codes: `th`, `en`, `ja`,
 `zh`, `ko`, `es`, `fr`, `hi`, `it`, `pt`, `de`, `ru`, or `auto`.
-The language route applies after AI translation and text preprocessing, only
-when `enabled=true`. A language with no route falls back to the mode voice.
+Language routing applies after AI translation and text preprocessing only
+when the selected voice workspace enables its language-route checkbox. An unmatched
+language or a disabled workspace falls back to that workspace’s Default Engine / Model.
 Latin script alone cannot reliably distinguish English, Spanish, French,
 Italian, Portuguese or German; use an explicit `language` or AI target.
 
-- `GET /v1/settings/language-routes` returns revision, enabled, routes, languages.
+- `GET /v1/settings/language-routes` returns revision, routes, languages (no global enabled flag).
 - `POST /v1/settings/language-routes`: JSON body
-  `{"expected_revision":0,"enabled":true,"routes":{"en":{"engine_id":"model-kokoro-multilingual-int8-1_0_0","voice_id":"af_heart"}}}`.
+  `{"expected_revision":0,"routes":{"en":{"engine_id":"model-kokoro-multilingual-int8-1_0_0","voice_id":"af_heart"}}}`.
   Required header `X-VoxWeaveTTS-Intent: save-language-routes`.
+- `GET /v1/settings/mode-voices` returns `language_routes`, a per-workspace bool map.
+  `POST /v1/settings/mode-voices` with intent `save-mode-voice` and body
+  `{"expected_revision":0,"mode":"__language_route__","settings":{"source_mode":"live","enabled":true}}`
+  enables language routing for only the selected workspace. The language assignment tab
+  is always editable; the switch is separate per voice workspace.
+- `POST /v1/jobs` and `POST /v1/speech` accept optional `mode`, defaulting to `studio`
+  for older clients. `mode` selects the per-workspace route preference; `language`
+  optionally selects the text language when a workspace has routing enabled.
 - Existing TTS `/v1/model-packages/install-local` and `/remove` support the new
   Kokoro-82M INT8 `.vwmodel`.
 - `GET /v1/ai/packages` also returns `legacy_m2m` boolean.

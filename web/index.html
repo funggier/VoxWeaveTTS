@@ -102,6 +102,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" class="mode-nav-button" data-mode-target="discord_client" aria-pressed="false">Discord Client</button>
 <button type="button" class="mode-nav-button" data-mode-target="queue" aria-pressed="false">คิวและ Subtitle</button>
 <button type="button" class="mode-nav-button" data-mode-target="rules" aria-pressed="false">คำอ่านและกฎ</button>
+<button type="button" class="mode-nav-button" data-mode-target="language_routes" aria-pressed="false">โมเดลเสียงตามภาษา</button>
 <button type="button" class="mode-nav-button" data-mode-target="settings" aria-pressed="false">ตั้งค่า</button></nav>
 <div class="side-help">ทุกช่องทางทำงานพร้อมกันได้ · เปลี่ยนแท็บไม่หยุดอ่าน · เลือกเสียงและโมเดลของแต่ละช่องทางได้</div>
 </aside>
@@ -740,12 +741,11 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ul id="modelPackageList" style="padding-left:22px"></ul>
 </details>
 </section></div>
-<section class="panel" style="margin-top:18px" id="languageRoutingPanel">
+<div class="mode-view" data-mode-view="language_routes" hidden><section class="panel" style="margin-top:18px" id="languageRoutingPanel">
 <h2>กำหนดโมเดลเสียงตามภาษา (Multilingual TTS)</h2>
-<p class="small">เลือก Engine/เสียงตามภาษาสำหรับทุกโหมด ตรวจอักษรอัตโนมัติหลังแปลภาษา หรือกำหนดภาษาเป้าหมายเอง ภาษาที่ไม่ได้กำหนดใช้เสียงประจำโหมดเหมือนเดิม</p>
-<label><input type="checkbox" id="languageRoutesEnabled"> เปิดการเลือกโมเดลตามภาษา (ทุกโหมด)</label>
+<p class="small">กำหนด Engine และเสียงพูดประจำภาษาไว้ที่เดียวสำหรับทุกช่องทาง แต่ละโหมดสามารถเปิดใช้การเลือกโมเดลตามภาษาได้จากหัวข้อ “กำหนดการอ่านข้อความและข้อมูลพิเศษ” ของโหมดนั้นเอง หากปิดหรือไม่พบภาษาที่กำหนดไว้ จะใช้ Default Engine / Model ของโหมด</p>
 <div class="voice-grid">
-<div><label for="languageRouteLanguage">ภาษา</label><select id="languageRouteLanguage"></select></div>
+<div><label for="languageRouteLanguage">เพิ่มภาษา (ภาษาที่กำหนดไว้แล้วจะไม่ปรากฏ)</label><select id="languageRouteLanguage"></select></div>
 <div><label for="languageRouteEngine">Engine</label><select id="languageRouteEngine"></select></div>
 <div><label for="languageRouteVoice">เสียงพูด</label><select id="languageRouteVoice"></select></div>
 </div>
@@ -754,9 +754,10 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" id="languageRouteSave">บันทึกการตั้งค่า</button>
 <button type="button" id="languageRouteReload">รีเฟรช</button>
 </div>
+<p class="small">ภาษาที่กำหนดไว้แล้ว — หากต้องการกำหนดใหม่ ให้กด “ลบ” หน้ารายการ แล้วเลือกภาษาอีกครั้ง จากนั้นกดบันทึกการตั้งค่า</p>
 <ul id="languageRouteList" style="padding-left:22px"></ul>
 <p id="languageRouteStatus" role="status" class="small">กำลังโหลด...</p>
-</section>
+</section></div>
 <div id="legacyVoiceControls" hidden aria-hidden="true"><section class="panel" style="margin-top:18px">
 <h2>การตั้งค่าเสียงและโมเดลส่วนกลาง</h2>
 <p class="small">การเลือก Engine, เสียงพูด, Preset, Speed, EQ, Seed และการตั้งค่าคำอ่านใช้ร่วมกันทุกโหมด · เปลี่ยนที่นี่มีผลกับงานเสียงใหม่จากทุกโหมด</p>
@@ -1936,6 +1937,7 @@ const buildSpeechPayload = (text = el("message").value, mode="studio") => {
     voice_controls:readVoiceControls(),
     seed:seedValue(),
   };
+  payload.mode=mode;
   // Snapshot current settings when a TTS job is requested, NOT when a
   // message is received. Changes therefore affect the next unread sentence,
   // while an already rendered WAV keeps its original voice.

@@ -18,7 +18,7 @@ class Element {
   change(){for(const fn of this.handlers.change||[])fn();}
 }
 const ids={};
-const names=["languageRoutesEnabled","languageRouteLanguage",
+const names=["languageRouteLanguage",
   "languageRouteEngine","languageRouteVoice","languageRouteSet",
   "languageRouteSave","languageRouteReload","languageRouteList",
   "languageRouteStatus"];
@@ -36,7 +36,7 @@ const engines=[
    voices:[{id:"af_heart",label:"English"},{id:"ff_siwis",label:"French"},
            {id:"jf_alpha",label:"Japanese"}]}
 ];
-let stored={revision:0,enabled:false,routes:{}};
+let stored={revision:0,routes:{}};
 const sent=[];
 async function fetchMock(url,options={}){
   if(url==="/v1/engines")return {ok:true,json:async()=>({engines})};
@@ -45,7 +45,7 @@ async function fetchMock(url,options={}){
       assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"save-language-routes");
       const req=JSON.parse(options.body);
       assert.equal(req.expected_revision,stored.revision);
-      stored={revision:stored.revision+1,enabled:req.enabled,routes:req.routes};
+      stored={revision:stored.revision+1,routes:req.routes};
       sent.push(stored);
       return {ok:true,json:async()=>stored};
     }
@@ -60,17 +60,35 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   const app=attach(document,fetchMock);
   await tick();
   assert.ok(app);
-  assert.equal(ids.languageRoutesEnabled.checked,false);
   ids.languageRouteLanguage.value="fr";ids.languageRouteLanguage.change();
   assert.equal(ids.languageRouteEngine.value,engine);
   assert.equal(ids.languageRouteVoice.value,"ff_siwis");
   ids.languageRouteSet.click();
-  ids.languageRoutesEnabled.checked=true;
+  assert.equal(ids.languageRouteLanguage.options.some(o=>o.value==="fr"),false,
+    "an assigned language should disappear immediately from Add dropdown");
+  assert.equal(ids.languageRouteList.children.length,1);
+  const assigned=ids.languageRouteList.children[0];
+  assert.equal(assigned.children[0].tagName,"button",
+    "Delete button must appear BEFORE route description");
+  assert.equal(assigned.children[0].textContent,"ลบ");
+  assert.ok(assigned.children[1].textContent.includes("fr"));
+  assert.notEqual(ids.languageRouteLanguage.value,"fr");
   ids.languageRouteSave.click();
   await tick();
   assert.equal(sent.length,1);
   assert.equal(sent[0].routes.fr.voice_id,"ff_siwis");
-  assert.equal(sent[0].enabled,true);
+  assert.equal(Object.hasOwn(sent[0],"enabled"),false);
   assert.equal(ids.languageRouteStatus.textContent.includes("บันทึกแล้ว"),true);
-  console.log("PASS: multilingual voice routing UI, voice filtering, revision save");
+  // Deleting in the same central editor should make the language selectable again.
+  assigned.children[0].click();
+  assert.equal(ids.languageRouteLanguage.options.filter(o=>o.value==="fr").length,1,
+    "deleted language returns to the language picker");
+  assert.equal(ids.languageRouteList.children[0].textContent.includes("ยังไม่มี"),true);
+  ids.languageRouteLanguage.value="fr";ids.languageRouteLanguage.change();
+  ids.languageRouteSet.click();
+  assert.equal(ids.languageRouteLanguage.options.some(o=>o.value==="fr"),false);
+  ids.languageRouteReload.click();await tick();
+  assert.equal(ids.languageRouteLanguage.options.some(o=>o.value==="fr"),false,
+    "reload retains server-side assignments, not unsaved local removals");
+  console.log("PASS: single-assignment language picker, delete-before-description, restore, revision save");
 })().catch(e=>{console.error(e);process.exitCode=1;});

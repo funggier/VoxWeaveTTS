@@ -53,7 +53,7 @@ class WorkspaceMarkupTests(unittest.TestCase):
         parser.close()
         self.assertEqual(parser.errors,[])
         self.assertEqual(parser.stack,[])
-        expected={"studio","reader","youtube_browser","live","tiktok","tiktok_browser","discord","discord_client","queue","rules","settings"}
+        expected={"studio","reader","youtube_browser","live","tiktok","tiktok_browser","discord","discord_client","queue","rules","language_routes","settings"}
         self.assertEqual(set(parser.mode_counts),expected)
         self.assertEqual(set(parser.nav_counts),expected)
         self.assertTrue(all(value==1 for value in parser.mode_counts.values()))
@@ -75,6 +75,8 @@ class WorkspaceMarkupTests(unittest.TestCase):
             ("engineSelect",None),("voiceSelect",None),
             ("globalVoiceSave",None),
             ("modelPackageInstall","settings"),
+            ("languageRoutingPanel","language_routes"),
+            ("languageRouteLanguage","language_routes"),
         ):
             with self.subTest(name=name):
                 self.assertIn(name,parser.ids)
@@ -83,6 +85,8 @@ class WorkspaceMarkupTests(unittest.TestCase):
         self.assertIn("mode_workspace.js",html)
         self.assertIn("mode_inputs.js",html)
         self.assertIn("globalVoiceReload",parser.ids)
+        self.assertNotIn("languageRoutesEnabled", parser.ids,
+                         "global language routing switch must be removed")
 
 
 if __name__=="__main__":
