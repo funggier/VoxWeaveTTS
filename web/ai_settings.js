@@ -91,7 +91,7 @@ function attach(document, fetcher){
     get("aiTarget").disabled=operation!=="translate";
     get("aiTranslationMode").disabled=operation!=="translate"||unspecified;
     get("aiAutoDetect").disabled=operation!=="translate"||unspecified;
-    const languageNames={th:"ภาษาไทย",en:"ภาษาอังกฤษ",ja:"ภาษาญี่ปุ่น",zh:"ภาษาจีน",ko:"ภาษาเกาหลี"};
+    const languageNames={th:"ภาษาไทย",en:"ภาษาอังกฤษ",ja:"ภาษาญี่ปุ่น",zh:"ภาษาจีน",ko:"ภาษาเกาหลี",es:"ภาษาสเปน",fr:"ภาษาฝรั่งเศส",hi:"ภาษาฮินดี",it:"ภาษาอิตาลี",pt:"ภาษาโปรตุเกส",de:"ภาษาเยอรมัน",ru:"ภาษารัสเซีย"};
     get("aiLanguageHint").textContent=operation==="none"
       ?"ไม่แปล / ไม่เรียก AI; กฎก่อนและหลัง AI ยังคงทำงาน"
       :operation==="custom"
@@ -115,7 +115,7 @@ function attach(document, fetcher){
     const list=get("aiPackageList");
     list.textContent="";
     const m2m=engines.find(e=>e.id==="m2m100");
-    if(m2m?.assets_ready){
+    if(result.legacy_m2m){
       const local=document.createElement("li");
       const title=document.createElement("span");
       title.textContent="M2M100 418M — พบไฟล์โมเดลที่ติดตั้งในเครื่อง · ทดลอง";
@@ -130,9 +130,26 @@ function attach(document, fetcher){
         status("เลือก M2M100 local แล้ว · กดบันทึก AI Settings; ควรทดลองตรวจความหมายก่อน Live");
       });
       local.appendChild(select);
+      const remove=document.createElement("button");
+      remove.type="button";remove.textContent="ถอน M2M100 รุ่นเดิม";
+      remove.addEventListener("click",async()=>{
+        if(!root.confirm("ถอนการติดตั้ง M2M100 จาก models/ai/m2m100_418m ?"))return;
+        remove.disabled=true;
+        try{
+          const result=await requestJson("/v1/ai/packages/remove-legacy",{
+            method:"POST",headers:{"Content-Type":"application/json",
+              "X-VoxWeaveTTS-Intent":"remove-legacy-ai-model"},
+            body:"{}"
+          });
+          status(result.removed?"ถอน M2M100 รุ่นเดิมแล้ว":"ไม่พบ M2M100 รุ่นเดิม");
+          await loadPackages();
+        }catch(e){status("ถอนโมเดลไม่สำเร็จ: "+String(e.message||e));}
+        finally{remove.disabled=false;}
+      });
+      local.appendChild(remove);
       list.appendChild(local);
     }
-    if(!packages.length&&!m2m?.assets_ready){
+    if(!packages.length&&!result.legacy_m2m){
       const line=document.createElement("li");
       line.textContent="ยังไม่พบ AI Model Package หรือโมเดล M2M100 ในโฟลเดอร์ที่รองรับ";
       list.appendChild(line);
@@ -152,6 +169,24 @@ function attach(document, fetcher){
         status("เลือกโมเดล "+item.key+" แล้ว · กดบันทึก AI Settings เพื่อใช้จริง");
       });
       line.appendChild(choose);
+      const remove=document.createElement("button");
+      remove.type="button";remove.textContent="ถอนการติดตั้ง";
+      remove.addEventListener("click",async()=>{
+        if(!root.confirm("ถอน AI Model Package "+item.title+" ("+item.key+") ?"))return;
+        remove.disabled=true;
+        try{
+          const result=await requestJson("/v1/ai/packages/remove",{
+            method:"POST",headers:{"Content-Type":"application/json",
+              "X-VoxWeaveTTS-Intent":"remove-ai-model-package"},
+            body:JSON.stringify({package_id:item.package_id,version:item.version})
+          });
+          if(!result.removed)throw Error("model not found");
+          status("ถอนการติดตั้ง "+item.title+" สำเร็จ");
+          await loadPackages();
+        }catch(e){status("ถอนโมเดลไม่สำเร็จ: "+String(e.message||e));}
+        finally{remove.disabled=false;}
+      });
+      line.appendChild(remove);
       list.appendChild(line);
     }
     get("aiPackageStatus").textContent="ติดตั้งแล้ว "+packages.length+" แพ็กเกจ";
@@ -159,6 +194,22 @@ function attach(document, fetcher){
   }
   get("aiPackageRefresh").addEventListener("click",()=>{
     loadPackages().catch(e=>get("aiPackageStatus").textContent=String(e.message||e));
+  });
+  get("aiPackageInstall").addEventListener("click",async()=>{
+    const button=get("aiPackageInstall");button.disabled=true;
+    try{
+      const installed=await requestJson("/v1/ai/packages/install-local",{
+        method:"POST",headers:{"Content-Type":"application/json",
+          "X-VoxWeaveTTS-Intent":"install-ai-model-package"},
+        body:"{}"
+      });
+      if(installed.installed)status("ติดตั้ง AI Model Package สำเร็จ");
+      const result=await requestJson("/v1/ai/engines",{cache:"no-store"});
+      engines=Array.isArray(result.engines)?result.engines:[];
+      await loadPackages();
+      updateAvailability();
+    }catch(e){status("ติดตั้ง AI Model Package ไม่สำเร็จ: "+String(e.message||e));}
+    finally{button.disabled=false;}
   });
   function serverAddressNeedsSave(){
     return lastLoaded!==null &&

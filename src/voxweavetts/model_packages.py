@@ -30,8 +30,8 @@ _PACKAGE_ID = re.compile(r"[a-z][a-z0-9_-]{1,47}\Z")
 _VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
 _VOICE = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{0,63}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
-_EXTENSIONS = frozenset((".onnx", ".json", ".npy", ".txt", ".md"))
-_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1"))
+_EXTENSIONS = frozenset((".onnx", ".json", ".npy", ".bin", ".txt", ".md"))
+_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1"))
 _LOCK = threading.RLock()
 _DIALOG_LOCK = threading.Lock()
 
@@ -119,8 +119,10 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         raise ModelPackageError("this engine adapter is not supported")
     if not isinstance(manifest["title"], str) or not 1 <= len(manifest["title"]) <= 100:
         raise ModelPackageError("invalid model title")
-    expected_rate = 22_050 if manifest["engine_adapter"] == "vachana-onnx-v1" else 24_000
-    if manifest["language"] != "th" or type(manifest["sample_rate"]) is not int or manifest["sample_rate"] != expected_rate:
+    adapter = manifest["engine_adapter"]
+    expected_rate = 22_050 if adapter == "vachana-onnx-v1" else 24_000
+    expected_language = "multi" if adapter == "kokoro-onnx-v1" else "th"
+    if manifest["language"] != expected_language or type(manifest["sample_rate"]) is not int or manifest["sample_rate"] != expected_rate:
         raise ModelPackageError("unsupported sample rate/language for this adapter")
     lic = manifest["license"]
     if not isinstance(lic, dict) or set(lic) != {"spdx", "url", "attribution", "review_status"}:
@@ -142,7 +144,7 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         or any(not isinstance(x, str) or not re.fullmatch(r"[A-Za-z0-9_.<>!=,-]{1,100}", x) for x in deps)):
         raise ModelPackageError("invalid dependency declaration")
     voices = manifest["voices"]
-    if (not isinstance(voices, list) or not 1 <= len(voices) <= 32
+    if (not isinstance(voices, list) or not 1 <= len(voices) <= 64
         or (manifest["engine_adapter"] == "fastthaig2p-kokoro-v1" and len(voices) != 1)):
         raise ModelPackageError("model needs one or more voices")
     seen_voices: set[str] = set()
@@ -157,10 +159,14 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         if not isinstance(voice["label"], str) or not 1 <= len(voice["label"]) <= 110:
             raise ModelPackageError("invalid voice label")
         asset = _relative_asset(voice["asset"])
-        required_extension = ".onnx" if manifest["engine_adapter"] == "vachana-onnx-v1" else ".npy"
-        if not asset.startswith("voices/") or not asset.endswith(required_extension) or asset.lower() in seen_paths:
-            raise ModelPackageError("invalid or repeated voice weight file")
-        seen_paths.add(asset.lower())
+        if adapter == "kokoro-onnx-v1":
+            if asset != "voices-v1.0.bin" or not re.fullmatch(r"[abefhijpz][fm]_[a-z][a-z0-9_]*", identifier):
+                raise ModelPackageError("unsupported Kokoro voice asset or identifier")
+        else:
+            required_extension = ".onnx" if adapter == "vachana-onnx-v1" else ".npy"
+            if not asset.startswith("voices/") or not asset.endswith(required_extension) or asset.lower() in seen_paths:
+                raise ModelPackageError("invalid or repeated voice weight file")
+            seen_paths.add(asset.lower())
     files = manifest["files"]
     if not isinstance(files, list) or not 2 <= len(files) <= MAX_FILES:
         raise ModelPackageError("invalid model file index")
@@ -176,7 +182,9 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
             raise ModelPackageError("invalid or repeated model file")
         file_index[path.lower()] = entry
         total += entry["size"]
-    required_files = ("speaker_config.json",) if manifest["engine_adapter"] == "vachana-onnx-v1" else ("config.json", "kokoro_thai.onnx")
+    required_files = (("speaker_config.json",) if adapter == "vachana-onnx-v1" else
+                      ("kokoro-v1.0.int8.onnx", "voices-v1.0.bin") if adapter == "kokoro-onnx-v1" else
+                      ("config.json", "kokoro_thai.onnx"))
     if total > PACKAGE_LIMIT or not all(name in file_index for name in required_files):
         raise ModelPackageError("model exceeds size limit or has no speaker config")
     for voice in voices:
@@ -481,6 +489,56 @@ def pack_local_fastthai(source: Path, output: Path) -> Path:
             _hardlink_or_copy(Path(source) / original, stage / target_name)
         _stage_legal_notices(stage, "fastthaig2p")
         return make_package(stage, create_fastthai_manifest(stage), output)
+
+
+def create_kokoro_manifest(source: Path) -> dict[str, Any]:
+    """Kokoro v1.0 INT8 model and voice pack, pinned to upstream ONNX assets."""
+    from .kokoro_engine import VOICE_CATALOG
+    source = Path(source)
+    files = []
+    for name in ("kokoro-v1.0.int8.onnx", "voices-v1.0.bin", "legal/license.txt",
+                 "legal/attribution.md"):
+        path = source / name
+        if not path.is_file():
+            raise ModelPackageError("missing Kokoro asset: " + name)
+        with path.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        files.append({"path": name, "size": path.stat().st_size, "sha256": digest})
+    return validate_manifest({
+        "format": FORMAT, "format_version": FORMAT_VERSION,
+        "package_id": "kokoro-multilingual-int8", "version": "1.0.0",
+        "title": "Kokoro 82M Multilingual INT8 (CPU)",
+        "engine_adapter": "kokoro-onnx-v1", "language": "multi",
+        "sample_rate": 24000,
+        "voices": [{"id": identifier, "label": label, "asset": "voices-v1.0.bin"}
+                   for identifier, label in VOICE_CATALOG],
+        "files": files,
+        "license": {
+            "spdx": "Apache-2.0",
+            "url": "https://huggingface.co/hexgrad/Kokoro-82M",
+            "attribution": "Kokoro-82M by hexgrad. ONNX runtime/quantization by thewh1teagle; see embedded legal/attribution.md. Review exact voice and training rights independently.",
+            "review_status": "review_required",
+        },
+        "source": {
+            "url": "https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1",
+            "revision": "model-files-v1.1 (Kokoro v1.0 INT8, voices-v1.0.bin)",
+        },
+        "dependencies": ["kokoro-onnx==0.6.0", "onnxruntime", "numpy",
+                         "phonemizer", "espeakng-loader"],
+    })
+
+
+def pack_local_kokoro(source: Path, output: Path) -> Path:
+    """Pack previously verified original ONNX and ZIP-encoded voice files."""
+    source = Path(source)
+    temp_base = ROOT / "cache" / "temp"
+    temp_base.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="vox-kokoro-pack-", dir=temp_base) as temp:
+        stage = Path(temp)
+        for name in ("kokoro-v1.0.int8.onnx", "voices-v1.0.bin",
+                     "legal/license.txt", "legal/attribution.md"):
+            _hardlink_or_copy(source / name, stage / name)
+        return make_package(stage, create_kokoro_manifest(stage), output)
 
 
 def main() -> None:

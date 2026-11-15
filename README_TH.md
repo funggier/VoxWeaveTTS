@@ -1,5 +1,7 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**อัปเดต Source หลัง v0.7.2 — Multilingual TTS (ยังไม่รวมใน Portable Release):** เพิ่ม Kokoro-82M INT8 CPU แบบ `.vwmodel` พร้อมเสียงเลือกได้ 18 แบบใน 7 ภาษา (EN/ES/FR/HI/IT/JA/PT); กำหนด Engine/Voice ตามภาษาได้, ขยายภาษาของ AI Translation และเพิ่มการติดตั้ง/ถอน AI Package และ M2M100 รุ่นเดิมจาก UI โดยไม่ลบโมเดลเดิมอัตโนมัติ [รายละเอียดและข้อจำกัด](docs/MULTILINGUAL_TTS_TH.md)
+
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
 **รุ่นสำหรับใช้งาน Windows Portable v0.7.2** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP

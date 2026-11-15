@@ -156,8 +156,10 @@ class M2M100Adapter:
         # untrusted model Python/pickle from a ZIP package.
         # Cache each trusted local model once and serialize tokenizer source
         # changes. Recreating 418M parameters for every live chat is not viable.
-        tokenizer, model = _loaded_m2m(str(folder))
         with _M2M_INFERENCE_LOCK:
+            # Loading and using the checkpoint share a lock with model removal.
+            # Never delete legacy weights while another job opens them.
+            tokenizer, model = _loaded_m2m(str(folder))
             tokenizer.src_lang = source
             tokens = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
             output = model.generate(**tokens,

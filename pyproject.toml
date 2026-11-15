@@ -14,6 +14,7 @@ dependencies = []
 
 [project.optional-dependencies]
 youtube-stream = ["grpcio>=1.66,<2", "protobuf>=5,<8"]
+kokoro-cpu = ["kokoro-onnx==0.6.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

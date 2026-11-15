@@ -366,7 +366,7 @@ def refresh_engine_registry() -> None:
 def _register_model_packages(registry: EngineRegistry) -> None:
     """A package selects an existing adapter, never imports package code."""
     for manifest, model_dir in installed_packages():
-        if manifest["engine_adapter"] not in ("vachana-onnx-v1", "fastthaig2p-kokoro-v1"):
+        if manifest["engine_adapter"] not in ("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1"):
             continue
         engine_id = engine_id_for(manifest)
         voices = tuple((entry["id"], entry["label"]) for entry in manifest["voices"])
@@ -380,20 +380,30 @@ def _register_model_packages(registry: EngineRegistry) -> None:
                         (model_dir / file["path"]).stat().st_size == file["size"]
                         for file in manifest["files"])
             is_vachana = adapter == "vachana-onnx-v1"
+            is_kokoro = adapter == "kokoro-onnx-v1"
             flags = dict(_vachana_descriptor().capabilities if is_vachana
                          else engine_info().capabilities)
+            if is_kokoro:
+                from .kokoro_engine import runtime_ready as kokoro_runtime_ready
+                flags.update({"seed_control": False, "voice_cloning": False,
+                              "phoneme_dictionary": False})
             return EngineInfo(
-                id=engine_id, label=label, language="th",
+                id=engine_id, label=label, language="multi" if is_kokoro else "th",
                 voice_id=voices[0][0], voice_options=voices,
                 sample_rate=VACHANA_RATE if is_vachana else SAMPLE_RATE,
                 assets_ready=ready,
-                runtime_ready=vachana_runtime_ready() if is_vachana else runtime_ready(),
+                runtime_ready=(kokoro_runtime_ready() if is_kokoro else
+                               vachana_runtime_ready() if is_vachana else runtime_ready()),
                 capabilities=flags,
                 commercial_status=commercial,
             )
         voice_assets = {voice["id"]: voice["asset"] for voice in manifest["voices"]}
         def create(seed: int, engine_id=engine_id, model_dir=model_dir,
                    voices=voices, voice_assets=voice_assets, adapter=adapter):
+            if adapter == "kokoro-onnx-v1":
+                from .kokoro_engine import KokoroOnnxEngine
+                return KokoroOnnxEngine(model_dir=model_dir, engine_id=engine_id,
+                                       voices=voices)
             if adapter == "fastthaig2p-kokoro-v1":
                 return FastThaiG2PEngine(
                     seed=seed, model_dir=model_dir, engine_id=engine_id,

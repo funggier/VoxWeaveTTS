@@ -202,7 +202,8 @@ def remove_model_package(package_id: str, version: str, *, base: Path = PACKAGES
         raise AIModelPackageError("invalid package ID")
     if not isinstance(version, str) or not _VERSION.fullmatch(version):
         raise AIModelPackageError("invalid package version")
-    with _LOCK:
+    from .ai_engine_registry import _M2M_INFERENCE_LOCK, _loaded_m2m
+    with _LOCK, _M2M_INFERENCE_LOCK:
         base = Path(base)
         folder = base / package_id / version
         if not folder.exists():
@@ -212,9 +213,40 @@ def remove_model_package(package_id: str, version: str, *, base: Path = PACKAGES
         manifest = validate_manifest(json.loads((folder / "manifest.json").read_text(encoding="utf-8")))
         if _folder(manifest, base) != folder:
             raise AIModelPackageError("package identity mismatch")
+        # A model could have been cached by the translation worker. Finish
+        # current inference and release references before deleting model files.
+        _loaded_m2m.cache_clear()
         shutil.rmtree(folder)
         if not any(folder.parent.iterdir()):
             folder.parent.rmdir()
+        return True
+
+
+def legacy_model_installed() -> bool:
+    """Recognize the single historical M2M100 folder, not an arbitrary path."""
+    from .ai_engine_registry import MODEL_DIR, _M2M_FILES
+    return MODEL_DIR.is_dir() and not MODEL_DIR.is_symlink() and all(
+        (MODEL_DIR / name).is_file() for name in _M2M_FILES
+    )
+
+
+def remove_legacy_m2m() -> bool:
+    """Remove the explicitly recognized legacy M2M100 model directory only.
+
+    Refuse to delete unknown files/directories, symlinks or a user-modified
+    folder. No caller-provided path is ever accepted.
+    """
+    from .ai_engine_registry import MODEL_DIR, _M2M_FILES
+    from .ai_engine_registry import _M2M_INFERENCE_LOCK, _loaded_m2m
+    with _LOCK, _M2M_INFERENCE_LOCK:
+        if not MODEL_DIR.exists():
+            return False
+        if (not legacy_model_installed()
+                or any(p.is_symlink() or not p.is_file() or p.name not in _ALLOWED
+                       for p in MODEL_DIR.iterdir())):
+            raise AIModelPackageError("unknown files in legacy M2M100 folder; refusing deletion")
+        _loaded_m2m.cache_clear()
+        shutil.rmtree(MODEL_DIR)
         return True
 
 

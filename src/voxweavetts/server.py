@@ -23,6 +23,7 @@ from .ollama_manager import (model_status as ollama_model_status,
                              preload as preload_ollama_model,
                              OllamaUnavailable)
 from .ai_model_packages import (
+    legacy_model_installed, remove_legacy_m2m,
     installed_packages as installed_ai_packages,
     package_key as ai_package_key,
     install_model_package_dialog as install_ai_model_package_dialog,
@@ -64,6 +65,7 @@ from .manual_alignment import timing_metrics
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
 from .mode_voice_settings import load_workspace_settings, save_workspace_settings
+from .language_routes import load_routes, save_routes, choose_route, LANGUAGES
 from .speech_coordinator import (
     SpeechCoordinator, QueueFull, JobMissing, JobNotReady, AlignmentConflict, EVENT_SCHEMA_VERSION,
 )
@@ -235,9 +237,19 @@ class Handler(BaseHTTPRequestHandler):
     def _speech_params(self, data: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
         central = _read_global_voice()["settings"] or {}
         engine_id = data.get("engine_id", central.get("engine_id", ENGINE_ID))
+        voice_id_override = None
+        requested_language = data.get("language")
+        if requested_language is None:
+            ai = load_ai_settings()["settings"]
+            if (ai["enabled"] and ai["operation"] == "translate"
+                    and ai["target_language"] != "unspecified"):
+                requested_language = ai["target_language"]
+        language, route = choose_route(plan.get("spoken_text", ""), language=requested_language)
+        if route is not None:
+            engine_id, voice_id_override = route["engine_id"], route["voice_id"]
         info = get_engine_info(engine_id)
         default_voice = central.get("voice_id") if central.get("engine_id") == engine_id else info.voice_id
-        voice_id = data.get("voice_id", default_voice)
+        voice_id = voice_id_override or data.get("voice_id", default_voice)
         speed = data.get("speed", central.get("speed", 1.0))
         validate_speech_request(plan, speed, voice_id, engine_id)
         controls = validate_controls(
@@ -245,7 +257,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         seed = validate_seed(data.get("seed", _read_seed()))
         if not (info.assets_ready and info.runtime_ready):
-            raise EngineUnavailable("selected Thai voice model is not installed or runtime is missing")
+            raise EngineUnavailable("selected TTS model is not installed or its runtime is missing")
         return {
             "engine_id": engine_id, "voice_id": voice_id, "speed": speed,
             "voice_controls": controls, "seed": seed,
@@ -508,12 +520,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js"}:
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js"}:
                 name = ("audio_scheduler.js" if route == "/audio_scheduler.js" else
                         "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
                         "emoji_pronunciation.js" if route == "/emoji_pronunciation.js" else
                         "rule_quick_add.js" if route == "/rule_quick_add.js" else
                         "ai_settings.js" if route == "/ai_settings.js" else
+                        "language_routes.js" if route == "/language_routes.js" else
                         "source_feed.js" if route == "/source_feed.js" else
                         "mode_inputs.js" if route == "/mode_inputs.js" else
                         "mode_workspace.js" if route == "/mode_workspace.js" else
@@ -650,6 +663,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(409, {"error": "speech audio is not ready"})
             elif route == "/v1/settings/mode-voices":
                 self.send_json(200, load_workspace_settings())
+            elif route == "/v1/settings/language-routes":
+                self.send_json(200, {"languages": LANGUAGES, **load_routes()})
             elif route == "/v1/settings/global-voice":
                 self.send_json(200, _read_global_voice())
             elif route == "/v1/settings/synthesis":
@@ -702,7 +717,7 @@ class Handler(BaseHTTPRequestHandler):
                 except ValueError:
                     self.send_json(400, {"error": "invalid model name"})
             elif route == "/v1/ai/packages":
-                self.send_json(200, {"packages": [{
+                self.send_json(200, {"legacy_m2m": legacy_model_installed(), "packages": [{
                     "key": ai_package_key(manifest),
                     "package_id": manifest["package_id"], "version": manifest["version"],
                     "title": manifest["title"], "adapter": manifest["engine_adapter"],
@@ -847,13 +862,15 @@ class Handler(BaseHTTPRequestHandler):
             except OllamaUnavailable:
                 self.send_json(503, {"error": "Ollama model is not installed, unavailable, or busy"})
             return
-        if route in ("/v1/ai/packages/install-local", "/v1/ai/packages/remove"):
+        if route in ("/v1/ai/packages/install-local", "/v1/ai/packages/remove",
+                     "/v1/ai/packages/remove-legacy"):
             host = self.headers.get("Host", "").lower().strip()
             origin = self.headers.get("Origin", "").lower().strip()
             allowed = {f"http://{name}:{self.server.server_port}"
                        for name in ("127.0.0.1", "localhost")}
-            intent = ("install-ai-model-package" if route.endswith("install-local")
-                      else "remove-ai-model-package")
+            intent = ("install-ai-model-package" if route.endswith("install-local") else
+                      "remove-legacy-ai-model" if route.endswith("remove-legacy") else
+                      "remove-ai-model-package")
             if (f"http://{host}" not in allowed or origin != f"http://{host}"
                 or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
                 or self.headers.get("X-VoxWeaveTTS-Intent") != intent):
@@ -872,6 +889,10 @@ class Handler(BaseHTTPRequestHandler):
                         "installed": True, "package_id": installed["package_id"],
                         "version": installed["version"],
                     } if installed else {})})
+                elif route.endswith("remove-legacy"):
+                    if data:
+                        raise AIModelPackageError("invalid legacy model removal request")
+                    self.send_json(200, {"removed": remove_legacy_m2m()})
                 else:
                     if set(data) != {"package_id", "version"}:
                         raise AIModelPackageError("invalid AI model removal request")
@@ -1030,6 +1051,22 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(409, {"error": str(exc)})
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
+            return
+        if route == "/v1/settings/language-routes":
+            if self.headers.get("X-VoxWeaveTTS-Intent") != "save-language-routes":
+                self.reject_unread_post(403, {"error": "explicit language routing intent required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "language routes require JSON"})
+                return
+            try:
+                self.send_json(200, save_routes(self._read_json(max_bytes=16_384)))
+            except InputError as exc:
+                self.send_json(400, {"error": str(exc)})
+            except ValueError:
+                self.send_json(409, {"error": "language routing settings changed elsewhere"})
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid language routing JSON"})
             return
         if route == "/v1/settings/mode-voices":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-mode-voice":

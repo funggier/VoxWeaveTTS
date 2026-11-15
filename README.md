@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Development update after v0.7.2 (not yet included in the published portable release):** CPU-tested multilingual Kokoro-82M INT8 `.vwmodel` with 18 selectable voices across English, Spanish, French, Hindi, Italian, Japanese and Portuguese. New language-to-engine/voice routing, expanded AI translation targets, and UI installation/uninstallation for AI `.vwmodel` packages and the legacy M2M100 directory. [Thai implementation notes](docs/MULTILINGUAL_TTS_TH.md).
+
 **Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
 
 > **Windows portable release v0.7.2:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.

@@ -50,7 +50,7 @@ DEFAULTS: dict[str, Any] = {
     "tool_file_read": False,
     "tool_max_calls": 2,
 }
-LANGUAGES = frozenset({"th", "en", "ja", "zh", "ko"})
+LANGUAGES = frozenset({"th", "en", "ja", "zh", "ko", "es", "fr", "hi", "it", "pt", "de", "ru"})
 UNSPECIFIED_LANGUAGE = "unspecified"
 # This is intentionally a conservative script heuristic, not a language classifier.
 _SCRIPTS = {
@@ -60,7 +60,10 @@ _SCRIPTS = {
     "zh": re.compile(r"[\u3400-\u9fff]"),
     "ko": re.compile(r"[\uac00-\ud7af]"),
 }
-_TEXT_LETTER = re.compile(r"[a-zA-Z\u00c0-\u024f\u0e00-\u0e7f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]")
+_SCRIPTS.update({code: re.compile(r"[A-Za-zÀ-ɏ]") for code in ("es","fr","it","pt","de")})
+_SCRIPTS["hi"] = re.compile(r"[ऀ-ॿ]")
+_SCRIPTS["ru"] = re.compile(r"[Ѐ-ԯ]")
+_TEXT_LETTER = re.compile(r"[a-zA-Z\u00c0-\u024f\u0e00-\u0e7f\u0900-\u097f\u0400-\u052f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]")
 _FOREIGN_SPANS = {
     "th": re.compile(r"(?:[a-zA-Z\u00c0-\u024f][a-zA-Z\u00c0-\u024f\s'’.,!?-]*|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]+)"),
     "en": re.compile(r"(?:[\u0e00-\u0e7f]+|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]+)"),
@@ -68,6 +71,21 @@ _FOREIGN_SPANS = {
     "zh": re.compile(r"(?:[a-zA-Z\u00c0-\u024f][a-zA-Z\u00c0-\u024f\s'’.,!?-]*|[\u0e00-\u0e7f]+|[\u3040-\u30ff]+|[\uac00-\ud7af]+)"),
     "ko": re.compile(r"(?:[a-zA-Z\u00c0-\u024f][a-zA-Z\u00c0-\u024f\s'’.,!?-]*|[\u0e00-\u0e7f]+|[\u3040-\u30ff\u3400-\u9fff]+)"),
 }
+
+# Latin-script targets cannot be distinguished reliably from English by script;
+# foreign_spans mode therefore translates Latin spans too for these languages.
+_FOREIGN_SPANS.update({
+    code: re.compile(
+        r"(?:[a-zA-Z\u00c0-\u024f][a-zA-Z\u00c0-\u024f\s''.,!?-]*|"
+        r"[\u0e00-\u0e7f\u0900-\u097f\u0400-\u052f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]+)"
+    ) for code in ("es", "fr", "it", "pt", "de")
+})
+_FOREIGN_SPANS["hi"] = re.compile(
+    r"(?:[a-zA-Z\u00c0-\u024f][a-zA-Z\u00c0-\u024f\s''.,!?-]*|"
+    r"[\u0e00-\u0e7f\u0400-\u052f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]+)")
+_FOREIGN_SPANS["ru"] = re.compile(
+    r"(?:[a-zA-Z\u00c0-\u024f][a-zA-Z\u00c0-\u024f\s''.,!?-]*|"
+    r"[\u0e00-\u0e7f\u0900-\u097f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]+)")
 
 
 class AIUnavailable(Exception):
@@ -207,6 +225,14 @@ def save_settings(value: Any, expected_revision: Any) -> dict[str, Any]:
 def _has_foreign_script(text: str, target: str) -> bool:
     # Script detection is intentionally cautious. E.g. Latin-only French vs
     # English cannot be distinguished reliably without a dedicated classifier.
+    if target in {"es", "fr", "it", "pt", "de"}:
+        # Latin text can be another Latin-script language; do not assume the
+        # message already matches the selected target without classification.
+        return bool(_TEXT_LETTER.search(text))
+    if target == "hi":
+        return bool(re.search(r"[a-zA-Z\u00c0-\u024f\u0e00-\u0e7f\u0400-\u052f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]", text))
+    if target == "ru":
+        return bool(re.search(r"[a-zA-Z\u00c0-\u024f\u0e00-\u0e7f\u0900-\u097f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]", text))
     if target == "th":
         return bool(re.search(r"[a-zA-Z\u00c0-\u024f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]", text))
     if target == "en":
@@ -257,6 +283,8 @@ def _ollama_chat(text: str, settings: dict[str, Any], context: list[dict[str, st
     language_names = {"th": "Thai (ภาษาไทย)", "en": "English", "ja": "Japanese (日本語)",
                       "zh": "Simplified Chinese (简体中文)", "ko": "Korean (한국어)"}
     specified_language = settings["target_language"] != UNSPECIFIED_LANGUAGE
+    language_names.update({"es":"Spanish","fr":"French","hi":"Hindi",
+                           "it":"Italian","pt":"Portuguese","de":"German","ru":"Russian"})
     language = language_names.get(settings["target_language"])
     base = (
         "You are the text processing stage of a speech application. "

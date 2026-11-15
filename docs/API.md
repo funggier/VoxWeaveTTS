@@ -1,5 +1,31 @@
 # API Contract — Engine-Neutral Document Reader preview (v0.3.0.dev9)
 
+## Multilingual TTS route API (development after v0.7.2)
+
+Speech APIs accept optional `language` ISO codes: `th`, `en`, `ja`,
+`zh`, `ko`, `es`, `fr`, `hi`, `it`, `pt`, `de`, `ru`, or `auto`.
+The language route applies after AI translation and text preprocessing, only
+when `enabled=true`. A language with no route falls back to the mode voice.
+Latin script alone cannot reliably distinguish English, Spanish, French,
+Italian, Portuguese or German; use an explicit `language` or AI target.
+
+- `GET /v1/settings/language-routes` returns revision, enabled, routes, languages.
+- `POST /v1/settings/language-routes`: JSON body
+  `{"expected_revision":0,"enabled":true,"routes":{"en":{"engine_id":"model-kokoro-multilingual-int8-1_0_0","voice_id":"af_heart"}}}`.
+  Required header `X-VoxWeaveTTS-Intent: save-language-routes`.
+- Existing TTS `/v1/model-packages/install-local` and `/remove` support the new
+  Kokoro-82M INT8 `.vwmodel`.
+- `GET /v1/ai/packages` also returns `legacy_m2m` boolean.
+  `POST /v1/ai/packages/install-local` and `/remove` manage AI `.vwmodel`.
+- `POST /v1/ai/packages/remove-legacy`, header
+  `X-VoxWeaveTTS-Intent: remove-legacy-ai-model`, body `{}`,
+  deletes only the recognized original M2M100 folder after explicit UI
+  confirmation; unknown files and caller-provided paths are rejected.
+
+See [Multilingual TTS guide](MULTILINGUAL_TTS_TH.md).
+
+
+
 Loopback base: `http://127.0.0.1:8765`. JSON UTF-8. Maximum request body currently 64 KiB; maximum text is 8,000 characters.
 
 ## Implemented
