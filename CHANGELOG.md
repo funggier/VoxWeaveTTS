@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (after v0.8.0) — Live recovery and non-disruptive queue reset
+
+- Distinguish Firefox NotAllowedError/autoplay permission failures from TTS/AI/WAV and audio scheduler errors. Keep generated WAV and unread messages, and retry from user gesture.
+- Fix isolated Chromium YouTube chat dropdown: target the actual menu button before selecting the visible Live chat option. Never silently fall back to Top chat if mode confirmation times out; show actionable status instead.
+- Add per-source **รีเซ็ตคิวข้อความ** buttons to clear only unstarted messages in browser and Python source queues without disconnecting LIVE. Preserve the single in-progress translation, synthesis or speech playback through completion; new messages follow it.
+- Regression tests for Firefox retry and queue retention, YouTube Chromium DOM option selection, authenticated server queue reset and per-mode chat reset UI.
+- Fix outdated v0.4.2 model catalog test assumptions to match published v0.8.0 three-model TTS catalog.
+
+
 ## 0.8.0 — Multilingual CPU TTS, per-language voice routing and complete model package release (15 November 2026)
 
 - Add Kokoro-82M INT8 multilingual CPU ONNX adapter and optional data-only model package with 18 voices across English (US/UK), Spanish, French, Hindi, Italian, Japanese and Portuguese. Weights remain outside the core Portable ZIP.

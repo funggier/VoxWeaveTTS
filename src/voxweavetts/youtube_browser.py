@@ -48,19 +48,32 @@ CHAT_SCRIPT = r"""(() => {
         "yt-sort-filter-sub-menu-renderer a.yt-simple-endpoint, " +
         "tp-yt-paper-listbox tp-yt-paper-item")];
       const liveOption = options.find(el => liveLabels.has(norm(el.textContent)));
-      if (liveOption) {
+      const dropdown = menu.querySelector("yt-dropdown-menu");
+      const opened = Boolean(
+        dropdown?.hasAttribute("opened") ||
+        dropdown?.getAttribute("aria-expanded") === "true" ||
+        liveOption?.getClientRects?.().length);
+      const now = Date.now();
+      if (opened && liveOption) {
+        // A hidden paper-menu option exists in the DOM even when the
+        // dropdown is closed. Clicking it then is ignored by YouTube.
+        // First open the menu, then select a *visible* Live chat option.
         (liveOption.closest("a") || liveOption).click();
-        window.__vwttsLiveChatLastClick = Date.now();
+        window.__vwttsLiveChatLastClick = now;
         chatMode = "switching";
-      } else if (Date.now() - (window.__vwttsLiveChatLastClick || 0) > 2500) {
-        const opener = menu.querySelector("yt-dropdown-menu #label, " +
-          "yt-dropdown-menu [role=button], yt-dropdown-menu button, " +
-          "yt-dropdown-menu") || menu.querySelector("#label-text");
+      } else if (now - (window.__vwttsLiveChatLastClick || 0) > 1200) {
+        // Separate queries: a selector list would return the OUTER
+        // yt-dropdown-menu first in DOM order, which is not its real button.
+        const opener = menu.querySelector("yt-dropdown-menu #label") ||
+          menu.querySelector("yt-dropdown-menu button") ||
+          menu.querySelector("yt-dropdown-menu [role=button]") ||
+          menu.querySelector("#label-text") ||
+          menu.querySelector("yt-dropdown-menu");
         if (opener) {
           opener.click();
-          window.__vwttsLiveChatLastClick = Date.now();
-          chatMode = "switching";
+          window.__vwttsLiveChatLastClick = now;
         }
+        chatMode = "switching";
       } else {
         chatMode = "switching";
       }
@@ -427,22 +440,20 @@ class YouTubeBrowserAdapter:
                     "comments_off", "comments_off_login_prompt", "login_prompt")
                     else "waiting_chat_dom")
                 return PollResult((), 2.0)
-            # Before the first delivery, finish switching to Live chat so
-            # Top chat rows do not become the initial message baseline. If
-            # YouTube changes its UI, keep reading after bounded attempts.
-            if self.chat_mode == "switching" and not self._initialized:
+            # The requested browser mode is *unfiltered* Live chat. Do not
+            # silently use Top chat after a timeout: that would omit messages.
+            # Keep the connection alive and retry opening the dropdown.
+            if self.chat_mode != "live":
+                self.dom_ready = False
                 if self._live_mode_deadline is None:
                     self._live_mode_deadline = time.monotonic() + 12
-                if time.monotonic() < self._live_mode_deadline:
-                    self.dom_ready = False
-                    self.phase = "switching_live_chat"
-                    return PollResult((), 0.5)
-            else:
-                self._live_mode_deadline = None
+                self.phase = ("switching_live_chat"
+                              if time.monotonic() < self._live_mode_deadline
+                              else "chat_mode_unconfirmed")
+                return PollResult((), 0.5 if self.phase == "switching_live_chat" else 2.0)
+            self._live_mode_deadline = None
             self.dom_ready = True
-            self.phase = ("ready" if self.chat_mode == "live"
-                          else "chat_mode_unconfirmed" if self.chat_mode in ("top", "switching")
-                          else "ready")
+            self.phase = "ready"
             rows = result.get("items", [])
             if not isinstance(rows, list):
                 raise ValueError("invalid chat DOM")

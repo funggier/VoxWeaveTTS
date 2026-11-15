@@ -1041,11 +1041,12 @@ class Handler(BaseHTTPRequestHandler):
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
             return
-        if route in {"/v1/sources/start", "/v1/sources/stop", "/v1/sources/drain"}:
+        if route in {"/v1/sources/start", "/v1/sources/stop", "/v1/sources/drain", "/v1/sources/reset"}:
             intent = {
                 "/v1/sources/start": "start-live-source",
                 "/v1/sources/stop": "stop-live-source",
                 "/v1/sources/drain": "drain-live-source",
+                "/v1/sources/reset": "reset-live-source-queue",
             }[route]
             if self.headers.get("X-VoxWeaveTTS-Intent") != intent:
                 self.reject_unread_post(403, {"error": "missing source operation intent"})
@@ -1062,6 +1063,8 @@ class Handler(BaseHTTPRequestHandler):
                     result = sources.start(data, self._mode_state())
                 elif route.endswith("/stop"):
                     result = sources.stop(data, self._mode_state())
+                elif route.endswith("/reset"):
+                    result = sources.reset_pending(data, self._mode_state())
                 else:
                     result = sources.drain(data, self._mode_state())
                 self.send_json(200, result)

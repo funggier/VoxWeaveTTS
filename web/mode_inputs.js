@@ -33,12 +33,52 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       autoBusy=false;
     }
   }
+  function resetPending(){
+    // Queue reset is intentionally NON-disruptive: the one active item can
+    // be preparing/translation, synthesizing, playing or paused for a retry.
+    // Only messages which have not started processing are discarded.
+    const cleared=incoming.length;
+    for(const item of incoming)mark(item,"skipped");
+    incoming.length=0;
+    return {
+      cleared,
+      active_message_id:activeIncoming?.message_id == null
+        ?null:String(activeIncoming.message_id),
+    };
+  }
   const clock=clockLibrary.attach(audio,payload=>report(payload,mode),
     state=>{
       get("Subtitle").textContent=state.text;
     }
   );
   function feedback(message){get("Status").textContent=message;}
+  function playbackFailure(error){
+    const name=String(error?.name||"");
+    const detail=String(error?.message||error||"ไม่ทราบสาเหตุ").slice(0,200);
+    if(name==="NotAllowedError"||name==="SecurityError")
+      return "Firefox/Browser บล็อก Auto-play ("+name+
+        ") · อนุญาตให้เว็บไซต์นี้เล่นเสียงอัตโนมัติ แล้วกดลองอ่านอัตโนมัติต่อ";
+    if(name==="NotSupportedError")
+      return "Browser ไม่รองรับหรืออ่านไฟล์ WAV นี้ไม่ได้ ("+name+")";
+    if(name==="AbortError")
+      return "Browser ยกเลิกการเริ่มเล่นเสียง ("+name+")";
+    return "งานเสียงหรือการเล่นเสียงล้มเหลว: "+detail+(name?" ("+name+")":"");
+  }
+  function pauseAuto(reason,{replayReady=false}={}){
+    autoPaused=true;
+    autoBusy=false;
+    if(activeIncoming){
+      // Keep a generated WAV for a user-gesture retry; failed generation
+      // or invalid media must instead be synthesized again on retry.
+      mark(activeIncoming,"queued");
+      if(!replayReady){
+        incoming.unshift(activeIncoming);
+        activeIncoming=null;
+      }
+    }
+    feedback("อ่านอัตโนมัติพักชั่วคราว · "+reason+
+      " · กด 'ลองอ่านอัตโนมัติต่อ' หลังแก้ไข");
+  }
   function readOptions(){
     const pick=key=>{
       const control=get("FeedFormat"+key);
@@ -194,16 +234,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           get("Download").style.display="inline-block";
           feedback("เสียงพร้อม · กด Play เพื่ออ่านข้อความของโหมดนี้");
           if(autoPlay){
-            try{
-              const started=await playAudio(audio);
-              if(!started)return false;
-              if(activeIncoming && activeIncoming.message_id===messageId)
-                mark(activeIncoming,"reading");
-            }
-            catch{
-              feedback("Browser ไม่อนุญาต Auto-play · กด Play เองได้");
-              return false;
-            }
+            // Let the caller distinguish a Firefox NotAllowedError from a
+            // failed TTS job, WAV decode error or scheduler cancellation.
+            const started=await playAudio(audio);
+            if(!started)return false;
+            if(activeIncoming && activeIncoming.message_id===messageId)
+              mark(activeIncoming,"reading");
           }
           return true;
         }
@@ -212,12 +248,15 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           return "skipped";
         }
         if(["failed","cancelled"].includes(job.state))
-          throw Error("งานเสียง "+job.state);
+          throw Error("งานเสียง "+job.state+(job.error?" · "+String(job.error).slice(0,200):""));
         // No client-side timer: immediately request the next bounded wait.
       }
       throw Error("งานเสียงยังไม่เสร็จใน 4 นาที กรุณาตรวจคิว");
     }catch(e){
-      if(my===generation)feedback(String(e.message||e));
+      if(my===generation){
+        if(autoPlay)throw e; // A failed job is NOT a Firefox autoplay denial.
+        feedback(String(e.message||e));
+      }
     }finally{
       if(my===generation)get("Submit").disabled=false;
     }
@@ -245,16 +284,14 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         return;
       }
       if(!played){
-        // Do not pretend a generated WAV was actually read if autoplay fails.
-        clearAutoQueue({includeActive:true});
-        autoPaused=true;
-        feedback("อ่านอัตโนมัติหยุดชั่วคราว · ตรวจสิทธิ์เล่นเสียงใน Browser แล้วเปิดใหม่");
+        // Playback was cancelled/not started; keep pending messages and WAV.
+        pauseAuto("ยังเริ่มเล่นเสียงไม่ได้ (คิวหรือ Browser ยกเลิกการเล่น)",
+          {replayReady:Boolean(lastReady&&wavUrl)});
       }
     }catch(error){
       if(ticket!==queueEpoch)return;
-      clearAutoQueue({includeActive:true});
-      autoPaused=true;
-      feedback(String(error.message||error));
+      pauseAuto(playbackFailure(error),
+        {replayReady:Boolean(lastReady&&wavUrl)});
     }
   }
   function receiveIncoming(msg,autoRead){
@@ -282,18 +319,47 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   });
   audio.addEventListener("error",()=>{
     if(!activeIncoming)return;
-    clearAutoQueue({includeActive:true});
-    autoPaused=true;
-    feedback("เสียงมีข้อผิดพลาด · พักการอ่านชั่วคราว แต่ยังเก็บค่าอ่านอัตโนมัติไว้");
+    // A corrupt/unsupported WAV must be regenerated, not retried indefinitely.
+    pauseAuto("ไฟล์เสียงเล่นไม่ได้ใน Browser · ตรวจรูปแบบ WAV แล้วลองอ่านต่อ");
   });
   get("FeedAuto").addEventListener("change",()=>{
     autoPaused=false;
     if(get("FeedAuto").checked)pumpIncoming();
   });
-  get("AutoRetry")?.addEventListener("click",()=>{
+  get("AutoRetry")?.addEventListener("click",async()=>{
+    if(!get("FeedAuto").checked){
+      feedback("เปิดอ่านอัตโนมัติก่อนกดลองอ่านต่อ");
+      return;
+    }
     autoPaused=false;
     feedback("กำลังลองอ่านข้อความอัตโนมัติต่อ...");
-    if(get("FeedAuto").checked)pumpIncoming();
+    if(activeIncoming && lastReady && wavUrl){
+      // Must call play directly in the click handler, preserving Firefox's
+      // user activation. Do not synthesize and drop the already-ready WAV.
+      const ticket=queueEpoch;
+      autoBusy=true;
+      try{
+        const started=await playAudio(audio);
+        if(ticket!==queueEpoch)return;
+        if(!started){
+          pauseAuto("ยังเริ่มเล่นเสียงไม่ได้",{replayReady:true});
+          return;
+        }
+        mark(activeIncoming,"reading");
+        feedback("กำลังอ่านข้อความอัตโนมัติต่อ...");
+      }catch(error){
+        if(ticket!==queueEpoch)return;
+        pauseAuto(playbackFailure(error),{replayReady:true});
+      }
+      return;
+    }
+    if(activeIncoming){
+      mark(activeIncoming,"queued");
+      incoming.unshift(activeIncoming);
+      activeIncoming=null;
+    }
+    autoBusy=false;
+    pumpIncoming();
   });
   function resume(){
     if(lastReady && wavUrl){
@@ -305,8 +371,15 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   get("Play").addEventListener("click",async()=>{
     if(!guard(mode)){feedback("โหมดนี้ไม่ได้ควบคุมเสียงอยู่ กรุณาเปิดโหมดอีกครั้ง");return;}
     if(!lastReady){feedback("กรุณาสร้าง WAV ก่อนกดเล่น");return;}
-    try{await playAudio(audio);}
-    catch(error){feedback("Browser เล่นเสียงไม่สำเร็จ: "+String(error.message||error));}
+    try{
+      const started=await playAudio(audio);
+      if(started&&autoPaused&&activeIncoming){
+        autoPaused=false;
+        autoBusy=true;
+        mark(activeIncoming,"reading");
+        feedback("กำลังอ่านข้อความที่พักไว้...");
+      }
+    }catch(error){feedback(playbackFailure(error));}
   });
   get("Submit").addEventListener("click",()=>submit().catch(e=>feedback(String(e.message||e))));
   get("Stop").addEventListener("click",()=>{
@@ -315,7 +388,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     stop({discard:true});
     feedback("หยุดเสียงของโหมดนี้แล้ว · ค่าอ่านอัตโนมัติยังคงเดิม กดลองอ่านต่อเมื่อพร้อม");
   });
-  return {stop,suspend,resume,submit,pickMessage,receiveIncoming,clearAutoQueue,
+  return {stop,suspend,resume,submit,pickMessage,receiveIncoming,clearAutoQueue,resetPending,
           get autoPaused(){return autoPaused;},
           get pendingAuto(){return incoming.length;},
           get skippedOverflow(){return overflow;},

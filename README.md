@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Source changes after v0.8.0 (not yet in published Portable ZIP):** Correct Firefox autoplay-specific error messages and preserve pending speech on retry; properly open the YouTube Top chat dropdown before selecting unfiltered Live chat; add a **Reset pending chat queue** button per live source while preserving the currently translating, synthesizing or speaking message. See [Thai troubleshooting and reset guide](docs/LIVE_QUEUE_RESET_TH.md).
+
 **Windows Portable v0.8.0 — Multilingual CPU TTS and per-language voice settings:** CPU-tested multilingual Kokoro-82M INT8 `.vwmodel` with 18 selectable voices across English, Spanish, French, Hindi, Italian, Japanese and Portuguese. New language-to-engine/voice routing, expanded AI translation targets, and UI installation/uninstallation for AI `.vwmodel` packages and the legacy M2M100 directory. [Thai implementation notes](docs/MULTILINGUAL_TTS_TH.md).
 
 **Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.

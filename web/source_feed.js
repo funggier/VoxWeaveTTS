@@ -68,7 +68,7 @@ const EXTENSION_PHASE_NAMES=Object.freeze({
   stopped:"หยุดรับข้อความจาก TikTok Extension แล้ว",
 });
 const STATE_LABELS={
-  queued:"รออ่าน",preparing:"กำลังสร้างเสียง",reading:"กำลังอ่าน",read:"อ่านแล้ว",
+  queued:"รออ่าน",preparing:"กำลังแปล/สร้างเสียง",reading:"กำลังอ่าน",read:"อ่านแล้ว",
   skipped:"ข้ามการอ่าน",manual:"เลือกอ่านเอง",
 };
 const RPC_PHASE_NAMES={
@@ -94,7 +94,7 @@ const BROWSER_PHASE_NAMES=Object.freeze({
   connecting_dom:"ขั้นตอน 4/5 · เชื่อมระบบควบคุม DOM ของ Browser",
   reading_dom:"ขั้นตอน 5/5 · ตรวจสอบองค์ประกอบข้อความในหน้า Chat",
   switching_live_chat:"ขั้นตอน 5/5 · กำลังเปลี่ยนจาก Top chat เป็น Live chat",
-  chat_mode_unconfirmed:"เชื่อมต่อแชทแล้ว · ยังยืนยันการเลือก Live chat ไม่ได้",
+  chat_mode_unconfirmed:"ยังเปลี่ยน Top chat เป็น Live chat ไม่สำเร็จ · ตรวจหน้าต่าง YouTube Chat-only แล้วเลือก Live chat ด้วยตนเอง · ยังไม่อ่านจาก Top chat",
   waiting_chat_dom:"ขั้นตอน 5/5 · รอให้หน้า Live Chat โหลดหรือเปิดแชท",
   ready:"เชื่อมต่อสำเร็จ · พร้อมอ่านข้อความใหม่จาก YouTube Live Chat",
   comments_off:"TikTok ใน Browser นี้แสดง Comments off · ไม่ได้แปลว่าเจ้าของไลฟ์ปิดคอมเมนต์ ตรวจสอบสิทธิ์การเข้าถึงในหน้าต่างนี้",
@@ -151,11 +151,12 @@ function subscribeSource(mode,wake){
   };
 }
 
-function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPreference,onConnect}){
+function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSenderPreference,onConnect}){
   if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
   const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
   const get=id=>el(prefix+id);
   let timer=null, generation=0, connected=false, inFlight=false;
+  let resetEpoch=0, resetting=false;
   let streamSubscription=null, pendingWake=false;
   let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
   const seen=new Set();
@@ -378,7 +379,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       method:"POST",
       headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":{
         start:"start-live-source",stop:"stop-live-source",
-        drain:"drain-live-source",
+        drain:"drain-live-source",reset:"reset-live-source-queue",
       }[operation]},
       body:JSON.stringify(body),
     });
@@ -405,6 +406,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
   }
   function localSuspend(){
     generation++;
+    resetEpoch++;
+    resetting=false;
     connected=false;
     inFlight=false;
     pendingWake=false;
@@ -609,10 +612,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     if(!connected||!guard(mode))return;
     if(inFlight){pendingWake=true;return;}
     const ticket=generation;
+    const drainEpoch=resetEpoch;
     inFlight=true;
     try{
       const result=await api("drain",{...credentials(mode),limit:10});
-      if(ticket!==generation||!guard(mode))return;
+      if(ticket!==generation||drainEpoch!==resetEpoch||resetting||!guard(mode))return;
       const status=result.status;
       if(Array.isArray(result.messages)){
         for(const item of result.messages){
@@ -738,6 +742,47 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
       }
     }
   }
+  async function resetPending(){
+    if(resetting)return;
+    resetting=true;
+    resetEpoch++; // Ignore any pre-reset /drain response still in flight.
+    const ticket=generation;
+    const keep=onReset?.()||{};
+    const activeId=keep.active_message_id==null
+      ?null:String(keep.active_message_id);
+    const cleared=Number.isInteger(keep.cleared)?keep.cleared:0;
+    const resetButton=get("FeedReset");
+    resetButton.disabled=true;
+    // Preserve the single active translation/render/playback job and its
+    // displayed row. Remove queued and historical rows, not the current job.
+    visible=visible.filter(item=>activeId!==null&&
+      String(item.message_id)===activeId);
+    overflow=0;
+    render();
+    try{
+      let backend=0;
+      if(mode!=="tiktok"&&connected&&guard(mode)){
+        const result=await api("reset",credentials(mode));
+        backend=Number.isInteger(result.cleared)?result.cleared:0;
+      }
+      if(ticket===generation){
+        message("รีเซ็ตคิวแล้ว · ล้างข้อความที่รอ "+(cleared+backend)+
+          " รายการ · "+(activeId!==null
+            ?"ข้อความที่กำลังแปล/สร้างเสียง/อ่าน จะทำต่อจนจบ"
+            :"พร้อมรับข้อความใหม่")+(connected?" · ยังเชื่อมต่อ LIVE อยู่":" · ยังไม่ได้เชื่อมต่อ LIVE"));
+      }
+    }catch(error){
+      if(ticket===generation)
+        message("ล้างคิวใน Browser แล้ว แต่ล้างคิวต้นทางไม่สำเร็จ: "+
+          String(error.message||error));
+    }finally{
+      if(ticket===generation){
+        resetting=false;
+        resetButton.disabled=false;
+        if(connected&&guard(mode))wake();
+      }
+    }
+  }
   async function stop(){
     if(mode==="tiktok"){
       localSuspend();
@@ -772,6 +817,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     });
   });
   get("FeedStop").addEventListener("click",()=>stop().catch(()=>{}));
+  get("FeedReset").addEventListener("click",()=>resetPending());
   if(extensionMode)get("FeedCopyDiagnostics").addEventListener("click",async()=>{
     const text="TikTok LIVE (Extension)\n"+
       get("FeedStatus").textContent+"\n"+
@@ -807,7 +853,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onSenderPrefe
     prune();render();
   });
   renderSummary();
-  return {start,stop,poll,suspend:localSuspend,setMessageState,exportSettings,importSettings,
+  return {start,stop,poll,resetPending,suspend:localSuspend,setMessageState,exportSettings,importSettings,
           get connected(){return connected;},get visible(){return visible.slice();}};
 }
 root.VoxSourceFeed={attach};

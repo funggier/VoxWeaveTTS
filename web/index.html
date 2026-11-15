@@ -198,7 +198,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <span class="small" id="youtubeBrowserFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="youtubeBrowserAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 </div>
-<div class="voice-grid"><button type="button" id="youtubeBrowserFeedStart">เชื่อมต่อ</button><button type="button" id="youtubeBrowserFeedStop">หยุดรับข้อความ</button></div>
+<div class="voice-grid"><button type="button" id="youtubeBrowserFeedStart">เชื่อมต่อ</button><button type="button" id="youtubeBrowserFeedStop">หยุดรับข้อความ</button><button type="button" id="youtubeBrowserFeedReset" class="small-button">รีเซ็ตคิวข้อความ</button></div>
 <div class="voice-grid"><button type="button" id="youtubeBrowserFeedExport">Export / Save As (.json)</button><button type="button" id="youtubeBrowserFeedImport">Import การตั้งค่า (.json)</button><input type="file" id="youtubeBrowserFeedImportFile" accept=".json,application/json" hidden></div>
 <p id="youtubeBrowserFeedStatus" class="small" role="status" aria-live="polite">ยังไม่เชื่อมต่อ · กดเชื่อมต่อเพื่อเปิดหน้าต่างแชท</p>
 <ol id="youtubeBrowserFeedProgress" class="source-message-list small" aria-label="ขั้นตอนการเชื่อมต่อ TikTok Extension"></ol>
@@ -242,7 +242,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <div class="voice-grid">
 <button type="button" id="liveFeedStart">เชื่อมต่อ API</button>
-<button type="button" id="liveFeedStop">หยุดรับข้อความ</button>
+<button type="button" id="liveFeedStop">หยุดรับข้อความ</button><button type="button" id="liveFeedReset" class="small-button">รีเซ็ตคิวข้อความ</button>
 </div>
 <div class="voice-grid">
 <button type="button" id="liveFeedExport">Export / Save As (.json)</button>
@@ -283,7 +283,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <span class="small" id="tiktokBrowserFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="tiktokBrowserAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
 </div>
-<div class="voice-grid"><button type="button" id="tiktokBrowserFeedStart">สร้างรหัสจับคู่</button><button type="button" id="tiktokBrowserFeedStop">หยุดรับข้อความ</button></div>
+<div class="voice-grid"><button type="button" id="tiktokBrowserFeedStart">สร้างรหัสจับคู่</button><button type="button" id="tiktokBrowserFeedStop">หยุดรับข้อความ</button><button type="button" id="tiktokBrowserFeedReset" class="small-button">รีเซ็ตคิวข้อความ</button></div>
 <div class="voice-grid"><div><label for="tiktokBrowserFeedPairingCode">รหัสจับคู่ชั่วคราว (ใช้กับส่วนเสริม Chrome ภายใน 5 นาที)</label><input type="text" id="tiktokBrowserFeedPairingCode" readonly autocomplete="off" placeholder="กดสร้างรหัสจับคู่ก่อน"></div><button type="button" id="tiktokBrowserFeedCopyCode">คัดลอกรหัส</button></div>
 <div class="voice-grid"><button type="button" id="tiktokBrowserFeedExport">Export / Save As (.json)</button><button type="button" id="tiktokBrowserFeedImport">Import การตั้งค่า (.json)</button><input type="file" id="tiktokBrowserFeedImportFile" accept=".json,application/json" hidden></div>
 <p id="tiktokBrowserFeedStatus" class="small" role="status" aria-live="polite">ยังไม่เชื่อมต่อ · กรอกชื่อผู้ใช้ TikTok และกดสร้างรหัสจับคู่</p>
@@ -323,7 +323,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <div class="voice-grid">
 <button type="button" id="tiktokFeedStart">เชื่อม TikFinity</button>
-<button type="button" id="tiktokFeedStop">หยุดรับข้อความ</button>
+<button type="button" id="tiktokFeedStop">หยุดรับข้อความ</button><button type="button" id="tiktokFeedReset" class="small-button">รีเซ็ตคิวข้อความ</button>
 </div>
 <div class="voice-grid">
 <button type="button" id="tiktokFeedExport">Export / Save As (.json)</button>
@@ -372,7 +372,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <div class="voice-grid">
 <button type="button" id="discordFeedStart">เชื่อมต่อ API</button>
-<button type="button" id="discordFeedStop">หยุดรับข้อความ</button>
+<button type="button" id="discordFeedStop">หยุดรับข้อความ</button><button type="button" id="discordFeedReset" class="small-button">รีเซ็ตคิวข้อความ</button>
 </div>
 <div class="voice-grid">
 <button type="button" id="discordFeedExport">Export / Save As (.json)</button>
@@ -429,7 +429,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <div class="voice-grid">
 <button id="discordClientFeedStart" type="button">เชื่อมและสมัครรับห้องนี้</button>
-<button id="discordClientFeedStop" type="button">หยุดรับข้อความ</button>
+<button id="discordClientFeedStop" type="button">หยุดรับข้อความ</button><button id="discordClientFeedReset" type="button" class="small-button">รีเซ็ตคิวข้อความ</button>
 </div>
 <div class="voice-grid">
 <button type="button" id="discordClientFeedExport">Export / Save As (.json)</button>
@@ -2269,6 +2269,7 @@ if(typeof VoxSourceFeed!=="undefined"){
       guard:id=>Boolean(modeRuntime?.guard(id)),
       onMessage:(entry,automatic)=>inputMode.receiveIncoming(entry,automatic),
       onPick:entry=>inputMode.pickMessage(entry),
+      onReset:()=>inputMode.resetPending(),
       onSenderPreference:(sourceMode,enabled)=>modeVoiceController.saveSenderName(sourceMode,enabled),
       onStop:()=>{inputMode.clearAutoQueue({includeActive:true});inputMode.stop({discard:true});},
     });

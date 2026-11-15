@@ -36,7 +36,7 @@ async function main(){
  el("liveFeedMaxChars").value="240";
  el("liveFeedAuto").checked=true;
  let active=true;
- let timer=null,claims=0;
+ let timer=null,claims=0,resets=0,clearDrains=false;
  let localToken="a".repeat(32),serverToken="stale-backend-token";
  const requested=[],selected=[],received=[],stopped=[];
  const sandbox={
@@ -48,6 +48,7 @@ async function main(){
      const payload=JSON.parse(options.body);
      requested.push({path,payload,headers:options.headers});
      if(path==="/v1/sources/start"){
+       clearDrains=false;
        if(payload.mode_token!==serverToken)
          return{ok:false,status:409,async json(){return{error:"source monitor requires the active mode owner token"};}};
        return{ok:true,async json(){return{
@@ -56,13 +57,19 @@ async function main(){
      }
      if(path==="/v1/sources/drain")return{
        ok:true,async json(){return{
-         messages:[
+         messages:clearDrains?[]:[
            {message_id:"x1",author:"คุณA",text:"สวัสดีครับ"},
            {message_id:"x2",author:"คุณB",text:"<img src=x onerror=alert(1)>"},
          ],
          status:{state:"running",pending:0,received:2,discarded:0,next_poll_seconds:5},
        };},
      };
+     if(path==="/v1/sources/reset"){
+       assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"reset-live-source-queue");
+       assert.equal(payload.mode_token,serverToken);
+       clearDrains=true;
+       return{ok:true,async json(){return{state:"reset",cleared:4,pending:0,connected:true};}};
+     }
      if(path==="/v1/sources/stop")
        return{ok:true,async json(){return{state:"stopped",pending:0};}};
      throw Error("unexpected API "+path);
@@ -83,6 +90,7 @@ async function main(){
    onMessage:(message,auto)=>received.push({message,auto}),
    onPick:message=>selected.push(message),
    onStop:()=>stopped.push(true),
+   onReset:()=>{resets++;return{active_message_id:"x2",cleared:1};},
  });
  await feed.start();
  assert.equal(feed.connected,true);
@@ -99,6 +107,14 @@ async function main(){
  latest.children[2].events.click();
  assert.equal(selected.length,1);
  assert.equal(selected[0].message_id,"x2");
+ await el("liveFeedReset").events.click();
+ assert.equal(resets,1);
+ assert.equal(feed.connected,true,"queue reset must keep the live source connected");
+ assert.equal(feed.visible.length,1,"only the currently playing item remains");
+ assert.equal(feed.visible[0].message_id,"x2");
+ assert.match(el("liveFeedStatus").textContent,/ข้อความที่กำลังแปล\/สร้างเสียง\/อ่าน จะทำต่อจนจบ/);
+ assert.ok(requested.some(x=>x.path==="/v1/sources/reset"),
+   "reset must clear the authenticated server-side pending queue");
  active=false;
  feed.suspend();
  assert.equal(feed.connected,false);

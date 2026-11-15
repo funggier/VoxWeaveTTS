@@ -24,15 +24,25 @@ def main():
         html.write_text(
             '<html><body><yt-live-chat-header-renderer><yt-sort-filter-sub-menu-renderer>'
             '<yt-dropdown-menu><button id="label"><span id="label-text">Top chat</span></button>'
-            '<tp-yt-paper-listbox><tp-yt-paper-item id="live-option">Live chat</tp-yt-paper-item>'
+            '<tp-yt-paper-listbox style="display:none" id="live-listbox">'
+            '<tp-yt-paper-item id="live-option">Live chat</tp-yt-paper-item>'
             '</tp-yt-paper-listbox></yt-dropdown-menu></yt-sort-filter-sub-menu-renderer>'
             '</yt-live-chat-header-renderer><yt-live-chat-item-list-renderer><div id="items">'
             '<yt-live-chat-text-message-renderer id="msg-a"><span id="author-name">'
             'Tester</span><span id="message">สวัสดีครับ <img alt="😂"> '
             '<img alt=":face-blue-smiling:"><img alt="GGWP">แล้วนะ</span>'
             '</yt-live-chat-text-message-renderer></div></yt-live-chat-item-list-renderer>'
-            '<script>document.getElementById("live-option").addEventListener("click",'
-            '()=>{document.getElementById("label-text").textContent="Live chat";});</script>'
+            '<script>window.vwMenuOpens=0;window.vwOptionClicks=0;'
+            'document.getElementById("label").addEventListener("click",()=>{'
+            'window.vwMenuOpens++;'
+            'document.getElementById("live-listbox").style.display="block";'
+            '});'
+            'document.getElementById("live-option").addEventListener("click",()=>{'
+            'window.vwOptionClicks++;'
+            'if(document.getElementById("live-listbox").style.display!=="block")return;'
+            'document.getElementById("label-text").textContent="Live chat";'
+            'document.getElementById("live-listbox").style.display="none";'
+            '});</script>'
             '</body></html>', encoding="utf-8")
         args = [find_chromium(), "--headless=new", "--disable-gpu",
                 "--remote-debugging-address=127.0.0.1",
@@ -84,7 +94,31 @@ def main():
                     time.sleep(0.2)
                 assert result["ready"] is True, result
                 assert observed_switch, "Top chat dropdown was not changed"
+                if result["chat_mode"] != "live":
+                    ws.send(json.dumps({"id": 998, "method": "Runtime.evaluate",
+                                        "params": {"expression":
+                                            "({opens:window.vwMenuOpens,clicks:window.vwOptionClicks,"
+                                            " label:document.querySelector('#label-text')?.textContent,"
+                                            " display:document.querySelector('#live-listbox')?.style.display,"
+                                            " rects:document.querySelector('#live-option')?.getClientRects().length,"
+                                            " recent:window.__vwttsLiveChatLastClick})",
+                                            "returnByValue": True}}).encode())
+                    while True:
+                        debug = json.loads(ws.receive())
+                        if debug.get("id") == 998:
+                            break
+                    raise AssertionError((result, debug))
                 assert result["chat_mode"] == "live", result
+                ws.send(json.dumps({"id": 999, "method": "Runtime.evaluate",
+                                    "params": {"expression":
+                                               "({opens:window.vwMenuOpens,clicks:window.vwOptionClicks})",
+                                               "returnByValue": True}}).encode())
+                while True:
+                    reply = json.loads(ws.receive())
+                    if reply.get("id") == 999:
+                        break
+                stats = reply["result"]["result"]["value"]
+                assert stats["opens"] == 1 and stats["clicks"] == 1, stats
                 assert result["items"][0]["text"] == "สวัสดีครับ 😂 :face-blue-smiling: GGWP แล้วนะ", result
                 assert result["items"][0]["author"] == "Tester", result
             finally:

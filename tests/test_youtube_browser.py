@@ -37,11 +37,11 @@ class BrowserAdapterTests(unittest.TestCase):
         a = YouTubeBrowserAdapter(VIDEO)
         a._ws = DummySocket()
         frames = [
-            {"ready": False, "items": []},
-            {"ready": True, "items": [{"id": "old", "author": "P", "text": "ก่อนเชื่อม"}]},
-            {"ready": True, "items": [{"id": "old", "author": "P", "text": "ก่อนเชื่อม"},
+            {"ready": False, "chat_mode": "live", "items": []},
+            {"ready": True, "chat_mode": "live", "items": [{"id": "old", "author": "P", "text": "ก่อนเชื่อม"}]},
+            {"ready": True, "chat_mode": "live", "items": [{"id": "old", "author": "P", "text": "ก่อนเชื่อม"},
                                       {"id": "new1", "author": "ผู้ชม A", "text": "สวัสดีครับ"}]},
-            {"ready": True, "items": [{"id": "new1", "author": "ผู้ชม A", "text": "สวัสดีครับ"},
+            {"ready": True, "chat_mode": "live", "items": [{"id": "new1", "author": "ผู้ชม A", "text": "สวัสดีครับ"},
                                       {"id": "new2", "author": "ผู้ชม A", "text": "สวัสดีครับ"}]},
         ]
         with patch.object(a, "_evaluate", side_effect=frames):
@@ -79,7 +79,7 @@ class BrowserAdapterTests(unittest.TestCase):
             self.assertEqual([m.message_id for m in final.messages], ["new-live"])
         reader.close()
 
-    def test_live_chat_selection_has_bounded_wait_if_youtube_changes_ui(self):
+    def test_live_chat_selection_never_falls_back_to_filtered_top_chat(self):
         reader = YouTubeBrowserAdapter(VIDEO)
         reader._ws = DummySocket()
         frame = {"ready": True, "chat_mode": "switching", "items": [
@@ -89,8 +89,11 @@ class BrowserAdapterTests(unittest.TestCase):
             self.assertEqual(reader.poll().messages, ())
             reader._live_mode_deadline = time.monotonic() - 1
             self.assertEqual(reader.poll().messages, ())
-            self.assertTrue(reader._initialized)
+            self.assertFalse(reader._initialized)
+            self.assertFalse(reader.dom_ready)
             self.assertEqual(reader.phase, "chat_mode_unconfirmed")
+            self.assertEqual(reader.poll().messages, ())
+            self.assertFalse(reader._initialized)
         reader.close()
 
     def test_background_throttling_disabled_only_for_isolated_browser(self):

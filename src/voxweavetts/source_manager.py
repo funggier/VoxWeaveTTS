@@ -259,6 +259,26 @@ class SourceManager:
             return {"state": "stopped", "pending": 0}
 
 
+    def reset_pending(self, data: dict[str, Any], mode_state: ModeState) -> dict[str, Any]:
+        """Clear only source messages waiting to reach the browser.
+
+        Keep the live connection, deduplication cursor, active speech job and
+        messages which arrive after this reset. The UI owns active speech.
+        """
+        if not isinstance(data, dict) or set(data) != {"mode", "mode_token"}:
+            raise InputError("invalid reset request")
+        mode, token = data["mode"], data["mode_token"]
+        self._authorized(mode, token, mode_state)
+        with self._lock:
+            session = self._sessions.get(mode)
+            if session is None or session.owner_token != token:
+                raise ModeConflict("source monitor is not running in this workspace")
+            cleared = len(session.pending)
+            session.pending.clear()
+            self._notify_unlocked(mode)
+            return {"state": "reset", "cleared": cleared,
+                    "pending": 0, "connected": True}
+
     def _notify_unlocked(self, mode: str) -> None:
         """Signal status/new-message changes without exposing chat contents."""
         self._revisions[mode] = self._revisions.get(mode, 0) + 1
