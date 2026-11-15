@@ -657,6 +657,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ul id="aiPackageList" style="padding-left:22px"></ul>
 </details>
 <label><input id="aiAutoDetect" type="checkbox" checked> ข้ามแปลเมื่อไม่พบอักษรต่างภาษา (ตรวจแบบคร่าว ๆ)</label>
+<label><input id="aiTranslationBypassValidation" type="checkbox"> ข้ามการตรวจสอบความถูกต้องของคำแปล (ความหมาย/ภาษา) — ใช้คำตอบที่โมเดลแปลกลับมา แม้ตรวจพบภาษาผิดหรือรูปประโยคไม่ตรง แต่ยังตรวจ JSON และข้อความก่อนส่ง TTS</label>
 <label for="aiPriority">Priority Instructions — คำสั่งสำคัญสูงกว่า Custom Prompt (ยกเว้นภาษาปลายทางที่เลือกไว้ชัดเจน)</label>
 <textarea id="aiPriority" rows="4" maxlength="4000" placeholder="เช่น ตอบภาษาไทยเสมอ และไม่เกิน 3 ประโยค"></textarea>
 <label for="aiPrompt">Custom Prompt — คำสั่งทั่วไป</label>

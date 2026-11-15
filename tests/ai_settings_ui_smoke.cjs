@@ -21,7 +21,7 @@ const settings={
   enabled:false, engine:"ollama", ollama_base_url:"http://127.0.0.1:11434",
   model:"", operation:"translate",
   source_language:"auto",target_language:"th",translation_mode:"whole_message",
-  auto_detect:true,priority_instructions:"",custom_prompt:"",
+  auto_detect:true,translation_bypass_validation:false,priority_instructions:"",custom_prompt:"",
   display_mode:"processed",timeout_seconds:10,keep_alive_minutes:360,
   fallback:"filtered",allow_context_files:false,context_files:[],
   tool_calling_enabled:false,tool_web_lookup:false,tool_file_read:false,
@@ -85,6 +85,8 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   await tick();
   assert.equal(el("aiEnabled").checked,false);
   assert.equal(el("aiEngine").value,"ollama");
+  assert.equal(el("aiTranslationBypassValidation").checked,false);
+  assert.equal(el("aiTranslationBypassValidation").disabled,false);
   assert.equal(calls.some(c=>c.options.method==="POST"),false,
      "loading settings must not automatically install or preload anything");
   el("aiModel").value="qwen3.5:4b";
@@ -123,8 +125,14 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   await tick();
   assert.equal(settings.target_language,"unspecified");
   assert.equal(settings.custom_prompt,"Translate all messages to Japanese");
+  el("aiTranslationBypassValidation").checked=true;
+  el("aiSave").click();await tick();
+  assert.equal(settings.translation_bypass_validation,true,
+    "bypass preference must persist independently of the model");
   el("aiEngine").value="m2m100";
   el("aiEngine").change();
+  assert.equal(el("aiTranslationBypassValidation").disabled,true,
+    "content-check bypass is meaningful for structured Ollama translation only");
   assert.equal(el("aiTarget").value,"unspecified");
   assert.match(el("aiLanguageHint").textContent,/M2M100.*ข้ามการแปล/);
   el("aiPrompt").value="";
@@ -140,6 +148,8 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   el("aiEngine").change();
   el("aiOperation").value="custom";
   el("aiOperation").change();
+  assert.equal(el("aiTranslationBypassValidation").disabled,true,
+    "custom prompt behavior cannot be modified by a translation-only preference");
   el("aiToolsEnabled").checked=true;
   el("aiWebLookup").checked=true;
   el("aiToolMaxCalls").value="2";

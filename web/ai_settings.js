@@ -11,6 +11,7 @@ function attach(document, fetcher){
     model:"aiModel", operation:"aiOperation",
     source_language:"aiSourceLanguage", target_language:"aiTarget",
     translation_mode:"aiTranslationMode", auto_detect:"aiAutoDetect",
+    translation_bypass_validation:"aiTranslationBypassValidation",
     priority_instructions:"aiPriority", custom_prompt:"aiPrompt",
     display_mode:"aiDisplay", timeout_seconds:"aiTimeout",
     keep_alive_minutes:"aiKeepAlive",
@@ -21,7 +22,7 @@ function attach(document, fetcher){
     tool_search_provider:"aiSearchProvider", tool_searxng_url:"aiSearxngUrl",
     tool_file_read:"aiToolFileRead", tool_max_calls:"aiToolMaxCalls"
   };
-  const booleanKeys=new Set(["enabled","auto_detect","allow_context_files",
+  const booleanKeys=new Set(["enabled","auto_detect","translation_bypass_validation","allow_context_files",
     "tool_calling_enabled","tool_web_lookup","tool_general_web_search","tool_file_read"]);
   let revision=null, lastLoaded=null, engines=[], packages=[];
   let credentials={ollama:false,tavily:false};
@@ -91,6 +92,7 @@ function attach(document, fetcher){
     get("aiTarget").disabled=operation!=="translate";
     get("aiTranslationMode").disabled=operation!=="translate"||unspecified;
     get("aiAutoDetect").disabled=operation!=="translate"||unspecified;
+    get("aiTranslationBypassValidation").disabled=operation!=="translate"||get("aiEngine").value!=="ollama";
     const languageNames={th:"ภาษาไทย",en:"ภาษาอังกฤษ",ja:"ภาษาญี่ปุ่น",zh:"ภาษาจีน",ko:"ภาษาเกาหลี",es:"ภาษาสเปน",fr:"ภาษาฝรั่งเศส",hi:"ภาษาฮินดี",it:"ภาษาอิตาลี",pt:"ภาษาโปรตุเกส",de:"ภาษาเยอรมัน",ru:"ภาษารัสเซีย"};
     get("aiLanguageHint").textContent=operation==="none"
       ?"ไม่แปล / ไม่เรียก AI; กฎก่อนและหลัง AI ยังคงทำงาน"
