@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (after v0.8.0) — Live recovery, FIFO or opt-in random queue reduction
+## 0.9.0 — Structured AI, M2M100 safeguards, Ollama Speech scaffold and Live FIFO/random queues (16 November 2026)
 
 - Ensure manual speech-preview Submit does not silently erase Live pending items: requeue an interrupted active item at the front, hold auto-read until the manual preview is played, then resume FIFO. Remove the fixed 12-item browser auto-read and 40-item server source backlog overflow policies. Keep accepted comments in FIFO order until read, explicit Reset, or Stop. Read-history display limits remain independent; accepted messages are no longer dropped solely because text-to-speech is slower than chat.
 - Add a per-source, disabled-by-default **สุ่มลดคิวเมื่อสะสมมากเกินกำหนด** checkbox and editable threshold/retain values (default: when waiting queue exceeds **20**, randomly retain **5**). Uniformly sample only unstarted pending entries without reordering survivors; the currently translating, rendering or playing item is excluded. Export/import these settings, with safe defaults for older files. Mark randomly removed entries distinctly from read/filtered messages.
@@ -10,7 +10,10 @@
 - Distinguish Firefox NotAllowedError/autoplay permission failures from TTS/AI/WAV and audio scheduler errors. Keep generated WAV and unread messages, and retry from user gesture.
 - Historical intermediate fix (superseded by current source): adjusted isolated Chromium dropdown selection, then removed the automatic Top→Live chat action completely at user request.
 - Add per-source **รีเซ็ตคิวข้อความ** buttons to clear only unstarted messages in browser and Python source queues without disconnecting LIVE. Preserve the single in-progress translation, synthesis or speech playback through completion; new messages follow it.
-- Regression tests for Firefox retry and queue retention, YouTube Chromium DOM option selection, authenticated server queue reset and per-mode chat reset UI.
+- Regression tests for Firefox retry and queue retention, manual YouTube Chromium chat-mode selection, authenticated server queue reset and per-mode chat reset UI.
+- Ollama Translation now uses strict JSON Schema with one `translation` result; Ollama Custom Prompt uses `result`, a configurable output language and a four-option workflow dropdown (unspecified, translate only, answer questions, translate question then answer). Saved priority instructions outrank custom prompts; incoming Live chat is untrusted content data.
+- Add optional meaning/script heuristic bypass for Ollama/M2M100 (schema, length and control checks always enforced). M2M100 now segments without silently truncated token sequences, conservatively handles ambiguous Han-only input and reassembles the original order; real translation quality remains limited.
+- Register a disabled-by-default experimental `ollama-speech` VoiceEngine with private-LAN probe and WAV validation; no downloaded weights, no confirmed Windows-native speech engine. Version bump and complete seven-asset Release with SHA256 checksums.
 - Fix outdated v0.4.2 model catalog test assumptions to match published v0.8.0 three-model TTS catalog.
 
 

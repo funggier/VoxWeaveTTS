@@ -1,10 +1,10 @@
-# VoxWeaveTTS v0.7.2 — Windows Portable User Guide
+# VoxWeaveTTS v0.9.0 — Windows Portable User Guide
 
-**Status:** Windows 10/11 x64 portable release with concurrent Live/Discord workspaces, per-mode voice controls, queue policy, presets and model package management; not a voice-cloning suite. Tested with its relocated Python runtime and bundled MakHam Paradee CPU ONNX Thai voice. Other engines may require extra model packs and license review.
+**Status:** Windows 10/11 x64 portable release with concurrent Live/Discord workspaces, per-mode voices, FIFO Live queue with opt-in random reduction (off by default), per-language model routing, structured AI processing, presets and optional model packages; not a voice-cloning suite. Tested with its relocated Python runtime and bundled MakHam Paradee CPU ONNX Thai voice. Other engines may require extra model packs and license review.
 
 ## Install and launch
 
-1. Download `VoxWeaveTTS-v0.7.2-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.7.2.
+1. Download `VoxWeaveTTS-v0.9.0-portable.zip` from https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.0.
 2. Extract the **whole folder** to a writable location, for example `T:\Apps\VoxWeaveTTS`. Never run the EXE from inside the ZIP.
 3. Double-click **VoxWeaveTTS.exe**. The small Windows launcher starts a local Python server, checks readiness, and opens your default browser (Firefox or Chrome). No Python, Node or system installation is needed.
 4. Keep the launcher window open. The studio is at http://127.0.0.1:8765 and OBS Browser Source may use http://127.0.0.1:8765/overlay.

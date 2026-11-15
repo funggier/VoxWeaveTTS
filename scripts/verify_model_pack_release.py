@@ -93,7 +93,7 @@ def sha256_stream(handle) -> str:
     return digest.hexdigest()
 
 
-def verify_one(package_spec: dict) -> dict:
+def verify_one(package_spec: dict, *, release_tag: str = "v0.9.0") -> dict:
     file = ROOT / "dist" / "ModelPackages" / package_spec["file"]
     if not file.is_file():
         raise ValueError(f"missing package: {file}")
@@ -136,7 +136,7 @@ def verify_one(package_spec: dict) -> dict:
         "sha256": package_digest,
         "download_url": (
             "https://github.com/funggier/VoxWeaveTTS/releases/download/"
-            "v0.8.0/" + file.name
+            + release_tag + "/" + file.name
         ),
         "engine_adapter": package_spec["adapter"],
         "voices": [x["id"] for x in manifest["voices"]],
@@ -154,17 +154,18 @@ def verify_one(package_spec: dict) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write-catalog", action="store_true")
+    parser.add_argument("--release-tag", default="v0.9.0")
     args = parser.parse_args()
     items = []
     for source in PACKS:
-        result = verify_one(source)
+        result = verify_one(source, release_tag=args.release_tag)
         items.append(result)
         print(f"VERIFIED {result['file']} ({result['size_bytes']:,} bytes) "
               f"SHA256={result['sha256']}", flush=True)
     doc = {
         "schema_version": 1,
         "project": "VoxWeaveTTS",
-        "release_tag": "v0.8.0",
+        "release_tag": args.release_tag,
         "note": (
             "Licenses are as declared at pinned upstream sources. "
             "VoxWeaveTTS has not independently certified all training data "

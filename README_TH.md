@@ -1,22 +1,22 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
-**กำลังพัฒนาใน Source หลัง v0.8.0:** แก้ Firefox Auto-play ให้เก็บคิวที่พัก, ให้ YouTube LIVE (Browser) **เคารพ Top chat/Live chat ที่ผู้ใช้เลือกเอง** โดยไม่คลิกเมนูแทน, เอาเพดานคิวรออ่าน 12 ข้อความและคิว Backend 40 ข้อความที่ทำให้ข้อความใหม่ถูกข้ามออก และเพิ่มตัวเลือก **สุ่มลดคิวเมื่อสะสมมากเกินกำหนด** (ปิดเป็นค่าเริ่มต้น; เกิน 20 เหลือ 5) ตลอดจนปุ่ม **รีเซ็ตคิวข้อความ** แบบไม่ขัดจังหวะเสียงที่กำลังทำงาน ดู [คู่มือคิวและการสุ่มลดคิว](docs/LIVE_QUEUE_POLICY_TH.md) (ยังไม่อยู่ใน Portable v0.8.0 ที่เผยแพร่)
+**Windows Portable v0.9.0 (Release ครบชุด):** แก้ Firefox Auto-play ให้เก็บคิว, ให้ YouTube LIVE (Browser) **เลือก Top chat/Live chat เอง**, ถอดเพดานคิวรอ 12/40 ที่เคยทำให้ข้ามข้อความ, เพิ่ม **สุ่มลดคิวเมื่อสะสมมากเกินกำหนด** (ค่าเริ่มต้นปิด; เกิน 20 สุ่มเก็บ 5), เพิ่ม **รีเซ็ตคิวข้อความ** โดยไม่ขัดจังหวะเสียงที่กำลังทำงาน, ปรับ AI Translation/Custom Prompt และ M2M100 เป็นโครงสร้าง รวมทั้ง Ollama Speech Adapter ทดลอง. **ดาวน์โหลด Portable + แพ็กโมเดล 4 ชุด + TikTok Extension + SHA256 ได้ใน Release เดียว** [ดาวน์โหลด v0.9.0](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.0) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.0.md) · [คู่มือคิว](docs/LIVE_QUEUE_POLICY_TH.md)
 
 **Windows Portable v0.8.0 — Multilingual TTS และการกำหนดเสียงตามภาษา:** เพิ่ม Kokoro-82M INT8 CPU แบบ `.vwmodel` พร้อมเสียงเลือกได้ 18 แบบใน 7 ภาษา (EN/ES/FR/HI/IT/JA/PT); กำหนด Engine/Voice ตามภาษาได้, ขยายภาษาของ AI Translation และเพิ่มการติดตั้ง/ถอน AI Package และ M2M100 รุ่นเดิมจาก UI โดยไม่ลบโมเดลเดิมอัตโนมัติ [รายละเอียดและข้อจำกัด](docs/MULTILINGUAL_TTS_TH.md)
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.8.0** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.9.0** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
-## ปรับปรุงการแปลภาษาสำหรับ LLM ขนาดเล็ก (Source หลัง v0.8.0)
+## ปรับปรุงการแปลภาษาสำหรับ LLM ขนาดเล็ก (รวมใน v0.9.0)
 
 โหมด AI Translation ผ่าน Ollama เปลี่ยนมาใช้ JSON Schema ขนาดเล็ก `{"translation":"..."}` โดยแยกข้อความที่ต้องแปลออกจากคำสั่งอย่างชัดเจน เพื่อลดกรณีโมเดลตอบคำถามแทนการแปล และเพิ่มตัวเลือก **ข้ามการตรวจสอบความถูกต้องของคำแปล (ความหมาย/ภาษา)** ซึ่งปิดเป็นค่าเริ่มต้น หากเลือกเปิด โปรแกรมจะยอมรับคำแปลแม้รูปประโยคหรือภาษาผิด แต่ยังตรวจโครงสร้าง JSON และข้อจำกัดความยาวก่อน TTS ดูรายละเอียดใน [คู่มือ AI Processing](docs/AI_PROCESSING_TRANSLATION_TH.md)
 
-## Structured Custom Prompt และ Dropdown รูปแบบงาน (Source หลัง v0.8.0)
+## Structured Custom Prompt และ Dropdown รูปแบบงาน (รวมใน v0.9.0)
 
 เพิ่ม Dropdown **รูปแบบการประมวลผลในโหมดทำตามพรอมต์** ที่มี 4 ตัวเลือก: **ไม่ระบุ** (ค่าเริ่มต้น; Priority Instructions / Custom Prompt กำหนดงานเอง), **แปลอย่างเดียว**, **ตอบคำถามแทนการแปล**, **แปลคำถามและตอบต่อท้าย** โดยเก็บการตั้งค่าเป็นโครงสร้าง `custom_task` แยกจากข้อความ Live ซึ่งเป็นข้อมูลสำหรับวิเคราะห์ ไม่ใช่คำสั่งควบคุม AI และเปิดใช้ **ภาษาเป้าหมายของผลลัพธ์** ในโหมดนี้ด้วย ผลลัพธ์ Ollama ต้องอยู่ใน JSON `{"result":"..."}` เพื่อดึงเฉพาะข้อความไปอ่านเสียง ไม่ส่ง metadata ไป TTS พฤติกรรมจริงยังขึ้นกับคุณภาพของโมเดล ดู [คู่มือ AI Processing](docs/AI_PROCESSING_TRANSLATION_TH.md)
 
-## รองรับ Ollama Speech และปรับ M2M100 (Source หลัง v0.8.0)
+## รองรับ Ollama Speech และปรับ M2M100 (รวมใน v0.9.0)
 
 เพิ่ม `ollama-speech` เป็น Voice Engine Adapter แบบ **ปิดไว้ก่อน** ใน Engine Registry เชื่อม WAV/PCM16 24kHz กับคิวเสียงและ Subtitle เดิม มีการตรวจโมเดล `speech` ผ่าน Metadata ของ Ollama แต่ **ไม่ดาวน์โหลดโมเดลและยังไม่มี UI สำหรับตั้งค่าโดยตรง** เหมาะกับการเตรียมโครงสร้างรองรับ Speech Server ผ่าน Loopback/Private LAN ที่รองรับจริง โดยยังไม่ใช่การรับรอง Ollama Speech บน Windows อ่าน [คู่มือ Ollama Speech](docs/OLLAMA_SPEECH_ADAPTER_TH.md)
 
