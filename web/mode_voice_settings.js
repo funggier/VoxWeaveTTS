@@ -191,7 +191,7 @@ function attach({document,engines,getDefault}){
     label.style.display="flex";label.style.alignItems="center";label.style.gap="8px";
     const checkbox=create("input");checkbox.type="checkbox";
     checkbox.id=mode+"LanguageRoutesEnabled";checkbox.checked=false;
-    label.append(checkbox,create("span","เปิดใช้การเลือกโมเดลตามภาษา"));
+    label.append(checkbox,create("span","ใช้การเลือกโมเดลตามภาษา"));
     const help=create("small",
       "เมื่อพบภาษาที่กำหนดไว้ในแท็บโมเดลเสียงตามภาษา จะใช้เสียงที่กำหนดนั้น หากไม่ตรงจะใช้ Default Engine / Model ของโหมดนี้");
     help.className="small";help.style.display="block";

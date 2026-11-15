@@ -98,7 +98,7 @@ async function main(){
     assert.ok(section && section.children[0].textContent==="กำหนดการอ่านข้อความและข้อมูลพิเศษ",
       "language route switch belongs in reading-special-data section");
     const label=(()=>{
-      let matches=[];const walk=n=>{if(n.textContent==="เปิดใช้การเลือกโมเดลตามภาษา")matches.push(n);
+      let matches=[];const walk=n=>{if(n.textContent==="ใช้การเลือกโมเดลตามภาษา")matches.push(n);
         for(const child of n.children)walk(child);};walk(section);return matches;
     })();
     assert.equal(label.length,1);

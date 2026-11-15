@@ -89,6 +89,7 @@ function attach(document, fetcher){
       const ready=info?.assets_ready&&info?.runtime_ready;
       const row=document.createElement("li");
       const title=document.createElement("span");
+      title.style.marginLeft="14px";
       title.textContent=name+" ("+language+") : "+(info?.label||route.engine_id)+
         " / "+route.voice_id+(ready?"":" [โมเดลยังไม่พร้อม]");
       const remove=document.createElement("button");

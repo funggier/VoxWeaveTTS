@@ -71,6 +71,8 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   assert.equal(assigned.children[0].tagName,"button",
     "Delete button must appear BEFORE route description");
   assert.equal(assigned.children[0].textContent,"ลบ");
+  assert.equal(assigned.children[1].style.marginLeft,"14px",
+    "route description needs a visible gap after its Delete button");
   assert.ok(assigned.children[1].textContent.includes("fr"));
   assert.notEqual(ids.languageRouteLanguage.value,"fr");
   ids.languageRouteSave.click();
