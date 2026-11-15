@@ -161,7 +161,12 @@ class M2M100Adapter:
             # Never delete legacy weights while another job opens them.
             tokenizer, model = _loaded_m2m(str(folder))
             tokenizer.src_lang = source
-            tokens = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+            # Never silently drop part of a Live message. The structured
+            # M2M100 pipeline splits input before the tokenizer; if subword
+            # token count still exceeds the checkpoint limit, use fallback.
+            tokens = tokenizer(text, return_tensors="pt", truncation=False)
+            if tokens["input_ids"].shape[-1] > 512:
+                raise ValueError("M2M100 segment exceeds 512 source tokens; split or shorten text")
             output = model.generate(**tokens,
                                     forced_bos_token_id=tokenizer.get_lang_id(target),
                                     max_new_tokens=192, num_beams=4,

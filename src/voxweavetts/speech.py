@@ -435,6 +435,11 @@ def engine_registry() -> EngineRegistry:
                 VACHANA_ENGINE_ID, describe=_vachana_descriptor,
                 create=lambda seed: VachanaEngine(),
             )
+            # Safe-by-default optional network TTS provider: not ready until
+            # a user supplies a local settings file and a speech-capable model.
+            from .ollama_speech import ENGINE_ID as OLLAMA_SPEECH_ID, descriptor as ollama_speech_descriptor, OllamaSpeechEngine
+            registry.register(OLLAMA_SPEECH_ID, describe=ollama_speech_descriptor,
+                              create=lambda seed: OllamaSpeechEngine())
             _register_model_packages(registry)
             _REGISTRY = registry
         return _REGISTRY

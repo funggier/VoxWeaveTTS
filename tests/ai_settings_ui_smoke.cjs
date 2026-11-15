@@ -131,8 +131,8 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
     "bypass preference must persist independently of the model");
   el("aiEngine").value="m2m100";
   el("aiEngine").change();
-  assert.equal(el("aiTranslationBypassValidation").disabled,true,
-    "content-check bypass is meaningful for structured Ollama translation only");
+  assert.equal(el("aiTranslationBypassValidation").disabled,false,
+    "both Ollama and M2M100 translation should permit bypass of language/meaning heuristics");
   assert.equal(el("aiTarget").value,"unspecified");
   assert.match(el("aiLanguageHint").textContent,/M2M100.*ข้ามการแปล/);
   el("aiPrompt").value="";

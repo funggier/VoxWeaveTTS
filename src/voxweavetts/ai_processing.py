@@ -254,18 +254,12 @@ def _has_foreign_script(text: str, target: str) -> bool:
 
 
 def _infer_source_language(text: str) -> str:
-    """Conservative script hint, not a reliable language classifier."""
-    if re.search(r"[\u3040-\u30ff]", text):
-        return "ja"
-    if re.search(r"[\uac00-\ud7af]", text):
-        return "ko"
-    if re.search(r"[\u0e00-\u0e7f]", text):
-        return "th"
-    if re.search(r"[\u3400-\u9fff]", text):
-        return "zh"
-    if re.search(r"[a-zA-Z]", text):
-        return "en"
-    raise AIUnavailable("source language unknown; select it explicitly for M2M100")
+    """Compatibility wrapper for the centralized, conservative M2M hint."""
+    from .m2m_pipeline import infer_source_language
+    try:
+        return infer_source_language(text)
+    except ValueError as exc:
+        raise AIUnavailable(str(exc)) from exc
 
 
 def _read_context_files(settings: dict[str, Any]) -> list[dict[str, str]]:
@@ -493,6 +487,11 @@ def process_ai(text: str, settings: dict[str, Any],
         return {"text": text, "status": "no_target_language", "applied": False}
     explicitly_foreign_m2m = (settings["engine"] == "m2m100"
         and settings["source_language"] not in {"auto", settings["target_language"]})
+    if settings["engine"] == "m2m100" and settings["source_language"] == "auto":
+        from .m2m_pipeline import ambiguous_han_source
+        # Han-only text could be Chinese OR Japanese; do not silently skip it
+        # merely because the target also accepts Han glyphs.
+        explicitly_foreign_m2m |= ambiguous_han_source(text)
     if (settings["operation"] == "translate" and settings["auto_detect"]
             and settings["target_language"] != UNSPECIFIED_LANGUAGE
             and not explicitly_foreign_m2m
@@ -513,15 +512,14 @@ def process_ai(text: str, settings: dict[str, Any],
         # Do not auto-expose private reference text when any network tool is
         # enabled. In Tool Calling mode, only the explicitly permitted file
         # tool may reveal indexed files to the LLM, and never to web lookup.
-        reference = (_read_context_files(settings) if not settings["tool_calling_enabled"]
-                     or settings["tool_file_read"] else [])
+        reference = ([] if settings["engine"] == "m2m100" else
+                     (_read_context_files(settings) if not settings["tool_calling_enabled"]
+                      or settings["tool_file_read"] else []))
         def translate_span(span: str) -> str:
-            current = settings
-            if settings["engine"] == "m2m100" and settings["source_language"] == "auto":
-                # Minimal script-based hint. Latin is assumed English; scripts
-                # sharing Han characters cannot be distinguished perfectly.
-                current = {**settings, "source_language": _infer_source_language(span)}
-            return call(span, current, reference)
+            if settings["engine"] == "m2m100":
+                from .m2m_pipeline import translate_structured
+                return translate_structured(span, settings, call, reference)
+            return call(span, settings, reference)
         if (settings["operation"] == "translate"
                 and settings["translation_mode"] == "foreign_spans"
                 and settings["target_language"] != UNSPECIFIED_LANGUAGE):

@@ -94,7 +94,7 @@ function attach(document, fetcher){
     get("aiTarget").disabled=operation==="none";
     get("aiTranslationMode").disabled=operation!=="translate"||unspecified;
     get("aiAutoDetect").disabled=operation!=="translate"||unspecified;
-    get("aiTranslationBypassValidation").disabled=operation!=="translate"||get("aiEngine").value!=="ollama";
+    get("aiTranslationBypassValidation").disabled=operation!=="translate";
     const languageNames={th:"ภาษาไทย",en:"ภาษาอังกฤษ",ja:"ภาษาญี่ปุ่น",zh:"ภาษาจีน",ko:"ภาษาเกาหลี",es:"ภาษาสเปน",fr:"ภาษาฝรั่งเศส",hi:"ภาษาฮินดี",it:"ภาษาอิตาลี",pt:"ภาษาโปรตุเกส",de:"ภาษาเยอรมัน",ru:"ภาษารัสเซีย"};
     const customTasks={unspecified:"ไม่ระบุ",translate_only:"แปลอย่างเดียว",answer_questions:"ตอบคำถามแทนการแปล",translate_question_and_answer:"แปลคำถามและตอบต่อท้าย"};
     const selectedTask=customTasks[get("aiCustomTask").value]||customTasks.unspecified;
