@@ -295,7 +295,9 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
   }
   function receiveIncoming(msg,autoRead){
-    if(!autoRead||autoPaused||!guard(mode)||typeof msg?.text!=="string")
+    // Temporary Firefox autoplay pauses must not turn incoming LIVE chat
+    // into manual-only messages. Keep a bounded waiting queue until retry.
+    if(!autoRead||!guard(mode)||typeof msg?.text!=="string")
       return "manual";
     const opts=readOptions();
     // Gift events are intentionally unsupported; never enqueue them as chat.

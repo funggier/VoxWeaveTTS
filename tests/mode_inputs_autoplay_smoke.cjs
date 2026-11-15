@@ -111,6 +111,22 @@ async function testFirefoxDenialAndResume(){
   }finally{t.cleanup();}
 }
 
+async function testIncomingMessagesQueueWhileFirefoxAutoplayPaused(){
+  const t=createHarness({denyFirstPlay:true});
+  try{
+    t.api.receiveIncoming({message_id:"blocked",text:"งานแรก"},true);
+    await tick();
+    assert.equal(t.api.autoPaused,true);
+    assert.equal(t.api.receiveIncoming({message_id:"while-paused",text:"ข้อความใหม่"},true),
+      "queued","new LIVE messages should remain pending while Firefox blocks playback");
+    assert.equal(t.api.pendingAuto,1);
+    await t.get("liveAutoRetry").fire("click");
+    assert.equal(t.states.get("blocked"),"reading");
+    t.audio.paused=true;await t.audio.fire("ended");await tick();
+    assert.equal(t.states.get("while-paused"),"reading");
+  }finally{t.cleanup();}
+}
+
 async function testSpeechJobFailureIsNotAutoplay(){
   const t=createHarness({failFirstJob:true});
   try{
@@ -215,6 +231,7 @@ async function testResetDoesNotInterruptTranslationOrSynthesis(){
   await testResetDoesNotInterruptCurrentlyPlaying();
   await testResetDoesNotInterruptTranslationOrSynthesis();
   await testFirefoxDenialAndResume();
+  await testIncomingMessagesQueueWhileFirefoxAutoplayPaused();
   await testSpeechJobFailureIsNotAutoplay();
   await testSchedulerCancelledPlayback();
   await testManualPlayRestoresPendingAutoQueue();

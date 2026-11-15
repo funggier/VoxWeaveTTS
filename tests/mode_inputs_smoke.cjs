@@ -186,7 +186,8 @@ async function main(){
   assert.equal(discord.autoPaused,true);
   assert.equal(get("discordFeedAuto").checked,true,
     "audio error must not mutate auto-read checkbox");
-  assert.equal(discord.receiveIncoming({message_id:"err2",text:"While paused"},true),"manual");
+  assert.equal(discord.receiveIncoming({message_id:"err2",text:"While paused"},true),"queued",
+    "new chat arriving during a temporary playback pause must remain in the waiting queue");
   get("discordAutoRetry").events.click();
   assert.equal(discord.autoPaused,false);
   assert.equal(get("discordFeedAuto").checked,true);

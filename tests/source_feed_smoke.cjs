@@ -36,7 +36,7 @@ async function main(){
  el("liveFeedMaxChars").value="240";
  el("liveFeedAuto").checked=true;
  let active=true;
- let timer=null,claims=0,resets=0,clearDrains=false;
+ let timer=null,claims=0,resets=0,clearDrains=false,deferDrain=false,releaseDrain=null;
  let localToken="a".repeat(32),serverToken="stale-backend-token";
  const requested=[],selected=[],received=[],stopped=[];
  const sandbox={
@@ -55,15 +55,22 @@ async function main(){
          mode:"live",state:"connecting",source_id:payload.source_id,pending:0,
        };}};
      }
-     if(path==="/v1/sources/drain")return{
-       ok:true,async json(){return{
-         messages:clearDrains?[]:[
-           {message_id:"x1",author:"คุณA",text:"สวัสดีครับ"},
-           {message_id:"x2",author:"คุณB",text:"<img src=x onerror=alert(1)>"},
-         ],
-         status:{state:"running",pending:0,received:2,discarded:0,next_poll_seconds:5},
-       };},
-     };
+     if(path==="/v1/sources/drain"){
+       // Capture the batch at request time: this is essential to verify that
+       // an in-flight response from BEFORE the queue reset is ignored.
+       const messages=clearDrains?[]:[
+         {message_id:"x1",author:"คุณA",text:"สวัสดีครับ"},
+         {message_id:"x2",author:"คุณB",text:"<img src=x onerror=alert(1)>"},
+       ];
+       if(deferDrain){
+         deferDrain=false;
+         await new Promise(resolve=>{releaseDrain=resolve;});
+       }
+       return {ok:true,async json(){return{
+         messages,status:{state:"running",pending:0,received:2,
+                          discarded:0,next_poll_seconds:5},
+       };}};
+     }
      if(path==="/v1/sources/reset"){
        assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"reset-live-source-queue");
        assert.equal(payload.mode_token,serverToken);
@@ -107,12 +114,18 @@ async function main(){
  latest.children[2].events.click();
  assert.equal(selected.length,1);
  assert.equal(selected[0].message_id,"x2");
+ deferDrain=true;
+ timer(); // Hold a stale /drain response while reset is in progress.
+ assert.ok(releaseDrain,"stale drain must have started before reset");
  await el("liveFeedReset").events.click();
+ assert.match(el("liveFeedStatus").textContent,/ข้อความที่กำลังแปล\/สร้างเสียง\/อ่าน จะทำต่อจนจบ/);
+ releaseDrain();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(received.length,2,"stale pre-reset /drain must not re-enqueue old chat");
  assert.equal(resets,1);
  assert.equal(feed.connected,true,"queue reset must keep the live source connected");
  assert.equal(feed.visible.length,1,"only the currently playing item remains");
  assert.equal(feed.visible[0].message_id,"x2");
- assert.match(el("liveFeedStatus").textContent,/ข้อความที่กำลังแปล\/สร้างเสียง\/อ่าน จะทำต่อจนจบ/);
  assert.ok(requested.some(x=>x.path==="/v1/sources/reset"),
    "reset must clear the authenticated server-side pending queue");
  active=false;
