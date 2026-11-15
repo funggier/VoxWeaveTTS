@@ -1,6 +1,6 @@
-# Multilingual TTS and model packages (developer build)
+# Multilingual TTS and model packages (Windows Portable v0.8.0)
 
-สถานะ: พัฒนาใน Source Project หลัง release v0.7.2; **ยังไม่ได้ปล่อย Portable ZIP รุ่นใหม่**
+สถานะ: รวมอยู่ใน **Windows Portable Release v0.8.0**; ดาวน์โหลด `.vwmodel` แยกและติดตั้งในหน้าโปรแกรม
 
 ## ผลบนเครื่องทดสอบ
 

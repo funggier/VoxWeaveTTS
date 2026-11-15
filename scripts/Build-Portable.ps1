@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.7.2', [switch]$SkipZip)
+param([string]$Version = '0.8.0', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -7,8 +7,8 @@ $site=Join-Path $root '.venv\Lib\site-packages'
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework/v4.0.30319/csc.exe'
 if (!(Test-Path $venv) -or !(Test-Path $compiler)) {throw 'Windows build prerequisites missing'}
 if (!(Test-Path (Join-Path $site 'onnxruntime')) -or !(Test-Path (Join-Path $site 'pythaitts'))) {throw 'TTS runtime prerequisites missing'}
-& $venv -c 'import grpc,google.protobuf'
-if ($LASTEXITCODE -ne 0) {throw 'YouTube streamList requires grpcio and protobuf in the build venv'}
+& $venv -c 'import grpc,google.protobuf,kokoro_onnx,phonemizer,espeakng_loader; from pathlib import Path; from espeakng_loader import get_library_path,get_data_path; assert Path(get_library_path()).is_file(); assert Path(get_data_path()).is_dir()'
+if ($LASTEXITCODE -ne 0) {throw 'Portable build requires grpc, protobuf, Kokoro ONNX, phonemizer, espeakng-loader DLL and dictionaries'}
 $pythonHome=(& $venv -c 'import sys; print(sys.base_prefix)').Trim()
 if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $pythonHome 'LICENSE.txt'))) {throw 'Python runtime not found'}
 
@@ -31,6 +31,7 @@ Copy-Tree (Join-Path $root 'web') (Join-Path $stage 'web')
 # Include the manually-installed Chrome extension in the portable distribution.
 Copy-Tree (Join-Path $root 'extensions') (Join-Path $stage 'extensions')
 Copy-Tree (Join-Path $root 'docs') (Join-Path $stage 'docs')
+if (!(Test-Path (Join-Path $stage 'docs\third-party\ESPEAK_NG_GPL-3.0.txt'))) {throw 'Missing GPL-3.0 text for bundled eSpeak NG runtime'}
 foreach ($name in @('LICENSE','README_TH.md','README.md')) {
   Copy-Item (Join-Path $root $name) (Join-Path $stage $name) -Force
 }
@@ -81,9 +82,13 @@ $notice=@(
   "Model SHA256: $hash",
   "Training dataset credit: https://huggingface.co/datasets/pythainlp/MakHamTTS-dataset",
   "Authors: PyThaiNLP / Wannaphong Phatthiyaphaibun; Paradee / Sahil Mahendrakar",
+  "Kokoro-ONNX v0.6.0: https://github.com/thewh1teagle/kokoro-onnx (license in site-packages).",
+  "Kokoro-82M multilingual model: Apache-2.0 upstream; installed separately as .vwmodel; rights to voices/training require review.",
+  "eSpeak NG DLL/data: GPL-3.0, source https://github.com/espeak-ng/espeak-ng; full GPL text in docs/third-party/ESPEAK_NG_GPL-3.0.txt. Redistributors must follow source and notice obligations.",
+  "phonemizer: https://github.com/bootphon/phonemizer (license in bundled package metadata).",
   "Third-party Python package license metadata/files are in runtime/python/Lib/site-packages/*dist-info/.",
   "User-generated speech, recordings and chat messages have their own rights.",
-  "Only MakHam Paradee weights are bundled. Other models are optional .vwmodel packages.",
+  "Only MakHam Paradee weights are bundled. Other models are optional .vwmodel packages: FastThaiG2P, Vachana, Kokoro, experimental M2M100.",
   "FastThaiG2P 325MB model, personal voices and private local settings are NOT bundled."
 )
 $notice | Set-Content (Join-Path $stage 'THIRD_PARTY_NOTICES.txt') -Encoding UTF8

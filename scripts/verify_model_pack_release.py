@@ -21,6 +21,26 @@ from voxweavetts.model_packages import validate_manifest  # noqa: E402
 
 PACKS = (
     {
+        "file": "VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
+        "id": "kokoro-multilingual-int8",
+        "version": "1.0.0",
+        "adapter": "kokoro-onnx-v1",
+        "license": "Apache-2.0",
+        "source": "https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1",
+        "pinned_revision": "model-files-v1.1 (Kokoro v1.0 INT8, voices-v1.0.bin)",
+        "assets": {
+            "kokoro-v1.0.int8.onnx": "ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c",
+            "voices-v1.0.bin": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d",
+        },
+        "notices": ("legal/license.txt", "legal/attribution.md"),
+        "conditions": (
+            "Kokoro-82M upstream model card declares Apache-2.0; ONNX conversion "
+            "by thewh1teagle. All voice dataset and training rights were not "
+            "independently audited; review before commercial deployment."
+        ),
+        "additional_training_license": None,
+    },
+    {
         "file": "VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
         "id": "vachana-thai-four-voices",
         "version": "1.0.0",
@@ -116,7 +136,7 @@ def verify_one(package_spec: dict) -> dict:
         "sha256": package_digest,
         "download_url": (
             "https://github.com/funggier/VoxWeaveTTS/releases/download/"
-            "modelpacks-v0.4.2/" + file.name
+            "v0.8.0/" + file.name
         ),
         "engine_adapter": package_spec["adapter"],
         "voices": [x["id"] for x in manifest["voices"]],
@@ -144,7 +164,7 @@ def main() -> None:
     doc = {
         "schema_version": 1,
         "project": "VoxWeaveTTS",
-        "release_tag": "modelpacks-v0.4.2",
+        "release_tag": "v0.8.0",
         "note": (
             "Licenses are as declared at pinned upstream sources. "
             "VoxWeaveTTS has not independently certified all training data "

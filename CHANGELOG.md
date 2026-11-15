@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.0 — Multilingual CPU TTS, per-language voice routing and complete model package release (15 November 2026)
+
+- Add Kokoro-82M INT8 multilingual CPU ONNX adapter and optional data-only model package with 18 voices across English (US/UK), Spanish, French, Hindi, Italian, Japanese and Portuguese. Weights remain outside the core Portable ZIP.
+- Include Kokoro ONNX, phonemizer and eSpeak NG CPU runtime/pronunciation data in the Portable ZIP. MakHam Paradee Thai remains the built-in default.
+- New central language-to-Engine/Voice workspace: languages are only listed once, and removal makes a language selectable again. Provide independent audio tuning per language (Speed, Gain, Pitch, Bass, Treble, Formant and Seed), with shared Voice Presets.
+- Each mode has its own opt-in “ใช้การเลือกโมเดลตามภาษา” switch; its “Default Engine / Model” is used if language routing is disabled or the language is unmapped.
+- Complete install/uninstall UI for optional TTS/AI model packages, including safe uninstall of the legacy M2M100 folder.
+- Expand AI Translation target languages; speech model availability remains separate. Latin-script text alone cannot distinguish all target languages; an explicit target may be needed.
+- Preserve every v0.7.2 release asset type and add Kokoro: Portable ZIP, optional FastThaiG2P, Vachana, experimental M2M100, TikTok Extension and SHA256SUMS.
+- Limitations: M2M100 remains experimental (previous semantic translation quality gate failed), and its optional Torch/Transformers runtime is not bundled. Kokoro does not supply Chinese/Korean/German/Russian speech in this pack. Model and voice licenses require independent review before claims of commercial clearance.
+- Previous v0.7.2 release remains unchanged. See docs/MULTILINGUAL_TTS_TH.md and docs/RELEASE_NOTES_v0.8.0.md.
+
+
 ## 0.7.2 — Main browser background source/TTS reliability (14 November 2026)
 
 - Replace hidden-tab-dependent source polling with one multiplexed, shared Server-Sent Events wake-up stream from Python SourceManager; only message counts, state and per-mode revisions are pushed, while authenticated POST drain remains the only text retrieval route. Bounded SSE subscribers and fallback polling when disconnected remain in place.

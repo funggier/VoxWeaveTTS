@@ -1,16 +1,59 @@
 {
   "schema_version": 1,
   "project": "VoxWeaveTTS",
-  "release_tag": "modelpacks-v0.4.2",
+  "release_tag": "v0.8.0",
   "note": "Licenses are as declared at pinned upstream sources. VoxWeaveTTS has not independently certified all training data or voice rights. No warranty of commercial use or compatibility.",
   "packages": [
+    {
+      "package_id": "kokoro-multilingual-int8",
+      "version": "1.0.0",
+      "file": "VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
+      "size_bytes": 115562300,
+      "sha256": "cb69aaf6b92d2effa6069a208d17410902d49b6f0ce6e1a88fc7cb0e102b75ee",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.8.0/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
+      "engine_adapter": "kokoro-onnx-v1",
+      "voices": [
+        "af_heart",
+        "af_bella",
+        "am_michael",
+        "am_puck",
+        "bf_emma",
+        "bm_george",
+        "ef_dora",
+        "em_alex",
+        "ff_siwis",
+        "hf_alpha",
+        "hm_omega",
+        "if_sara",
+        "im_nicola",
+        "jf_alpha",
+        "jf_nezumi",
+        "jm_kumo",
+        "pf_dora",
+        "pm_alex"
+      ],
+      "upstream_source": "https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1",
+      "source_revision": "model-files-v1.1 (Kokoro v1.0 INT8, voices-v1.0.bin)",
+      "upstream_declared_license": "Apache-2.0",
+      "training_license": null,
+      "conditions": "Kokoro-82M upstream model card declares Apache-2.0; ONNX conversion by thewh1teagle. All voice dataset and training rights were not independently audited; review before commercial deployment.",
+      "review_status": "review_required",
+      "upstream_asset_sha256": {
+        "kokoro-v1.0.int8.onnx": "ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c",
+        "voices-v1.0.bin": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"
+      },
+      "embedded_notices": [
+        "legal/license.txt",
+        "legal/attribution.md"
+      ]
+    },
     {
       "package_id": "vachana-thai-four-voices",
       "version": "1.0.0",
       "file": "VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
       "size_bytes": 234436558,
       "sha256": "c782818d6bc99f7da1e3540d308cedde20f41dc204d2b34ee002089a8057f5f3",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/modelpacks-v0.4.2/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.8.0/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
       "engine_adapter": "vachana-onnx-v1",
       "voices": [
         "th_f_1",
@@ -41,7 +84,7 @@
       "file": "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
       "size_bytes": 302412020,
       "sha256": "6aff293704ec5e9f25941eafb897b434c3be47f75eecd89aadc9cb6df9cc6016",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/modelpacks-v0.4.2/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.8.0/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
       "engine_adapter": "fastthaig2p-kokoro-v1",
       "voices": [
         "thai_som"
