@@ -248,7 +248,7 @@ class Handler(BaseHTTPRequestHandler):
             requested_language = data.get("language")
             if requested_language is None:
                 ai = load_ai_settings()["settings"]
-                if (ai["enabled"] and ai["operation"] == "translate"
+                if (ai["enabled"] and ai["operation"] in {"translate", "custom"}
                         and plan.get("processing", {}).get("ai_status") == "processed"
                         and ai["target_language"] != "unspecified"):
                     requested_language = ai["target_language"]

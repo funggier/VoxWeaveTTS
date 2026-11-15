@@ -225,7 +225,7 @@ class OllamaToolLoopTests(unittest.TestCase):
             _Reply({"message": {"role": "assistant", "content": "",
                   "tool_calls": [{"function": {"name": "search_encyclopedia",
                                                "arguments": {"query": "Thailand", "language": "en"}}}]}}),
-            _Reply({"message": {"role": "assistant", "content": "ประเทศไทยมีเมืองหลวงคือกรุงเทพมหานคร"}}),
+            _Reply({"message": {"role": "assistant", "content": json.dumps({"result":"ประเทศไทยมีเมืองหลวงคือกรุงเทพมหานคร"},ensure_ascii=False)}}),
         ]
         calls = []
         def fake_urlopen(request, timeout=0):
@@ -244,10 +244,38 @@ class OllamaToolLoopTests(unittest.TestCase):
         sent = [json.loads(req.data) for req, _ in calls]
         self.assertEqual(len(sent[0]["tools"]), 1)
         self.assertEqual(sent[0]["messages"][1]["role"], "user")
-        self.assertIn("EXTERNAL DATA", sent[0]["messages"][1]["content"])
+        self.assertEqual(json.loads(sent[0]["messages"][1]["content"])["text"],
+                         "What is the capital of Thailand?")
+        self.assertEqual(json.loads(sent[0]["messages"][1]["content"])["task"],
+                         "process_with_saved_instructions")
+        self.assertEqual(json.loads(sent[0]["messages"][1]["content"])["workflow"],
+                         "unspecified")
+        self.assertIn("TRUSTED CONFIGURATION",sent[0]["messages"][0]["content"])
         self.assertEqual(sent[1]["messages"][-1]["role"], "tool")
         self.assertNotIn("tools", sent[1]) if config["tool_max_calls"] == 1 else None
         lookup.assert_called_once_with("Thailand", "en")
+
+    def test_tool_custom_plain_response_gets_one_schema_retry_without_tools(self):
+        config = settings(enabled=True, operation="custom", model="qwen3.5:4b",
+                          tool_calling_enabled=True, tool_web_lookup=True,
+                          tool_max_calls=1, target_language="th")
+        replies = [
+            _Reply({"message":{"role":"assistant","content":"สวัสดีครับ"}}),
+            _Reply({"message":{"role":"assistant","content":
+                    json.dumps({"result":"สวัสดีครับ"},ensure_ascii=False)}}),
+        ]
+        calls=[]
+        def fake_request(request,timeout):
+            calls.append(json.loads(request.data))
+            return replies.pop(0)
+        with patch("voxweavetts.ai_tools.urlopen",side_effect=fake_request):
+            output=ai_processing._ollama_chat("ทักทายสั้น ๆ",config,[])
+        self.assertEqual(output,"สวัสดีครับ")
+        self.assertEqual(len(calls),2)
+        self.assertIn("tools",calls[0])
+        self.assertNotIn("format",calls[0])
+        self.assertNotIn("tools",calls[1])
+        self.assertEqual(calls[1]["format"]["required"],["result"])
 
     def test_denied_function_cannot_execute_external_action(self):
         config = settings(enabled=True, operation="custom",

@@ -134,6 +134,25 @@ class MultilingualHttpTests(unittest.TestCase):
         self.assertEqual(params["engine_id"], data["engine_id"])
         self.assertEqual(params["voice_id"], data["voice_id"])
 
+    def test_custom_prompt_target_language_routes_voice_only_after_ai_success(self):
+        from voxweavetts.ai_processing import DEFAULTS
+        from voxweavetts.server import Handler
+        from voxweavetts.processing import process_text
+        plan=process_text("สวัสดีครับ")
+        with (patch("voxweavetts.server.load_workspace_settings",
+                    return_value={"language_routes":{"studio":True}}),
+              patch("voxweavetts.server.load_ai_settings",
+                    return_value={"settings":{**DEFAULTS,
+                        "enabled":True,"operation":"custom","target_language":"th"}}),
+              patch("voxweavetts.server.choose_route",
+                    return_value=("th",None)) as routed):
+            plan["processing"]={"ai_status":"processed"}
+            Handler._speech_params(None,{"mode":"studio"},plan)
+            self.assertEqual(routed.call_args.kwargs["language"],"th")
+            plan["processing"]={"ai_status":"fallback"}
+            Handler._speech_params(None,{"mode":"studio"},plan)
+            self.assertIsNone(routed.call_args.kwargs["language"])
+
     def test_invalid_source_mode_rejected(self):
         from voxweavetts.server import Handler
         from voxweavetts.processing import process_text

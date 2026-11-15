@@ -19,7 +19,7 @@ const doc={
 const el=id=>doc.getElementById(id);
 const settings={
   enabled:false, engine:"ollama", ollama_base_url:"http://127.0.0.1:11434",
-  model:"", operation:"translate",
+  model:"", operation:"translate", custom_task:"unspecified",
   source_language:"auto",target_language:"th",translation_mode:"whole_message",
   auto_detect:true,translation_bypass_validation:false,priority_instructions:"",custom_prompt:"",
   display_mode:"processed",timeout_seconds:10,keep_alive_minutes:360,
@@ -148,6 +148,30 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   el("aiEngine").change();
   el("aiOperation").value="custom";
   el("aiOperation").change();
+  assert.equal(el("aiCustomTaskPanel").hidden,false);
+  assert.equal(el("aiCustomTask").disabled,false);
+  assert.equal(el("aiCustomTask").value,"unspecified");
+  for(const workflow of ["unspecified","translate_only","answer_questions","translate_question_and_answer"]){
+    el("aiCustomTask").value=workflow;
+    el("aiCustomTask").change();
+    assert.match(el("aiLanguageHint").textContent,
+      workflow==="unspecified"?/ไม่ระบุ/
+      :workflow==="translate_only"?/แปลอย่างเดียว/
+      :workflow==="answer_questions"?/ตอบคำถามแทนการแปล/
+      :/แปลคำถามและตอบต่อท้าย/);
+    el("aiSave").click(); await tick();
+    assert.equal(settings.custom_task,workflow,"dropdown workflow must persist in settings");
+  }
+  assert.equal(el("aiTarget").disabled,false,
+    "custom prompt mode must expose the output language selector");
+  assert.match(el("aiLanguageHint").textContent,/ไม่ระบุภาษาผลลัพธ์/);
+  el("aiTarget").value="th";
+  el("aiTarget").change();
+  assert.match(el("aiLanguageHint").textContent,/ภาษาไทย/);
+  el("aiSave").click();
+  await tick();
+  assert.equal(settings.target_language,"th",
+    "selected final language must be saved in custom mode");
   assert.equal(el("aiTranslationBypassValidation").disabled,true,
     "custom prompt behavior cannot be modified by a translation-only preference");
   el("aiToolsEnabled").checked=true;

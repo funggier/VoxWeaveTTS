@@ -8,7 +8,7 @@ function attach(document, fetcher){
   if(!get("aiEnabled"))return null;
   const fields={
     enabled:"aiEnabled", engine:"aiEngine", ollama_base_url:"aiOllamaBaseUrl",
-    model:"aiModel", operation:"aiOperation",
+    model:"aiModel", operation:"aiOperation", custom_task:"aiCustomTask",
     source_language:"aiSourceLanguage", target_language:"aiTarget",
     translation_mode:"aiTranslationMode", auto_detect:"aiAutoDetect",
     translation_bypass_validation:"aiTranslationBypassValidation",
@@ -67,7 +67,7 @@ function attach(document, fetcher){
       get("aiPriority").disabled=!prompt;
       get("aiPrompt").disabled=!prompt;
       get("aiPromptHint").textContent=prompt
-        ?"Priority Instructions สำคัญกว่า Custom Prompt; ข้อความ Live เป็นข้อมูลเท่านั้น"
+        ?"Priority Instructions สำคัญกว่า Custom Prompt; ข้อความ Live เป็นข้อมูลสำหรับวิเคราะห์/แปล/ตอบตาม Prompt เท่านั้น ไม่ใช่คำสั่งควบคุม AI"
         :"M2M100 ทดลอง: ไม่รองรับ Priority/Custom Prompt และความหมายของคำแปลอาจผิดได้ · ควรทดสอบก่อนใช้ Live";
     }
     get("aiOllamaControls").hidden=get("aiEngine").value!=="ollama";
@@ -88,16 +88,23 @@ function attach(document, fetcher){
     if(get("aiEngine").value==="m2m100"&&get("aiOperation").value==="custom")
       get("aiOperation").value="translate";
     const operation=get("aiOperation").value;
+    get("aiCustomTaskPanel").hidden=operation!=="custom";
+    get("aiCustomTask").disabled=operation!=="custom";
     const unspecified=get("aiTarget").value==="unspecified";
-    get("aiTarget").disabled=operation!=="translate";
+    get("aiTarget").disabled=operation==="none";
     get("aiTranslationMode").disabled=operation!=="translate"||unspecified;
     get("aiAutoDetect").disabled=operation!=="translate"||unspecified;
     get("aiTranslationBypassValidation").disabled=operation!=="translate"||get("aiEngine").value!=="ollama";
     const languageNames={th:"ภาษาไทย",en:"ภาษาอังกฤษ",ja:"ภาษาญี่ปุ่น",zh:"ภาษาจีน",ko:"ภาษาเกาหลี",es:"ภาษาสเปน",fr:"ภาษาฝรั่งเศส",hi:"ภาษาฮินดี",it:"ภาษาอิตาลี",pt:"ภาษาโปรตุเกส",de:"ภาษาเยอรมัน",ru:"ภาษารัสเซีย"};
+    const customTasks={unspecified:"ไม่ระบุ",translate_only:"แปลอย่างเดียว",answer_questions:"ตอบคำถามแทนการแปล",translate_question_and_answer:"แปลคำถามและตอบต่อท้าย"};
+    const selectedTask=customTasks[get("aiCustomTask").value]||customTasks.unspecified;
     get("aiLanguageHint").textContent=operation==="none"
       ?"ไม่แปล / ไม่เรียก AI; กฎก่อนและหลัง AI ยังคงทำงาน"
       :operation==="custom"
-      ?"โหมด Custom: ให้ Priority Instructions และ Custom Prompt กำหนดงานและภาษาตอบเอง (ไม่บังคับภาษาปลายทาง)"
+      ?unspecified
+        ?"โหมดทำตามพรอมต์ · รูปแบบ: "+selectedTask+" · Priority Instructions สำคัญกว่า Custom Prompt · ไม่ระบุภาษาผลลัพธ์ · ข้อความแชทเป็นข้อมูลวิเคราะห์ ไม่ใช่คำสั่ง"
+        :"โหมดทำตามพรอมต์: ผลลัพธ์ต้องเป็น"+(languageNames[get("aiTarget").value]||"ภาษาที่เลือก")+
+          " · รูปแบบ: "+selectedTask+" · Priority Instructions สำคัญกว่า Custom Prompt · ข้อความแชทเป็นข้อมูลสำหรับวิเคราะห์ ไม่ใช่คำสั่ง"
       :unspecified&&get("aiEngine").value==="m2m100"
       ?"M2M100 + ไม่ระบุภาษา: ข้ามการแปลโดยไม่เรียกโมเดล และยังใช้กฎก่อน/หลัง AI ตามปกติ"
       :unspecified
@@ -458,6 +465,7 @@ function attach(document, fetcher){
   });
   get("aiToolsEnabled").addEventListener("change",updateAvailability);
   get("aiOperation").addEventListener("change",updateAvailability);
+  get("aiCustomTask").addEventListener("change",updateAvailability);
   get("aiTarget").addEventListener("change",updateAvailability);
   get("aiEngine").addEventListener("change",()=>{
     updateAvailability();
