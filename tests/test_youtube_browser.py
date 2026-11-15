@@ -52,48 +52,56 @@ class BrowserAdapterTests(unittest.TestCase):
             self.assertEqual([x.message_id for x in a.poll().messages], ["new2"])
         a.close()
 
-    def test_switches_top_chat_to_live_before_initial_message_baseline(self):
+    def test_respects_top_chat_until_user_manually_selects_live_chat(self):
         reader = YouTubeBrowserAdapter(VIDEO)
         reader._ws = DummySocket()
         frames = [
-            {"ready": True, "chat_mode": "switching", "page_visibility": "hidden",
-             "items": [{"id": "old-top", "author": "A", "text": "Top only"}]},
+            {"ready": True, "chat_mode": "top", "page_visibility": "hidden",
+             "items": [{"id": "old-top", "author": "A", "text": "initial"}]},
+            {"ready": True, "chat_mode": "top", "page_visibility": "hidden",
+             "items": [{"id": "old-top", "author": "A", "text": "initial"},
+                       {"id": "top-new", "author": "A", "text": "new top message"}]},
             {"ready": True, "chat_mode": "live", "page_visibility": "hidden",
-             "items": [{"id": "old-live", "author": "A", "text": "ก่อนเชื่อม"}]},
+             "items": [{"id": "top-new", "author": "A", "text": "new top message"},
+                       {"id": "live-new", "author": "B", "text": "new live message"}]},
             {"ready": True, "chat_mode": "live", "page_visibility": "hidden",
-             "items": [{"id": "old-live", "author": "A", "text": "ก่อนเชื่อม"},
-                       {"id": "new-live", "author": "B", "text": "เห็นข้อความใหม่"}]},
+             "items": [{"id": "live-new", "author": "B", "text": "new live message"},
+                       {"id": "live-next", "author": "C", "text": "next live message"}]},
         ]
         with patch.object(reader, "_evaluate", side_effect=frames):
             first = reader.poll()
-            self.assertFalse(reader._initialized)
-            self.assertFalse(reader.dom_ready)
-            self.assertEqual(reader.phase, "switching_live_chat")
             self.assertEqual(first.messages, ())
-            self.assertEqual(first.delay_seconds, 0.5)
-            self.assertEqual(reader.page_visibility, "hidden")
-            self.assertEqual(reader.poll().messages, ())
             self.assertTrue(reader._initialized)
+            self.assertTrue(reader.dom_ready)
+            self.assertEqual(reader.phase, "ready")
+            self.assertEqual(reader.chat_mode, "top")
+            self.assertEqual(reader.page_visibility, "hidden")
+            self.assertEqual([m.message_id for m in reader.poll().messages],
+                             ["top-new"])
+            # This transition is caused by the user, never by this adapter.
+            self.assertEqual([m.message_id for m in reader.poll().messages],
+                             ["live-new"])
             self.assertEqual(reader.chat_mode, "live")
-            final = reader.poll()
-            self.assertEqual([m.message_id for m in final.messages], ["new-live"])
+            self.assertEqual([m.message_id for m in reader.poll().messages],
+                             ["live-next"])
         reader.close()
 
-    def test_live_chat_selection_never_falls_back_to_filtered_top_chat(self):
+    def test_unrecognized_chat_mode_still_reads_without_changing_controls(self):
         reader = YouTubeBrowserAdapter(VIDEO)
         reader._ws = DummySocket()
-        frame = {"ready": True, "chat_mode": "switching", "items": [
-            {"id": "old", "author": "A", "text": "ก่อนเชื่อม"}]}
-        with patch.object(reader, "_evaluate", return_value=frame):
-            self.assertFalse(reader._initialized)
+        frames = [
+            {"ready": True, "chat_mode": "unknown", "items": [
+                {"id": "old", "author": "A", "text": "initial"}]},
+            {"ready": True, "chat_mode": "unknown", "items": [
+                {"id": "old", "author": "A", "text": "initial"},
+                {"id": "new", "author": "B", "text": "new text"}]},
+        ]
+        with patch.object(reader, "_evaluate", side_effect=frames):
             self.assertEqual(reader.poll().messages, ())
-            reader._live_mode_deadline = time.monotonic() - 1
-            self.assertEqual(reader.poll().messages, ())
-            self.assertFalse(reader._initialized)
-            self.assertFalse(reader.dom_ready)
-            self.assertEqual(reader.phase, "chat_mode_unconfirmed")
-            self.assertEqual(reader.poll().messages, ())
-            self.assertFalse(reader._initialized)
+            self.assertTrue(reader._initialized)
+            self.assertTrue(reader.dom_ready)
+            self.assertEqual(reader.phase, "ready")
+            self.assertEqual([m.message_id for m in reader.poll().messages], ["new"])
         reader.close()
 
     def test_background_throttling_disabled_only_for_isolated_browser(self):

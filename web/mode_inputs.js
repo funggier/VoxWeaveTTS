@@ -15,10 +15,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   let generation=0, jobId=null, lastReady=null, wavUrl=null;
   // Each source owns its pending messages; shared scheduler controls whether
   // the resulting WAVs play serially across modes or may overlap.
-  const MAX_WAITING=12;
+  // Never drop accepted live messages just because speech is slower than chat.
+  // Pending items remain FIFO until spoken, explicitly reset or stopped.
   const incoming=[];
-  let autoBusy=false, activeIncoming=null, queueEpoch=0, overflow=0;
+  let autoBusy=false, activeIncoming=null, queueEpoch=0, randomRemoved=0;
   let autoPaused=false; // temporary playback error; never alters user preference
+  let manualHolding=false; // manual preview may preempt, but must not erase FIFO
   let pickedMessage=null; // manual pick retains its author until text is edited
   function mark(item,state){
     if(item?.message_id != null)onMessageState?.(String(item.message_id),state);
@@ -27,6 +29,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     for(const item of incoming)mark(item,"skipped");
     incoming.length=0;
     if(includeActive){
+      randomRemoved=0;
       queueEpoch++;
       if(activeIncoming)mark(activeIncoming,"skipped");
       activeIncoming=null;
@@ -38,6 +41,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     // be preparing/translation, synthesizing, playing or paused for a retry.
     // Only messages which have not started processing are discarded.
     const cleared=incoming.length;
+    randomRemoved=0;
     for(const item of incoming)mark(item,"skipped");
     incoming.length=0;
     return {
@@ -173,8 +177,21 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     if(!guard(mode))throw Error("กรุณาเปิดโหมดนี้ให้เป็นโหมดปัจจุบันก่อน");
     const text=get("Text").value;
     if(!text.trim())throw Error("กรุณาใส่ข้อความทดลอง");
-    // A manual request takes precedence over a queued automatic feed.
-    if(!autoPlay)clearAutoQueue({includeActive:true});
+    // A manual preview can interrupt the current WAV, but it must NOT
+    // silently discard accepted LIVE backlog. Requeue the interrupted item
+    // at the front; only explicit Reset/Stop can delete waiting messages.
+    if(!autoPlay){
+      // Hold the manual preview only if an existing Live backlog was
+      // interrupted; otherwise a new LIVE feed can start normally.
+      manualHolding=Boolean(activeIncoming||incoming.length);
+      if(activeIncoming){
+        mark(activeIncoming,"queued");
+        incoming.unshift(activeIncoming);
+        activeIncoming=null;
+        autoBusy=false;
+        queueEpoch++; // invalidate the superseded auto submit callback
+      }
+    }
     stop({discard:true});
     const my=++generation;
     lastReady=null;
@@ -255,14 +272,16 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }catch(e){
       if(my===generation){
         if(autoPlay)throw e; // A failed job is NOT a Firefox autoplay denial.
+        manualHolding=false;
         feedback(String(e.message||e));
+        pumpIncoming();
       }
     }finally{
       if(my===generation)get("Submit").disabled=false;
     }
   }
   async function pumpIncoming(){
-    if(autoBusy||autoPaused||!guard(mode)||!get("FeedAuto").checked)return;
+    if(autoBusy||autoPaused||manualHolding||!guard(mode)||!get("FeedAuto").checked)return;
     // Wait for the current manual or automatic WAV to finish.
     if(!audio.paused&&!audio.ended)return;
     const next=incoming.shift();
@@ -294,26 +313,53 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         {replayReady:Boolean(lastReady&&wavUrl)});
     }
   }
+  function randomQueuePolicy(){
+    if(!get("FeedRandomEnable")?.checked)return null;
+    const threshold=Number(get("FeedRandomThreshold")?.value);
+    const keep=Number(get("FeedRandomKeep")?.value);
+    if(!Number.isInteger(threshold)||threshold<2||threshold>100000
+       ||!Number.isInteger(keep)||keep<1||keep>=threshold)return null;
+    return {threshold,keep};
+  }
+  function reduceQueueIfNeeded(){
+    const policy=randomQueuePolicy();
+    if(!policy||incoming.length<=policy.threshold)return 0;
+    // Reservoir sampling: choose a uniform random subset, then retain its
+    // original ordering. The active translation/voice is never in incoming.
+    const selected=[];
+    for(let i=0;i<incoming.length;i++){
+      if(i<policy.keep)selected.push(i);
+      else{
+        const chosen=Math.floor(Math.random()*(i+1));
+        if(chosen<policy.keep)selected[chosen]=i;
+      }
+    }
+    const chosenIndices=new Set(selected);
+    const keep=[],discard=[];
+    for(let i=0;i<incoming.length;i++){
+      (chosenIndices.has(i)?keep:discard).push(incoming[i]);
+    }
+    incoming.splice(0,incoming.length,...keep);
+    randomRemoved+=discard.length;
+    for(const item of discard)mark(item,"random_removed");
+    return discard.length;
+  }
   function receiveIncoming(msg,autoRead){
     // Temporary Firefox autoplay pauses must not turn incoming LIVE chat
-    // into manual-only messages. Keep a bounded waiting queue until retry.
+    // into manual-only messages. Retain all accepted items until retry.
     if(!autoRead||!guard(mode)||typeof msg?.text!=="string")
       return "manual";
     const opts=readOptions();
     // Gift events are intentionally unsupported; never enqueue them as chat.
     if(msg.kind==="gift")return "skipped";
     if(!opts.read_comments)return "manual";
-    if(incoming.length>=MAX_WAITING){
-      // Never silently evict an earlier unread message. New overflow is
-      // skipped, and the UI marks it as such instead of claiming it was read.
-      overflow++;
-      return "skipped";
-    }
     incoming.push(msg);
+    reduceQueueIfNeeded();
     pumpIncoming();
     return "queued";
   }
   audio.addEventListener("ended",()=>{
+    manualHolding=false;
     if(activeIncoming)mark(activeIncoming,"read");
     activeIncoming=null;
     autoBusy=false;
@@ -324,6 +370,9 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     // A corrupt/unsupported WAV must be regenerated, not retried indefinitely.
     pauseAuto("ไฟล์เสียงเล่นไม่ได้ใน Browser · ตรวจรูปแบบ WAV แล้วลองอ่านต่อ");
   });
+  for(const suffix of ["FeedRandomEnable","FeedRandomThreshold","FeedRandomKeep"]){
+    get(suffix)?.addEventListener("change",()=>reduceQueueIfNeeded());
+  }
   get("FeedAuto").addEventListener("change",()=>{
     autoPaused=false;
     if(get("FeedAuto").checked)pumpIncoming();
@@ -334,6 +383,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       return;
     }
     autoPaused=false;
+    manualHolding=false;
     feedback("กำลังลองอ่านข้อความอัตโนมัติต่อ...");
     if(activeIncoming && lastReady && wavUrl){
       // Must call play directly in the click handler, preserving Firefox's
@@ -375,6 +425,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     if(!lastReady){feedback("กรุณาสร้าง WAV ก่อนกดเล่น");return;}
     try{
       const started=await playAudio(audio);
+      if(started&&manualHolding)manualHolding=false;
       if(started&&autoPaused&&activeIncoming){
         autoPaused=false;
         autoBusy=true;
@@ -385,6 +436,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   });
   get("Submit").addEventListener("click",()=>submit().catch(e=>feedback(String(e.message||e))));
   get("Stop").addEventListener("click",()=>{
+    manualHolding=false;
     clearAutoQueue({includeActive:true});
     autoPaused=true;
     stop({discard:true});
@@ -393,7 +445,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   return {stop,suspend,resume,submit,pickMessage,receiveIncoming,clearAutoQueue,resetPending,
           get autoPaused(){return autoPaused;},
           get pendingAuto(){return incoming.length;},
-          get skippedOverflow(){return overflow;},
+          get skippedOverflow(){return 0;},
+          get randomRemovedCount(){return randomRemoved;},
           get jobId(){return jobId;}};
 }
 root.VoxModeInputs={attach};

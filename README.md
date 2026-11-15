@@ -1,6 +1,6 @@
 # VoxWeaveTTS
 
-**Source changes after v0.8.0 (not yet in published Portable ZIP):** Correct Firefox autoplay-specific error messages and preserve pending speech on retry; properly open the YouTube Top chat dropdown before selecting unfiltered Live chat; add a **Reset pending chat queue** button per live source while preserving the currently translating, synthesizing or speaking message. See [Thai troubleshooting and reset guide](docs/LIVE_QUEUE_RESET_TH.md).
+**Source changes after v0.8.0 (not yet in published Portable ZIP):** Preserve pending speech through Firefox autoplay retries; **do not auto-change YouTube Top/Live chat mode** (user selects it); replace the 12-item frontend / 40-item backend backlog limits with FIFO retention of accepted comments; add an **optional random queue reduction** (off by default; when pending exceeds 20, randomly retain 5 pending messages in original arrival order, preserving active speech); retain explicit non-disruptive Reset. See [Thai live queue guide](docs/LIVE_QUEUE_POLICY_TH.md).
 
 **Windows Portable v0.8.0 — Multilingual CPU TTS and per-language voice settings:** CPU-tested multilingual Kokoro-82M INT8 `.vwmodel` with 18 selectable voices across English, Spanish, French, Hindi, Italian, Japanese and Portuguese. New language-to-engine/voice routing, expanded AI translation targets, and UI installation/uninstallation for AI `.vwmodel` packages and the legacy M2M100 directory. [Thai implementation notes](docs/MULTILINGUAL_TTS_TH.md).
 
@@ -32,7 +32,7 @@ The Python source manager can receive chats while the application page is unfocu
 
 ## YouTube Browser: Live chat by default and background resilience (v0.7.1)
 
-The isolated YouTube Chrome/Edge chat popout attempts to switch **Top chat** to **Live chat** automatically. Added background-throttling mitigation for the app-owned window, CDP focus/lifecycle adjustments, and visible mode/visibility diagnostics. It preserves message deduplication and does not replay the initial chat history. Tested using an isolated real Chrome/CDP fixture, **not** a prolonged minimized authorized YouTube LIVE session; YouTube page/network behavior may still prevent guaranteed capture. [Thai guide](docs/YOUTUBE_BROWSER_READER_TH.md).
+In v0.7.1 the isolated YouTube Chrome/Edge chat popout attempted to switch **Top chat** to **Live chat** automatically; this has now been **removed in current source** so the user controls the mode. Added background-throttling mitigation for the app-owned window, CDP focus/lifecycle adjustments, and visible mode/visibility diagnostics. It preserves message deduplication and does not replay the initial chat history. Tested using an isolated real Chrome/CDP fixture, **not** a prolonged minimized authorized YouTube LIVE session; YouTube page/network behavior may still prevent guaranteed capture. [Thai guide](docs/YOUTUBE_BROWSER_READER_TH.md).
 
 ## AI Tool Calling and selectable search providers (v0.7.0)
 

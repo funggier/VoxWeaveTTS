@@ -78,9 +78,31 @@ def main():
                         if reply.get("id") == cid:
                             assert "error" not in reply, (method, reply)
                             break
-                observed_switch = False
+                # Reader must never open the YouTube selector or select a
+                # mode for the user, even when Top chat remains selected.
+                # The fixture appends its handlers after the chat DOM. Wait
+                # for those handlers rather than treating a parsed DOM as ready.
+                handlers_ready = False
                 for attempt in range(25):
-                    ws.send(json.dumps({"id": attempt + 1, "method": "Runtime.evaluate",
+                    ws.send(json.dumps({"id": 700 + attempt,
+                                        "method": "Runtime.evaluate",
+                                        "params": {"expression":
+                                            "document.readyState==='complete' && "
+                                            "typeof window.vwMenuOpens==='number'",
+                                                   "returnByValue": True}}).encode())
+                    while True:
+                        ready = json.loads(ws.receive())
+                        if ready.get("id") == 700 + attempt:
+                            break
+                    handlers_ready = ready.get("result", {}).get("result", {}).get("value", False)
+                    if handlers_ready:
+                        break
+                    time.sleep(0.15)
+                assert handlers_ready, "fixture event handlers never initialized"
+                ready_count = 0
+                for attempt in range(25):
+                    ws.send(json.dumps({"id": attempt + 1,
+                                        "method": "Runtime.evaluate",
                                         "params": {"expression": CHAT_SCRIPT,
                                                    "returnByValue": True}}).encode())
                     while True:
@@ -88,42 +110,59 @@ def main():
                         if data.get("id") == attempt + 1:
                             break
                     result = data["result"]["result"].get("value", {})
-                    observed_switch = observed_switch or result.get("chat_mode") == "switching"
-                    if result.get("ready") and result.get("chat_mode") == "live":
-                        break
-                    time.sleep(0.2)
-                assert result["ready"] is True, result
-                assert observed_switch, "Top chat dropdown was not changed"
-                if result["chat_mode"] != "live":
-                    ws.send(json.dumps({"id": 998, "method": "Runtime.evaluate",
-                                        "params": {"expression":
-                                            "({opens:window.vwMenuOpens,clicks:window.vwOptionClicks,"
-                                            " label:document.querySelector('#label-text')?.textContent,"
-                                            " display:document.querySelector('#live-listbox')?.style.display,"
-                                            " rects:document.querySelector('#live-option')?.getClientRects().length,"
-                                            " recent:window.__vwttsLiveChatLastClick})",
-                                            "returnByValue": True}}).encode())
-                    while True:
-                        debug = json.loads(ws.receive())
-                        if debug.get("id") == 998:
+                    if result.get("ready"):
+                        assert result["chat_mode"] == "top", result
+                        ready_count += 1
+                        if ready_count >= 3:
                             break
-                    raise AssertionError((result, debug))
-                assert result["chat_mode"] == "live", result
+                    time.sleep(0.15)
+                assert ready_count >= 3, result
                 ws.send(json.dumps({"id": 999, "method": "Runtime.evaluate",
                                     "params": {"expression":
-                                               "({opens:window.vwMenuOpens,clicks:window.vwOptionClicks})",
+                                        "({opens:window.vwMenuOpens,clicks:window.vwOptionClicks})",
                                                "returnByValue": True}}).encode())
                 while True:
                     reply = json.loads(ws.receive())
                     if reply.get("id") == 999:
                         break
                 stats = reply["result"]["result"]["value"]
-                assert stats["opens"] == 1 and stats["clicks"] == 1, stats
+                assert stats == {"opens": 0, "clicks": 0}, stats
+
+                # Simulate an explicit manual selection from the YouTube UI.
+                ws.send(json.dumps({"id": 998, "method": "Runtime.evaluate",
+                                    "params": {"expression":
+                                        "document.getElementById('label').click();"
+                                        "document.getElementById('live-option').click();",
+                                               "returnByValue": True}}).encode())
+                while True:
+                    reply = json.loads(ws.receive())
+                    if reply.get("id") == 998:
+                        break
+                ws.send(json.dumps({"id": 997, "method": "Runtime.evaluate",
+                                    "params": {"expression": CHAT_SCRIPT,
+                                               "returnByValue": True}}).encode())
+                while True:
+                    data = json.loads(ws.receive())
+                    if data.get("id") == 997:
+                        break
+                result = data["result"]["result"].get("value", {})
+                assert result["chat_mode"] == "live", result
+                assert result["ready"] is True, result
+                ws.send(json.dumps({"id": 996, "method": "Runtime.evaluate",
+                                    "params": {"expression":
+                                        "({opens:window.vwMenuOpens,clicks:window.vwOptionClicks})",
+                                               "returnByValue": True}}).encode())
+                while True:
+                    reply = json.loads(ws.receive())
+                    if reply.get("id") == 996:
+                        break
+                stats = reply["result"]["result"]["value"]
+                assert stats == {"opens": 1, "clicks": 1}, stats
                 assert result["items"][0]["text"] == "สวัสดีครับ 😂 :face-blue-smiling: GGWP แล้วนะ", result
                 assert result["items"][0]["author"] == "Tester", result
             finally:
                 ws.close()
-            print("PASS: local isolated Chrome CDP, automatic Top chat -> Live chat + DOM extraction")
+            print("PASS: local Chrome CDP respects manual Top/Live chat selection; DOM extraction")
         finally:
             if os.name == "nt":
                 subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],

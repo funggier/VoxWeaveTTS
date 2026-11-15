@@ -115,17 +115,17 @@ async function exercise(mode){
   await feed.start();   // first 10 messages
   await feed.poll();    // remaining 10 messages
   await tick();await tick();
-  assert.equal(modeController.pendingAuto,12,mode+" must preserve first 12 waiting");
-  assert.equal(modeController.skippedOverflow,7,mode+" must drop only 7 new overflow messages");
+  assert.equal(modeController.pendingAuto,19,mode+" must retain all 19 waiting messages");
+  assert.equal(modeController.skippedOverflow,0,mode+" must not drop messages due to a queue cap");
   assert.equal(speech.length,1,"only one TTS generation may start before audio ends");
   assert.equal(speech[0].text,"ข้อความที่ 0");
   assert.equal(el(prefix+"Audio").playCalls,1);
   assert.equal(feed.visible.length,20);
   assert.equal(feed.visible.find(x=>x.message_id==="message-0").state,"reading");
   assert.equal(feed.visible.find(x=>x.message_id==="message-12").state,"queued");
-  assert.equal(feed.visible.find(x=>x.message_id==="message-13").state,"skipped");
-  assert.ok(el(prefix+"FeedQueueStatus").textContent.includes("คิวรออ่าน 12/12"));
-  assert.ok(el(prefix+"FeedQueueStatus").textContent.includes("ข้ามเพราะคิวเต็ม 7"));
+  assert.equal(feed.visible.find(x=>x.message_id==="message-13").state,"queued");
+  assert.ok(el(prefix+"FeedQueueStatus").textContent.includes("คิวรออ่าน 19"));
+  assert.ok(!el(prefix+"FeedQueueStatus").textContent.includes("19/12"));
 
   const endAudio=async()=>{
     const audio=el(prefix+"Audio");
@@ -158,7 +158,7 @@ async function exercise(mode){
   el(prefix+"FeedAuto").checked=false;
   await endAudio();
   assert.equal(speech.length,4);
-  assert.equal(modeController.pendingAuto,9);
+  assert.equal(modeController.pendingAuto,16);
   // Even with a high-volume stream of messages not selected for auto-read,
   // pending audio work must remain visible. Passive/manual history is capped.
   batches.push(Array.from({length:30},(_,i)=>({
@@ -166,7 +166,7 @@ async function exercise(mode){
   })));
   await feed.poll();
   assert.equal(feed.visible.filter(x=>x.state==="manual").length,25);
-  assert.equal(feed.visible.filter(x=>x.state==="queued").length,9);
+  assert.equal(feed.visible.filter(x=>x.state==="queued").length,16);
   assert.ok(feed.visible.some(x=>x.message_id==="message-12"));
   el(prefix+"FeedAuto").checked=true;
   el(prefix+"FeedAuto").events.change();
@@ -175,6 +175,30 @@ async function exercise(mode){
   assert.equal(speech[4].text,"ข้อความที่ 4");
   assert.ok(el(prefix+"FeedQueueStatus").textContent.includes("กำลังเตรียม/อ่าน 1"));
 
+  // Drain every accepted item: no gaps, reordering, or cap-based skipping.
+  for(let i=0;i<16;i++)await endAudio();
+  assert.equal(modeController.pendingAuto,0,mode+" must finish the entire backlog");
+  assert.equal(speech.length,20,mode+" must synthesize every accepted chat message");
+  assert.deepEqual(speech.map(x=>x.text),messages.map(x=>x.text),
+    mode+" must read all messages in strict arrival order");
+  assert.equal(modeController.skippedOverflow,0);
+
+  // Optional random mode: only when backlog exceeds 20, reduce 21 waiting
+  // messages to 5; do not touch the first already-started speech.
+  el(prefix+"FeedRandomEnable").checked=true;
+  el(prefix+"FeedRandomThreshold").value="20";
+  el(prefix+"FeedRandomKeep").value="5";
+  batches.push(Array.from({length:22},(_,i)=>({
+    message_id:"random-"+i,author:"ผู้ชม",text:"สุ่มทดสอบ "+i,
+  })));
+  await feed.poll();await tick();await tick();
+  assert.equal(speech.length,21,"first new speech must start before random pruning");
+  assert.equal(modeController.pendingAuto,5);
+  assert.equal(modeController.randomRemovedCount,16);
+  assert.equal(feed.visible.filter(x=>x.state==="random_removed").length,16);
+  assert.equal(feed.visible.find(x=>x.message_id==="random-0").state,"reading");
+  assert.ok(el(prefix+"FeedQueueStatus").textContent.includes("สุ่มลบคิว 16"));
+
   await feed.stop();
   assert.equal(modeController.pendingAuto,0,"stop must cancel the queued backlog");
   assert.equal(feed.visible.filter(x=>["queued","preparing","reading"].includes(x.state)).length,0,
@@ -182,10 +206,10 @@ async function exercise(mode){
   assert.equal(timer,null);
   assert.equal(el(prefix+"FeedAuto").checked,true,
                "feed stop preserves the user's auto-read preference");
-  assert.equal(speech.length,5,"no new speech after feed stop");
+  assert.equal(speech.length,21,"no new speech after feed stop");
   assert.ok(feed.visible.length<=25,
             "passive/skipped history remains bounded even after stop");
-  console.log("PASS:",mode,"bounded FIFO queue, read-only history pruning, pause/resume and stop");
+  console.log("PASS:",mode,"full FIFO queue, read-only history pruning, pause/resume and explicit stop");
 }
 
 (async()=>{

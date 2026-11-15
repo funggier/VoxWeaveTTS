@@ -194,6 +194,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="youtubeBrowserFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="youtubeBrowserFeedMaxChars" min="20" max="280" value="240"></div>
 <div><label for="youtubeBrowserFeedKeepRead">ประวัติที่อ่านแล้ว (0-100)</label><input type="number" id="youtubeBrowserFeedKeepRead" min="0" max="100" value="20"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="youtubeBrowserFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ</label>
+<div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="youtubeBrowserFeedRandomEnable" style="width:auto"> สุ่มลดคิวเมื่อสะสมมากเกินกำหนด</label>
+<label for="youtubeBrowserFeedRandomThreshold" style="display:flex;align-items:center;gap:6px">เมื่อคิวรอเกิน <input type="number" id="youtubeBrowserFeedRandomThreshold" min="2" max="100000" step="1" value="20" style="width:85px"> ข้อความ</label>
+<label for="youtubeBrowserFeedRandomKeep" style="display:flex;align-items:center;gap:6px">สุ่มเก็บไว้ <input type="number" id="youtubeBrowserFeedRandomKeep" min="1" max="99999" step="1" value="5" style="width:85px"> ข้อความ</label>
+<span class="small">สุ่มลบเฉพาะรายการที่ยังไม่เริ่มแปลหรืออ่าน โดยรายการที่เหลือยังอ่านตามลำดับเดิม (ปิดเป็นค่าเริ่มต้น)</span>
+</div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="youtubeBrowserFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนข้อความ</label>
 <span class="small" id="youtubeBrowserFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="youtubeBrowserAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
@@ -235,6 +241,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="liveFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="liveFeedMaxChars" min="20" max="280" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="liveFeedRandomEnable" style="width:auto"> สุ่มลดคิวเมื่อสะสมมากเกินกำหนด</label>
+<label for="liveFeedRandomThreshold" style="display:flex;align-items:center;gap:6px">เมื่อคิวรอเกิน <input type="number" id="liveFeedRandomThreshold" min="2" max="100000" step="1" value="20" style="width:85px"> ข้อความ</label>
+<label for="liveFeedRandomKeep" style="display:flex;align-items:center;gap:6px">สุ่มเก็บไว้ <input type="number" id="liveFeedRandomKeep" min="1" max="99999" step="1" value="5" style="width:85px"> ข้อความ</label>
+<span class="small">สุ่มลบเฉพาะรายการที่ยังไม่เริ่มแปลหรืออ่าน โดยรายการที่เหลือยังอ่านตามลำดับเดิม (ปิดเป็นค่าเริ่มต้น)</span>
+</div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนอ่านข้อความ</label>
 <span class="small" id="liveFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="liveAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
@@ -279,6 +291,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="tiktokBrowserFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="tiktokBrowserFeedMaxChars" min="20" max="280" value="240"></div>
 <div><label for="tiktokBrowserFeedKeepRead">ประวัติที่อ่านแล้ว (0-100)</label><input type="number" id="tiktokBrowserFeedKeepRead" min="0" max="100" value="20"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokBrowserFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ</label>
+<div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="tiktokBrowserFeedRandomEnable" style="width:auto"> สุ่มลดคิวเมื่อสะสมมากเกินกำหนด</label>
+<label for="tiktokBrowserFeedRandomThreshold" style="display:flex;align-items:center;gap:6px">เมื่อคิวรอเกิน <input type="number" id="tiktokBrowserFeedRandomThreshold" min="2" max="100000" step="1" value="20" style="width:85px"> ข้อความ</label>
+<label for="tiktokBrowserFeedRandomKeep" style="display:flex;align-items:center;gap:6px">สุ่มเก็บไว้ <input type="number" id="tiktokBrowserFeedRandomKeep" min="1" max="99999" step="1" value="5" style="width:85px"> ข้อความ</label>
+<span class="small">สุ่มลบเฉพาะรายการที่ยังไม่เริ่มแปลหรืออ่าน โดยรายการที่เหลือยังอ่านตามลำดับเดิม (ปิดเป็นค่าเริ่มต้น)</span>
+</div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokBrowserFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนข้อความ</label>
 <span class="small" id="tiktokBrowserFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="tiktokBrowserAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
@@ -317,6 +335,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="tiktokFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="tiktokFeedMaxChars" min="20" max="280" value="240"></div>
 <div><label for="tiktokFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="tiktokFeedKeepRead" min="0" max="100" value="20"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="tiktokFeedRandomEnable" style="width:auto"> สุ่มลดคิวเมื่อสะสมมากเกินกำหนด</label>
+<label for="tiktokFeedRandomThreshold" style="display:flex;align-items:center;gap:6px">เมื่อคิวรอเกิน <input type="number" id="tiktokFeedRandomThreshold" min="2" max="100000" step="1" value="20" style="width:85px"> ข้อความ</label>
+<label for="tiktokFeedRandomKeep" style="display:flex;align-items:center;gap:6px">สุ่มเก็บไว้ <input type="number" id="tiktokFeedRandomKeep" min="1" max="99999" step="1" value="5" style="width:85px"> ข้อความ</label>
+<span class="small">สุ่มลบเฉพาะรายการที่ยังไม่เริ่มแปลหรืออ่าน โดยรายการที่เหลือยังอ่านตามลำดับเดิม (ปิดเป็นค่าเริ่มต้น)</span>
+</div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนอ่านข้อความ</label>
 <span class="small" id="tiktokFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="tiktokAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
@@ -365,6 +389,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="discordFeedMaxChars">ความยาวข้อความสูงสุด</label>
 <input type="number" id="discordFeedMaxChars" min="20" max="280" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
+<div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="discordFeedRandomEnable" style="width:auto"> สุ่มลดคิวเมื่อสะสมมากเกินกำหนด</label>
+<label for="discordFeedRandomThreshold" style="display:flex;align-items:center;gap:6px">เมื่อคิวรอเกิน <input type="number" id="discordFeedRandomThreshold" min="2" max="100000" step="1" value="20" style="width:85px"> ข้อความ</label>
+<label for="discordFeedRandomKeep" style="display:flex;align-items:center;gap:6px">สุ่มเก็บไว้ <input type="number" id="discordFeedRandomKeep" min="1" max="99999" step="1" value="5" style="width:85px"> ข้อความ</label>
+<span class="small">สุ่มลบเฉพาะรายการที่ยังไม่เริ่มแปลหรืออ่าน โดยรายการที่เหลือยังอ่านตามลำดับเดิม (ปิดเป็นค่าเริ่มต้น)</span>
+</div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนอ่านข้อความ</label>
 <span class="small" id="discordFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="discordAutoRetry">ลองอ่านอัตโนมัติต่อ</button>
@@ -422,6 +452,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <label style="display:flex;align-items:center;gap:7px">
 <input id="discordClientFeedAuto" type="checkbox" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)
 </label>
+<div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="discordClientFeedRandomEnable" style="width:auto"> สุ่มลดคิวเมื่อสะสมมากเกินกำหนด</label>
+<label for="discordClientFeedRandomThreshold" style="display:flex;align-items:center;gap:6px">เมื่อคิวรอเกิน <input type="number" id="discordClientFeedRandomThreshold" min="2" max="100000" step="1" value="20" style="width:85px"> ข้อความ</label>
+<label for="discordClientFeedRandomKeep" style="display:flex;align-items:center;gap:6px">สุ่มเก็บไว้ <input type="number" id="discordClientFeedRandomKeep" min="1" max="99999" step="1" value="5" style="width:85px"> ข้อความ</label>
+<span class="small">สุ่มลบเฉพาะรายการที่ยังไม่เริ่มแปลหรืออ่าน โดยรายการที่เหลือยังอ่านตามลำดับเดิม (ปิดเป็นค่าเริ่มต้น)</span>
+</div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordClientFeedReadSender" style="width:auto"> อ่านชื่อผู้ส่งก่อนอ่านข้อความ</label>
 <span class="small" id="discordClientFeedReadSenderStatus" role="status"></span>
 <button type="button" class="small-button" id="discordClientAutoRetry">ลองอ่านอัตโนมัติต่อ</button>

@@ -1,9 +1,14 @@
 # Changelog
 
-## Unreleased (after v0.8.0) — Live recovery and non-disruptive queue reset
+## Unreleased (after v0.8.0) — Live recovery, FIFO or opt-in random queue reduction
+
+- Ensure manual speech-preview Submit does not silently erase Live pending items: requeue an interrupted active item at the front, hold auto-read until the manual preview is played, then resume FIFO. Remove the fixed 12-item browser auto-read and 40-item server source backlog overflow policies. Keep accepted comments in FIFO order until read, explicit Reset, or Stop. Read-history display limits remain independent; accepted messages are no longer dropped solely because text-to-speech is slower than chat.
+- Add a per-source, disabled-by-default **สุ่มลดคิวเมื่อสะสมมากเกินกำหนด** checkbox and editable threshold/retain values (default: when waiting queue exceeds **20**, randomly retain **5**). Uniformly sample only unstarted pending entries without reordering survivors; the currently translating, rendering or playing item is excluded. Export/import these settings, with safe defaults for older files. Mark randomly removed entries distinctly from read/filtered messages.
+- Stop all automated attempts to switch YouTube chat from **Top chat** to **Live chat**. Read whichever mode the user selected; still display detected mode. DOM integration tests confirm no programmatic menu click and manual changes are respected.
+- Preserve existing accepted audio backlog when a remote source ends or errors; do not automatically cancel it solely because the source is unavailable. Distinguish intentional filter/fallback skips from queue overflow.
 
 - Distinguish Firefox NotAllowedError/autoplay permission failures from TTS/AI/WAV and audio scheduler errors. Keep generated WAV and unread messages, and retry from user gesture.
-- Fix isolated Chromium YouTube chat dropdown: target the actual menu button before selecting the visible Live chat option. Never silently fall back to Top chat if mode confirmation times out; show actionable status instead.
+- Historical intermediate fix (superseded by current source): adjusted isolated Chromium dropdown selection, then removed the automatic Top→Live chat action completely at user request.
 - Add per-source **รีเซ็ตคิวข้อความ** buttons to clear only unstarted messages in browser and Python source queues without disconnecting LIVE. Preserve the single in-progress translation, synthesis or speech playback through completion; new messages follow it.
 - Regression tests for Firefox retry and queue retention, YouTube Chromium DOM option selection, authenticated server queue reset and per-mode chat reset UI.
 - Fix outdated v0.4.2 model catalog test assumptions to match published v0.8.0 three-model TTS catalog.

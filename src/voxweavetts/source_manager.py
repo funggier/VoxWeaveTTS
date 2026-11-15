@@ -1,4 +1,4 @@
-"""Independent bounded opt-in YouTube/Discord source monitors per workspace.
+"""Independent opt-in YouTube/Discord source monitors per workspace.
 
 Credentials never leave this manager through status, logs or exceptions.
 Backend polling is read-only. Browser playback (with a real HTMLMediaElement)
@@ -23,7 +23,7 @@ from .source_adapters import (
     YouTubeLiveAdapter,
 )
 
-MAX_PENDING = 40
+MAX_PENDING = None  # FIFO has no fixed count; reset/stop explicitly clears it.
 MAX_SOURCE_WATCHERS = 16
 
 
@@ -44,7 +44,7 @@ class _Session:
     adapter: Any
     block_words: tuple[str, ...]
     max_chars: int
-    pending: deque[SourceMessage] = field(default_factory=lambda: deque(maxlen=MAX_PENDING))
+    pending: deque[SourceMessage] = field(default_factory=deque)
     ids: deque[str] = field(default_factory=lambda: deque(maxlen=MAX_SEEN))
     seen: set[str] = field(default_factory=set)
     cancelled: threading.Event = field(default_factory=threading.Event)
@@ -441,11 +441,9 @@ class SourceManager:
                         if not self._allowed(item, session):
                             session.discarded += 1
                             continue
-                        if len(session.pending) == MAX_PENDING:
-                            # Preserve older unread messages. Drop only the
-                            # arriving overflow item; never evict pending work.
-                            session.discarded += 1
-                            continue
+                        # No fixed-size queue overflow: accepted chat remains
+                        # FIFO even when translation/TTS is slower than LIVE.
+                        # Explicit Reset or Stop are the only queue clear paths.
                         session.pending.append(item)
                         session.received += 1
                     if not batch.online:

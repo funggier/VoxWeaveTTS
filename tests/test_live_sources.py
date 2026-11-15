@@ -436,7 +436,7 @@ class ManagerTests(unittest.TestCase):
         self.manager.subscribe()
         self.manager.unsubscribe()
 
-    def test_owner_required_and_bounded_queue_moderation(self):
+    def test_owner_required_and_fifo_queue_moderation_without_dropping_messages(self):
         base={"mode":"live","mode_token":self.owner["mode_token"],
               "source_id":"Cg0K_livechat_id","credential":"test_api_key_12345",
               "filters":{"blocked_words":["blocked"]}}
@@ -450,7 +450,9 @@ class ManagerTests(unittest.TestCase):
             time.sleep(.01)
         status=self.manager.status("live")
         self.assertEqual(status["polls"],1)
-        self.assertEqual(status["pending"],MAX_PENDING)
+        self.assertIsNone(MAX_PENDING)
+        self.assertEqual(status["pending"],51,
+                         "all 51 accepted messages must survive source bursts")
         self.assertGreaterEqual(status["discarded"],2)
         self.assertEqual(status["duplicates"],1)
         messages=self.manager.drain({**base,"limit":20},self.modes)

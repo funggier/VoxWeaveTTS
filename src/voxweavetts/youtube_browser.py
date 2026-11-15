@@ -27,62 +27,19 @@ from .source_adapters import PollResult, SourceFailure, SourceMessage, _normal_t
 ROOT = Path(__file__).resolve().parents[2]
 VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 CHAT_SCRIPT = r"""(() => {
-  // Top chat filters messages before the reader sees them. Switch the
-  // isolated browser popout to unfiltered Live chat when the menu is present.
+  // Read the mode selected by the user; never click any YouTube control.
   const norm = value => (value || "").replace(/\s+/g, " ").trim().toLowerCase();
-  const liveLabels = new Set(["live chat", "all chat", "แชทสด", "แชททั้งหมด"]);
-  const topLabels = new Set(["top chat", "แชทยอดนิยม", "แชทเด่น"]);
   const menu = document.querySelector("yt-live-chat-header-renderer yt-sort-filter-sub-menu-renderer")
     || document.querySelector("yt-sort-filter-sub-menu-renderer");
-  let chatMode = "unknown";
-  if (menu) {
-    const current = norm(menu.querySelector("#label-text")?.textContent ||
-      menu.querySelector("yt-dropdown-menu")?.getAttribute("aria-label"));
-    chatMode = liveLabels.has(current) ? "live"
-      : topLabels.has(current) ? "top" : "unknown";
-    if (chatMode === "top") {
-      // YouTube renders dropdown options asynchronously. Every retry comes
-      // from the Python CDP poll, not throttled background page timers.
-      const options = [...document.querySelectorAll(
-        "yt-sort-filter-sub-menu-renderer tp-yt-paper-item, " +
-        "yt-sort-filter-sub-menu-renderer a.yt-simple-endpoint, " +
-        "tp-yt-paper-listbox tp-yt-paper-item")];
-      const liveOption = options.find(el => liveLabels.has(norm(el.textContent)));
-      const dropdown = menu.querySelector("yt-dropdown-menu");
-      const opened = Boolean(
-        dropdown?.hasAttribute("opened") ||
-        dropdown?.getAttribute("aria-expanded") === "true" ||
-        liveOption?.getClientRects?.().length);
-      const now = Date.now();
-      if (opened && liveOption) {
-        // A hidden paper-menu option exists in the DOM even when the
-        // dropdown is closed. Clicking it then is ignored by YouTube.
-        // First open the menu, then select a *visible* Live chat option.
-        (liveOption.closest("a") || liveOption).click();
-        window.__vwttsLiveChatLastClick = now;
-        chatMode = "switching";
-      } else if (now - (window.__vwttsLiveChatLastClick || 0) > 1200) {
-        // Separate queries: a selector list would return the OUTER
-        // yt-dropdown-menu first in DOM order, which is not its real button.
-        const opener = menu.querySelector("yt-dropdown-menu #label") ||
-          menu.querySelector("yt-dropdown-menu button") ||
-          menu.querySelector("yt-dropdown-menu [role=button]") ||
-          menu.querySelector("#label-text") ||
-          menu.querySelector("yt-dropdown-menu");
-        if (opener) {
-          opener.click();
-          window.__vwttsLiveChatLastClick = now;
-        }
-        chatMode = "switching";
-      } else {
-        chatMode = "switching";
-      }
-    }
-  }
+  const current = norm(menu?.querySelector("#label-text")?.textContent ||
+    menu?.querySelector("yt-dropdown-menu")?.getAttribute("aria-label"));
+  const chatMode = ["live chat", "all chat", "แชทสด", "แชททั้งหมด"].includes(current)
+    ? "live" : ["top chat", "แชทยอดนิยม", "แชทเด่น"].includes(current)
+    ? "top" : "unknown";
   const list = document.querySelector("yt-live-chat-item-list-renderer #items");
   if (!list) return {ready:false, items:[], chat_mode:chatMode,
                       page_visibility:document.visibilityState || "unknown"};
-  const items = [...list.querySelectorAll("yt-live-chat-text-message-renderer")].slice(-100);
+  const items = [...list.querySelectorAll("yt-live-chat-text-message-renderer")];
   // Images in YouTube chat carry emoji text in alt attributes rather
   // than textContent; preserve those tokens for the optional TTS dictionary.
   const chatText = element => {
@@ -289,7 +246,6 @@ class YouTubeBrowserAdapter:
         self.phase = "preparing"
         self.chat_mode = "unknown"
         self.page_visibility = "unknown"
-        self._live_mode_deadline: float | None = None
         self._seen: set[str] = set()
         self._closed = False
 
@@ -420,7 +376,7 @@ class YouTubeBrowserAdapter:
             result = self._evaluate()
             if isinstance(result, dict):
                 mode = result.get("chat_mode")
-                self.chat_mode = mode if mode in ("top", "live", "switching", "unknown") else "unknown"
+                self.chat_mode = mode if mode in ("top", "live", "unknown") else "unknown"
                 visibility = result.get("page_visibility")
                 self.page_visibility = (visibility if visibility in ("visible", "hidden", "prerender")
                                         else "unknown")
@@ -440,25 +396,13 @@ class YouTubeBrowserAdapter:
                     "comments_off", "comments_off_login_prompt", "login_prompt")
                     else "waiting_chat_dom")
                 return PollResult((), 2.0)
-            # The requested browser mode is *unfiltered* Live chat. Do not
-            # silently use Top chat after a timeout: that would omit messages.
-            # Keep the connection alive and retry opening the dropdown.
-            if self.chat_mode != "live":
-                self.dom_ready = False
-                if self._live_mode_deadline is None:
-                    self._live_mode_deadline = time.monotonic() + 12
-                self.phase = ("switching_live_chat"
-                              if time.monotonic() < self._live_mode_deadline
-                              else "chat_mode_unconfirmed")
-                return PollResult((), 0.5 if self.phase == "switching_live_chat" else 2.0)
-            self._live_mode_deadline = None
             self.dom_ready = True
             self.phase = "ready"
             rows = result.get("items", [])
             if not isinstance(rows, list):
                 raise ValueError("invalid chat DOM")
             parsed = []
-            for row in rows[-100:]:
+            for row in rows:
                 if not isinstance(row, dict):
                     continue
                 mid, author, msg = row.get("id"), row.get("author"), row.get("text")

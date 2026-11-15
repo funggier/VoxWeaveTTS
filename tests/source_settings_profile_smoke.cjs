@@ -88,6 +88,9 @@ async function verify(mode){
   };
   for(const [suffix,value] of Object.entries(fields))el(prefix+suffix).value=value;
   el(prefix+"FeedAuto").checked=false;
+  el(prefix+"FeedRandomEnable").checked=true;
+  el(prefix+"FeedRandomThreshold").value="20";
+  el(prefix+"FeedRandomKeep").value="5";
   el(prefix+"FeedReadSender").checked=true;
   const original=await feed.exportSettings();
   assert.ok(original,"Export should support all fields");
@@ -103,6 +106,9 @@ async function verify(mode){
   assert.equal(decoded.auto_read,false);
   assert.equal(decoded.read_sender_name,true);
   assert.equal(decoded.read_history_limit,17);
+  assert.equal(decoded.random_queue_enabled,true);
+  assert.equal(decoded.random_queue_threshold,20);
+  assert.equal(decoded.random_queue_keep,5);
   if(mode==="discord_client"){
     assert.equal(decoded.client_id,fields.FeedAppId);
     assert.equal(decoded.client_secret,fields.FeedAppSecret);
@@ -114,6 +120,9 @@ async function verify(mode){
   }
   for(const key of Object.keys(fields))el(prefix+key).value="";
   el(prefix+"FeedAuto").checked=true;
+  el(prefix+"FeedRandomEnable").checked=false;
+  el(prefix+"FeedRandomThreshold").value="44";
+  el(prefix+"FeedRandomKeep").value="12";
   el(prefix+"FeedReadSender").checked=false;
   assert.equal(await feed.importSettings(asFile(decoded)),true);
   assert.equal(el(prefix+"FeedReadSender").checked,true);
@@ -125,6 +134,9 @@ async function verify(mode){
   assert.equal(el(prefix+"FeedMaxChars").value,"245");
   assert.equal(el(prefix+"FeedKeepRead").value,"17");
   assert.equal(el(prefix+"FeedAuto").checked,false);
+  assert.equal(el(prefix+"FeedRandomEnable").checked,true);
+  assert.equal(el(prefix+"FeedRandomThreshold").value,"20");
+  assert.equal(el(prefix+"FeedRandomKeep").value,"5");
   if(mode==="discord_client"){
     assert.equal(el(prefix+"FeedAppId").value,fields.FeedAppId);
     assert.equal(el(prefix+"FeedAppSecret").value,fields.FeedAppSecret);
@@ -135,11 +147,18 @@ async function verify(mode){
   // silently changing the current, locally saved sender setting.
   const legacy={...decoded};
   delete legacy.read_sender_name;
+  delete legacy.random_queue_enabled;
+  delete legacy.random_queue_threshold;
+  delete legacy.random_queue_keep;
   el(prefix+"FeedReadSender").checked=false;
   const previousSenderWrites=senderImports.length;
   assert.equal(await feed.importSettings(asFile(legacy)),true);
   assert.equal(el(prefix+"FeedReadSender").checked,false);
   assert.equal(senderImports.length,previousSenderWrites);
+  assert.equal(el(prefix+"FeedRandomEnable").checked,false,
+    "legacy profiles must use default-off random reduction");
+  assert.equal(el(prefix+"FeedRandomThreshold").value,"20");
+  assert.equal(el(prefix+"FeedRandomKeep").value,"5");
   // Every editable field may be blank in an unfinished draft.
   for(const [key] of Object.entries(fields))el(prefix+key).value="";
   el(prefix+"FeedAuto").checked=true;
@@ -172,6 +191,12 @@ async function verify(mode){
     {...decoded,filters:{blocked_words:[],max_chars:240}},
     {...decoded,auto_read:"true"},
     {...decoded,read_sender_name:"true"},
+    {...decoded,random_queue_enabled:"true"},
+    {...decoded,random_queue_threshold:1},
+    {...decoded,random_queue_keep:20},
+    {...decoded,random_queue_keep:0},
+    {...decoded,random_queue_threshold:null},
+    {...decoded,random_queue_keep:null},
     "{bad-json-private-DO_NOT_ECHO",
     "a".repeat(16385),
   ];

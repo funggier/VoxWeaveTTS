@@ -5,7 +5,8 @@
  */
 (function(root){
 "use strict";
-const MAX_UNREAD=12;
+// History/DOM display limits are NOT queue limits. Never drop unread work.
+const MAX_RENDERED=120;
 const MAX_PASSIVE=25;
 const MAX_READ_KEEP=100;
 const SETTINGS_FORMAT="voxweavetts.source-settings";
@@ -13,7 +14,8 @@ const SETTINGS_VERSION=1;
 const MAX_SETTINGS_BYTES=16384;
 const SETTINGS_KEYS=new Set(["format","version","mode","source_id",
                              "filters","auto_read","read_sender_name","read_history_limit",
-                             "credential","client_id","client_secret","redirect_uri"]);
+                             "credential","client_id","client_secret","redirect_uri",
+                             "random_queue_enabled","random_queue_threshold","random_queue_keep"]);
 function isRecord(value){
   return value!==null && typeof value==="object" && !Array.isArray(value);
 }
@@ -32,6 +34,12 @@ function validateSettingsProfile(value,mode){
      || !(value.filters.max_chars==="" || (Number.isInteger(value.filters.max_chars)
           && value.filters.max_chars>=20 && value.filters.max_chars<=280)))
     throw Error("ตัวกรองหรือจำนวนอักษรในไฟล์ไม่ถูกต้อง");
+  const randomThreshold="random_queue_threshold" in value?value.random_queue_threshold:20;
+  const randomKeep="random_queue_keep" in value?value.random_queue_keep:5;
+  if(("random_queue_enabled" in value && typeof value.random_queue_enabled!=="boolean")
+     || !Number.isInteger(randomThreshold)||randomThreshold<2||randomThreshold>100000
+     || !Number.isInteger(randomKeep)||randomKeep<1||randomKeep>=randomThreshold)
+    throw Error("ค่าการสุ่มลดคิวไม่ถูกต้อง");
   if(typeof value.auto_read!=="boolean"
      || ("read_sender_name" in value && typeof value.read_sender_name!=="boolean")
      || !(value.read_history_limit==="" || (Number.isInteger(value.read_history_limit)
@@ -69,7 +77,7 @@ const EXTENSION_PHASE_NAMES=Object.freeze({
 });
 const STATE_LABELS={
   queued:"รออ่าน",preparing:"กำลังแปล/สร้างเสียง",reading:"กำลังอ่าน",read:"อ่านแล้ว",
-  skipped:"ข้ามการอ่าน",manual:"เลือกอ่านเอง",
+  skipped:"ข้ามการอ่าน",random_removed:"สุ่มลบจากคิว",manual:"เลือกอ่านเอง",
 };
 const RPC_PHASE_NAMES={
   not_connected:"ยังไม่ได้เชื่อม",
@@ -93,10 +101,8 @@ const BROWSER_PHASE_NAMES=Object.freeze({
   finding_chat_page:"ขั้นตอน 4/5 · ค้นหาหน้า YouTube Live Chat ใน Browser",
   connecting_dom:"ขั้นตอน 4/5 · เชื่อมระบบควบคุม DOM ของ Browser",
   reading_dom:"ขั้นตอน 5/5 · ตรวจสอบองค์ประกอบข้อความในหน้า Chat",
-  switching_live_chat:"ขั้นตอน 5/5 · กำลังเปลี่ยนจาก Top chat เป็น Live chat",
-  chat_mode_unconfirmed:"ยังเปลี่ยน Top chat เป็น Live chat ไม่สำเร็จ · ตรวจหน้าต่าง YouTube Chat-only แล้วเลือก Live chat ด้วยตนเอง · ยังไม่อ่านจาก Top chat",
   waiting_chat_dom:"ขั้นตอน 5/5 · รอให้หน้า Live Chat โหลดหรือเปิดแชท",
-  ready:"เชื่อมต่อสำเร็จ · พร้อมอ่านข้อความใหม่จาก YouTube Live Chat",
+  ready:"เชื่อมต่อสำเร็จ · อ่านจากโหมดแชทที่คุณเลือกใน YouTube",
   comments_off:"TikTok ใน Browser นี้แสดง Comments off · ไม่ได้แปลว่าเจ้าของไลฟ์ปิดคอมเมนต์ ตรวจสอบสิทธิ์การเข้าถึงในหน้าต่างนี้",
   comments_off_login_prompt:"TikTok ใน Browser ที่โปรแกรมควบคุมแสดง Comments off และ Log in · แต่ LIVE อาจมีคอมเมนต์ปกติใน Chrome ธรรมดา อย่าลองเข้าสู่ระบบซ้ำหากระบบจำกัดจำนวนครั้ง",
   login_prompt:"TikTok แสดง Log in และยังไม่พบ DOM แชท · ไม่ได้แปลว่าต้องเข้าสู่ระบบจึงจะดูคอมเมนต์ได้",
@@ -160,7 +166,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   let streamSubscription=null, pendingWake=false;
   let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
   const seen=new Set();
-  let visible=[], overflow=0;
+  let visible=[], overflow=0, randomRemoved=0;
   const browserMode=mode==="youtube_browser"||mode==="tiktok_browser";
   const extensionMode=mode==="tiktok_browser";
   const platform=mode==="tiktok_browser"?"TikTok":"YouTube";
@@ -198,6 +204,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       auto_read:Boolean(get("FeedAuto").checked),
       read_sender_name:Boolean(get("FeedReadSender")?.checked),
       read_history_limit:keep===""?"":Number(keep),
+      random_queue_enabled:Boolean(get("FeedRandomEnable")?.checked),
+      random_queue_threshold:String(get("FeedRandomThreshold")?.value??"").trim()===""
+        ?20:Number(get("FeedRandomThreshold").value),
+      random_queue_keep:String(get("FeedRandomKeep")?.value??"").trim()===""
+        ?5:Number(get("FeedRandomKeep").value),
     };
     if(mode==="discord_client"){
       data.client_id=get("FeedAppId").value;
@@ -274,6 +285,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       get("FeedBlocked").value=data.filters.blocked_words;
       get("FeedMaxChars").value=String(data.filters.max_chars);
       get("FeedAuto").checked=data.auto_read;
+      get("FeedRandomEnable").checked=data.random_queue_enabled===true;
+      get("FeedRandomThreshold").value=String(data.random_queue_threshold??20);
+      get("FeedRandomKeep").value=String(data.random_queue_keep??5);
       if("read_sender_name" in data){
         get("FeedReadSender").checked=data.read_sender_name;
         // An imported profile updates the portable per-channel setting too.
@@ -316,20 +330,27 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     const reading=visible.filter(x=>x.state==="preparing"||x.state==="reading").length;
     const read=visible.filter(x=>x.state==="read").length;
     get("FeedQueueStatus").textContent=
-      "คิวรออ่าน "+queued+"/"+MAX_UNREAD+
+      "คิวรออ่าน "+queued+
       " · กำลังเตรียม/อ่าน "+reading+
       " · อ่านแล้วที่เก็บ "+read+"/"+readLimit()+
-      " · ข้ามเพราะคิวเต็ม "+overflow;
+      " · ข้าม/กรอง "+overflow+
+      " · สุ่มลบคิว "+randomRemoved;
   }
   function clearMessages(){
-    visible=[];overflow=0;
+    visible=[];overflow=0;randomRemoved=0;
     get("FeedItems").replaceChildren();
     renderSummary();
   }
   function render(){
     const area=get("FeedItems");
     area.replaceChildren();
-    for(const data of visible){
+    // Keep the entire pending queue in memory, but draw a small window.
+    // Otherwise a slow TTS model can create thousands of DOM nodes per tick.
+    const shown=visible.slice(0,MAX_RENDERED);
+    for(const active of visible.slice(MAX_RENDERED)){
+      if(["preparing","reading"].includes(active.state))shown.push(active);
+    }
+    for(const data of shown){
       const li=document.createElement("li");
       li.className="source-message";
       const details=document.createElement("span");
@@ -370,6 +391,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     if(!Object.prototype.hasOwnProperty.call(STATE_LABELS,state))return;
     const entry=visible.find(x=>String(x.message_id)===String(messageId));
     if(!entry)return; // source session already switched or was cleared
+    if(state==="random_removed"&&entry.state!=="random_removed")randomRemoved++;
     entry.state=state;
     prune();
     render();
@@ -633,9 +655,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
             entry.state="skipped";
             overflow++;
           }
-          prune();
         }
       }
+      prune();
       render();
       // A source may be producing faster than a single 10-message drain.
       // Continue immediately without waiting for a throttled timer or SSE.
@@ -663,7 +685,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
           ? " · ลองใหม่ใน "+Math.round(status.next_poll_seconds||0)+" วินาที":"";
         const ytMode=!extensionMode && status.chat_mode
           ? " · โหมดแชท "+({live:"Live chat ✓",top:"Top chat (ยังกรองข้อความ)",
-              switching:"กำลังสลับเป็น Live chat",unknown:"ยืนยันไม่ได้"}[status.chat_mode]||"ไม่ทราบ")
+              unknown:"ยืนยันไม่ได้"}[status.chat_mode]||"ไม่ทราบ")
           : "";
         const ytVisibility=!extensionMode && status.page_visibility
           ? " · หน้าต่าง "+({visible:"แสดงอยู่",hidden:"เบื้องหลัง",prerender:"กำลังเริ่มแสดง"}[status.page_visibility]||"ไม่ทราบ")
@@ -711,16 +733,15 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
         (["error","connecting","retrying"].includes(status.state) ? " · "+status.info : "")
       );
       }
-      if(status.state==="ended"||status.state==="error"){
+      if((status.state==="ended"||status.state==="error") && !(status.pending>0)){
         connected=false;
         if(timer!==null){clearInterval(timer);timer=null;}
         closeSourceStream();
         pendingWake=false;
         get("FeedStart").disabled=false;
         get("FeedStop").disabled=true;
-        // Clear pending speech after an authorization or transport failure.
-        // Preserve the checkbox choice for the next explicit connection.
-        onStop?.();
+        // A source that ends or fails must not cancel accepted queued speech.
+        // Users can explicitly reset the queue or press Stop Audio.
       }
     }catch(error){
       if(ticket===generation){
@@ -758,6 +779,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     visible=visible.filter(item=>activeId!==null&&
       String(item.message_id)===activeId);
     overflow=0;
+    randomRemoved=0;
     render();
     try{
       let backend=0;

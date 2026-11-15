@@ -179,6 +179,108 @@ async function testManualPlayRestoresPendingAutoQueue(){
   }finally{t.cleanup();}
 }
 
+async function testManualPreviewPreservesAllUnreadMessages(){
+  const t=createHarness();
+  try{
+    for(let i=0;i<3;i++)
+      t.api.receiveIncoming({message_id:"auto-"+i,text:"คิว "+i},true);
+    await tick();await tick();
+    assert.equal(t.states.get("auto-0"),"reading");
+    assert.equal(t.api.pendingAuto,2);
+    t.get("liveText").value="เสียงทดลอง";
+    await t.get("liveSubmit").fire("click");
+    await tick();await tick();
+    assert.equal(t.api.pendingAuto,3,
+      "manual Preview must requeue interrupted speech, not discard backlog");
+    assert.equal(t.states.get("auto-0"),"queued");
+    assert.equal(t.payloads.length,2,
+      "manual Preview renders once after the interrupted auto job");
+    t.api.receiveIncoming({message_id:"auto-3",text:"คิว 3"},true);
+    assert.equal(t.api.pendingAuto,4);
+    assert.equal(t.payloads.length,2,
+      "new chat cannot overwrite manually generated WAV before it is played");
+    await t.get("livePlay").fire("click");
+    for(let i=0;i<5;i++){
+      t.audio.paused=true;t.audio.ended=true;
+      await t.audio.fire("ended");await tick();await tick();
+    }
+    assert.equal(t.api.pendingAuto,0);
+    assert.deepEqual(t.payloads.map(x=>x.text),[
+      "คิว 0","เสียงทดลอง","คิว 0","คิว 1","คิว 2","คิว 3",
+    ]);
+    for(let i=0;i<4;i++)assert.equal(t.states.get("auto-"+i),"read");
+    assert.equal(t.api.randomRemovedCount,0);
+  }finally{t.cleanup();}
+}
+
+async function testRandomQueueReductionPreservesActiveAndSurvivorOrder(){
+  const t=createHarness();
+  const oldRandom=Math.random;
+  Math.random=()=>0.37; // deterministic reservoir sample
+  try{
+    t.get("liveFeedRandomEnable").checked=true;
+    t.get("liveFeedRandomThreshold").value="20";
+    t.get("liveFeedRandomKeep").value="5";
+    t.api.receiveIncoming({message_id:"msg-0",text:"ข้อความ 0"},true);
+    for(let i=1;i<=21;i++)
+      t.api.receiveIncoming({message_id:"msg-"+i,text:"ข้อความ "+i},true);
+    await tick();await tick();
+    assert.equal(t.states.get("msg-0"),"reading",
+      "active speech is never part of random queue reduction");
+    assert.equal(t.api.pendingAuto,5,
+      "pending count 21 must be reduced to the configured 5");
+    assert.equal(t.api.randomRemovedCount,16);
+    const survivors=Array.from({length:21},(_,i)=>i+1)
+      .filter(i=>t.states.get("msg-"+i)!=="random_removed");
+    assert.equal(survivors.length,5);
+    assert.equal([...t.states.values()].filter(s=>s==="random_removed").length,16);
+    for(let i=0;i<6;i++){
+      t.audio.paused=true;t.audio.ended=true;
+      await t.audio.fire("ended");await tick();await tick();
+    }
+    assert.equal(t.api.pendingAuto,0);
+    assert.deepEqual(t.payloads.map(x=>Number(x.text.split(" ").at(-1))),
+      [0,...survivors],"random survivors must be read in FIFO order");
+    assert.equal(t.states.get("msg-0"),"read");
+    for(const index of survivors)
+      assert.equal(t.states.get("msg-"+index),"read");
+    t.api.resetPending();
+    assert.equal(t.api.randomRemovedCount,0,
+      "explicit reset restarts random-removal statistics");
+  }finally{
+    Math.random=oldRandom;t.cleanup();
+  }
+}
+
+async function testQueueReductionIsOptInAndAppliesWhenEnabledLater(){
+  const t=createHarness();
+  const oldRandom=Math.random;
+  Math.random=()=>0.7;
+  try{
+    for(let i=0;i<60;i++)
+      t.api.receiveIncoming({message_id:"later-"+i,text:"ลำดับ "+i},true);
+    await tick();
+    assert.equal(t.api.pendingAuto,59);
+    assert.equal(t.api.randomRemovedCount,0,
+      "default-off must never discard backlog");
+    t.get("liveFeedRandomThreshold").value="20";
+    t.get("liveFeedRandomKeep").value="5";
+    t.get("liveFeedRandomEnable").checked=true;
+    t.get("liveFeedRandomEnable").events.change();
+    assert.equal(t.api.pendingAuto,5,
+      "enabling random reduction on an existing backlog applies immediately");
+    assert.equal(t.api.randomRemovedCount,54);
+    assert.equal(t.states.get("later-0"),"reading");
+    t.get("liveFeedRandomEnable").checked=false;
+    t.get("liveFeedRandomEnable").events.change();
+    for(let i=60;i<120;i++)
+      t.api.receiveIncoming({message_id:"later-"+i,text:"ลำดับ "+i},true);
+    assert.equal(t.api.pendingAuto,65,
+      "disabled reduction must resume keeping every new pending message");
+    assert.equal(t.api.randomRemovedCount,54);
+  }finally{Math.random=oldRandom;t.cleanup();}
+}
+
 async function testResetDoesNotInterruptCurrentlyPlaying(){
   const t=createHarness();
   try{
@@ -235,5 +337,8 @@ async function testResetDoesNotInterruptTranslationOrSynthesis(){
   await testSpeechJobFailureIsNotAutoplay();
   await testSchedulerCancelledPlayback();
   await testManualPlayRestoresPendingAutoQueue();
-  console.log("PASS: Firefox autoplay permission, accurate failed-job feedback, pending queue retention, user-gesture retry, scheduler cancellation and manual Play recovery");
+  await testManualPreviewPreservesAllUnreadMessages();
+  await testRandomQueueReductionPreservesActiveAndSurvivorOrder();
+  await testQueueReductionIsOptInAndAppliesWhenEnabledLater();
+  console.log("PASS: Firefox retry, retained FIFO queue, opt-in random pruning to 5, active speech preservation and read-order tests");
 })().catch(e=>{console.error(e);process.exitCode=1;});
