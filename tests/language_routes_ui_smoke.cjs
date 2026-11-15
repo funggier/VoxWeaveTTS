@@ -37,8 +37,17 @@ const engines=[
            {id:"jf_alpha",label:"Japanese"}]}
 ];
 let stored={revision:0,routes:{}};
-const sent=[];
+const sent=[],voicePresets=[];
 async function fetchMock(url,options={}){
+  if(url==="/v1/presets"){
+    if(options.method==="POST"){
+      assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"save-voice-preset");
+      const preset=JSON.parse(options.body);
+      voicePresets.push(preset);
+      return {ok:true,json:async()=>({preset})};
+    }
+    return {ok:true,json:async()=>({presets:voicePresets})};
+  }
   if(url==="/v1/engines")return {ok:true,json:async()=>({engines})};
   if(url==="/v1/settings/language-routes"){
     if(options.method==="POST"){
@@ -81,11 +90,63 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   assert.equal(sent[0].routes.fr.voice_id,"ff_siwis");
   assert.equal(Object.hasOwn(sent[0],"enabled"),false);
   assert.equal(ids.languageRouteStatus.textContent.includes("บันทึกแล้ว"),true);
+  const details=assigned.children[2];
+  assert.equal(details.tagName,"details");
+  assert.equal(details.children[0].textContent,"ปรับเสียง");
+  const grid=details.children[2];
+  assert.equal(grid.children.length,7,"five sliders, formant checkbox and seed field");
+  for(let i=0;i<5;i++){
+    assert.equal(grid.children[i].children[1].type,"range");
+    assert.equal(grid.children[i].children[2].type,"number");
+  }
+  grid.children[0].children[2].value="1.35";
+  grid.children[1].children[2].value="2.50";
+  grid.children[2].children[2].value="-1.25";
+  grid.children[3].children[2].value="-3.00";
+  grid.children[4].children[2].value="2.00";
+  grid.children[5].children[0].checked=false;
+  grid.children[6].children[1].value="321";
+  details.children[3].click();await tick();
+  assert.equal(sent.length,2,"per-language Save should persist immediately");
+  assert.equal(sent[1].routes.fr.speed,1.35);
+  assert.equal(sent[1].routes.fr.seed,321);
+  assert.equal(sent[1].routes.fr.voice_controls.pitch_semitones,-1.25);
+  assert.equal(sent[1].routes.fr.voice_controls.formant_preserve,false);
+
+  const presetGrid=details.children[5].children[2];
+  presetGrid.children[0].children[1].value="French Calm";
+  presetGrid.children[1].click();await tick();
+  assert.equal(voicePresets.length,1);
+  assert.equal(voicePresets[0].name,"French Calm");
+  assert.equal(voicePresets[0].voice_id,"ff_siwis");
+  assert.equal(voicePresets[0].speed,1.35);
+  grid.children[0].children[2].value="2.00";
+  presetGrid.children[2].children[1].value="French Calm";
+  presetGrid.children[3].click();
+  assert.equal(grid.children[0].children[2].value,"1.35",
+    "loading a preset restores the language-specific sliders");
+  assert.equal(grid.children[6].children[1].value,"321");
+  // A second language starts with its own defaults; edits to one language
+  // must never alter the first language or its saved preset.
+  ids.languageRouteLanguage.value="ja";ids.languageRouteLanguage.change();
+  assert.equal(ids.languageRouteVoice.value,"jf_alpha");
+  ids.languageRouteSet.click();
+  const japanese=ids.languageRouteList.children[1];
+  assert.ok(japanese.children[1].textContent.includes("ja"));
+  const jaGrid=japanese.children[2].children[2];
+  assert.equal(jaGrid.children[0].children[2].value,"1.00");
+  jaGrid.children[0].children[2].value="0.85";
+  ids.languageRouteSave.click();await tick();
+  assert.equal(stored.routes.ja.speed,0.85);
+  assert.equal(stored.routes.fr.speed,1.35);
+  assert.equal(stored.routes.fr.voice_controls.pitch_semitones,-1.25);
+
   // Deleting in the same central editor should make the language selectable again.
   assigned.children[0].click();
   assert.equal(ids.languageRouteLanguage.options.filter(o=>o.value==="fr").length,1,
     "deleted language returns to the language picker");
-  assert.equal(ids.languageRouteList.children[0].textContent.includes("ยังไม่มี"),true);
+  assert.equal(ids.languageRouteList.children.length,1);
+  assert.ok(ids.languageRouteList.children[0].children[1].textContent.includes("ja"));
   ids.languageRouteLanguage.value="fr";ids.languageRouteLanguage.change();
   ids.languageRouteSet.click();
   assert.equal(ids.languageRouteLanguage.options.some(o=>o.value==="fr"),false);

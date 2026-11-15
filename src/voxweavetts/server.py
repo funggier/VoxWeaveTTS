@@ -238,6 +238,7 @@ class Handler(BaseHTTPRequestHandler):
         central = _read_global_voice()["settings"] or {}
         engine_id = data.get("engine_id", central.get("engine_id", ENGINE_ID))
         voice_id_override = None
+        route_profile = None
         # The per-workspace checkbox controls whether shared language routes
         # override that workspace's default Engine/Model and voice.
         workspace = data.get("mode", "studio")
@@ -253,16 +254,26 @@ class Handler(BaseHTTPRequestHandler):
             _language, route = choose_route(
                 plan.get("spoken_text", ""), language=requested_language)
             if route is not None:
+                route_profile = route
                 engine_id, voice_id_override = route["engine_id"], route["voice_id"]
         info = get_engine_info(engine_id)
         default_voice = central.get("voice_id") if central.get("engine_id") == engine_id else info.voice_id
         voice_id = voice_id_override or data.get("voice_id", default_voice)
-        speed = data.get("speed", central.get("speed", 1.0))
+        # A language profile owns its own speed/DSP/seed when configured;
+        # otherwise leave mode-specific audio settings untouched.
+        speed = (route_profile["speed"]
+                 if route_profile is not None and "speed" in route_profile
+                 else data.get("speed", central.get("speed", 1.0)))
         validate_speech_request(plan, speed, voice_id, engine_id)
         controls = validate_controls(
-            data.get("voice_controls", central.get("voice_controls"))
+            route_profile["voice_controls"]
+            if route_profile is not None and "voice_controls" in route_profile
+            else data.get("voice_controls", central.get("voice_controls"))
         )
-        seed = validate_seed(data.get("seed", _read_seed()))
+        seed = validate_seed(
+            route_profile["seed"]
+            if route_profile is not None and "seed" in route_profile
+            else data.get("seed", _read_seed()))
         if not (info.assets_ready and info.runtime_ready):
             raise EngineUnavailable("selected TTS model is not installed or its runtime is missing")
         return {

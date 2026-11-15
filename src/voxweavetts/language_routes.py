@@ -7,6 +7,7 @@ English must be selected explicitly or provided by the translation target.
 from __future__ import annotations
 
 import json
+import math
 import os
 import tempfile
 import threading
@@ -15,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 from .processing import InputError
+from .voice_controls import validate_controls
+from .speech import validate_seed
 
 PATH = Path(__file__).resolve().parents[2] / "data" / "settings" / "language-voices.json"
 LANGUAGES = {
@@ -24,6 +27,29 @@ LANGUAGES = {
     "de": "Deutsch", "ru": "Русский",
 }
 _LOCK = threading.RLock()
+_ROUTE_KEYS = frozenset({"engine_id", "voice_id", "speed", "voice_controls", "seed"})
+
+
+def _validate_route_shape(route: Any) -> dict[str, Any]:
+    """Validate a language voice profile without requiring installed model assets."""
+    if (not isinstance(route, dict)
+            or not {"engine_id", "voice_id"} <= set(route)
+            or set(route) - _ROUTE_KEYS
+            or any(not isinstance(route[name], str) or not 1 <= len(route[name]) <= 100
+                   for name in ("engine_id", "voice_id"))):
+        raise InputError("invalid language voice assignment")
+    profile = {"engine_id": route["engine_id"], "voice_id": route["voice_id"]}
+    if "speed" in route:
+        speed = route["speed"]
+        if (type(speed) not in (int, float) or not math.isfinite(speed)
+                or not 0.6 <= speed <= 5.0):
+            raise InputError("language voice speed must be 0.60–5.00")
+        profile["speed"] = float(speed)
+    if "voice_controls" in route:
+        profile["voice_controls"] = validate_controls(route["voice_controls"])
+    if "seed" in route:
+        profile["seed"] = validate_seed(route["seed"])
+    return profile
 
 
 def _default() -> dict[str, Any]:
@@ -43,13 +69,10 @@ def load_routes(path: Path = PATH) -> dict[str, Any]:
                     or type(value["revision"]) is not int or value["revision"] < 0
                     or ("enabled" in value and type(value["enabled"]) is not bool)
                     or not isinstance(value["routes"], dict)
-                    or not set(value["routes"]) <= set(LANGUAGES)
-                    or any(not isinstance(route, dict)
-                           or set(route) != {"engine_id", "voice_id"}
-                           or any(not isinstance(v, str) or not 1 <= len(v) <= 100
-                                  for v in route.values())
-                           for route in value["routes"].values())):
+                    or not set(value["routes"]) <= set(LANGUAGES)):
                 raise ValueError("invalid language routes")
+            value["routes"] = {code: _validate_route_shape(route)
+                               for code, route in value["routes"].items()}
         except (OSError, ValueError, TypeError) as exc:
             raise InputError("invalid saved language routing settings") from exc
         # Ignore the obsolete global switch; each speech workspace now owns its own toggle.
@@ -78,12 +101,10 @@ def save_routes(request: Any, path: Path = PATH) -> dict[str, Any]:
         raise InputError("invalid language routing update")
     validated = {}
     for language, route in request["routes"].items():
-        if (not isinstance(route, dict) or set(route) != {"engine_id", "voice_id"}
-                or not all(isinstance(v, str) for v in route.values())):
-            raise InputError("invalid language route")
-        if language not in voice_languages(route["engine_id"], route["voice_id"]):
+        profile = _validate_route_shape(route)
+        if language not in voice_languages(profile["engine_id"], profile["voice_id"]):
             raise InputError("selected model/voice cannot speak this language")
-        validated[language] = dict(route)
+        validated[language] = profile
     with _LOCK:
         current = load_routes(path)
         if current["revision"] != request["expected_revision"]:

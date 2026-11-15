@@ -37,6 +37,10 @@ class LanguageRoutingTests(unittest.TestCase):
                     "routes": {"en": {
                         "engine_id": "model-kokoro-multilingual-int8-1_0_0",
                         "voice_id": "af_heart",
+                        "speed": 1.35, "seed": 321,
+                        "voice_controls": {"gain_db": 2.5, "pitch_semitones": -1.25,
+                                           "bass_db": -3.0, "treble_db": 2.0,
+                                           "formant_preserve": False},
                     }}
                 }, path)
             self.assertEqual(saved["revision"], 1)
@@ -45,10 +49,41 @@ class LanguageRoutingTests(unittest.TestCase):
             language, voice = choose_route("Hello", path=path)
             self.assertEqual(language, "en")
             self.assertEqual(voice["voice_id"], "af_heart")
+            self.assertEqual(voice["speed"], 1.35)
+            self.assertEqual(voice["seed"], 321)
+            self.assertEqual(voice["voice_controls"]["pitch_semitones"], -1.25)
+            self.assertFalse(voice["voice_controls"]["formant_preserve"])
             with self.assertRaises(ValueError):
                 save_routes({"expected_revision": 0, "routes": {}}, path)
             with self.assertRaises(InputError):
                 choose_route("Hello", language=[], path=path)
+
+    def test_reject_invalid_language_voice_tuning(self):
+        base = {"engine_id": "test-tts", "voice_id": "af_heart"}
+        invalid = [
+            {"speed": 0.59}, {"speed": 5.01}, {"speed": float("nan")},
+            {"speed": True}, {"seed": -1}, {"seed": 1.5},
+            {"voice_controls": {"gain_db": 99}},
+            {"voice_controls": {"pitch_semitones": float("inf")}},
+            {"unexpected": "field"},
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            with patch("voxweavetts.language_routes.voice_languages",
+                       return_value={"en"}):
+                for bad in invalid:
+                    with self.subTest(bad=bad), self.assertRaises(InputError):
+                        save_routes({"expected_revision": 0,
+                                     "routes": {"en": {**base, **bad}}},
+                                    Path(temp) / "language-routes.json")
+
+    def test_old_model_voice_only_route_remains_usable(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "language-routes.json"
+            path.write_text('{"revision":2,"routes":{"en":{"engine_id":"test-tts",'
+                            '"voice_id":"af_heart"}}}', encoding="utf-8")
+            loaded = load_routes(path)
+            self.assertEqual(loaded["routes"]["en"],
+                             {"engine_id": "test-tts", "voice_id": "af_heart"})
 
     def test_reject_wrong_language_voice(self):
         with tempfile.TemporaryDirectory() as temp:

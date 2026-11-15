@@ -22,6 +22,16 @@ Italian, Portuguese or German; use an explicit `language` or AI target.
 - `POST /v1/jobs` and `POST /v1/speech` accept optional `mode`, defaulting to `studio`
   for older clients. `mode` selects the per-workspace route preference; `language`
   optionally selects the text language when a workspace has routing enabled.
+- Each language-route entry requires `engine_id`, `voice_id`; optional
+  `speed` (0.60–5.00), `seed` (unsigned 31-bit integer) and
+  `voice_controls` (gain_db, pitch_semitones, bass_db, treble_db,
+  formant_preserve) are validated and persisted in the same route.
+  Selected language tuning overrides the requesting mode's audio settings;
+  if omitted, the mode's values continue to apply. Every language has an
+  independent `ปรับเสียง` panel and can save/load shared Voice Presets.
+- `GET /v1/presets` and `POST /v1/presets` reuse the same preset directory
+  for languages and modes. Applying a preset in a language editor copies
+  audio parameters only and never silently changes its selected Engine/Voice.
 - Existing TTS `/v1/model-packages/install-local` and `/remove` support the new
   Kokoro-82M INT8 `.vwmodel`.
 - `GET /v1/ai/packages` also returns `legacy_m2m` boolean.

@@ -101,7 +101,11 @@ class MultilingualHttpTests(unittest.TestCase):
               patch("voxweavetts.server.load_ai_settings",
                     return_value={"settings": {**DEFAULTS, "enabled": False}}),
               patch("voxweavetts.server.choose_route", return_value=(
-                "fr", {"engine_id": info.id, "voice_id": "ff_siwis"})),
+                "fr", {"engine_id": info.id, "voice_id": "ff_siwis",
+                       "speed": 1.35, "seed": 321,
+                       "voice_controls": {"gain_db": 2.5, "pitch_semitones": -1.25,
+                                          "bass_db": -3.0, "treble_db": 2.0,
+                                          "formant_preserve": False}})),
               patch("voxweavetts.server.get_engine_info", return_value=info),
               patch("voxweavetts.speech.get_engine_info", return_value=info),
               patch("voxweavetts.server.render_wav", side_effect=fake_render)):
@@ -110,6 +114,11 @@ class MultilingualHttpTests(unittest.TestCase):
                 self.assertEqual(response.headers["X-VoxWeaveTTS-Engine"], info.id)
         self.assertEqual(received["engine_id"], info.id)
         self.assertEqual(received["voice_id"], "ff_siwis")
+        self.assertEqual(received["speed"], 1.35)
+        self.assertEqual(received["seed"], 321)
+        self.assertEqual(received["voice_controls"]["gain_db"], 2.5)
+        self.assertEqual(received["voice_controls"]["pitch_semitones"], -1.25)
+        self.assertFalse(received["voice_controls"]["formant_preserve"])
 
     def test_unconfigured_mode_does_not_use_language_route(self):
         from voxweavetts.processing import process_text
