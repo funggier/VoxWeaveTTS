@@ -25,7 +25,15 @@ class LegacyBackend:
             raise ValueError("engine is not registered for this provider")
         from . import speech
 
-        info = speech.engine_registry().get(engine_id)
+        from .processing import InputError
+        try:
+            info = speech.engine_registry().get(engine_id)
+        except InputError:
+            # A new .vwmodel can be installed while this persistent process
+            # is already running. Refresh metadata without killing the worker
+            # or disrupting unrelated queued voices.
+            speech.refresh_engine_registry()
+            info = speech.engine_registry().get(engine_id)
         if info.sample_rate != self.sample_rate:
             raise ValueError("provider sample rate mismatch")
         if voice_id not in info.voice_ids:

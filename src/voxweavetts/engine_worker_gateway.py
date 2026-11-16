@@ -73,7 +73,7 @@ class WorkerSession:
                 line = process.stdout.readline(MAX_RESPONSE_LINE + 1)
                 if not line:
                     break
-                valid_line = (len(line) <= MAX_RESPONSE_LINE and line.endswith("\\n"))
+                valid_line = (len(line) <= MAX_RESPONSE_LINE and line.endswith("\n"))
                 try:
                     output.put_nowait(line if valid_line else "")
                 except queue.Full:

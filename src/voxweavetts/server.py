@@ -991,7 +991,8 @@ class Handler(BaseHTTPRequestHandler):
                         return
                     refresh_engine_registry()
                     profile = provider_for_adapter(installed["engine_adapter"])
-                    task = install_async(profile.id) if profile is not None else None
+                    if profile is not None:
+                        install_async(profile.id)
                     # Keep the existing install-local API response stable.
                     # Runtime setup status is exposed by /v1/engine-providers.
                     self.send_json(200, {
@@ -1001,12 +1002,17 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     if set(data) != {"package_id", "version"}:
                         raise ModelPackageError("invalid removal request")
+                    adapter = next((m["engine_adapter"] for m, _ in installed_packages()
+                                    if m["package_id"] == data["package_id"]
+                                    and m["version"] == data["version"]), None)
                     removed = remove_model_package(data["package_id"], data["version"])
                     if removed:
                         refresh_engine_registry()
-                        # A removed model may still be cached by a provider.
-                        # Recycle only the trusted provider process on removal.
-                        gateway().close()
+                        # Stop only the affected provider. Other voice families
+                        # may still be reading live comments concurrently.
+                        profile = provider_for_adapter(adapter) if adapter else None
+                        if profile is not None:
+                            gateway().reset(profile.backend)
                     self.send_json(200, {"removed": removed})
             except ModelPackageDialogUnavailable:
                 self.send_json(503, {"error": "Windows model selection dialog unavailable"})

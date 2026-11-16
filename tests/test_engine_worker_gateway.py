@@ -86,5 +86,39 @@ class GatewayTests(unittest.TestCase):
         self.assertIn(ENGINE_ID, [e.id for e in speech.list_engine_info()])
 
 
+    def test_bounded_worker_output_rejects_oversized_line(self):
+        import queue
+        from types import SimpleNamespace
+        from voxweavetts.engine_worker_gateway import WorkerSession
+        session = WorkerSession(WorkerSpec("fake", "fake", 24000))
+        output = queue.Queue()
+        process = SimpleNamespace(stdout=io.StringIO("Z" * 80 + "\n"))
+        with patch("voxweavetts.engine_worker_gateway.MAX_RESPONSE_LINE", 32):
+            session._reader(process, output)
+        self.assertEqual(output.get_nowait(), "")
+        self.assertIsNone(output.get_nowait())
+
+    def test_persistent_legacy_worker_refreshes_registry_for_new_model(self):
+        from unittest.mock import Mock
+        from voxweavetts.engine_worker_legacy import LegacyBackend
+        from voxweavetts.engine_provider_catalog import PROVIDERS
+        from voxweavetts.processing import InputError
+        info = speech.get_engine_info("makham-paradee-cpu")
+        fake_engine = Mock()
+        fake_engine.generate.return_value = b"\x00\x01" * 8
+        fake_registry = Mock()
+        fake_registry.get.side_effect = [InputError("not loaded"), info]
+        fake_registry.create.return_value = fake_engine
+        with patch("voxweavetts.speech.engine_registry", return_value=fake_registry), \
+             patch("voxweavetts.speech.refresh_engine_registry") as refresh:
+            worker = LegacyBackend(PROVIDERS["pythaitts"])
+            result = worker.synthesize(
+                "สวัสดี", engine_id="makham-paradee-cpu",
+                voice_id="paradee_thai", speed=1.0, seed=100,
+            )
+        self.assertEqual(result, b"\x00\x01" * 8)
+        refresh.assert_called_once()
+        fake_registry.create.assert_called_once_with("makham-paradee-cpu", 100)
+
 if __name__ == "__main__":
     unittest.main()

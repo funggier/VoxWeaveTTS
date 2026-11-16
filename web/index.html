@@ -777,6 +777,13 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" id="modelPackageRefresh">รีเฟรชรายการโมเดล</button>
 <p id="modelPackageStatus" class="small" role="status">กำลังโหลดแพ็กเกจ...</p>
 <ul id="modelPackageList" style="padding-left:22px"></ul>
+<details style="margin-top:12px">
+<summary>Engine Providers — Isolated Python Runtimes</summary>
+<p class="small">แต่ละกลุ่มโมเดลมี Python และ Dependencies แยกกัน ติดตั้งเฉพาะเมื่อเลือกใช้งาน Runtime จะอยู่ใต้โฟลเดอร์โปรแกรม ไม่เปลี่ยน Python หลัก และจะไม่ดาวน์โหลดโมเดล NC โดยอัตโนมัติ</p>
+<button type="button" id="engineProviderRefresh">Refresh Providers</button>
+<p id="engineProviderStatus" class="small" role="status"></p>
+<ul id="engineProviderList" style="padding-left:22px"></ul>
+</details>
 </details>
 </section></div>
 <div class="mode-view" data-mode-view="language_routes" hidden><section class="panel" style="margin-top:18px" id="languageRoutingPanel">
@@ -1261,6 +1268,63 @@ async function loadEngines(){
   el("formant_preserve").disabled=!ffmpegReady;
   refreshSelectedEngine();
 }
+let engineProviderPolling=null;
+async function loadEngineProviders(){
+  const response=await fetch("/v1/engine-providers",{cache:"no-store"});
+  if(!response.ok)throw Error("Engine Provider catalog unavailable");
+  const body=await response.json();
+  const panel=el("engineProviderList");
+  panel.replaceChildren();
+  let installing=false;
+  for(const provider of (body.providers||[])){
+    const row=document.createElement("li");
+    const name=document.createElement("strong");
+    name.textContent=provider.id+" — "+provider.install.state;
+    const small=document.createElement("small");
+    small.style.display="block";
+    small.textContent=(provider.engines||[]).join(", ")+
+      (provider.install.error ? " · "+provider.install.error : "");
+    const button=document.createElement("button");
+    button.type="button";
+    button.textContent=provider.install.state==="ready"?"Runtime ready":"Install / Repair Runtime";
+    button.disabled=provider.install.state==="ready"||provider.install.state==="installing";
+    button.style.margin="6px 0 8px";
+    button.addEventListener("click",async()=>{
+      button.disabled=true;
+      el("engineProviderStatus").textContent="Installing "+provider.id+" dependencies into an isolated environment...";
+      try{
+        const result=await fetch("/v1/engine-providers/install",{
+          method:"POST",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":"install-engine-provider"},
+          body:JSON.stringify({provider_id:provider.id})
+        });
+        if(!result.ok)throw Error("Provider installation was rejected");
+        await loadEngineProviders();
+      }catch(e){
+        el("engineProviderStatus").textContent=String(e);
+        button.disabled=false;
+      }
+    });
+    row.append(name,small,button);
+    panel.append(row);
+    if(provider.install.state==="installing")installing=true;
+  }
+  el("engineProviderStatus").textContent=
+    (body.providers||[]).filter(p=>p.install.state==="ready").length+
+    " / "+(body.providers||[]).length+" isolated runtimes ready";
+  if(engineProviderPolling){clearTimeout(engineProviderPolling);engineProviderPolling=null;}
+  if(installing){
+    engineProviderPolling=setTimeout(async()=>{
+      try{await loadEngineProviders();await loadEngines();modeVoiceController?.refreshEngines();}
+      catch(e){el("engineProviderStatus").textContent=String(e);}
+    },2200);
+  }
+}
+el("engineProviderRefresh").addEventListener("click",()=>{
+  loadEngineProviders().catch(e=>{el("engineProviderStatus").textContent=String(e);});
+});
+loadEngineProviders().catch(e=>{el("engineProviderStatus").textContent=String(e);});
 async function loadModelPackages(){
   const response=await fetch("/v1/model-packages",{cache:"no-store"});
   const body=await response.json();
@@ -1340,6 +1404,7 @@ el("modelPackageInstall").addEventListener("click",async()=>{
     await loadModelPackages();
     await loadEngines();
     modeVoiceController?.refreshEngines();
+    if(typeof loadEngineProviders==="function")loadEngineProviders().catch(()=>{});
     const engineId="model-"+result.package_id+"-"+result.version.replaceAll(".","_");
     if(engines.some(x=>x.id===engineId&&x.assets_ready&&x.runtime_ready)){
       el("engineSelect").value=engineId;
