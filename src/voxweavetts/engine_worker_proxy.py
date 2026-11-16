@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from .engine_provider_catalog import Provider
-from .engine_worker_gateway import WorkerError, gateway
+from .engine_worker_gateway import WorkerError, WorkerResourceError, gateway
 from .processing import InputError
 
 
@@ -31,6 +31,12 @@ class ProviderVoiceEngine:
                 self.backend, engine_id=self.id, text=text,
                 voice_id=self.voice_id, speed=speed, seed=self.seed,
             )
+        except WorkerResourceError as exc:
+            from .speech import EngineUnavailable
+            raise EngineUnavailable(
+                "not enough available system memory to synthesize speech; "
+                "close memory-heavy applications or increase the Windows page file"
+            ) from exc
         except WorkerError as exc:
             from .speech import SpeechFailure
             raise SpeechFailure("isolated TTS provider failed; check logs/engine-workers") from exc

@@ -96,13 +96,19 @@ def serve(backend: str, *, reader: Any = None, writer: Any = None) -> None:
                 "pcm16_b64": base64.b64encode(pcm).decode("ascii"),
             }
         except Exception as exc:
-            # Never return exception details or the sensitive input text.
+            # Do not disclose source text or exception strings to clients.
+            # ONNX may wrap allocation failures in its own Fail exception.
+            detail = str(exc).lower()
+            resource_error = (isinstance(exc, MemoryError)
+                              or "failed to allocate memory" in detail
+                              or "out of memory" in detail
+                              or "allocate_raw_internal" in detail)
             print("TTS worker error:", type(exc).__name__, file=sys.stderr)
             response = {
                 "version": PROTOCOL_VERSION,
                 "request_id": request_id,
                 "ok": False,
-                "error": "synthesis_failure",
+                "error": "resource_exhausted" if resource_error else "synthesis_failure",
             }
         writer.write(json.dumps(response, ensure_ascii=True, separators=(",", ":")) + "\n")
         writer.flush()

@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .engine_contract import EngineInfo
-from .engine_worker_gateway import WorkerError, gateway
+from .engine_worker_gateway import WorkerError, WorkerResourceError, gateway
 from .processing import InputError
 
 ENGINE_ID = "personal-nc-wayu-paxa-edge-cpu"
@@ -97,6 +97,12 @@ class PersonalWayuEngine:
                 WORKER_BACKEND, text=text, voice_id=self.voice_id,
                 speed=speed, seed=self.seed,
             )
+        except WorkerResourceError as exc:
+            from .speech import EngineUnavailable
+            raise EngineUnavailable(
+                "not enough available system memory to synthesize speech; "
+                "close memory-heavy applications or increase the Windows page file"
+            ) from exc
         except WorkerError as exc:
             from .speech import SpeechFailure
             raise SpeechFailure("isolated NC voice worker failed; check logs/engine-workers") from exc

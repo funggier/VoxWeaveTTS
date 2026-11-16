@@ -15,6 +15,7 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,10 @@ MAX_RESPONSE_LINE = 46_000_000
 
 class WorkerError(RuntimeError):
     """A worker is unavailable or failed without exposing private input."""
+
+
+class WorkerResourceError(WorkerError):
+    """The isolated worker reported insufficient memory for inference."""
 
 
 @dataclass(frozen=True)
@@ -62,6 +67,26 @@ class WorkerSession:
         self._lines: queue.Queue[str | None] = queue.Queue(maxsize=4)
         self._log: Any = None
         self._sequence = 0
+        self.last_used = 0.0
+
+    def running(self) -> bool:
+        process = self._process
+        return process is not None and process.poll() is None
+
+    def reclaim_if_idle(self) -> bool:
+        """Only unload a successfully loaded model under memory pressure.
+
+        Never terminate a worker while it holds the synthesis lock.
+        """
+        if not self._lock.acquire(blocking=False):
+            return False
+        try:
+            if not self.running():
+                return False
+            self._stop()
+            return True
+        finally:
+            self._lock.release()
 
     def _reader(self, process: subprocess.Popen[str],
                 output: queue.Queue[str | None]) -> None:
@@ -138,6 +163,7 @@ class WorkerSession:
         if not isinstance(text, str) or not text.strip() or len(text) > 5000:
             raise WorkerError("invalid worker text")
         with self._lock:
+            self.last_used = time.monotonic()
             self._start()
             self._sequence += 1
             request_id = self._sequence
@@ -163,6 +189,8 @@ class WorkerSession:
                     or reply.get("request_id") != request_id):
                     raise WorkerError("TTS worker protocol mismatch")
                 if reply.get("ok") is not True:
+                    if reply.get("error") == "resource_exhausted":
+                        raise WorkerResourceError("TTS worker ran out of available system memory")
                     raise WorkerError("TTS worker failed to synthesize")
                 if reply.get("sample_rate") != self.spec.sample_rate:
                     raise WorkerError("TTS worker returned wrong sample rate")
@@ -187,7 +215,20 @@ class WorkerSession:
         self._process = None
         if process is not None:
             if process.poll() is None:
-                process.terminate()
+                if os.name == "nt":
+                    # Windows venv Python launchers can create a second, real
+                    # Python process. Killing only the launcher leaks weights.
+                    try:
+                        subprocess.run(
+                            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            check=False, timeout=8,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                        )
+                    except (OSError, subprocess.TimeoutExpired):
+                        process.kill()
+                else:
+                    process.terminate()
                 try:
                     process.wait(timeout=2)
                 except subprocess.TimeoutExpired:
@@ -237,6 +278,31 @@ class EngineWorkerGateway:
         from .engine_provider_installer import ready
         return ready(profile, root=self.root)
 
+    def _reclaim_idle_for_memory(self, exclude_backend: str) -> int:
+        """Keep loaded models cached unless Windows reports low memory.
+
+        Idle workers are reclaimed oldest-first; current/busy workers are never
+        interrupted. No timer and no eviction when memory is sufficient.
+        """
+        from .worker_memory_budget import memory_headroom
+        status = memory_headroom()
+        if status is None or not status.critical:
+            return 0
+        with self._lock:
+            candidates = sorted(
+                (session for name, session in self._sessions.items()
+                 if name != exclude_backend),
+                key=lambda session: session.last_used,
+            )
+        released = 0
+        for session in candidates:
+            status = memory_headroom()
+            if status is None or not status.critical:
+                break
+            if session.reclaim_if_idle():
+                released += 1
+        return released
+
     def synthesize(self, backend: str, *, text: str, voice_id: str,
                    speed: float, seed: int, engine_id: str | None = None) -> bytes:
         spec = self._resolve_spec(backend)
@@ -247,8 +313,24 @@ class EngineWorkerGateway:
                 self._sessions[backend] = WorkerSession(
                     spec, root=self.root, timeout=self.timeout)
             session = self._sessions[backend]
-        return session.synthesize(text=text, voice_id=voice_id,
-                                  speed=speed, seed=seed, engine_id=engine_id)
+        # Loading an additional model is the only proactive eviction point.
+        # Reusing an already loaded, successful model never unloads it.
+        if not session.running():
+            self._reclaim_idle_for_memory(backend)
+        try:
+            return session.synthesize(text=text, voice_id=voice_id,
+                                      speed=speed, seed=seed, engine_id=engine_id)
+        except WorkerError:
+            # A pressure-driven failure can be recoverable after reclaiming an
+            # idle model. Never loop forever or retry a non-memory model error.
+            from .worker_memory_budget import memory_headroom
+            pressure = memory_headroom()
+            released = (self._reclaim_idle_for_memory(backend)
+                        if pressure is not None and pressure.critical else 0)
+            if not released:
+                raise
+            return session.synthesize(text=text, voice_id=voice_id,
+                                      speed=speed, seed=seed, engine_id=engine_id)
 
     def reset(self, backend: str) -> None:
         """Recycle a provider after packages were installed or removed."""
