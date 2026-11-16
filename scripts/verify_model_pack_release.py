@@ -139,7 +139,7 @@ def sha256_stream(handle) -> str:
     return digest.hexdigest()
 
 
-def verify_one(package_spec: dict, *, release_tag: str = "v0.9.1") -> dict:
+def verify_one(package_spec: dict, *, release_tag: str = "v0.9.2") -> dict:
     file = ROOT / "dist" / "ModelPackages" / package_spec["file"]
     if not file.is_file():
         raise ValueError(f"missing package: {file}")
@@ -200,7 +200,7 @@ def verify_one(package_spec: dict, *, release_tag: str = "v0.9.1") -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write-catalog", action="store_true")
-    parser.add_argument("--release-tag", default="v0.9.1")
+    parser.add_argument("--release-tag", default="v0.9.2")
     args = parser.parse_args()
     items = []
     for source in PACKS:

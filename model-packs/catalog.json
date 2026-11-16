@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "project": "VoxWeaveTTS",
-  "release_tag": "v0.9.1",
+  "release_tag": "v0.9.2",
   "note": "Licenses are as declared at pinned upstream sources. VoxWeaveTTS has not independently certified all training data or voice rights. No warranty of commercial use or compatibility.",
   "packages": [
     {
@@ -10,7 +10,7 @@
       "file": "VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
       "size_bytes": 115562300,
       "sha256": "cb69aaf6b92d2effa6069a208d17410902d49b6f0ce6e1a88fc7cb0e102b75ee",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
       "engine_adapter": "kokoro-onnx-v1",
       "voices": [
         "af_heart",
@@ -53,7 +53,7 @@
       "file": "VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
       "size_bytes": 234436558,
       "sha256": "c782818d6bc99f7da1e3540d308cedde20f41dc204d2b34ee002089a8057f5f3",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
       "engine_adapter": "vachana-onnx-v1",
       "voices": [
         "th_f_1",
@@ -84,7 +84,7 @@
       "file": "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
       "size_bytes": 302412020,
       "sha256": "6aff293704ec5e9f25941eafb897b434c3be47f75eecd89aadc9cb6df9cc6016",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
       "engine_adapter": "fastthaig2p-kokoro-v1",
       "voices": [
         "thai_som"
@@ -112,7 +112,7 @@
       "file": "VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
       "size_bytes": 160222867,
       "sha256": "917aee8035eb18a8682dbda1da0db380075316a5d2c3cb17fa521e4552484838",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
       "engine_adapter": "sherpa-melo-zh-v1",
       "voices": [
         "zh_melo"
@@ -139,7 +139,7 @@
       "file": "VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
       "size_bytes": 125365097,
       "sha256": "d0566bc75e318685a22e6f3f10d81ad7a370bd0ff03c5ca8f383e807842e0c71",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.1/VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
       "engine_adapter": "sherpa-supertonic-v1",
       "voices": [
         "ar_s0",

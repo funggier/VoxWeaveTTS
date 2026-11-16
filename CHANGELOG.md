@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Optional mixed-language TTS in one WAV
+## v0.9.2 — Optional mixed-language TTS in one WAV (2026-11-16)
 
 - Add an independent, per-workspace switch **แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)** (default OFF). Existing whole-message language-routing switch and previously saved workspace preferences remain unchanged; the mixed switch persists separately for all nine modes.
 - After optional AI translation and shared post-AI rules, conservatively split spoken text by Unicode script into ordered spans. Example: `ผมอยากทำComputer ผม ให้มันลื่นกว่านี้ lol` → th / en / th / en, preserving every character and space. This also handles partially untranslated output without forcing all spans to the target language.

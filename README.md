@@ -1,6 +1,6 @@
 # VoxWeaveTTS
 
-**Unreleased development:** Opt-in, per-workspace mixed-language speech synthesis segments Thai/English/Chinese/Japanese/Korean scripts after translation, selects the saved voice for each segment, and concatenates resampled PCM into one WAV. Existing one-voice behavior remains the default. [Thai documentation](docs/MIXED_LANGUAGE_TTS_TH.md). This feature is **not** part of the already published v0.9.1 release.
+**Windows Portable v0.9.2 (complete release):** Opt-in, per-workspace mixed-language speech synthesis segments Thai/English/Chinese/Japanese/Korean scripts after translation, selects the saved voice for each segment, and concatenates resampled PCM into one WAV. Existing one-voice behavior remains the default. [Thai documentation](docs/MIXED_LANGUAGE_TTS_TH.md). [Download full v0.9.2 release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2) · [Release notes](docs/RELEASE_NOTES_v0.9.2.md).
 
 **Windows Portable v0.9.1 (complete multilingual release):** Chinese MeloTTS, Korean + 30 additional languages with Supertonic 3, Japanese Kokoro Misaki phonemizer repair, correct language-specific TTS routing, and a fix for translated Chinese speech failing on Thai `555` laughter. Full Windows x64 Portable + **5 TTS model packs** + experimental M2M100 translation + TikTok extension + SHA-256 checksums. [Download v0.9.1](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.1) · [Release notes](docs/RELEASE_NOTES_v0.9.1.md).
 
@@ -10,7 +10,7 @@
 
 **Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
 
-> **Windows portable release v0.9.0:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
+> **Windows portable release v0.9.2:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
 
 ## Structured-only translation for smaller Ollama models (v0.9.0)
 

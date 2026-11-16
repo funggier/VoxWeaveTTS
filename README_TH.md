@@ -1,6 +1,6 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
-**อยู่ระหว่างพัฒนา หลัง v0.9.1:** เพิ่มตัวเลือก **แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)** ในทุกโหมด โดยค่าเริ่มต้นปิด สามารถอ่าน `ผมอยากทำComputer ผม ให้มันลื่นกว่านี้ lol` ด้วยโมเดล th → en → th → en ตามลำดับ ทั้งกรณีปิดการแปลและคำแปลที่หลงเหลือภาษาอื่นไว้ แล้วต่อเสียงเป็น WAV เดียว มีการปรับอัตราสุ่มเสียงระหว่างโมเดลอัตโนมัติ [คู่มือฟีเจอร์](docs/MIXED_LANGUAGE_TTS_TH.md) · **ยังไม่รวมใน GitHub Release v0.9.1 เดิม**
+**Windows Portable v0.9.2 (Release ครบชุด):** เพิ่มตัวเลือก **แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)** ในทุกโหมด โดยค่าเริ่มต้นปิด สามารถอ่าน `ผมอยากทำComputer ผม ให้มันลื่นกว่านี้ lol` ด้วยโมเดล th → en → th → en ตามลำดับ ทั้งกรณีปิดการแปลและคำแปลที่หลงเหลือภาษาอื่นไว้ แล้วต่อเสียงเป็น WAV เดียว มีการปรับอัตราสุ่มเสียงระหว่างโมเดลอัตโนมัติ [คู่มือฟีเจอร์](docs/MIXED_LANGUAGE_TTS_TH.md) · [ดาวน์โหลด Release v0.9.2](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2) · [Release Notes](docs/RELEASE_NOTES_v0.9.2.md)
 
 **Windows Portable v0.9.1 (ครบชุด):** แก้ Kokoro ญี่ปุ่นด้วย Misaki G2P, เพิ่มเสียงจีน MeloTTS และเกาหลี/ภาษาอื่นจาก Supertonic 3, แก้การแปลเป็นจีนที่มี `555` แล้วงานเสียงล้มเหลว, กำหนดเสียงแยกภาษาโดยไม่สับสน และคงความสามารถคิว LIVE/AI จาก v0.9.0 ดาวน์โหลด Portable, โมเดล TTS 5 ชุด, M2M100, TikTok Extension และ SHA-256 ได้ในหน้าเดียว [Release v0.9.1](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.1) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.1.md)
 
@@ -10,7 +10,7 @@
 
 โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
 
-**รุ่นสำหรับใช้งาน Windows Portable v0.9.1** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
+**รุ่นสำหรับใช้งาน Windows Portable v0.9.2** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
 
 ## ปรับปรุงการแปลภาษาสำหรับ LLM ขนาดเล็ก (รวมใน v0.9.0)
 

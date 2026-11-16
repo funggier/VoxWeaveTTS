@@ -1,16 +1,16 @@
-# Model Packages ที่ทดลองแล้ว — VoxWeaveTTS v0.9.1
+# Model Packages ที่ทดลองแล้ว — VoxWeaveTTS v0.9.2
 
 ไฟล์โมเดลแยกจากตัวโปรแกรมหลัก: **Git Repository เก็บโค้ดสร้างแพ็กเกจ, Manifest, SHA-256, เครดิตและไฟล์ลิขสิทธิ์** ส่วนไฟล์น้ำหนักที่มีขนาดใหญ่จัดเก็บเป็น **GitHub Release Assets** ใน Repository เดียวกัน ไม่ Commit ไฟล์ ONNX ขนาดหลายร้อย MB ลง Git history
 
-**ดาวน์โหลดแพ็กเกจล่าสุด:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.1
-**โปรแกรมหลัก:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.0
+**ดาวน์โหลดแพ็กเกจล่าสุด:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2
+**โปรแกรมหลัก:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2
 **ข้อมูลเครื่องตรวจสอบได้:** [catalog.json](catalog.json) มี SHA-256 ของไฟล์ `.vwmodel` และไฟล์โมเดลต้นทางที่ Pin ตาม Version
 
 ## รุ่นที่แจก
 
 | แพ็กเกจ | เสียง | ประกาศลิขสิทธิ์จากผู้เผยแพร่ | ข้อควรทราบ |
 |---|---|---|---|
-| Kokoro-82M Multilingual INT8 v1.0.0 | 18 เสียงใน 7 ภาษา (EN/ES/FR/HI/IT/JA/PT), CPU ONNX | **Apache-2.0** ตาม Model Card ของ hexgrad/Kokoro-82M; ONNX conversion by thewh1teagle | ยังไม่ตรวจสิทธิ์ชุดข้อมูลฝึก/เสียงทุกแหล่งโดยอิสระ; ต้องติดตั้ง `.vwmodel` เพิ่มเอง; Portable v0.9.1 มี Runtime CPU ที่จำเป็นแล้ว |
+| Kokoro-82M Multilingual INT8 v1.0.0 | 18 เสียงใน 7 ภาษา (EN/ES/FR/HI/IT/JA/PT), CPU ONNX | **Apache-2.0** ตาม Model Card ของ hexgrad/Kokoro-82M; ONNX conversion by thewh1teagle | ยังไม่ตรวจสิทธิ์ชุดข้อมูลฝึก/เสียงทุกแหล่งโดยอิสระ; ต้องติดตั้ง `.vwmodel` เพิ่มเอง; Portable v0.9.2 มี Runtime CPU ที่จำเป็นแล้ว |
 | MeloTTS Chinese ONNX v1.0.0 | จีนกลาง 1 เสียง (`zh_melo`) | **MIT** ตาม Model Card ของ MyShell.ai; แปลง ONNX โดย k2-fsa | ต้องลงแพ็กเกจแยก, ติดตั้ง sherpa-onnx (รวมแล้วใน Portable v0.9.1), สิทธิ์เสียง/ข้อมูลฝึกยังไม่รับรอง |
 | Supertonic 3 INT8 v1.0.0 | 31 ภาษา (รวมเกาหลี), 62 รายการเลือกเสียง | **OpenRAIL-M** โดย Supertone (มีข้อจำกัดตามเงื่อนไขการใช้งาน) | ไม่ใช่ MIT หรือ Commercial-Cleared; อ่าน License ใน `.vwmodel` ก่อนแจกต่อ/ใช้เชิงพาณิชย์ |
 | Vachana Thai 4 Voices v1.0.0 | 4 เสียง (หญิง 2/ชาย 2) | **MIT** ตาม Hugging Face Model Card ของ VIZINTZOR | ไม่พบรายการข้อมูลฝึกที่แจกแจงครบ ไม่มีการตรวจสิทธิ์เสียงแต่ละคนโดยอิสระ |
@@ -33,7 +33,7 @@
 
 ## วิธีติดตั้ง
 
-1. ดาวน์โหลด `VoxWeaveTTS-v0.9.1-portable.zip`, แตกไฟล์ เปิด `VoxWeaveTTS.exe`
+1. ดาวน์โหลด `VoxWeaveTTS-v0.9.2-portable.zip`, แตกไฟล์ เปิด `VoxWeaveTTS.exe`
 2. ดาวน์โหลดเฉพาะ `.vwmodel` ที่ต้องการจากหน้า Model Packages Release ด้านบน
 3. ในโปรแกรม เข้าเมนู **ตั้งค่า → จัดการ Model Packages → ติดตั้ง Model Package (.vwmodel)** แล้วเลือกไฟล์ที่ดาวน์โหลด
 4. เมื่อรายการแสดง Engine/Model และ Runtime พร้อม ให้เข้า Voice Studio หรือ Live Channel ที่ต้องการ แล้วเลือก Engine และ Voice ของแพ็กเกจนั้น
@@ -41,7 +41,7 @@
 
 **ถ้าเคยติดตั้งแพ็กเกจทดลองเวอร์ชันเดียวกันแล้ว:** ตัวติดตั้งจะไม่ทับไฟล์เดิม ให้นำไฟล์ที่ต้องการเก็บสำรองก่อน เลือกถอนการติดตั้ง *เฉพาะแพ็กเกจและเวอร์ชันนั้น* แล้วติดตั้งแพ็กเกจใหม่ที่มีเอกสารลิขสิทธิ์ครบ
 
-**Runtime**: โปรแกรม v0.9.1 มี Engine Adapter ทั้ง 5 แพ็ก TTS และ Kokoro ONNX / eSpeak NG runtime ที่ใช้กับแพ็กหลายภาษา และบันเดิล Python Dependencies บางรายการไว้แล้ว ถ้ารายการใน Model Package Manager แสดง **Runtime ไม่พร้อม** ตรวจ `dependencies` ใน Manifest และคู่มือ [Model Packages](../docs/MODEL_PACKAGES_TH.md) ห้ามคัดลอก DLL/Python Package ที่ไม่ทราบแหล่งที่มาลงเครื่องเพื่อแก้ปัญหาแบบสุ่ม
+**Runtime**: โปรแกรม v0.9.2 มี Engine Adapter ทั้ง 5 แพ็ก TTS และ Kokoro ONNX / eSpeak NG runtime ที่ใช้กับแพ็กหลายภาษา และบันเดิล Python Dependencies บางรายการไว้แล้ว ถ้ารายการใน Model Package Manager แสดง **Runtime ไม่พร้อม** ตรวจ `dependencies` ใน Manifest และคู่มือ [Model Packages](../docs/MODEL_PACKAGES_TH.md) ห้ามคัดลอก DLL/Python Package ที่ไม่ทราบแหล่งที่มาลงเครื่องเพื่อแก้ปัญหาแบบสุ่ม
 
 **หมายเหตุเพิ่มเติม:** M2M100 418M เป็น AI Translation `.vwmodel` แยกจาก TTS Model Packages มีให้ดาวน์โหลดในหน้า Release เดียวกันแต่ต้องติดตั้ง Torch/Transformers Runtime เพิ่มเอง และผลการประเมินความหมายยังไม่ดีพอสำหรับ Live อัตโนมัติ
 
@@ -53,7 +53,7 @@
 $env:PYTHONPATH = 'src'
 python -m voxweavetts.model_packages pack-vachana
 python -m voxweavetts.model_packages pack-fastthai
-python scripts/verify_model_pack_release.py --write-catalog --release-tag v0.9.1
+python scripts/verify_model_pack_release.py --write-catalog --release-tag v0.9.2
 ```
 
 คำสั่ง `pack-vachana` และ `pack-fastthai` ใส่เอกสาร License และ Attribution จาก Repository เข้าไปในแพ็กเกจโดยอัตโนมัติ ตัวตรวจสอบจะหยุดเมื่อไฟล์โมเดลเบี่ยงเบนจาก SHA-256 ของผู้เผยแพร่ต้นทาง ไม่ต้องดาวน์โหลดไฟล์ใหม่หรือเรียกโค้ดฝึกโมเดล

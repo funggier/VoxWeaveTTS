@@ -13,7 +13,7 @@ class ModelPackCatalogTests(unittest.TestCase):
     def test_catalog_contains_five_distributable_optional_tts_packs(self):
         catalog=json.loads((ROOT/"model-packs"/"catalog.json").read_text(encoding="utf-8"))
         self.assertEqual(catalog["schema_version"],1)
-        self.assertEqual(catalog["release_tag"],"v0.9.1")
+        self.assertEqual(catalog["release_tag"],"v0.9.2")
         self.assertEqual({p["package_id"] for p in catalog["packages"]},{
             "vachana-thai-four-voices","fastthaig2p-thai-som",
             "kokoro-multilingual-int8",
@@ -23,7 +23,7 @@ class ModelPackCatalogTests(unittest.TestCase):
             with self.subTest(package=pack["package_id"]):
                 self.assertTrue(pack["download_url"].startswith(
                     "https://github.com/funggier/VoxWeaveTTS/releases/download/"
-                    "v0.9.1/"))
+                    "v0.9.2/"))
                 self.assertTrue(pack["download_url"].endswith(pack["file"]))
                 self.assertTrue(pack["file"].endswith(".vwmodel"))
                 self.assertGreater(pack["size_bytes"],1_000_000)
