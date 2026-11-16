@@ -512,12 +512,21 @@ def render_wav(
     engine_id: str = ENGINE_ID,
     voice_controls: dict[str, Any] | None = None,
     engine: VoiceEngine | None = None,
+    language_voice_routes: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Synthesize segments as a single WAV, retaining precise segment offsets.
 
     The segment timeline is based on generated samples, not playback events.
     An external playback coordinator must still provide real-time subtitle sync.
     """
+    if language_voice_routes is not None:
+        from .mixed_synthesis import render_mixed_language_wav
+        return render_mixed_language_wav(
+            plan, speed=speed, voice_id=voice_id, seed=seed,
+            engine_id=engine_id, voice_controls=voice_controls,
+            language_voice_routes=language_voice_routes,
+            engine=engine,
+        )
     validate_speech_request(plan, speed, voice_id, engine_id)
     seed = validate_seed(seed)
     controls = validate_controls(voice_controls)

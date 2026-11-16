@@ -41,6 +41,34 @@ class ModeVoiceHTTPTests(unittest.TestCase):
             with error:
                 return error.code,json.load(error)
 
+    def test_mixed_language_toggle_is_opt_in_persistent_per_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "mixed-mode-voices.json"
+            with (patch("voxweavetts.server.load_workspace_settings",
+                        side_effect=lambda: voice.load_workspace_settings(target)),
+                  patch("voxweavetts.server.save_workspace_settings",
+                        side_effect=lambda data: voice.save_workspace_settings(data, target))):
+                with urlopen(self.base + "/v1/settings/mode-voices") as response:
+                    self.assertEqual(json.load(response)["language_splitting"], {})
+                for revision, mode, enabled in ((0, "studio", True),
+                                                (1, "discord", True),
+                                                (2, "studio", False)):
+                    status, result = self.post({
+                        "expected_revision": revision, "mode": "__language_split__",
+                        "settings": {"source_mode": mode, "enabled": enabled}})
+                    self.assertEqual(status, 200)
+                self.assertEqual(result["language_splitting"], {
+                    "studio": False, "discord": True})
+                self.assertEqual(result["language_routes"], {})
+                before = voice.load_workspace_settings(target)
+                for source_mode, enabled in (("studio", 1), ("unknown", True),
+                                             ("discord", "true")):
+                    status, _ = self.post({
+                        "expected_revision": 3, "mode": "__language_split__",
+                        "settings": {"source_mode": source_mode, "enabled": enabled}})
+                    self.assertEqual(status, 400)
+                    self.assertEqual(voice.load_workspace_settings(target), before)
+
     def test_sender_name_preferences_persist_independently_and_reject_bad_values(self):
         with tempfile.TemporaryDirectory() as tmp:
             target=Path(tmp)/"mode-voices.json"

@@ -244,7 +244,9 @@ class Handler(BaseHTTPRequestHandler):
         workspace = data.get("mode", "studio")
         if not isinstance(workspace, str) or workspace not in VOICE_MODES:
             raise InputError("unknown speech workspace mode")
-        if load_workspace_settings()["language_routes"].get(workspace, False):
+        preferences = load_workspace_settings()
+        split_languages = preferences.get("language_splitting", {}).get(workspace, False)
+        if preferences["language_routes"].get(workspace, False) and not split_languages:
             requested_language = data.get("language")
             if requested_language is None:
                 ai = load_ai_settings()["settings"]
@@ -277,10 +279,17 @@ class Handler(BaseHTTPRequestHandler):
             else data.get("seed", _read_seed()))
         if not (info.assets_ready and info.runtime_ready):
             raise EngineUnavailable("selected TTS model is not installed or its runtime is missing")
-        return {
+        result = {
             "engine_id": engine_id, "voice_id": voice_id, "speed": speed,
             "voice_controls": controls, "seed": seed,
         }
+        # Independent per-workspace opt-in. Capture saved language profiles
+        # with this request so a later UI change cannot reroute queued audio.
+        # When enabled, choose the voice for each script span, not by one
+        # target-language label for the entire translated sentence.
+        if split_languages:
+            result["language_voice_routes"] = load_routes()["routes"]
+        return result
 
     def _queue_params(self, data: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
         # A completely suppressed message should not initialize TTS or fail

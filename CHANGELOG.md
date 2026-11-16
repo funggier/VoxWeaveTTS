@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Optional mixed-language TTS in one WAV
+
+- Add an independent, per-workspace switch **แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)** (default OFF). Existing whole-message language-routing switch and previously saved workspace preferences remain unchanged; the mixed switch persists separately for all nine modes.
+- After optional AI translation and shared post-AI rules, conservatively split spoken text by Unicode script into ordered spans. Example: `ผมอยากทำComputer ผม ให้มันลื่นกว่านี้ lol` → th / en / th / en, preserving every character and space. This also handles partially untranslated output without forcing all spans to the target language.
+- Render each speech span with its configured language Engine/Voice/seed/speed/DSP, maintain FIFO speech queue semantics and subtitle masks, resample heterogeneous 24 kHz/44.1 kHz outputs to a common mono PCM16 rate, and concatenate into one WAV with one shared timeline. Unconfigured scripts use that mode's default engine; unavailable configured engines report an error.
+- A bounded 96-language-span guard prevents excessive CPU load. Script heuristics cannot distinguish all Latin-script languages or Han-only Japanese; see `docs/MIXED_LANGUAGE_TTS_TH.md`.
+- Add unit tests for exact four-span Thai/English example, legacy opt-out, settings migration, shared-engine voice switching and mixed-rate WAV output. Real local Thai/English and Chinese/Korean voice tests are maintained separately.
+
 ## Unreleased — Chinese TTS `555` laughter after translation
 
 - Fix speech jobs failing when a legacy post-AI `five_run` rule (`555` -> `ฮ่า ฮ่า ฮ่า`) injects Thai pronunciation into a translated Chinese sentence routed to MeloTTS Chinese. Confirmed sherpa-onnx previously ignored the Thai codepoints, failed to generate token IDs and returned 0 Hz/empty audio. Seed 100 was not responsible.

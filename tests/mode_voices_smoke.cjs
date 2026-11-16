@@ -34,7 +34,7 @@ const document={
     return match?views.get(match[1]):null;
   },
 };
-let revision=0,posts=[],speechFormats={},languageRoutePrefs={};
+let revision=0,posts=[],speechFormats={},languageRoutePrefs={},languageSplitPrefs={};
 let presetData=[];
 const voices=[
   {id:"makham-paradee-cpu",label:"MakHam",voice_id:"paradee_thai",
@@ -56,7 +56,7 @@ global.fetch=async(path,options)=>{
   if(!options?.method)return{ok:true,async json(){return{
     revision,policy:"serial",modes:overrides,
     sender_names:{live:true,discord_client:true},speech_formats:speechFormats,
-    language_routes:languageRoutePrefs,
+    language_routes:languageRoutePrefs,language_splitting:languageSplitPrefs,
   };}};
   assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"save-mode-voice");
   const body=JSON.parse(options.body);
@@ -67,6 +67,8 @@ global.fetch=async(path,options)=>{
     speechFormats[body.settings.source_mode]=body.settings.format;
   if(body.mode==="__language_route__")
     languageRoutePrefs[body.settings.source_mode]=body.settings.enabled;
+  if(body.mode==="__language_split__")
+    languageSplitPrefs[body.settings.source_mode]=body.settings.enabled;
   return{ok:true,async json(){return{revision};}};
 };
 async function main(){
@@ -93,6 +95,15 @@ async function main(){
     })();
     assert.ok(checkbox, "every voice mode has the language route toggle: "+speechMode);
     assert.equal(checkbox.checked,false);
+    const splitSwitch=(()=>{
+      const visit=node=>{
+        if(node.id===speechMode+"MixedLanguageEnabled")return node;
+        for(const child of node.children){const found=visit(child);if(found)return found;}
+        return null;
+      };return visit(views.get(speechMode));
+    })();
+    assert.ok(splitSwitch,"every workspace has an independent mixed-language toggle");
+    assert.equal(splitSwitch.checked,false,"mixed-language output must be opt-in");
     const section=views.get(speechMode).children.find(c=>
       c.className==="source-format-settings");
     assert.ok(section && section.children[0].textContent==="กำหนดการอ่านข้อความและข้อมูลพิเศษ",
@@ -289,6 +300,19 @@ async function main(){
   assert.equal(manager.languageRoutesEnabled("discord"),false);
   await manager.load();
   assert.equal(routeToggle.checked,true,"enabled preference persists after reload");
-  console.log("PASS: independent voices, language routes per mode, portable presets and playback policy");
+  const mixed=elementById("live","liveMixedLanguageEnabled");
+  assert.equal(mixed.checked,false);
+  mixed.checked=true;
+  await mixed.handlers.change();
+  assert.equal(posts.at(-1).mode,"__language_split__");
+  assert.deepEqual(posts.at(-1).settings,{source_mode:"live",enabled:true});
+  assert.equal(manager.mixedLanguageEnabled("live"),true);
+  assert.equal(manager.mixedLanguageEnabled("discord"),false);
+  await manager.load();
+  assert.equal(mixed.checked,true,"mixed-language preference persists");
+  mixed.checked=false;
+  await mixed.handlers.change();
+  assert.equal(manager.mixedLanguageEnabled("live"),false);
+  console.log("PASS: independent voices, language routing, opt-in mixed-language toggle, presets and playback policy");
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

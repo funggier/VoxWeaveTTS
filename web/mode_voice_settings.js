@@ -38,6 +38,7 @@ function attach({document,engines,getDefault}){
   const controls=new Map();
   const speechControls=new Map();
   const languageRouteToggles=new Map(),languageRoutePrefs=new Map();
+  const languageSplitToggles=new Map(),languageSplitPrefs=new Map();
   let revision=0, serial=Promise.resolve(),presets=[];
   const create=(tag,label)=>{
     const node=document.createElement(tag);
@@ -210,6 +211,48 @@ function attach({document,engines,getDefault}){
         status.textContent="บันทึกไม่สำเร็จ: "+String(error.message||error);
       }finally{checkbox.disabled=false;}
     });
+    addLanguageSplitSwitch(mode,panel);
+  }
+  function addLanguageSplitSwitch(mode,panel){
+    const label=create("label");
+    label.style.display="flex";label.style.alignItems="center";label.style.gap="8px";
+    const checkbox=create("input");checkbox.type="checkbox";
+    checkbox.id=mode+"MixedLanguageEnabled";checkbox.checked=false;
+    label.append(checkbox,create("span","แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)"));
+    const help=create("small",
+      "แยกข้อความไทย/อังกฤษ/จีน/ญี่ปุ่น/เกาหลีตามช่วงอักษร และใช้โมเดลที่กำหนดให้แต่ละภาษา · ไม่เปลี่ยนคำแปล · หากไม่ได้กำหนดโมเดลจะใช้ Default Engine / Model · ค่าเริ่มต้นปิด");
+    help.className="small";help.style.display="block";
+    const status=create("small","ค่าเริ่มต้น: ปิด");
+    status.className="small";status.style.display="block";
+    panel.append(label,help,status);
+    languageSplitToggles.set(mode,{checkbox,status});
+    checkbox.addEventListener("change",async()=>{
+      const wanted=checkbox.checked;
+      checkbox.disabled=true;status.textContent="กำลังบันทึก...";
+      try{
+        await saveLanguageSplitPreference(mode,wanted);
+        status.textContent="บันทึกแล้ว · มีผลกับข้อความใหม่";
+      }catch(error){
+        checkbox.checked=Boolean(languageSplitPrefs.get(mode));
+        status.textContent="บันทึกไม่สำเร็จ: "+String(error.message||error);
+      }finally{checkbox.disabled=false;}
+    });
+  }
+  async function saveLanguageSplitPreference(mode,enabled){
+    if(!controls.has(mode)||typeof enabled!=="boolean")
+      throw Error("invalid mixed-language preference");
+    await (serial=serial.catch(()=>{}).then(async()=>{
+      const response=await fetch("/v1/settings/mode-voices",{
+        method:"POST",headers:{"Content-Type":"application/json",
+          "X-VoxWeaveTTS-Intent":"save-mode-voice"},
+        body:JSON.stringify({expected_revision:revision,mode:"__language_split__",
+          settings:{source_mode:mode,enabled}}),
+      });
+      const result=await response.json();
+      if(!response.ok)throw Error(result.error||"บันทึกการแยกภาษาไม่สำเร็จ");
+      revision=result.revision;
+      languageSplitPrefs.set(mode,enabled);
+    }));
   }
   async function saveLanguageRoutePreference(mode,enabled){
     if(!controls.has(mode)||typeof enabled!=="boolean")
@@ -530,6 +573,12 @@ function attach({document,engines,getDefault}){
       languageRoutePrefs.set(mode,enabled);
       ui.status.textContent=enabled?"เปิดใช้งานแล้ว":"ปิดใช้งาน";
     }
+    for(const [mode,ui] of languageSplitToggles){
+      const enabled=data.language_splitting?.[mode]===true;
+      ui.checkbox.checked=enabled;
+      languageSplitPrefs.set(mode,enabled);
+      ui.status.textContent=enabled?"เปิดใช้งานแล้ว":"ปิดใช้งาน";
+    }
     for(const mode of SENDER_MODES){
       const prefix=sourcePrefix(mode);
       const checkbox=document.getElementById?.(prefix+"FeedReadSender");
@@ -600,6 +649,7 @@ function attach({document,engines,getDefault}){
   return {load,read,save,savePolicy,saveSenderName,saveSpeechFormat,readSpeechFormat,
           loadPresets,refreshEngines,
           languageRoutesEnabled:mode=>Boolean(languageRoutePrefs.get(mode)),
+          mixedLanguageEnabled:mode=>Boolean(languageSplitPrefs.get(mode)),
     settingsFor:mode=>read(mode),
           get modes(){return [...controls.keys()];}};
 }
