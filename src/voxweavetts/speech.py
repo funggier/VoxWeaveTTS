@@ -14,7 +14,7 @@ from typing import Any
 
 from .processing import InputError
 from .engine_contract import EngineInfo, EngineRegistry, VoiceEngine
-from .model_packages import installed_packages, engine_id_for
+from .model_packages import installed_packages, engine_id_for, display_model_title
 from .voice_controls import apply_voice_controls, control_schema, ffmpeg_path, validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -372,7 +372,7 @@ def _register_model_packages(registry: EngineRegistry) -> None:
             continue
         engine_id = engine_id_for(manifest)
         voices = tuple((entry["id"], entry["label"]) for entry in manifest["voices"])
-        label = manifest["title"] + " · " + manifest["version"]
+        label = display_model_title(manifest) + " · " + manifest["version"]
         commercial = manifest["license"]["review_status"]
         adapter = manifest["engine_adapter"]
 
@@ -459,6 +459,12 @@ def engine_registry() -> EngineRegistry:
             from .ollama_speech import ENGINE_ID as OLLAMA_SPEECH_ID, descriptor as ollama_speech_descriptor, OllamaSpeechEngine
             registry.register(OLLAMA_SPEECH_ID, describe=ollama_speech_descriptor,
                               create=lambda seed: OllamaSpeechEngine())
+            from .personal_wayu_engine import (
+                ENGINE_ID as WAYU_NC_ID, descriptor as wayu_nc_descriptor,
+                PersonalWayuEngine,
+            )
+            registry.register(WAYU_NC_ID, describe=wayu_nc_descriptor,
+                              create=lambda seed: PersonalWayuEngine(seed=seed))
             _register_model_packages(registry)
             _REGISTRY = registry
         return _REGISTRY

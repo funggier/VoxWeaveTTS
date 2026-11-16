@@ -101,6 +101,18 @@ def engine_id_for(manifest: dict[str, Any]) -> str:
     return "model-" + manifest["package_id"] + "-" + manifest["version"].replace(".", "_")
 
 
+def display_model_title(manifest: dict[str, Any]) -> str:
+    """Mark confirmed NC model weights in all installed-model listings.
+
+    Unreviewed or merely restricted licenses are not necessarily NonCommercial;
+    do not mislabel OpenRAIL or review_required as NC.
+    """
+    title = manifest["title"]
+    spdx = str(manifest["license"]["spdx"]).upper().replace("_", "-")
+    noncommercial = bool(re.search(r"(?<![A-Z])NC(?![A-Z])", spdx)) or "NONCOMMERCIAL" in spdx
+    return "[NC / NonCommercial] " + title if noncommercial and not title.upper().startswith(("[NC]", "[NC ", "[NONCOMMERCIAL]")) else title
+
+
 def validate_manifest(manifest: Any) -> dict[str, Any]:
     """Strict, stable data-only v1 schema. No arbitrary hooks or scripts."""
     if not isinstance(manifest, dict) or set(manifest) != {

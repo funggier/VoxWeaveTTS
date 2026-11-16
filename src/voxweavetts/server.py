@@ -58,7 +58,7 @@ from .tiktok_extension import extension_id_from_origin, ExtensionBridgeError
 from .profile_export import (save_source_profile_dialog, SaveDialogBusy,
                              SaveDialogUnavailable)
 from .model_packages import (
-    installed_packages, engine_id_for, install_model_package_dialog,
+    installed_packages, engine_id_for, display_model_title, install_model_package_dialog,
     remove_model_package, ModelPackageError, ModelPackageDialogUnavailable,
 )
 from .manual_alignment import timing_metrics
@@ -701,7 +701,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, {
                     "packages": [{
                         "package_id": m["package_id"], "version": m["version"],
-                        "title": m["title"], "engine_id": engine_id_for(m),
+                        "title": display_model_title(m), "engine_id": engine_id_for(m),
                         "engine_adapter": m["engine_adapter"],
                         "voices": m["voices"],
                         "license": m["license"], "source": m["source"],
