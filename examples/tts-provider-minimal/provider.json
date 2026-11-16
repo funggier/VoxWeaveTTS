@@ -1,0 +1,27 @@
+{
+  "format": "voxweavetts.engine-provider",
+  "version": 1,
+  "provider_id": "minimal-demo",
+  "engine_id": "minimal-demo-v1",
+  "title": "Minimal IPC Demo (not a speech model)",
+  "language": "en",
+  "sample_rate": 24000,
+  "voices": [
+    {
+      "id": "demo",
+      "label": "Demo synthetic tone"
+    }
+  ],
+  "license": {
+    "spdx": "MIT",
+    "url": "https://github.com/funggier/VoxWeaveTTS",
+    "attribution": "VoxWeaveTTS example provider; no voice model or pretrained weights"
+  },
+  "capabilities": {
+    "speech": true,
+    "speed": true,
+    "seed_control": false,
+    "voice_cloning": false,
+    "streaming": false
+  }
+}

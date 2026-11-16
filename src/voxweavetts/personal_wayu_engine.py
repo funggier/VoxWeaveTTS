@@ -1,20 +1,19 @@
-"""Optional, local-only Wayu Paxa Edge Thai/English TTS.
+"""Local-only NC Wayu engine adapter using the shared isolated-worker gateway.
 
-The MODEL WEIGHTS are CC BY-NC 4.0. The Apache-2.0 inference
-code does not change that restriction. Never bundle weights with a
-commercial-cleared app or download models implicitly during synthesis.
+All heavy ML dependencies live in runtime/engine-envs/wayu-nc. The main
+VoxWeaveTTS Python process imports no Wayu/PyTorch/TLTK runtime.
+Weight license is CC BY-NC 4.0 (not commercially cleared).
 """
 from __future__ import annotations
 
-from importlib.util import find_spec
 from pathlib import Path
-from threading import RLock
-from typing import Any
 
 from .engine_contract import EngineInfo
+from .engine_worker_gateway import WorkerError, gateway
 from .processing import InputError
 
 ENGINE_ID = "personal-nc-wayu-paxa-edge-cpu"
+WORKER_BACKEND = "wayu-nc-v1"
 MODEL_DIR = Path(__file__).resolve().parents[2] / "models" / "personal" / "wayu-paxa-tts-edge"
 SAMPLE_RATE = 24_000
 VOICES = (
@@ -31,13 +30,9 @@ VOICES = (
     ("m_mid_warm", "ชายวัยกลางคน — อบอุ่น"),
     ("m_elderly_deep", "ชายวัยสูงอายุ — ทุ้มลึก"),
 )
-_LOCK = RLock()
-_NATIVE: Any = None
-_NATIVE_DIR: Path | None = None
 
 
 def assets_ready(model_dir: Path = MODEL_DIR) -> bool:
-    """Check a fixed, offline model directory without loading PyTorch weights."""
     try:
         return (
             (model_dir / "config.json").is_file()
@@ -51,13 +46,7 @@ def assets_ready(model_dir: Path = MODEL_DIR) -> bool:
 
 
 def runtime_ready() -> bool:
-    try:
-        return all(find_spec(name) is not None for name in
-                   ("wayu_tts", "kokoro", "tltk", "torch", "numpy",
-                    "pandas", "sklearn", "spacy", "en_core_web_sm",
-                    "misaki", "pythainlp"))
-    except (ImportError, ValueError):
-        return False
+    return gateway().available(WORKER_BACKEND)
 
 
 def descriptor() -> EngineInfo:
@@ -79,7 +68,7 @@ def descriptor() -> EngineInfo:
 
 
 class PersonalWayuEngine:
-    """Reuse the model in memory for short live-chat utterances, safely serialized."""
+    """Front-end proxy only; heavy model is cached in one persistent subprocess."""
 
     id = ENGINE_ID
     sample_rate = SAMPLE_RATE
@@ -102,20 +91,12 @@ class PersonalWayuEngine:
             raise EngineUnavailable("Wayu NC model assets missing from models/personal")
         if not runtime_ready():
             from .speech import EngineUnavailable
-            raise EngineUnavailable("Wayu NC Python dependencies or English spaCy model unavailable")
-        global _NATIVE, _NATIVE_DIR
-        from .speech import _float32_to_pcm
-        with _LOCK:
-            model_path = self.model_dir.resolve()
-            if _NATIVE is None or _NATIVE_DIR != model_path:
-                from wayu_tts import ThaiTTS
-                # Pass a verified directory, NOT a HF repo id: offline inference.
-                _NATIVE = ThaiTTS.from_pretrained(model_path, device="cpu")
-                if _NATIVE.sample_rate != SAMPLE_RATE:
-                    _NATIVE = None
-                    _NATIVE_DIR = None
-                    from .speech import SpeechFailure
-                    raise SpeechFailure("Wayu NC sample rate differs from adapter")
-                _NATIVE_DIR = model_path
-            audio = _NATIVE(text, voice=self.voice_id, speed=float(speed), seed=self.seed)
-            return _float32_to_pcm(audio)
+            raise EngineUnavailable("isolated Wayu NC runtime missing; run Install-WayuWorker.ps1")
+        try:
+            return gateway().synthesize(
+                WORKER_BACKEND, text=text, voice_id=self.voice_id,
+                speed=speed, seed=self.seed,
+            )
+        except WorkerError as exc:
+            from .speech import SpeechFailure
+            raise SpeechFailure("isolated NC voice worker failed; check logs/engine-workers") from exc

@@ -1,5 +1,7 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**TTS Engine Provider / Worker Gateway (Source หลัง v0.9.2):** โมเดลเดิมทั้ง FastThaiG2P, MakHam, Vachana, Kokoro, Melo Chinese, Supertonic 3 และ Wayu [NC] ใช้ Python Environment แยกตามกลุ่มผ่านระบบกลาง รับส่ง PCM16/UTF-8 โดยไม่เปลี่ยน Engine ID, Preset หรือการตั้งค่าเดิม การติดตั้ง `.vwmodel` จะเตรียม Runtime ที่รองรับได้อัตโนมัติ; อนาคตเพิ่ม Engine สถาปัตยกรรมใหม่ผ่าน External Provider ที่ต้องอนุมัติโค้ดแยกต่างหากโดยไม่แก้ Core ดู [คู่มือ Worker Gateway และการติดตั้ง](docs/ENGINE_WORKER_GATEWAY_TH.md)
+
 **เสียงอ่านสำหรับใช้งานส่วนตัว [NC / NonCommercial] (เพิ่มใน Source หลัง v0.9.2):** เพิ่ม Engine ทางเลือก Wayu Paxa Edge สำหรับภาษาไทย/อังกฤษ 12 เสียง โดยชื่อ Engine แสดง `[NC / NonCommercial]` ชัดเจนและแยกสิทธิ์น้ำหนักโมเดล CC BY-NC 4.0 จากโค้ด Apache-2.0 ไม่รวมไฟล์โมเดล NC ใน Portable/GitHub และไม่ถือว่ารับรองเชิงพาณิชย์ ดู [คู่มือการติดตั้งและสิทธิ์](docs/PERSONAL_NONCOMMERCIAL_VOICES_TH.md)
 
 **Windows Portable v0.9.2 (Release ครบชุด):** เพิ่มตัวเลือก **แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)** ในทุกโหมด โดยค่าเริ่มต้นปิด สามารถอ่าน `ผมอยากทำComputer ผม ให้มันลื่นกว่านี้ lol` ด้วยโมเดล th → en → th → en ตามลำดับ ทั้งกรณีปิดการแปลและคำแปลที่หลงเหลือภาษาอื่นไว้ แล้วต่อเสียงเป็น WAV เดียว มีการปรับอัตราสุ่มเสียงระหว่างโมเดลอัตโนมัติ [คู่มือฟีเจอร์](docs/MIXED_LANGUAGE_TTS_TH.md) · [ดาวน์โหลด Release v0.9.2](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2) · [Release Notes](docs/RELEASE_NOTES_v0.9.2.md)

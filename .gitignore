@@ -17,6 +17,9 @@ dist/
 # Portable runtime and generated binaries
 runtime/*
 !runtime/.gitkeep
+# User-approved executable providers and private engine assets never enter public Git
+extensions/engine-providers/*
+!extensions/engine-providers/.gitkeep
 *.exe
 
 # User-generated and potentially sensitive content

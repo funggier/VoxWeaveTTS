@@ -8,6 +8,7 @@ from __future__ import annotations
 import io
 import math
 import threading
+from dataclasses import replace
 import wave
 from pathlib import Path
 from typing import Any
@@ -148,13 +149,22 @@ def _paradee_descriptor() -> EngineInfo:
     )
 
 
+def _worker_aware_info(info: EngineInfo) -> EngineInfo:
+    from .engine_provider_catalog import provider_for_engine
+    from .engine_worker_gateway import gateway
+    provider = provider_for_engine(info.id)
+    if provider and gateway().available(provider.backend):
+        return replace(info, runtime_ready=True)
+    return info
+
+
 def list_engine_info() -> list[EngineInfo]:
-    """Enumerate registered adapters without loading model weights."""
-    return engine_registry().list()
+    """Enumerate local and isolated adapters without loading model weights."""
+    return [_worker_aware_info(info) for info in engine_registry().list()]
 
 
 def get_engine_info(engine_id: str) -> EngineInfo:
-    return engine_registry().get(engine_id)
+    return _worker_aware_info(engine_registry().get(engine_id))
 
 
 def runtime_ready() -> bool:
@@ -432,6 +442,54 @@ def _register_model_packages(registry: EngineRegistry) -> None:
         registry.register(engine_id, describe=description, create=create)
 
 
+
+def _register_external_providers(registry: EngineRegistry) -> None:
+    """Discover explicitly approved worker-only extensions without importing code.
+
+    A model .vwmodel never supplies Python. New engine architectures instead
+    implement the stable JSONL Worker Protocol in a separately trusted provider.
+    """
+    from .engine_provider_catalog import all_providers
+    from .engine_worker_gateway import gateway
+    from .engine_worker_proxy import ProviderVoiceEngine
+    existing = {info.id for info in registry.list()}
+    for provider in all_providers().values():
+        if provider.driver != "external" or provider.declared_engine is None:
+            continue
+        data = provider.declared_engine
+        engine_id = data["engine_id"]
+        if engine_id in existing:
+            continue
+        voices = tuple((entry["id"], entry["label"]) for entry in data["voices"])
+        spdx = data["license"]["spdx"].upper().replace("_", "-")
+        nc = "-NC" in spdx or "NONCOMMERCIAL" in spdx
+        title = data["title"]
+        if nc and not title.upper().startswith(("[NC]", "[NC ", "[NONCOMMERCIAL]")):
+            title = "[NC / NonCommercial] " + title
+
+        def describe(profile=provider, engine_id=engine_id, voices=voices,
+                     title=title, data=data):
+            capabilities = dict(data["capabilities"])
+            capabilities.setdefault("speech", True)
+            capabilities.setdefault("speed", True)
+            capabilities.update(_built_in_dsp_flags())
+            return EngineInfo(
+                id=engine_id, label=title, language=data["language"],
+                voice_id=voices[0][0], voice_options=voices,
+                sample_rate=data["sample_rate"], assets_ready=True,
+                runtime_ready=gateway().available(profile.backend),
+                capabilities=capabilities, commercial_status="hold",
+            )
+
+        def create(seed: int, profile=provider, engine_id=engine_id, voices=voices):
+            return ProviderVoiceEngine(
+                engine_id, profile, tuple(v[0] for v in voices),
+                voices[0][0], seed)
+
+        registry.register(engine_id, describe=describe, create=create)
+        existing.add(engine_id)
+
+
 def engine_registry() -> EngineRegistry:
     """Return the explicit, extension-ready registry.
 
@@ -466,11 +524,33 @@ def engine_registry() -> EngineRegistry:
             registry.register(WAYU_NC_ID, describe=wayu_nc_descriptor,
                               create=lambda seed: PersonalWayuEngine(seed=seed))
             _register_model_packages(registry)
+            _register_external_providers(registry)
             _REGISTRY = registry
         return _REGISTRY
 
 
 def create_voice_engine(engine_id: str, seed: int) -> VoiceEngine:
+    """Prefer an installed isolated provider; preserve native legacy fallback.
+
+    This transition does not rename existing engine IDs or break saved presets.
+    Model families with different dependency requirements never share an env.
+    """
+    from .engine_provider_catalog import provider_for_engine
+    from .engine_worker_gateway import gateway
+    profile = provider_for_engine(engine_id)
+    if profile is not None and profile.driver == "legacy" and gateway().available(profile.backend):
+        from .engine_worker_proxy import ProviderVoiceEngine
+        info = get_engine_info(engine_id)
+        proxy = ProviderVoiceEngine(engine_id, profile, info.voice_ids, info.voice_id, seed)
+        # Preserve public attributes of the historical FastThaiG2P adapter.
+        # Existing user code and model-package tests read these properties.
+        for manifest, model_dir in installed_packages():
+            if engine_id_for(manifest) == engine_id:
+                proxy.model_dir = model_dir
+                if manifest["engine_adapter"] == "fastthaig2p-kokoro-v1":
+                    proxy.voicepack_name = manifest["voices"][0]["asset"]
+                break
+        return proxy
     return engine_registry().create(engine_id, seed)
 
 

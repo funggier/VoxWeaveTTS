@@ -1,5 +1,7 @@
 # VoxWeaveTTS — Model Packages (.vwmodel)
 
+**ระบบ Engine Providers ใหม่:** หลังติดตั้งแพ็กเกจ `.vwmodel` โปรแกรมจะจับคู่กับ Engine Adapter ที่ผ่านการรองรับ และติดตั้ง Python Runtime/Dependencies ของกลุ่มนั้นใน Environment แยกโดยอัตโนมัติ โดยไม่เปลี่ยน Engine ID หรือ Voice Preset เดิม และไม่ใช้คำสั่งติดตั้ง Dependencies ที่ระบุโดยแพ็กเกจข้อมูลโมเดลโดยตรง ดู [TTS Worker Gateway](ENGINE_WORKER_GATEWAY_TH.md) สำหรับรายละเอียดและการเพิ่มโมเดลสถาปัตยกรรมใหม่ผ่าน External Provider แบบอนุมัติโค้ดก่อนรัน
+
 สถานะ: โปรแกรมรองรับ .vwmodel ตั้งแต่ v0.4.2 · **แพ็กเกจทดลองที่เผยแพร่ต่อภายใต้สิทธิ์ต้นทาง** ดู [Model Packages Catalog](../model-packs/README_TH.md) และ [Manifest/Hash](../model-packs/catalog.json) · ไม่ใช่ Model Store ที่รับรองสิทธิ์ทั้งหมด
 
 ## แนวคิด

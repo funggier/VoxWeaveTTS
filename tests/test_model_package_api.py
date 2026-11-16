@@ -84,7 +84,8 @@ class PackageEndpointTests(unittest.TestCase):
             with patch("voxweavetts.server.install_model_package_dialog",
                        return_value=sample) as picker, patch(
                 "voxweavetts.server.refresh_engine_registry"
-            ) as refreshed:
+            ) as refreshed, patch("voxweavetts.server.install_async",
+                                 return_value={"id": "vachana", "state": "ready", "error": None}) as setup:
                 status, data = self.post(
                     "/v1/model-packages/install-local", {},
                     intent="install-model-package",
@@ -94,6 +95,7 @@ class PackageEndpointTests(unittest.TestCase):
                     "installed": True, "package_id": "vachana-a",
                     "version": "1.0.0",
                 })
+                setup.assert_called_once_with("vachana")
                 picker.assert_called_once()
                 refreshed.assert_called_once()
             with patch("voxweavetts.server.install_model_package_dialog", return_value=None):
@@ -121,6 +123,35 @@ class PackageEndpointTests(unittest.TestCase):
             {"package_id": "../../secrets", "version": "1.0.0"},
             intent="remove-model-package",
         )
+        self.assertEqual(status, 400)
+
+
+    def test_provider_catalog_and_install_require_explicit_same_origin(self):
+        with urlopen(self.base + "/v1/engine-providers", timeout=3) as response:
+            self.assertEqual(response.status, 200)
+            catalog = json.load(response)
+        self.assertEqual({x["id"] for x in catalog["providers"]},
+                         {"wayu-nc", "pythaitts", "vachana", "kokoro", "sherpa"})
+        route = "/v1/engine-providers/install"
+        with patch("voxweavetts.server.install_async",
+                   return_value={"id": "kokoro", "state": "installing", "error": None}) as setup:
+            for kwargs in (
+                {"origin": None, "intent": "install-engine-provider"},
+                {"origin": "https://malicious.example", "intent": "install-engine-provider"},
+                {"site": "cross-site", "intent": "install-engine-provider"},
+                {"intent": None},
+            ):
+                with self.subTest(kwargs=kwargs):
+                    status, _ = self.post(route, {"provider_id": "kokoro"}, **kwargs)
+                    self.assertEqual(status, 403)
+            setup.assert_not_called()
+            status, result = self.post(route, {"provider_id": "kokoro"},
+                                       intent="install-engine-provider")
+            self.assertEqual(status, 200)
+            self.assertEqual(result["install"]["state"], "installing")
+            setup.assert_called_once_with("kokoro")
+        status, _ = self.post(route, {"provider_id": "../../bad"},
+                              intent="install-engine-provider")
         self.assertEqual(status, 400)
 
 if __name__ == "__main__":

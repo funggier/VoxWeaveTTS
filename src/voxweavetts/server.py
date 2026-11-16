@@ -62,6 +62,9 @@ from .model_packages import (
     remove_model_package, ModelPackageError, ModelPackageDialogUnavailable,
 )
 from .manual_alignment import timing_metrics
+from .engine_provider_catalog import provider_for_adapter
+from .engine_provider_installer import install_async, catalog_status, InstallError
+from .engine_worker_gateway import gateway
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
 from .mode_voice_settings import load_workspace_settings, save_workspace_settings, VOICE_MODES
@@ -708,7 +711,11 @@ class Handler(BaseHTTPRequestHandler):
                         "dependencies": m["dependencies"],
                     } for m, _folder in installed_packages()]
                 })
+            elif route == "/v1/engine-providers":
+                self.send_json(200, {"providers": catalog_status()})
             elif route == "/v1/engines":
+                # Re-discover explicitly approved providers without restarting Core.
+                refresh_engine_registry()
                 self.send_json(200, {
                     "engines": [item.as_dict() for item in list_engine_info()],
                     "control_schema": control_schema(),
@@ -934,6 +941,30 @@ class Handler(BaseHTTPRequestHandler):
                     json.JSONDecodeError, OSError, zipfile.BadZipFile):
                 self.send_json(400, {"error": "invalid AI model package or integrity check"})
             return
+        if route == "/v1/engine-providers/install":
+            # Runtime creation installs third-party dependencies. Explicit
+            # same-origin action and curated provider IDs are mandatory.
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "install-engine-provider"):
+                self.reject_unread_post(403, {"error": "same-origin provider installation required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "provider installation requires JSON"})
+                return
+            try:
+                data = self._read_json(max_bytes=2048)
+                if set(data) != {"provider_id"} or not isinstance(data["provider_id"], str):
+                    raise InstallError("invalid provider request")
+                task = install_async(data["provider_id"])
+                self.send_json(200, {"install": task})
+            except (InstallError, ValueError, InputError):
+                self.send_json(400, {"error": "unknown or untrusted engine provider"})
+            return
         if route in ("/v1/model-packages/install-local", "/v1/model-packages/remove"):
             host = self.headers.get("Host", "").lower().strip()
             origin = self.headers.get("Origin", "").lower().strip()
@@ -959,6 +990,10 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json(200, {"cancelled": True})
                         return
                     refresh_engine_registry()
+                    profile = provider_for_adapter(installed["engine_adapter"])
+                    task = install_async(profile.id) if profile is not None else None
+                    # Keep the existing install-local API response stable.
+                    # Runtime setup status is exposed by /v1/engine-providers.
                     self.send_json(200, {
                         "installed": True, "package_id": installed["package_id"],
                         "version": installed["version"],
@@ -969,6 +1004,9 @@ class Handler(BaseHTTPRequestHandler):
                     removed = remove_model_package(data["package_id"], data["version"])
                     if removed:
                         refresh_engine_registry()
+                        # A removed model may still be cached by a provider.
+                        # Recycle only the trusted provider process on removal.
+                        gateway().close()
                     self.send_json(200, {"removed": removed})
             except ModelPackageDialogUnavailable:
                 self.send_json(503, {"error": "Windows model selection dialog unavailable"})

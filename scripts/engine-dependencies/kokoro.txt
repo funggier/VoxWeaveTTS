@@ -1,0 +1,7 @@
+# Multilingual Kokoro ONNX, incl Japanese G2P.
+kokoro-onnx==0.6.0
+onnxruntime==1.31.1
+numpy==2.2.6
+misaki[ja]==0.9.4
+unidic-lite==1.0.8
+pyopenjtalk==0.4.1

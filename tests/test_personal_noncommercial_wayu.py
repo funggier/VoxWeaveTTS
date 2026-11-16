@@ -53,9 +53,9 @@ class PersonalNonCommercialVoiceTests(unittest.TestCase):
             with self.assertRaises(speech.EngineUnavailable):
                 engine.generate("hello", 1.0)
 
-    def test_missing_spacy_english_model_disables_runtime_before_download(self):
-        with patch("voxweavetts.personal_wayu_engine.find_spec",
-                   side_effect=lambda name: None if name == "en_core_web_sm" else object()):
+    def test_missing_isolated_python_disables_runtime(self):
+        with patch("voxweavetts.personal_wayu_engine.gateway") as broker:
+            broker.return_value.available.return_value = False
             self.assertFalse(runtime_ready())
 
     def test_voice_list_is_constrained(self):

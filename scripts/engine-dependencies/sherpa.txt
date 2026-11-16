@@ -1,0 +1,3 @@
+# Melo Chinese + Supertonic 3 sherpa ONNX providers.
+sherpa-onnx==2.0.1
+numpy==2.2.6

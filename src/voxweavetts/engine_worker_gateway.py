@@ -1,0 +1,273 @@
+"""Versioned local IPC gateway for TTS engines with independent Python runtimes.
+
+Only application-owned, explicitly registered worker definitions can execute.
+Each worker is a persistent child process; no model package can supply executable
+code or override the executable path. Stdout carries line-delimited JSON only.
+"""
+from __future__ import annotations
+
+import atexit
+import base64
+import binascii
+import json
+import os
+import queue
+import subprocess
+import sys
+import threading
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from .engine_provider_catalog import PROVIDERS, provider_for_backend
+
+ROOT = Path(__file__).resolve().parents[2]
+PROTOCOL_VERSION = 1
+MAX_PCM_BYTES = 32_000_000
+REQUEST_TIMEOUT = 120.0
+MAX_RESPONSE_LINE = 46_000_000
+
+
+class WorkerError(RuntimeError):
+    """A worker is unavailable or failed without exposing private input."""
+
+
+@dataclass(frozen=True)
+class WorkerSpec:
+    backend: str
+    python_dir: str
+    sample_rate: int
+    worker_script: str | None = None
+
+    def python_path(self, *, root: Path = ROOT) -> Path:
+        folder = root / "runtime" / "engine-envs" / self.python_dir
+        return folder / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+
+# Provider recipes are curated by the application, never by a .vwmodel archive.
+WORKERS = {p.backend: WorkerSpec(p.backend, p.runtime_dir, p.sample_rate)
+           for p in PROVIDERS.values()}
+
+
+class WorkerSession:
+    """Synchronous requests over a persistent process, with bounded wait/restart."""
+
+    def __init__(self, spec: WorkerSpec, *, root: Path = ROOT,
+                 timeout: float = REQUEST_TIMEOUT) -> None:
+        self.spec = spec
+        self.root = Path(root)
+        self.timeout = timeout
+        self._lock = threading.RLock()
+        self._process: subprocess.Popen[str] | None = None
+        self._lines: queue.Queue[str | None] = queue.Queue(maxsize=4)
+        self._log: Any = None
+        self._sequence = 0
+
+    def _reader(self, process: subprocess.Popen[str],
+                output: queue.Queue[str | None]) -> None:
+        try:
+            assert process.stdout is not None
+            while True:
+                # readline(limit) prevents an untrusted/buggy external worker
+                # from allocating arbitrary RAM with a newline-free response.
+                line = process.stdout.readline(MAX_RESPONSE_LINE + 1)
+                if not line:
+                    break
+                valid_line = (len(line) <= MAX_RESPONSE_LINE and line.endswith("\\n"))
+                try:
+                    output.put_nowait(line if valid_line else "")
+                except queue.Full:
+                    break
+                if not valid_line:
+                    break
+        finally:
+            try:
+                output.put_nowait(None)
+            except queue.Full:
+                pass
+
+    def _start(self) -> None:
+        if self._process is not None and self._process.poll() is None:
+            return
+        self._stop()
+        python = self.spec.python_path(root=self.root)
+        if not python.is_file():
+            raise WorkerError(f"isolated runtime missing: {self.spec.python_dir}; install it first")
+        log_dir = self.root / "logs" / "engine-workers"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        self._log = (log_dir / (self.spec.backend + ".log")).open("a", encoding="utf-8")
+        env = os.environ.copy()
+        env.update({
+            "PYTHONPATH": str(self.root / "src"),
+            "PYTHONUNBUFFERED": "1",
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONUTF8": "1",
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "HF_HOME": str(self.root / "cache" / "huggingface"),
+            "TORCH_HOME": str(self.root / "cache" / "torch"),
+            "XDG_CACHE_HOME": str(self.root / "cache"),
+            "PIP_NO_INDEX": "1",
+        })
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        try:
+            command = ([str(python), "-u", str(self.spec.worker_script)]
+                       if self.spec.worker_script else
+                       [str(python), "-u", "-m", "voxweavetts.engine_worker_host",
+                        "--backend", self.spec.backend])
+            process = subprocess.Popen(
+                command,
+                cwd=str(self.root), env=env,
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=self._log, text=True, encoding="utf-8",
+                errors="replace", bufsize=1, creationflags=flags,
+            )
+        except OSError as exc:
+            self._log.close()
+            self._log = None
+            raise WorkerError("could not start isolated TTS worker") from exc
+        self._process = process
+        self._lines = queue.Queue(maxsize=4)
+        threading.Thread(
+            target=self._reader, args=(process, self._lines),
+            name="tts-worker-reader-" + self.spec.backend, daemon=True,
+        ).start()
+
+    def synthesize(self, *, text: str, voice_id: str, speed: float,
+                   seed: int, engine_id: str | None = None) -> bytes:
+        if not isinstance(text, str) or not text.strip() or len(text) > 5000:
+            raise WorkerError("invalid worker text")
+        with self._lock:
+            self._start()
+            self._sequence += 1
+            request_id = self._sequence
+            request = {
+                "version": PROTOCOL_VERSION, "request_id": request_id,
+                "method": "synthesize", "text": text, "voice_id": voice_id,
+                "speed": float(speed), "seed": int(seed),
+            }
+            if engine_id is not None:
+                request["engine_id"] = engine_id
+            try:
+                assert self._process is not None and self._process.stdin is not None
+                self._process.stdin.write(json.dumps(request, ensure_ascii=False) + "\n")
+                self._process.stdin.flush()
+                response_line = self._lines.get(timeout=self.timeout)
+                if response_line is None:
+                    raise WorkerError("TTS worker exited before replying")
+                if not response_line or len(response_line) > MAX_RESPONSE_LINE:
+                    raise WorkerError("TTS worker output exceeds limit")
+                reply = json.loads(response_line)
+                if (not isinstance(reply, dict)
+                    or reply.get("version") != PROTOCOL_VERSION
+                    or reply.get("request_id") != request_id):
+                    raise WorkerError("TTS worker protocol mismatch")
+                if reply.get("ok") is not True:
+                    raise WorkerError("TTS worker failed to synthesize")
+                if reply.get("sample_rate") != self.spec.sample_rate:
+                    raise WorkerError("TTS worker returned wrong sample rate")
+                raw = reply.get("pcm16_b64")
+                if not isinstance(raw, str) or len(raw) > (MAX_PCM_BYTES * 4 // 3 + 16):
+                    raise WorkerError("TTS worker returned oversized PCM")
+                pcm = base64.b64decode(raw, validate=True)
+                if not pcm or len(pcm) > MAX_PCM_BYTES or len(pcm) % 2:
+                    raise WorkerError("TTS worker returned invalid PCM")
+                return pcm
+            except (WorkerError, queue.Empty, OSError, BrokenPipeError,
+                    ValueError, TypeError, binascii.Error, EOFError) as exc:
+                self._stop()
+                if isinstance(exc, queue.Empty):
+                    raise WorkerError("TTS worker timed out") from exc
+                if isinstance(exc, WorkerError):
+                    raise
+                raise WorkerError("TTS worker IPC failure") from exc
+
+    def _stop(self) -> None:
+        process = self._process
+        self._process = None
+        if process is not None:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=2)
+            for stream in (process.stdin, process.stdout):
+                if stream is not None:
+                    stream.close()
+        if self._log is not None:
+            self._log.close()
+            self._log = None
+
+    def close(self) -> None:
+        with self._lock:
+            self._stop()
+
+
+class EngineWorkerGateway:
+    """Stable broker interface; future TTS backends register their own WorkerSpec."""
+
+    def __init__(self, *, root: Path = ROOT,
+                 specs: dict[str, WorkerSpec] | None = None,
+                 timeout: float = REQUEST_TIMEOUT) -> None:
+        self.root = Path(root)
+        self._allow_custom_specs = specs is not None
+        self.specs = dict(WORKERS if specs is None else specs)
+        self.timeout = timeout
+        self._sessions: dict[str, WorkerSession] = {}
+        self._lock = threading.RLock()
+
+    def _resolve_spec(self, backend: str) -> WorkerSpec | None:
+        if backend not in self.specs:
+            profile = provider_for_backend(backend, root=self.root)
+            if profile is not None:
+                self.specs[backend] = WorkerSpec(
+                    profile.backend, profile.runtime_dir, profile.sample_rate,
+                    str(profile.external_worker) if profile.external_worker else None)
+        return self.specs.get(backend)
+
+    def available(self, backend: str) -> bool:
+        spec = self._resolve_spec(backend)
+        if spec is None or not spec.python_path(root=self.root).is_file():
+            return False
+        profile = provider_for_backend(backend, root=self.root)
+        if profile is None:
+            return self._allow_custom_specs  # Never keep revoked extension providers.
+        from .engine_provider_installer import ready
+        return ready(profile, root=self.root)
+
+    def synthesize(self, backend: str, *, text: str, voice_id: str,
+                   speed: float, seed: int, engine_id: str | None = None) -> bytes:
+        spec = self._resolve_spec(backend)
+        if spec is None or not self.available(backend):
+            raise WorkerError("unregistered or unavailable worker backend")
+        with self._lock:
+            if backend not in self._sessions:
+                self._sessions[backend] = WorkerSession(
+                    spec, root=self.root, timeout=self.timeout)
+            session = self._sessions[backend]
+        return session.synthesize(text=text, voice_id=voice_id,
+                                  speed=speed, seed=seed, engine_id=engine_id)
+
+    def reset(self, backend: str) -> None:
+        """Recycle a provider after packages were installed or removed."""
+        with self._lock:
+            session = self._sessions.pop(backend, None)
+        if session is not None:
+            session.close()
+
+    def close(self) -> None:
+        with self._lock:
+            sessions = list(self._sessions.values())
+            self._sessions.clear()
+        for session in sessions:
+            session.close()
+
+
+_gateway = EngineWorkerGateway()
+atexit.register(_gateway.close)
+
+
+def gateway() -> EngineWorkerGateway:
+    return _gateway
