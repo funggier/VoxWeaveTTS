@@ -1,5 +1,7 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**หยุดโปรแกรมและคืนทรัพยากรทั้งหมด (Source หลัง v0.9.2):** ดับเบิลคลิก `Stop-VoxWeaveTTS.cmd` ในโฟลเดอร์โปรแกรม หรือ `Stop-Dev.cmd` เมื่อใช้งาน Source เพื่อบังคับหยุดเฉพาะ VoxWeaveTTS และ TTS Worker/Process ลูกที่เหลืออยู่ รวมถึงกรณีหน้าต่างหลักปิดแล้วแต่ Python ค้าง ระบบยืนยันเจ้าของ Process ตามโฟลเดอร์และเวลาเริ่ม ไม่สั่งหยุด Ollama, Unity, Firefox หรือ Python โปรเจกต์อื่น พร้อมโหมด `-DryRun` ให้ตรวจรายการที่จะหยุดได้ก่อน อ่าน [คู่มือหยุดโปรแกรม](docs/STOP_VOXWEAVETTS_TH.md)
+
 **TTS Engine Provider / Worker Gateway (Source หลัง v0.9.2):** โมเดลเดิมทั้ง FastThaiG2P, MakHam, Vachana, Kokoro, Melo Chinese, Supertonic 3 และ Wayu [NC] ใช้ Python Environment แยกตามกลุ่มผ่านระบบกลาง รับส่ง PCM16/UTF-8 โดยไม่เปลี่ยน Engine ID, Preset หรือการตั้งค่าเดิม การติดตั้ง `.vwmodel` จะเตรียม Runtime ที่รองรับได้อัตโนมัติ; อนาคตเพิ่ม Engine สถาปัตยกรรมใหม่ผ่าน External Provider ที่ต้องอนุมัติโค้ดแยกต่างหากโดยไม่แก้ Core ดู [คู่มือ Worker Gateway และการติดตั้ง](docs/ENGINE_WORKER_GATEWAY_TH.md)
 
 **เสียงอ่านสำหรับใช้งานส่วนตัว [NC / NonCommercial] (เพิ่มใน Source หลัง v0.9.2):** เพิ่ม Engine ทางเลือก Wayu Paxa Edge สำหรับภาษาไทย/อังกฤษ 12 เสียง โดยชื่อ Engine แสดง `[NC / NonCommercial]` ชัดเจนและแยกสิทธิ์น้ำหนักโมเดล CC BY-NC 4.0 จากโค้ด Apache-2.0 ไม่รวมไฟล์โมเดล NC ใน Portable/GitHub และไม่ถือว่ารับรองเชิงพาณิชย์ ดู [คู่มือการติดตั้งและสิทธิ์](docs/PERSONAL_NONCOMMERCIAL_VOICES_TH.md)

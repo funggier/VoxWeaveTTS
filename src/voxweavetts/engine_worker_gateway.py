@@ -152,6 +152,8 @@ class WorkerSession:
             self._log = None
             raise WorkerError("could not start isolated TTS worker") from exc
         self._process = process
+        from .process_ownership import register_process
+        register_process("worker-launcher", pid=process.pid, root=self.root)
         self._lines = queue.Queue(maxsize=4)
         threading.Thread(
             target=self._reader, args=(process, self._lines),

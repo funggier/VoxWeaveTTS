@@ -1414,6 +1414,8 @@ def serve(port: int = 8765) -> None:
     if not 1 <= port <= 65535:
         raise ValueError("port must be 1..65535")
     with ThreadingHTTPServer(("127.0.0.1", port), Handler) as server:
+        from .process_ownership import register_process
+        register_process("server")
         print(f"VoxWeaveTTS v{__version__} at http://127.0.0.1:{port}/",
               flush=True)
         info = engine_info()

@@ -118,6 +118,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", choices=tuple(WORKERS), required=True)
     args = parser.parse_args()
+    from .process_ownership import register_process
+    register_process("worker-host")
     serve(args.backend)
 
 

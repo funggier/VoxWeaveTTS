@@ -107,6 +107,17 @@ $exe=Join-Path $stage 'VoxWeaveTTS.exe'
 & $compiler /nologo /target:winexe /platform:x64 ("/out:"+$exe) /reference:System.Windows.Forms.dll /reference:System.Drawing.dll (Join-Path $root 'scripts\VoxWeaveTTS.Launcher.cs')
 if ($LASTEXITCODE -ne 0 -or !(Test-Path $exe)) {throw 'Windows launcher compile failed'}
 
+# Ship the same force-stop utility in every portable build. It stops ONLY
+# processes proven to belong to the extracted installation.
+New-Item -ItemType Directory -Path (Join-Path $stage 'scripts') -Force | Out-Null
+Copy-Item (Join-Path $root 'Stop-VoxWeaveTTS.cmd') (Join-Path $stage 'Stop-VoxWeaveTTS.cmd') -Force
+Copy-Item (Join-Path $root 'scripts\Stop-VoxWeaveTTS.ps1') (Join-Path $stage 'scripts\Stop-VoxWeaveTTS.ps1') -Force
+@'
+@echo off
+call "%~dp0Stop-VoxWeaveTTS.cmd" %*
+exit /b %ERRORLEVEL%
+'@ | Set-Content -LiteralPath (Join-Path $stage 'Stop-Console.cmd') -Encoding Ascii
+
 $launcher=Join-Path $stage 'Start-Console.cmd'
 @'
 @echo off

@@ -48,6 +48,8 @@ Discord / YouTube / TikTok / Document
 
 ข้อจำกัด: นโยบายนี้จัดการเฉพาะ Worker ของ VoxWeaveTTS ไม่สามารถคืนหน่วยความจำจาก Unity, Firefox, Ollama หรือโปรแกรมอื่น และไม่มีการจัดการ Windows Page File อัตโนมัติ
 
+**คำสั่งบังคับปิดเมื่อยกเลิกการใช้งานจริง:** `Stop-VoxWeaveTTS.cmd` และ `Stop-Dev.cmd` จะหยุดทั้งเซิร์ฟเวอร์ของ VoxWeaveTTS และ Worker ที่โปรแกรมเป็นเจ้าของแบบ Process Tree ทำให้ Windows คืนหน่วยความจำ โมเดลที่เคยโหลดสำเร็จจะยังอยู่จนกว่าจะสั่งหยุดหรือเข้าสู่สถานการณ์ RAM เต็มตามนโยบายข้างต้น **ไม่หยุด Ollama** เพราะผู้ใช้ควบคุมผ่าน Ollama แยกต่างหาก ดู [วิธีใช้และขอบเขต](STOP_VOXWEAVETTS_TH.md)
+
 ## ติดตั้งและใช้งาน
 
 1. เปิด **ตั้งค่า → จัดการ Model Packages → Engine Providers — Isolated Python Runtimes**
