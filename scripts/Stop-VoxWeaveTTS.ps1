@@ -133,8 +133,30 @@ if (-not $DryRun) {
     foreach ($id in @($roots + $ordered | Select-Object -Unique)) {
         if ($null -eq (Get-Process -Id $id -ErrorAction SilentlyContinue)) { continue }
         Write-Output "[VoxWeaveTTS] Force stopping PID=$id and descendants"
-        & taskkill.exe /PID $id /T /F 2>&1 | ForEach-Object {
-            Write-Output ("  " + $_)
+        # A child may disappear between Get-Process and taskkill (especially
+        # after its parent's /T). Native stderr must not turn that harmless
+        # race into a false failure under ErrorActionPreference=Stop.
+        $previousPreference = $ErrorActionPreference
+        $output = @()
+        $killExit = 1
+        try {
+            $ErrorActionPreference = 'Continue'
+            $output = @(& taskkill.exe /PID $id /T /F 2>&1)
+            $killExit = $LASTEXITCODE
+        } catch {
+            $output = @($_.Exception.Message)
+        } finally {
+            $ErrorActionPreference = $previousPreference
+        }
+        $stillAlive = $null -ne (Get-Process -Id $id -ErrorAction SilentlyContinue)
+        if ($killExit -ne 0 -and -not $stillAlive) {
+            Write-Output "  PID $id already exited; nothing left to terminate"
+        } else {
+            $output | ForEach-Object { Write-Output ("  " + $_) }
+            if ($killExit -ne 0 -and $stillAlive) {
+                Write-Warning "Could not force-stop PID $id"
+                $failed = $true
+            }
         }
     }
     Start-Sleep -Milliseconds 400

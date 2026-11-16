@@ -12,8 +12,10 @@ function attach(document, fetcher){
   const supports=(engine,voice,language)=>
     engine?.voice_language_map&&Object.keys(engine.voice_language_map).length
       ?engine.voice_language_map[voice]===language:
-    engine.language==="multi"?voiceLanguage(voice)===language:
-    engine.language===language;
+    Array.isArray(engine?.supported_languages)&&engine.supported_languages.length
+      ?engine.supported_languages.includes(language):
+    engine?.language==="multi"?voiceLanguage(voice)===language:
+    engine?.language===language;
   function status(message){el("languageRouteStatus").textContent=message;}
   async function request(url,options){
     const response=await fetcher(url,options||{cache:"no-store"});

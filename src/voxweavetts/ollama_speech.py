@@ -31,6 +31,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "model": "",
     "voice": "default",
     "language": "en",
+    # Model-dependent; never claim multilingual support without configuration.
+    "supported_languages": [],
 }
 _VOICE_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 _ALLOWED_LANGUAGES = {"en", "th", "ja", "zh", "ko", "es", "fr",
@@ -54,6 +56,14 @@ def validate_config(data: Any) -> dict[str, Any]:
         raise ValueError("invalid Ollama Speech voice")
     if config["language"] not in _ALLOWED_LANGUAGES:
         raise ValueError("unsupported Ollama Speech voice language")
+    available = config["supported_languages"]
+    if (not isinstance(available, list) or len(available) > 33
+        or any(not isinstance(lang, str) or lang not in _ALLOWED_LANGUAGES
+               or lang == "multi" for lang in available)
+        or len(available) != len(set(available))
+        or (available and config["language"] != "multi"
+            and config["language"] not in available)):
+        raise ValueError("invalid Ollama Speech supported language list")
     return config
 
 
@@ -112,6 +122,7 @@ def descriptor() -> EngineInfo:
         id=ENGINE_ID,
         label="Ollama Speech (experimental; external server required)",
         language=config["language"],
+        supported_languages=tuple(config["supported_languages"]),
         voice_id=chosen,
         voice_options=tuple((voice, voice) for voice in options),
         sample_rate=SAMPLE_RATE,

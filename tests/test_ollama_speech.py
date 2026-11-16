@@ -68,6 +68,30 @@ class OllamaSpeechScaffoldTests(unittest.TestCase):
             ollama_speech.validate_config({"enabled":True,"model":"phonon",
                                           "unexpected_key":"x"})
 
+    def test_optional_multilingual_model_requires_explicit_language_metadata(self):
+        from voxweavetts.language_routes import voice_languages
+        config = ollama_speech.validate_config({
+            "enabled": True, "model": "local-speech",
+            "language": "multi", "supported_languages": ["en", "th"],
+        })
+        with patch.object(ollama_speech, "load_config", return_value=config), \
+             patch.object(ollama_speech, "probe", return_value=(True, True, ("default",))):
+            info = ollama_speech.descriptor()
+            self.assertEqual(info.supported_languages, ("en", "th"))
+            # Probe can confirm speech support, but does not discover languages.
+            from voxweavetts.speech import refresh_engine_registry
+            refresh_engine_registry()
+            try:
+                self.assertEqual(voice_languages("ollama-speech", "default"),
+                                 {"en", "th"})
+            finally:
+                refresh_engine_registry()
+        for bad in (["multi"], ["th", "th"], ["xx"], "en"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                ollama_speech.validate_config({
+                    "language": "multi", "supported_languages": bad,
+                })
+
     def test_config_is_portable_local_and_optional(self):
         with tempfile.TemporaryDirectory() as directory:
             config_path=Path(directory)/"settings.json"

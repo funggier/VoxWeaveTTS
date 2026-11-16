@@ -90,10 +90,13 @@ def _sha256(path: Path) -> str:
 
 
 def _validate_external_manifest(raw: Any, folder: Path) -> Provider:
-    if not isinstance(raw, dict) or set(raw) != {
+    required = {
         "format", "version", "provider_id", "engine_id", "title",
         "language", "sample_rate", "voices", "license", "capabilities",
-    }:
+    }
+    optional = {"supported_languages", "voice_language_map"}
+    if (not isinstance(raw, dict) or not required <= set(raw)
+            or set(raw) - required - optional):
         raise ProviderApprovalError("invalid external engine provider schema")
     name = raw["provider_id"]
     engine_id = raw["engine_id"]
@@ -122,6 +125,23 @@ def _validate_external_manifest(raw: Any, folder: Path) -> Provider:
                for v in voices)
         or len({v["id"] for v in voices}) != len(voices)):
         raise ProviderApprovalError("invalid voice list")
+    # Approved engine providers can explicitly advertise languages shared by
+    # every voice (bilingual models), or per-voice language assignments. The
+    # version-1 schema remains backwards compatible for single-language ones.
+    supported = raw.get("supported_languages", [])
+    voice_map = raw.get("voice_language_map", {})
+    language_code = lambda x: (isinstance(x, str) and len(x) == 2
+                               and x.isascii() and x.isalpha() and x.islower())
+    if (not isinstance(supported, list) or len(supported) > 33
+        or len(supported) != len(set(str(x) for x in supported))
+        or any(not language_code(x) for x in supported)
+        or (supported and raw["language"] != "multi"
+            and raw["language"] not in supported)
+        or not isinstance(voice_map, dict)
+        or not set(voice_map) <= {v["id"] for v in voices}
+        or any(not language_code(lang) for lang in voice_map.values())
+        or (voice_map and supported)):
+        raise ProviderApprovalError("invalid provider language capabilities")
     caps = raw["capabilities"]
     if (not isinstance(caps, dict) or not all(
         isinstance(key, str) and isinstance(value, bool) and len(key) < 64

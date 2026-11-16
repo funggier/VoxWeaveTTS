@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from voxweavetts.language_routes import (
-    detect_language, load_routes, save_routes, choose_route,
+    detect_language, load_routes, save_routes, choose_route, voice_languages,
 )
 from voxweavetts.model_packages import validate_manifest, ModelPackageError
 from voxweavetts.ai_model_packages import (
@@ -16,6 +16,64 @@ from voxweavetts.processing import InputError
 
 
 class LanguageRoutingTests(unittest.TestCase):
+    def test_wayu_all_twelve_voices_allow_thai_and_english_routes(self):
+        from voxweavetts.personal_wayu_engine import ENGINE_ID, VOICES
+        from voxweavetts.speech import get_engine_info
+
+        descriptor = get_engine_info(ENGINE_ID)
+        self.assertEqual(descriptor.language, "th")
+        self.assertEqual(descriptor.supported_languages, ("th", "en"))
+        self.assertEqual(descriptor.as_dict()["supported_languages"], ["th", "en"])
+        self.assertEqual(len(VOICES), 12)
+        for voice_id, _ in VOICES:
+            with self.subTest(voice=voice_id):
+                self.assertEqual(voice_languages(ENGINE_ID, voice_id), {"th", "en"})
+
+        # Both language entries may share the same NC model and the SAME voice.
+        with tempfile.TemporaryDirectory() as temp:
+            profile = {"engine_id": ENGINE_ID, "voice_id": "f_young_warm"}
+            path = Path(temp) / "language-voices.json"
+            saved = save_routes({"expected_revision": 0,
+                                 "routes": {"th": profile, "en": profile}}, path)
+            self.assertEqual(set(saved["routes"]), {"th", "en"})
+            self.assertEqual(choose_route("Good morning", language="en", path=path)[1],
+                             profile)
+            self.assertEqual(choose_route("สวัสดีครับ", language="th", path=path)[1],
+                             profile)
+            with self.assertRaises(InputError):
+                save_routes({"expected_revision": 1,
+                             "routes": {"fr": profile}}, path)
+
+    def test_other_engines_only_offer_the_languages_they_support(self):
+        from voxweavetts.speech import list_engine_info
+        from voxweavetts.kokoro_engine import LANGUAGE_CODES
+        descriptors = {engine.id: engine for engine in list_engine_info()}
+        single_language = (
+            ("fastthaig2p-cpu", "th"),
+            ("makham-paradee-cpu", "th"),
+            ("vachana-cpu", "th"),
+            ("model-fastthaig2p-thai-som-0_3_0", "th"),
+            ("model-vachana-thai-four-voices-1_0_0", "th"),
+            ("model-melo-chinese-onnx-1_0_0", "zh"),
+        )
+        for engine_id, expected in single_language:
+            if engine_id not in descriptors:
+                continue  # Optional model packs need not be installed on CI.
+            for voice_id in descriptors[engine_id].voice_ids:
+                with self.subTest(engine=engine_id, voice=voice_id):
+                    self.assertEqual(voice_languages(engine_id, voice_id), {expected})
+
+        kokoro = descriptors.get("model-kokoro-multilingual-int8-1_0_0")
+        if kokoro:
+            for voice_id in kokoro.voice_ids:
+                self.assertEqual(voice_languages(kokoro.id, voice_id),
+                                 {LANGUAGE_CODES[voice_id[0]]})
+        supertonic = descriptors.get("model-supertonic3-multilingual-int8-1_0_0")
+        if supertonic:
+            for voice_id in supertonic.voice_ids:
+                self.assertEqual(voice_languages(supertonic.id, voice_id),
+                                 {voice_id[:2]})
+
     def test_script_detection(self):
         samples = [
             ("สวัสดีค่ะ", "th"), ("Hello world", "en"),

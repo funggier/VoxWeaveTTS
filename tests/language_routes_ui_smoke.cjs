@@ -32,6 +32,9 @@ const engine="model-kokoro-multilingual-int8-1_0_0";
 const engines=[
   {id:"makham-paradee-cpu",label:"Thai",language:"th",assets_ready:true,runtime_ready:true,
    voices:[{id:"paradee_thai",label:"Paradee"}]},
+  {id:"personal-nc-wayu-paxa-edge-cpu",label:"[NC / NonCommercial] Wayu Paxa Edge",
+   language:"th",supported_languages:["th","en"],assets_ready:true,runtime_ready:true,
+   voices:[{id:"f_young_warm",label:"Warm"},{id:"m_mid_warm",label:"Male"}]},
   {id:engine,label:"Kokoro INT8",language:"multi",assets_ready:true,runtime_ready:true,
    voices:[{id:"af_heart",label:"English"},{id:"ff_siwis",label:"French"},
            {id:"jf_alpha",label:"Japanese"}]},
@@ -173,5 +176,29 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   assert.equal(ids.languageRouteVoice.value,"zh_melo");
   ids.languageRouteSet.click();ids.languageRouteSave.click();await tick();
   assert.equal(stored.routes.zh.voice_id,"zh_melo");
-  console.log("PASS: independent English/Japanese/Korean/Chinese engine routing");
+
+  // Bilingual Wayu voices must appear independently under Thai and English,
+  // never under French, while preserving the non-commercial designation.
+  const wayuId="personal-nc-wayu-paxa-edge-cpu";
+  ids.languageRouteLanguage.value="en";ids.languageRouteLanguage.change();
+  const enWayu=[...ids.languageRouteEngine.options].find(o=>o.value===wayuId);
+  assert.ok(enWayu,"bilingual Wayu must be selectable as an English TTS model");
+  assert.match(enWayu.textContent,/NC \/ NonCommercial/);
+  ids.languageRouteEngine.value=wayuId;ids.languageRouteEngine.change();
+  assert.deepEqual(ids.languageRouteVoice.options.map(x=>x.value),
+    ["f_young_warm","m_mid_warm"]);
+  ids.languageRouteVoice.value="f_young_warm";
+  ids.languageRouteSet.click();
+  ids.languageRouteLanguage.value="th";ids.languageRouteLanguage.change();
+  assert.ok(ids.languageRouteEngine.options.some(x=>x.value===wayuId),
+    "Wayu should still be offered for Thai even if assigned to English");
+  ids.languageRouteEngine.value=wayuId;ids.languageRouteEngine.change();
+  ids.languageRouteVoice.value="f_young_warm";
+  ids.languageRouteSet.click();
+  ids.languageRouteSave.click();await tick();
+  assert.equal(stored.routes.en.voice_id,"f_young_warm");
+  assert.equal(stored.routes.th.voice_id,"f_young_warm");
+  assert.equal(stored.routes.en.engine_id,wayuId);
+  assert.equal(stored.routes.th.engine_id,wayuId);
+  console.log("PASS: Thai/English Wayu, independent Kokoro/Supertonic/Melo routes");
 })().catch(e=>{console.error(e);process.exitCode=1;});

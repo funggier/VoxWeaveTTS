@@ -49,6 +49,9 @@ class EngineInfo:
     # Explicit per-voice language mapping for non-Kokoro multilingual engines.
     # Keeps each synthesis request's language independent from another voice.
     voice_language_map: dict[str, str] = field(default_factory=dict)
+    # Every voice can synthesize ALL these languages (e.g. bilingual Wayu).
+    # Empty means use the legacy per-voice map / Kokoro voice prefix / language.
+    supported_languages: tuple[str, ...] = ()
 
     @property
     def voice_ids(self) -> tuple[str, ...]:
@@ -69,6 +72,7 @@ class EngineInfo:
             "adapter_api_version": self.adapter_api_version,
             "commercial_status": self.commercial_status,
             "voice_language_map": dict(self.voice_language_map),
+            "supported_languages": list(self.supported_languages),
         }
 
 
@@ -131,6 +135,17 @@ class EngineRegistry:
             or any(not isinstance(lang, str) or len(lang) != 2 or not lang.isalpha()
                    or not lang.islower() for lang in info.voice_language_map.values())):
             raise ValueError("invalid per-voice language mapping")
+        if (not isinstance(info.supported_languages, tuple)
+            or len(info.supported_languages) > 33
+            or any(not isinstance(lang, str) for lang in info.supported_languages)
+            or len(info.supported_languages) != len(set(
+                lang for lang in info.supported_languages if isinstance(lang, str)))
+            or any(not isinstance(lang, str) or len(lang) != 2
+                   or not lang.isascii() or not lang.isalpha() or not lang.islower()
+                   for lang in info.supported_languages)
+            or (info.supported_languages and info.language != "multi"
+                and info.language not in info.supported_languages)):
+            raise ValueError("invalid supported language list")
         if info.commercial_status not in {
             "review_required", "hold", "excluded", "cleared"
         }:

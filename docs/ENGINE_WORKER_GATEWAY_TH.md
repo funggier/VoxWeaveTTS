@@ -1,5 +1,7 @@
 # VoxWeaveTTS — TTS Engine Provider / Worker Gateway
 
+**การเลือกโมเดลตามภาษา:** Engine Registry รองรับ `supported_languages` สำหรับเสียงเดียวที่อ่านได้หลายภาษา (Wayu **th/en** ทั้ง 12 เสียง) และ `voice_language_map` สำหรับรุ่นที่เลือกภาษาตาม Voice (เช่น Supertonic) ตรวจสอบทั้ง UI และ API ดู [รายการภาษาและแนวทางตั้งค่า](MODEL_LANGUAGE_CAPABILITIES_TH.md)
+
 ## เป้าหมาย
 
 VoxWeaveTTS Core รันระบบอ่านแชท กฎคำอ่าน การแปล ภาษา การจัดคิว สร้าง WAV และ Subtitle/OBS เหมือนเดิม แต่การสังเคราะห์เสียงของโมเดลสามารถแยกไปเป็น **Worker Process** ที่ใช้ Python/Dependencies ของตัวเอง ไม่ต้องใช้ Runtime ร่วมกันทั้งหมด

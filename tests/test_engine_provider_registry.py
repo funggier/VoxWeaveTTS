@@ -60,6 +60,74 @@ class EngineProviderTests(unittest.TestCase):
                 stream.write("\n# modified after approval\n")
             self.assertNotIn("minimal-demo", all_providers(root))
 
+    def test_external_provider_can_declare_shared_bilingual_voices(self):
+        from voxweavetts.engine_contract import EngineRegistry
+        from voxweavetts.language_routes import voice_languages
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / "extensions" / "engine-providers" / "minimal-demo"
+            folder.parent.mkdir(parents=True)
+            shutil.copytree(ROOT / "examples" / "tts-provider-minimal", folder)
+            manifest = json.loads((folder / "provider.json").read_text(encoding="utf-8"))
+            manifest["language"] = "th"
+            manifest["supported_languages"] = ["th", "en"]
+            (folder / "provider.json").write_text(
+                json.dumps(manifest), encoding="utf-8")
+            provider = approve_provider_folder(folder, root=root, trust_code=True)
+            registry = EngineRegistry()
+            with patch("voxweavetts.engine_provider_catalog.all_providers",
+                       return_value={"minimal-demo": provider}):
+                speech._register_external_providers(registry)
+            info = registry.get("minimal-demo-v1")
+            self.assertEqual(info.supported_languages, ("th", "en"))
+            self.assertEqual(info.as_dict()["supported_languages"], ["th", "en"])
+            with patch.object(speech, "_REGISTRY", registry):
+                self.assertEqual(voice_languages("minimal-demo-v1", "demo"),
+                                 {"th", "en"})
+
+    def test_external_provider_can_declare_per_voice_language_map(self):
+        from voxweavetts.engine_contract import EngineRegistry
+        from voxweavetts.language_routes import voice_languages
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / "extensions" / "engine-providers" / "minimal-demo"
+            folder.parent.mkdir(parents=True)
+            shutil.copytree(ROOT / "examples" / "tts-provider-minimal", folder)
+            manifest = json.loads((folder / "provider.json").read_text(encoding="utf-8"))
+            manifest["language"] = "multi"
+            manifest["voice_language_map"] = {"demo": "en"}
+            (folder / "provider.json").write_text(
+                json.dumps(manifest), encoding="utf-8")
+            provider = approve_provider_folder(folder, root=root, trust_code=True)
+            registry = EngineRegistry()
+            with patch("voxweavetts.engine_provider_catalog.all_providers",
+                       return_value={"minimal-demo": provider}):
+                speech._register_external_providers(registry)
+            with patch.object(speech, "_REGISTRY", registry):
+                self.assertEqual(voice_languages("minimal-demo-v1", "demo"), {"en"})
+
+    def test_external_language_declarations_are_validated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            folder = root / "extensions" / "engine-providers" / "minimal-demo"
+            folder.parent.mkdir(parents=True)
+            shutil.copytree(ROOT / "examples" / "tts-provider-minimal", folder)
+            original = json.loads((folder / "provider.json").read_text(encoding="utf-8"))
+            cases = [
+                {"supported_languages": ["en", "en"]},
+                {"supported_languages": ["de"]},
+                {"supported_languages": ["not-a-code"]},
+                {"supported_languages": ["en"], "voice_language_map": {"demo": "en"}},
+                {"voice_language_map": {"other": "en"}},
+            ]
+            for changed in cases:
+                with self.subTest(changed=changed):
+                    manifest = {**original, **changed}
+                    (folder / "provider.json").write_text(
+                        json.dumps(manifest), encoding="utf-8")
+                    with self.assertRaises(ProviderApprovalError):
+                        approve_provider_folder(folder, root=root, trust_code=True)
+
     def test_installer_rejects_non_catalog_model_dependency_commands(self):
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaises(InstallError):

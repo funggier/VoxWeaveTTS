@@ -94,6 +94,8 @@ def voice_languages(engine_id: str, voice_id: str) -> set[str]:
     if info.voice_language_map:
         code = info.voice_language_map.get(voice_id)
         return {code} if code else set()
+    if info.supported_languages:
+        return set(info.supported_languages)
     if info.language == "multi":
         from .kokoro_engine import LANGUAGE_CODES
         language = LANGUAGE_CODES.get(voice_id[0], "")

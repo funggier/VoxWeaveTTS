@@ -60,7 +60,8 @@ def descriptor() -> EngineInfo:
     return EngineInfo(
         id=ENGINE_ID,
         label="[NC / NonCommercial] Wayu Paxa Edge — ไทย/อังกฤษ 12 เสียง",
-        language="th", voice_id="f_young_warm", voice_options=VOICES,
+        language="th", supported_languages=("th", "en"),
+        voice_id="f_young_warm", voice_options=VOICES,
         sample_rate=SAMPLE_RATE,
         assets_ready=assets_ready(), runtime_ready=runtime_ready(),
         capabilities=capabilities, commercial_status="hold",

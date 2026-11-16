@@ -476,6 +476,8 @@ def _register_external_providers(registry: EngineRegistry) -> None:
             return EngineInfo(
                 id=engine_id, label=title, language=data["language"],
                 voice_id=voices[0][0], voice_options=voices,
+                supported_languages=tuple(data.get("supported_languages", ())),
+                voice_language_map=dict(data.get("voice_language_map", {})),
                 sample_rate=data["sample_rate"], assets_ready=True,
                 runtime_ready=gateway().available(profile.backend),
                 capabilities=capabilities, commercial_status="hold",

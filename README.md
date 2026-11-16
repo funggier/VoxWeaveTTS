@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Per-language TTS model routing fix (source after v0.9.2):** The **[NC / NonCommercial] Wayu Paxa Edge** voice family now explicitly supports both **Thai (th) and English (en)** for all 12 voices, including independent per-language presets and controls. Existing fixed-language engines and per-voice Kokoro/Supertonic routes remain supported; future approved providers can declare shared/per-voice language capabilities. [Model language capability guide (TH)](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md).
+
 **Full-stop recovery utility (source after v0.9.2):** Run `Stop-VoxWeaveTTS.cmd` (or `Stop-Dev.cmd` for the development checkout) to force-stop **only this installation** and any owned TTS workers, including orphaned Python processes after an unclean shutdown. Process identity and creation timestamps are verified to prevent terminating unrelated applications. The new portable build also includes `Stop-Console.cmd`. **Ollama and its model server are deliberately not stopped.** See [Thai stop/recovery guide](docs/STOP_VOXWEAVETTS_TH.md).
 
 **Windows Portable v0.9.2 (complete release):** Opt-in, per-workspace mixed-language speech synthesis segments Thai/English/Chinese/Japanese/Korean scripts after translation, selects the saved voice for each segment, and concatenates resampled PCM into one WAV. Existing one-voice behavior remains the default. [Thai documentation](docs/MIXED_LANGUAGE_TTS_TH.md). [Download full v0.9.2 release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2) · [Release notes](docs/RELEASE_NOTES_v0.9.2.md).
