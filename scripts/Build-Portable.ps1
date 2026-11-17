@@ -155,8 +155,16 @@ Write-Output ("PORTABLE_MODEL_SHA256="+$hash)
 Write-Output ("PORTABLE_EXE="+$exe)
 if (!$SkipZip) {
   if (Test-Path $zip) {Remove-Item $zip -Force}
-  Compress-Archive -LiteralPath $stage -DestinationPath $zip -CompressionLevel Optimal
-  if (!(Test-Path $zip)) {throw 'Portable ZIP was not built'}
+  # Windows PowerShell Compress-Archive holds large in-memory ZIP structures
+  # for the embedded Python runtime and can consume multiple GiB. The Windows
+  # built-in bsdtar creates the same standard .zip with bounded memory.
+  if (Get-Command tar.exe -ErrorAction SilentlyContinue) {
+    & tar.exe -a -c -f $zip -C (Join-Path $root 'dist') 'VoxWeaveTTS'
+    if ($LASTEXITCODE -ne 0) {throw 'Portable ZIP packaging with tar.exe failed'}
+  } else {
+    Compress-Archive -LiteralPath $stage -DestinationPath $zip -CompressionLevel Optimal
+  }
+  if (!(Test-Path $zip) -or (Get-Item $zip).Length -lt 1MB) {throw 'Portable ZIP was not built'}
   $size=[math]::Round((Get-Item $zip).Length/1MB,1)
   $sha=(Get-FileHash $zip -Algorithm SHA256).Hash
   Write-Output ("PORTABLE_ZIP="+$zip)
