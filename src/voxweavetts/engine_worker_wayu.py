@@ -16,8 +16,8 @@ from .personal_wayu_engine import (
 
 
 def _verified_package_path(engine_id: str) -> Path:
-    from .model_packages import engine_id_for, installed_packages
-    for manifest, folder in installed_packages():
+    from .universal_model_packages import engine_id_for, native_tts_packages
+    for manifest, folder in native_tts_packages():
         if (manifest["engine_adapter"] == "wayu-nc-v1"
                 and engine_id_for(manifest) == engine_id):
             return folder
@@ -26,8 +26,8 @@ def _verified_package_path(engine_id: str) -> Path:
 
 def _check_pinned_weights(model_dir: Path) -> None:
     """Reject altered serialized PyTorch weights before calling torch.load."""
-    from .model_packages import _WAYU_PINNED_SHA256
-    for name, expected in _WAYU_PINNED_SHA256.items():
+    from .wayu_native_trust import PINNED_ASSETS
+    for name, expected in PINNED_ASSETS.items():
         path = model_dir / name
         if not path.is_file() or path.is_symlink():
             raise ValueError("Wayu NC package weight asset is missing or a link")

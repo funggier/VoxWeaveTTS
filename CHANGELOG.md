@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.10.1 — Wayu Paxa Edge 12-Voice Native v2 (NonCommercial)
+
+- Add separate CC BY-NC 4.0 Wayu Paxa Edge 12-voice Thai/English native `.vwmodel v2` package. Original upstream `.pth/.pt` assets remain byte-for-byte SHA-256 pinned, and the exact publisher/source revision and NC license are enforced before execution.
+- Native v2 never accepts general pickle/serialized PyTorch assets: only the specifically reviewed upstream Wayu NC files can use `.pt/.pth`; isolated Wayu Worker rehashes originals before inference.
+- Retain the installed Wayu NC runtime and 12 selectable voices, with the official acceptable-use policy and attribution embedded; Wayu requires an explicitly installed separate runtime and is never bundled in the main Portable ZIP.
+- Publish all native v2 optional model archives and update full portable/source/docs/extension/release checksums. See [Wayu guide](docs/WAYU_NC_NATIVE_V2_TH.md) and [v0.10.1 notes](docs/RELEASE_NOTES_v0.10.1.md).
+
 ## v0.10.0 — Native v2 Portable and Trusted Provider SDK (Phase D — TTS)
 
 - Add separate Ed25519 publisher public-key trust store with out-of-band SHA-256 fingerprint confirmation and explicit per-provider executable approval. Signatures bind provider manifest, worker and requirements; automatic revocation on tamper/key removal; no remote key lookup and no private signing keys in Portable.

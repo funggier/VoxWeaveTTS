@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.10.0', [switch]$SkipZip)
+param([string]$Version = '0.10.1', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -111,7 +111,7 @@ $notice=@(
   "Third-party Python package license metadata/files are in runtime/python/Lib/site-packages/*dist-info/.",
   "User-generated speech, recordings and chat messages have their own rights.",
   "MakHam Paradee is a built-in Engine with PREINSTALLED native Universal v2 data-only weights in models/universal/v2/tts/makham-paradee/1.0.0. A native v2 recovery .vwmodel is included in models/recovery-packages. Removing the model leaves the Engine installed; shared TTS runtimes are managed separately.",
-  "Optional native v2 packages: FastThaiG2P, Vachana, Kokoro, MeloTTS Chinese, Supertonic 3, experimental M2M100. See separate archive rights; no package is automatically commercial-cleared.",
+  "Optional native v2 packages: FastThaiG2P, Vachana, Kokoro, MeloTTS Chinese, Supertonic 3, experimental M2M100, Wayu Paxa Edge NC (CC BY-NC 4.0, strictly NonCommercial). See separate archive rights; no package is automatically commercial-cleared.",
   "FastThaiG2P 325MB model, personal voices and private local settings are NOT bundled."
 )
 $notice | Set-Content (Join-Path $stage 'THIRD_PARTY_NOTICES.txt') -Encoding UTF8

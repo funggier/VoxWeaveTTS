@@ -35,7 +35,7 @@ _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _LANGUAGE = re.compile(r"[a-z]{2,3}(?:-[A-Za-z]{2,4})?\Z")
 _VOICE = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{0,63}\Z")
 _EXTENSIONS = {".onnx", ".json", ".npy", ".bin", ".txt", ".md", ".fst",
-               ".utf8", ".safetensors", ".model", ".lock", ".whl"}
+               ".utf8", ".safetensors", ".model", ".lock", ".whl", ".pt", ".pth"}
 _KINDS = {"tts", "voice-cloning", "stt", "translation", "llm"}
 _LOCK = threading.RLock()
 
@@ -49,6 +49,9 @@ _BUILTINS = {
     "sherpa-supertonic-v1": ("tts", "sherpa", ("duration_predictor.int8.onnx", "text_encoder.int8.onnx", "vector_estimator.int8.onnx", "vocoder.int8.onnx", "tts.json", "unicode_indexer.bin", "voice.bin"), 44100),
     "sherpa-melo-zh-v1": ("tts", "sherpa", ("model.onnx", "tokens.txt", "lexicon.txt"), 44100),
     "m2m100-transformers-v1": ("translation", "m2m100", ("config.json", "vocab.json", "sentencepiece.bpe.model", "model.safetensors"), 0),
+    # Serialized PyTorch is allowed ONLY for this exact first-party SHA-pinned
+    # upstream Wayu NC package. Never allow arbitrary pickle extensions.
+    "wayu-nc-v1": ("tts", "wayu-nc", ("config.json", "model.pth"), 24000),
 }
 
 
@@ -214,9 +217,37 @@ def validate_manifest(value: Any) -> dict:
         if ext == ".whl" and (value["runtime"]["source"] != "bundled-wheels"
                               or not name.startswith("runtime/wheels/")):
             raise UniversalPackageError("unapproved wheel material")
-        # Never load arbitrary pickle/PyTorch legacy serialization.
-        if name.endswith((".pt", ".pth", ".pkl", ".py", ".dll", ".exe")):
-            raise UniversalPackageError("executable or pickle asset forbidden in native v2")
+        # Only the exactly pinned original NC Wayu weights may use PyTorch
+        # serialized .pt/.pth, NEVER arbitrary serialized/ executable bytes.
+        if ext in (".pt", ".pth"):
+            from .wayu_native_trust import PINNED_ASSETS, PACKAGE_ID, PACKAGE_VERSION
+            if (adapter["id"] != "wayu-nc-v1"
+                or pkg["id"] != PACKAGE_ID or pkg["version"] != PACKAGE_VERSION
+                or name not in PINNED_ASSETS
+                or row["sha256"] != PINNED_ASSETS[name]):
+                raise UniversalPackageError("untrusted serialized PyTorch asset")
+        if ext in (".pkl", ".py", ".dll", ".exe"):
+            raise UniversalPackageError("executable asset forbidden in native v2")
+    if adapter["id"] == "wayu-nc-v1":
+        from .wayu_native_trust import PINNED_ASSETS, PACKAGE_ID, PACKAGE_VERSION
+        from .personal_wayu_engine import VOICES
+        cap = value["capabilities"]
+        if (adapter["trust"] != "builtin" or pkg["kind"] != "tts"
+            or pkg["id"] != PACKAGE_ID or pkg["version"] != PACKAGE_VERSION
+            or pkg["languages"] != ["th", "en"]
+            or value["runtime"]["id"] != "wayu-nc"
+            or value["runtime"]["kind"] != "python-venv"
+            or value["runtime"]["source"] != "reuse-only"
+            or value["runtime"]["install_policy"] != "reuse-only"
+            or value["runtime"]["accelerator"] != "cpu"
+            or cap["language"] != "th" or cap["sample_rate"] != 24000
+            or set(PINNED_ASSETS) - {r["path"] for r in value["files"]}
+            or [v["id"] for v in cap["voices"]] != [v[0] for v in VOICES]
+            or any(v["asset"] != "voices/" + v["id"] + ".pt"
+                   for v in cap["voices"])
+            or any(files[name.casefold()]["sha256"] != sha
+                   for name, sha in PINNED_ASSETS.items())):
+            raise UniversalPackageError("Wayu NC v2 requires the exact pinned weights/voices")
     return value
 
 
@@ -341,6 +372,8 @@ def native_adapter_profile(manifest: dict, folder: Path) -> dict | None:
                 raise UniversalPackageError("invalid Supertonic native voice mapping")
             if adapter_id == "sherpa-melo-zh-v1" and (asset != "model.onnx" or vid != "zh_melo"):
                 raise UniversalPackageError("invalid Melo native voice mapping")
+            if adapter_id == "wayu-nc-v1" and asset != "voices/" + vid + ".pt":
+                raise UniversalPackageError("invalid Wayu NC voice mapping")
         if adapter_id == "makham-paradee-onnx-v1":
             from .makham_package import PINNED_ASSETS, PACKAGE_ID, PACKAGE_VERSION, UPSTREAM, SOURCE_REVISION
             if (manifest["package"]["id"] != PACKAGE_ID
@@ -355,6 +388,18 @@ def native_adapter_profile(manifest: dict, folder: Path) -> dict | None:
             if (rights["source"] != {"url": UPSTREAM, "revision": SOURCE_REVISION}
                 or rights["license"]["spdx"] != "Apache-2.0"):
                 raise UniversalPackageError("MakHam pinned source/rights mismatch")
+        if adapter_id == "wayu-nc-v1":
+            from .wayu_native_trust import (
+                PINNED_ASSETS, SOURCE_URL, SOURCE_REVISION, LICENSE_SPDX,
+            )
+            rights = _small_json(folder, manifest["rights"])
+            if (rights["source"] != {"url": SOURCE_URL, "revision": SOURCE_REVISION}
+                or rights["license"]["spdx"] != LICENSE_SPDX
+                or rights["license"]["review_status"] != "hold"
+                or rights["license"]["url"] != "https://creativecommons.org/licenses/by-nc/4.0/"
+                or not all(installed.get(name, {}).get("sha256") == sha
+                           for name, sha in PINNED_ASSETS.items())):
+                raise UniversalPackageError("Wayu NC model rights/source or weights do not match pinned original")
         if adapter_id == "vachana-onnx-v1" and cap["language"] != "th":
             raise UniversalPackageError("Vachana language mismatch")
         if adapter_id == "sherpa-melo-zh-v1" and cap["language"] != "zh":

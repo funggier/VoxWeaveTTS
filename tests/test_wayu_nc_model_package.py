@@ -111,7 +111,7 @@ class WayuNCModelPackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             pins = _fixture(base)
-            with patch.object(pkg, "_WAYU_PINNED_SHA256", pins):
+            with patch("voxweavetts.wayu_native_trust.PINNED_ASSETS", pins):
                 _check_pinned_weights(base)
                 (base / "model.pth").write_bytes(b"bad")
                 with self.assertRaisesRegex(ValueError, "upstream"):

@@ -88,12 +88,12 @@ Builder สร้าง Manifest v2 จาก Spec และ File Hash โดย
 - STT / Voice Cloning / LLM: ติดตั้งข้อมูลที่ตรวจแล้วได้ แต่ไม่มี Adapter Runtime สำหรับประมวลผลจริง
 - Runtime: ตรวจ Declarative reuse-only / recipe-only / bundled-wheels และ SHA ของทุกไฟล์ แต่ยังไม่ติดตั้ง Wheelhouse/Dependencies จาก ZIP
 - v1 TTS / v1 AI: **ปิดเส้นทางติดตั้งใน Model Package Manager รุ่นใหม่**; จะไม่แปลงหรือโหลดเป็น v2 แบบเงียบ ๆ
-- แพ็กเกจ Wayu NC ที่เป็น PyTorch serialization รุ่นเดิมยังไม่รองรับใน Native v2 เพราะต้องสร้างกลไกตรวจ Hash/Adapter เฉพาะก่อน
+- Wayu Paxa Edge [NC / NonCommercial] รองรับ Native v2 ตั้งแต่ v0.10.1 โดยอนุญาตไฟล์ PyTorch `.pth/.pt` **เฉพาะ** ตัวต้นฉบับที่ตรึง SHA-256 ทุกไฟล์และตรวจ License CC BY-NC 4.0 / Source Revision; ไม่อนุญาต PyTorch serialization สำหรับโมเดลอื่น [คู่มือ Wayu NC v2](WAYU_NC_NATIVE_V2_TH.md)
 
 ## ข้อกำหนดด้านความปลอดภัย
 
 1. ตรวจ Manifest, ZIP Index, Bounded Size, SHA-256, Compression Ratio, Duplicate Names, Traversal และ Symlink ก่อนใช้
-2. ไม่รับ Executable, Pickle-backed PyTorch Weight หรือ Install Hook ใน Native v2
+2. ไม่รับ Executable หรือ Install Hook ใน Native v2 และไม่รับ Pickle-backed PyTorch Weight ทั่วไป (ยกเว้น Wayu NC รุ่นต้นฉบับที่ตรวจ SHA-256/สิทธิ์ครบตาม allowlist และโหลดเฉพาะใน Isolated Worker)
 3. ติดตั้งผ่าน Staging และ Atomic Rename; Failed Integrity Check ต้องไม่ทิ้ง Installed Package
 4. Adapter ID ใน Manifest ไม่ได้ทำให้โค้ดกลายเป็น Trusted เอง — ต้องตรงกับ Allowlist ของโปรแกรม
 5. Runtime/Offline Wheels ไม่ถูก Execute หรือ Install อัตโนมัติ; ต้องผ่าน Trusted Installer + User Approval ที่แยกต่างหาก
@@ -111,7 +111,7 @@ Phase D — Signed External Adapter, SDK, STT/LLM/Cloning Runtime และ Stre
 
 ## ผลทดสอบจากไฟล์จริงในเครื่อง
 
-- สร้างและติดตั้ง Native v2 จากโมเดลที่ตรวจสอบ Hash แล้ว: TTS 6 ชุด (MakHam, FastThaiG2P, Vachana, Kokoro, Supertonic 3, Melo Chinese) และ Translation M2M100 หนึ่งชุด
+- สร้างและติดตั้ง Native v2 จากโมเดลที่ตรวจสอบ Hash แล้ว: TTS 7 ชุด (MakHam, FastThaiG2P, Vachana, Kokoro, Supertonic 3, Melo Chinese, Wayu Paxa Edge NC) และ Translation M2M100 หนึ่งชุด โดย Wayu NC ต้องใช้แบบ NonCommercial เท่านั้น
 - ไฟล์แพ็กเกจอยู่ใน dist/ModelPackagesV2/ และมี SHA256SUMS.txt แยก; รุ่นในชื่อ Model อาจเป็น 1.0.0 แต่ Format เป็น 2
 - MakHam สร้างเสียงจริงจาก Native v2 ได้แล้ว; M2M100 ผ่านการติดตั้งและค้นหา Runtime แต่การแปลจริงยังไม่สำเร็จเพราะ Windows Paging File ไม่พอ (OSError 1455)
 - M2M100 Core ใช้ Isolated Worker เสมอ ไม่พยายามโหลด PyTorch น้ำหนัก 418M เข้าโปรเซสหลัก; ผู้ใช้ต้องปรับ RAM/Commit ด้วยตนเองหากต้องการทดสอบข้อความจริง

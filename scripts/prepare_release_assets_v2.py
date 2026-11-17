@@ -21,8 +21,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from voxweavetts.offline_wheelhouse import trusted_lock, verified_wheels
 from voxweavetts.universal_model_packages import inspect_archive
 
-VERSION = "0.10.0"
-OUTPUT = ROOT / "dist" / "ReleaseV2"
+VERSION = "0.10.1"
+OUTPUT = ROOT / "dist" / "ReleaseV2_0101"
 PACKAGES = ROOT / "dist" / "ModelPackagesV2"
 RUNTIMES = ("sherpa", "pythaitts", "m2m100")
 
@@ -92,8 +92,8 @@ def main() -> None:
         if name in expected or "/" in name or "\\" in name:
             raise RuntimeError("invalid model package SHA256SUMS")
         expected[name] = sha
-    if len(expected) != 7:
-        raise RuntimeError("release requires the 7 native Universal v2 packages")
+    if len(expected) != 8:
+        raise RuntimeError("release requires the 8 native Universal v2 packages")
     for name, sha in sorted(expected.items()):
         file = PACKAGES / name
         if not name.endswith("-format-v2.vwmodel") or not file.is_file():
