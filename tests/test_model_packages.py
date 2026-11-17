@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import struct
 import tempfile
 import unittest
@@ -47,6 +48,22 @@ def fixture(source: Path, *, package_id="vachana-a", version="1.0.0"):
 
 
 class ModelPackagesTests(unittest.TestCase):
+    def test_rebuilt_package_is_byte_reproducible_after_file_mtime_change(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            source=root/"source"
+            manifest=fixture(source)
+            first=root/"a.vwmodel"
+            second=root/"b.vwmodel"
+            make_package(source,manifest,first)
+            for row in manifest["files"]:
+                os.utime(source/row["path"],(1_700_000_000,1_700_000_000))
+            make_package(source,manifest,second)
+            self.assertEqual(first.read_bytes(),second.read_bytes())
+            with zipfile.ZipFile(second) as archive:
+                self.assertIsNone(archive.testzip())
+                self.assertEqual(archive.namelist()[0],"manifest.json")
+
     def test_install_two_versions_and_another_model_without_overwriting(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp) / "packages"

@@ -467,10 +467,23 @@ def make_package(source: Path, manifest: dict[str, Any], output: Path) -> Path:
             if hashlib.file_digest(stream, "sha256").hexdigest() != entry["sha256"]:
                 raise ModelPackageError("source asset SHA-256 mismatch")
     output.parent.mkdir(parents=True, exist_ok=True)
+    # Reproducible model packages: ZIP entries use fixed metadata rather
+    # than workstation timestamps. This preserves published SHA-256 values
+    # across subsequent Portable builds from the same pinned model assets.
+    def member(name: str) -> zipfile.ZipInfo:
+        info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+        info.compress_type = zipfile.ZIP_DEFLATED
+        info.create_system = 3
+        info.external_attr = (stat.S_IFREG | 0o644) << 16
+        return info
+
     with zipfile.ZipFile(output, "w", allowZip64=True, compression=zipfile.ZIP_DEFLATED, compresslevel=3) as zipped:
-        zipped.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        zipped.writestr(member("manifest.json"), json.dumps(manifest, ensure_ascii=False, indent=2),
+                        compress_type=zipfile.ZIP_DEFLATED, compresslevel=3)
         for entry in manifest["files"]:
-            zipped.write(source / entry["path"], entry["path"])
+            with (source / entry["path"]).open("rb") as input_stream:
+                with zipped.open(member(entry["path"]), "w", force_zip64=True) as stored:
+                    shutil.copyfileobj(input_stream, stored, length=_CHUNK)
     return output
 
 

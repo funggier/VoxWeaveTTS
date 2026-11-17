@@ -16,7 +16,7 @@ import zipfile
 from pathlib import Path
 
 repo = Path(__file__).resolve().parents[1]
-version = os.environ.get("VOXWEAVE_PORTABLE_VERSION", "0.4.1")
+version = os.environ.get("VOXWEAVE_PORTABLE_VERSION", "0.9.5")
 archive = repo / "dist" / f"VoxWeaveTTS-v{version}-portable.zip"
 assert archive.is_file(), "no release ZIP"
 sha = hashlib.sha256(archive.read_bytes()).hexdigest().upper()

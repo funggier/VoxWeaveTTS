@@ -10,25 +10,31 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 class ModelPackCatalogTests(unittest.TestCase):
-    def test_catalog_contains_six_distributable_optional_tts_packs_including_nc(self):
+    def test_catalog_contains_seven_distributable_tts_packs_including_makham_and_nc(self):
         catalog=json.loads((ROOT/"model-packs"/"catalog.json").read_text(encoding="utf-8"))
         self.assertEqual(catalog["schema_version"],1)
-        self.assertEqual(catalog["release_tag"],"v0.9.4")
+        self.assertEqual(catalog["release_tag"],"v0.9.5")
         self.assertEqual({p["package_id"] for p in catalog["packages"]},{
             "vachana-thai-four-voices","fastthaig2p-thai-som",
             "kokoro-multilingual-int8",
             "melo-chinese-onnx", "supertonic3-multilingual-int8",
-            "wayu-paxa-edge-nc",
+            "wayu-paxa-edge-nc", "makham-paradee",
         })
         for pack in catalog["packages"]:
             with self.subTest(package=pack["package_id"]):
                 self.assertTrue(pack["download_url"].startswith(
                     "https://github.com/funggier/VoxWeaveTTS/releases/download/"
-                    "v0.9.4/"))
+                    "v0.9.5/"))
                 self.assertTrue(pack["download_url"].endswith(pack["file"]))
                 self.assertTrue(pack["file"].endswith(".vwmodel"))
                 self.assertGreater(pack["size_bytes"],1_000_000)
                 self.assertRegex(pack["sha256"],r"^[a-f0-9]{64}$")
+                if pack["package_id"] == "makham-paradee":
+                    self.assertEqual(pack["engine_adapter"],"makham-paradee-onnx-v1")
+                    self.assertEqual(pack["voices"],["paradee_thai"])
+                    self.assertEqual(pack["upstream_declared_license"],"Apache-2.0")
+                    self.assertEqual(pack["upstream_asset_sha256"]["paradee_thai_int8.onnx"],
+                                     "ad179a2c11b54b1185e84d9c0b759a57058588405620f12163084aaad250813d")
                 if pack["package_id"] == "wayu-paxa-edge-nc":
                     self.assertEqual(pack["review_status"], "hold")
                     self.assertEqual(pack["upstream_declared_license"], "CC-BY-NC-4.0")
@@ -52,7 +58,8 @@ class ModelPackCatalogTests(unittest.TestCase):
                     if pack["package_id"] in ("kokoro-multilingual-int8",
                                               "melo-chinese-onnx",
                                               "supertonic3-multilingual-int8",
-                                              "wayu-paxa-edge-nc"):
+                                              "wayu-paxa-edge-nc",
+                                              "makham-paradee"):
                         continue
                     target=ROOT/"model-packs"/(
                         "vachana" if pack["package_id"].startswith("vachana")

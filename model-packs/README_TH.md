@@ -1,3 +1,11 @@
+# VoxWeaveTTS Model Packages v0.9.5
+
+**Release:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.5
+
+**New:** MakHam Paradee is now supplied as a verified removable .vwmodel and included by default in the v0.9.5 Portable. All optional packages are available separately, including NC Wayu (NonCommercial only), with package SHA-256 and upstream attribution in catalog.json. The Runtime Environment Registry permits removing an environment only when no installed model uses it. See [v0.9.5 release notes](../docs/RELEASE_NOTES_v0.9.5.md).
+
+---
+
 # Model Packages ที่ทดลองแล้ว — VoxWeaveTTS v0.9.4
 
 ไฟล์โมเดลแยกจากตัวโปรแกรมหลัก: **Git Repository เก็บโค้ดสร้างแพ็กเกจ, Manifest, SHA-256, เครดิตและไฟล์ลิขสิทธิ์** ส่วนไฟล์น้ำหนักที่มีขนาดใหญ่จัดเก็บเป็น **GitHub Release Assets** ใน Repository เดียวกัน ไม่ Commit ไฟล์ ONNX ขนาดหลายร้อย MB ลง Git history
