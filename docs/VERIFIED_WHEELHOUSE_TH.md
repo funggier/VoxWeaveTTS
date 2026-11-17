@@ -1,6 +1,8 @@
 # Universal .vwmodel v2 — Phase C: Offline Verified Wheelhouse
 
-**สถานะ:** ระบบติดตั้ง/ซ่อมและทดสอบ Phase C อยู่ใน Source (หลัง v0.9.5) — **ยังไม่ได้ Release**
+**สถานะ:** ระบบติดตั้ง/ซ่อมและทดสอบ Phase C อยู่ใน Source (หลัง v0.9.5) — **ยังไม่ได้ Release** · [ผลตรวจสิทธิ์ Dependencies](WHEELHOUSE_LICENSE_REVIEW_TH.md)
+
+**อัปเดตชุดจริงในเครื่อง:** Sherpa 3 Wheel, PyThaiTTS 26 Wheel, M2M100 25 Wheel — มี Trusted Lock และติดตั้ง Offline ในโฟลเดอร์แยกผ่านแล้ว ส่วน Vachana 14 Wheel และ Kokoro 31 Wheel ติดตั้งแบบ Draft ทดลองผ่าน แต่ยังไม่เผยแพร่ Trusted Lock เพราะต้องตรวจ License/Copyleft เพิ่ม รายละเอียดใน [รายงานสิทธิ์](WHEELHOUSE_LICENSE_REVIEW_TH.md).
 
 Wheelhouse เป็นชุด **ไฟล์ Dependencies สำหรับ Trusted Runtime** แยกจากไฟล์น้ำหนักโมเดลใน `.vwmodel v2` และแยกจาก `uv cache` ของเครื่องเดิม การติดตั้งจาก Wheelhouse ใช้ Python 3.11 และชุด Wheel ที่ตรงกับ OS/ABI ของเครื่องเท่านั้น ไม่รับคำสั่งติดตั้งหรือไฟล์รันจาก Model Package
 
@@ -66,8 +68,15 @@ Server ตรวจ Same-Origin, Intent และ `expected_fingerprint` ก่�
 - ทดสอบการติดตั้งจริงแบบ Offline ใน **โปรเจกต์ชั่วคราวแยกจากโปรเจกต์หลัก** สำเร็จ ตรวจ `uv pip check`, Import `sherpa_onnx` และ `numpy` ผ่านก่อนลบโปรเจกต์ทดลอง
 - Runtime ที่ติดตั้งอยู่ในโปรเจกต์จริงยังไม่ถูกเปลี่ยนแปลง
 - Metadata ที่ตรวจพบ: Sherpa-ONNX และ sherpa-onnx-core ระบุ Apache-2.0; NumPy ระบุเงื่อนไขลักษณะ BSD พร้อม third-party bundled components — **ยังต้องตรวจประกาศลิขสิทธิ์/การแจกจ่ายทั้งหมดก่อนทำ Release**
-- Wheelhouse สำหรับ Runtime อื่น ๆ โดยเฉพาะ M2M100/Torch และ Wayu ที่มี Git/URL dependencies **ยังไม่ได้จัดเตรียม/ยืนยันว่าครบ**; UI จะรายงานว่าไม่พร้อม ไม่สร้างผลสำเร็จเทียม
+- Wheelhouse สำหรับ PyThaiTTS และ M2M100/Torch เตรียมครบตาม Recipe และทดสอบการติดตั้งแบบ Offline ผ่านแล้ว ส่วน Vachana และ Kokoro จัดเป็น Draft ทดลองที่ยังไม่ผ่านการอนุมัติสิทธิ์เพื่อเผยแพร่ Wayu NC ยังคงไม่รองรับการจัด Wheelhouse แบบนี้; UI จะไม่แสดงชุด Draft เป็น Trusted Lock
 - การติดตั้ง Runtime พร้อมใช้งานไม่ใช่การยืนยันว่าโมเดล M2M100 แปลจริงได้: ความจำ/Commit ของเครื่องยังเป็นข้อจำกัด
+
+## ผลทดสอบเพิ่มเติม (17 พฤศจิกายน 2026)
+
+- PyThaiTTS 26 ไฟล์ (72,442,984 bytes) และ M2M100 25 ไฟล์ (284,707,898 bytes) ตรวจ Hash แล้วและติดตั้ง Offline จริงผ่านในโฟลเดอร์ทดลอง โดยไม่แก้ Runtime เดิม; M2M100 ยังไม่ได้ทดสอบ Inference/การแปลจริง
+- Vachana 14 ไฟล์ (58,375,295 bytes) และ Kokoro 31 ไฟล์ (92,429,433 bytes) ทดสอบติดตั้ง Offline แบบ Lock ชั่วคราวในโฟลเดอร์ทดลองผ่าน แต่ต้องตรวจ License ก่อนเผยแพร่
+- ทดสอบ Sherpa ติดตั้งจริง ย้ายพาธโปรแกรมภายในไดรฟ์ T: ตรวจพบ `relocated` แล้วซ่อมจาก Wheelhouse แบบ Offline กลับเป็น `ready` ได้สำเร็จ ยังไม่ใช่การทดสอบข้ามเครื่องจริง
+- เพิ่มเครื่องมือ `scripts/audit_wheelhouse_rights.py` สำหรับสร้างรายงาน `legal_clearance=false` แยกจากการตรวจ Hash ดู [รายงาน](WHEELHOUSE_LICENSE_REVIEW_TH.md)
 
 ## งานถัดไป
 

@@ -118,7 +118,7 @@ async function refresh(){
     const sourceState=String(wheelhouse.state||"not-published");
     wheelMessage.textContent=wheelhouse.ready_to_verify
       ?"Offline Wheelhouse: พบ "+Number(wheelhouse.wheels||0)+
-        " wheels (รอตรวจ SHA-256 ก่อนติดตั้ง)"
+        " wheels (รอตรวจ SHA-256 ก่อนติดตั้ง; สิทธิ์แจกจ่ายตรวจแยก)"
       :sourceState==="recipe-unsupported"
         ?"Offline Wheelhouse: Recipe ยังมีแหล่ง Git/URL ที่ไม่ได้แปลงเป็น Wheel ที่ตรวจสอบแล้ว"
       :"Offline Wheelhouse: ยังไม่มีชุดไฟล์ที่ตรงกับ Trusted Lock";

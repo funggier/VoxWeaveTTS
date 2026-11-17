@@ -1,6 +1,6 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
-**Offline Verified Wheelhouse (Phase C — Source ยังไม่ Release):** เพิ่มการติดตั้ง/ซ่อม Runtime แบบ Offline จาก Trusted Lock + SHA-256 ของไฟล์ Wheel ทุกตัว พร้อมตรวจ ABI/OS/Recipe และ Rollback หากตรวจสอบไม่ผ่าน เตรียม Wheelhouse จริงให้ Sherpa 3 ไฟล์แล้วโดยไม่ติดตั้งทับ Runtime เดิม Runtime อื่นยังไม่ครบและยังไม่เผยแพร่ [คู่มือ Phase C](docs/VERIFIED_WHEELHOUSE_TH.md)
+**Offline Verified Wheelhouse (Phase C — Source ยังไม่ Release):** เพิ่มการติดตั้ง/ซ่อม Runtime แบบ Offline จาก Trusted Lock + SHA-256 ของไฟล์ Wheel ทุกตัว พร้อมตรวจ ABI/OS/Recipe และ Rollback หากตรวจสอบไม่ผ่าน เตรียม Trusted Wheelhouse จริงให้ Sherpa, PyThaiTTS, M2M100 รวม 54 ไฟล์แล้วและทดลองติดตั้ง Offline ผ่าน; Vachana/Kokoro มี Draft และติดตั้งทดลองผ่าน แต่ยังไม่อนุมัติแจกจ่ายเพราะต้องตรวจ License เพิ่ม โดยไม่เปลี่ยน Runtime เดิม [คู่มือ Phase C](docs/VERIFIED_WHEELHOUSE_TH.md) · [ตรวจสิทธิ์ Wheel](docs/WHEELHOUSE_LICENSE_REVIEW_TH.md)
 
 **Managed Runtime Pool (Phase B — Source ยังไม่ Release):** ตรวจ Python ABI, Recipe Hash และพาธเมื่อติดตั้ง/ย้ายโฟลเดอร์; แจ้งสถานะ Runtime เดิมที่ยังไม่มีพาธบันทึกไว้ และเพิ่มปุ่ม **ซ่อม Runtime (Offline)** ที่สร้างใน Staging ตรวจสอบก่อนสลับ พร้อม Rollback หากผิดพลาด ใช้เฉพาะ Dependencies Cache ภายในเครื่องโดยผู้ใช้ต้องยืนยันก่อน [คู่มือ Phase B](docs/MANAGED_RUNTIME_POOL_TH.md)
 

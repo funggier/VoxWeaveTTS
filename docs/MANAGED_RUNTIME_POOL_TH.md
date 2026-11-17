@@ -45,7 +45,7 @@
 ## ข้อจำกัดปัจจุบันและแผนถัดไป
 
 - Runtime เดิมที่เป็น `legacy-unpinned` ยังไม่ได้ย้ายสถานะเป็น Marker ใหม่โดยอัตโนมัติ เพื่อไม่บันทึกพาธใหม่เป็นต้นทางเทียม
-- **Phase C:** เพิ่ม Offline Verified Wheelhouse ใน Source แล้ว (พร้อมตัวอย่างจริง Sherpa); ยังต้องจัดชุด Dependencies ให้ครบ Runtime อื่นและตรวจสิทธิ์ก่อน Release · [คู่มือ Phase C](VERIFIED_WHEELHOUSE_TH.md)
+- **Phase C:** เพิ่ม Offline Verified Wheelhouse ใน Source แล้ว (พร้อมชุดจริง Sherpa/PyThaiTTS/M2M100); Vachana/Kokoro มี Draft ที่ทดสอบผ่านแต่ยังต้องตรวจสิทธิ์ก่อน Release · [คู่มือ Phase C](VERIFIED_WHEELHOUSE_TH.md)
 - **Phase D:** Adapter SDK, External Code Signing และการรองรับชนิดโมเดลเพิ่ม
 - M2M100 ยังมีข้อจำกัด RAM/Commit/Paging File ของเครื่องในการโหลดน้ำหนัก 418M; สถานะ Runtime Ready **ไม่ได้หมายความว่าทดสอบการแปลจริงผ่านแล้ว**
 

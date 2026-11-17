@@ -2,11 +2,16 @@
 
 ## Unreleased — Native Universal .vwmodel v2 Phase C: Offline Verified Wheelhouse
 
+- Expand locally curated trusted wheelhouses to **Sherpa (3 wheels, 31.7 MB), PyThaiTTS (26 wheels, 72.4 MB), M2M100 (25 wheels, 284.7 MB)**. Complete *real* disconnected-index installs and dependency imports in isolated temporary projects for all three; M2M100 model inference remains unverified due to earlier Windows commit pressure.
+- Assemble **Vachana (14 wheels, 58.4 MB)** and **Kokoro (31 wheels, 92.4 MB)** as test-only draft locks; verify real isolated offline installation for both without publishing their trusted locks. Vachana package code lacks an explicit license statement in its wheel; Kokoro pulls GPLv3+ phonemizer and other components requiring redistribution review.
+- Add a read-only per-wheel rights screening CLI `scripts/audit_wheelhouse_rights.py` (not a rights grant) and tests; separate `legal_clearance=false` from technical hash validity. See `docs/WHEELHOUSE_LICENSE_REVIEW_TH.md`.
+- Perform a real temporary program relocation test with Sherpa: installed -> moved path flagged `relocated` -> offline verified repair -> `ready`, with temporary cleanup. Not a test on a second physical machine.
+
 - Add code-owned trusted wheel locks with runtime, Python ABI, platform, recipe SHA-256, per-wheel size/hash/identity, archive metadata/path checks and dependency closure checks for curation.
 - Add separate portable `runtime/wheelhouse/<id>/` storage and local-only curation CLI (`scripts/prepare_verified_wheelhouse.py`); no models or model manifests can authorize package installers or supply executable commands.
 - Add explicit same-origin `/v1/runtimes/install-verified` API and Runtime Registry UI action; verify and snapshot each wheel before calling uv with `--offline --no-index --no-cache --require-hashes` and exact hash-pinned requirements. Final-path Python import and pip check must pass; failure rolls back the venv without altering models/settings.
 - Prepare the 3-wheel (31,744,498 bytes) trusted **Sherpa** wheelhouse locally; validate a real fully offline install in a separate temporary project. Do not modify existing engine runtimes or publish the binaries automatically.
-- Wayu NC VCS/URL recipe and missing other-runtime wheelhouses are explicitly unsupported/incomplete, not falsely reported ready. Wheel hashes establish integrity relative to reviewed trusted locks, not publisher authenticity; redistribute binary dependencies only with proper notices/licenses.
+- Wayu NC VCS/URL recipe and wheelhouses pending license review remain explicitly unsupported/incomplete, not falsely reported ready. Wheel hashes establish integrity relative to reviewed trusted locks, not publisher authenticity; redistribute binary dependencies only with proper notices/licenses.
 - Add security, zip/metadata, tamper, rollback, UI and API tests and docs/VERIFIED_WHEELHOUSE_TH.md. No new GitHub Release yet.
 
 ## Unreleased — Native Universal .vwmodel v2 Phase B: Managed Runtime Pool

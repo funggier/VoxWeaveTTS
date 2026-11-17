@@ -105,7 +105,7 @@ Builder สร้าง Manifest v2 จาก Spec และ File Hash โดย
 
 Phase B — Managed Environment Pool, Runtime Fingerprint/Health Check และการซ่อม Offline หลังย้ายโฟลเดอร์: **เพิ่มใน Source แล้ว** · [คู่มือและข้อจำกัด Phase B](MANAGED_RUNTIME_POOL_TH.md)
 
-Phase C — Verified Offline Wheelhouse พร้อม SHA-256, Consent และ Atomic Runtime Installer: **เพิ่มใน Source แล้ว** และมี Wheelhouse จริงสำหรับ Sherpa; ชุด Runtime อื่นยังไม่ครบ · [รายละเอียด](VERIFIED_WHEELHOUSE_TH.md)
+Phase C — Verified Offline Wheelhouse พร้อม SHA-256, Consent และ Atomic Runtime Installer: **เพิ่มใน Source แล้ว** และมี Trusted Wheelhouse จริงสำหรับ Sherpa, PyThaiTTS และ M2M100; Vachana/Kokoro ยังเป็น Draft รอตรวจสิทธิ์ · [รายละเอียด](VERIFIED_WHEELHOUSE_TH.md)
 
 Phase D — Signed External Adapter, SDK, STT/LLM/Cloning Runtime และ Stress Test / Native Model Packs สำหรับ Release
 
