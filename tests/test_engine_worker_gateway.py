@@ -103,7 +103,9 @@ class GatewayTests(unittest.TestCase):
         from voxweavetts.engine_worker_legacy import LegacyBackend
         from voxweavetts.engine_provider_catalog import PROVIDERS
         from voxweavetts.processing import InputError
-        info = speech.get_engine_info("makham-paradee-cpu")
+        from dataclasses import replace
+        info = replace(speech.get_engine_info("makham-paradee-cpu"),
+                       assets_ready=True, runtime_ready=True)
         fake_engine = Mock()
         fake_engine.generate.return_value = b"\x00\x01" * 8
         fake_registry = Mock()

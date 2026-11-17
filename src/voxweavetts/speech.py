@@ -379,7 +379,7 @@ def refresh_engine_registry() -> None:
 def _register_model_packages(registry: EngineRegistry) -> None:
     """A package selects an existing trusted adapter, never imports pack code."""
     allowed = {"vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1",
-               "sherpa-supertonic-v1", "sherpa-melo-zh-v1"}
+               "sherpa-supertonic-v1", "sherpa-melo-zh-v1", "wayu-nc-v1"}
     for manifest, model_dir in installed_packages():
         if manifest["engine_adapter"] not in allowed:
             continue
@@ -396,14 +396,21 @@ def _register_model_packages(registry: EngineRegistry) -> None:
                         and (model_dir / row["path"]).stat().st_size == row["size"]
                         for row in manifest["files"])
             is_vachana = adapter == "vachana-onnx-v1"
+            is_wayu = adapter == "wayu-nc-v1"
             is_kokoro = adapter == "kokoro-onnx-v1"
             is_sherpa = adapter in ("sherpa-supertonic-v1", "sherpa-melo-zh-v1")
-            flags = dict(_vachana_descriptor().capabilities if is_vachana
-                         else engine_info().capabilities)
+            if is_wayu:
+                from .personal_wayu_engine import descriptor as wayu_descriptor
+                flags = dict(wayu_descriptor().capabilities)
+            else:
+                flags = dict(_vachana_descriptor().capabilities if is_vachana
+                             else engine_info().capabilities)
             if is_kokoro or is_sherpa:
                 flags.update({"seed_control": False, "voice_cloning": False,
                               "phoneme_dictionary": False})
-            if is_kokoro:
+            if is_wayu:
+                from .personal_wayu_engine import runtime_ready as adapter_ready
+            elif is_kokoro:
                 from .kokoro_engine import runtime_ready as adapter_ready
             elif is_sherpa:
                 from .sherpa_voice_engine import runtime_ready as adapter_ready
@@ -419,7 +426,7 @@ def _register_model_packages(registry: EngineRegistry) -> None:
                 # Keep the manifest language as the native language.
                 supported_languages=((manifest["language"], "en")
                     if adapter in ("fastthaig2p-kokoro-v1", "vachana-onnx-v1",
-                                   "sherpa-melo-zh-v1") else ()),
+                                   "wayu-nc-v1", "sherpa-melo-zh-v1") else ()),
                 voice_language_map=({voice_id: voice_id[:2] for voice_id, _ in voices}
                                     if adapter == "sherpa-supertonic-v1" else {}),
                 sample_rate=manifest["sample_rate"],
@@ -431,6 +438,12 @@ def _register_model_packages(registry: EngineRegistry) -> None:
 
         def create(seed: int, engine_id=engine_id, model_dir=model_dir,
                    voices=voices, voice_assets=voice_assets, adapter=adapter):
+            if adapter == "wayu-nc-v1":
+                from .engine_worker_proxy import ProviderVoiceEngine
+                from .engine_provider_catalog import PROVIDERS
+                return ProviderVoiceEngine(engine_id, PROVIDERS["wayu-nc"],
+                                           tuple(v[0] for v in voices),
+                                           voices[0][0], seed)
             if adapter == "kokoro-onnx-v1":
                 from .kokoro_engine import KokoroOnnxEngine
                 return KokoroOnnxEngine(model_dir=model_dir, engine_id=engine_id,

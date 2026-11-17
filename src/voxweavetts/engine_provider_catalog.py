@@ -54,7 +54,7 @@ class Provider:
 PROVIDERS: dict[str, Provider] = {
     "wayu-nc": Provider(
         "wayu-nc", "wayu-nc-v1", "wayu", 24000,
-        (), ("personal-nc-wayu-paxa-edge-cpu",), "wayu-nc.txt",
+        ("wayu-nc-v1",), ("personal-nc-wayu-paxa-edge-cpu",), "wayu-nc.txt",
     ),
     "pythaitts": Provider(
         "pythaitts", "pythaitts-v1", "legacy", 24000,

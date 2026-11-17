@@ -17,6 +17,14 @@ from voxweavetts.server import Handler
 from voxweavetts.speech import render_wav
 
 
+def _ready_info(engine_id):
+    """Make tests independent of optional model weights installed on CI."""
+    from dataclasses import replace
+    from voxweavetts.speech import get_engine_info
+    return replace(get_engine_info(engine_id),
+                   assets_ready=True, runtime_ready=True)
+
+
 class SpanTests(unittest.TestCase):
     def test_exact_user_example_is_four_spans_without_lost_characters(self):
         sample = "ผมอยากทำComputer ผม ให้มันลื่นกว่านี้ lol"
@@ -81,9 +89,9 @@ class SpanTests(unittest.TestCase):
 
     def test_server_off_preserves_normal_render_arguments(self):
         plan = process_text("สวัสดี Hello")
-        with patch("voxweavetts.server.load_workspace_settings", return_value={
+        with (patch("voxweavetts.server.load_workspace_settings", return_value={
             "language_routes": {}, "language_splitting": {"studio": False},
-        }):
+        }), patch("voxweavetts.server.get_engine_info", side_effect=_ready_info)):
             params = Handler._speech_params(None, {"mode": "studio"}, plan)
         self.assertNotIn("language_voice_routes", params)
 
@@ -95,7 +103,8 @@ class SpanTests(unittest.TestCase):
                 "language_routes": {}, "language_splitting": {"studio": True},
               }),
               patch("voxweavetts.server.load_routes",
-                    return_value={"routes": saved})):
+                    return_value={"routes": saved}),
+              patch("voxweavetts.server.get_engine_info", side_effect=_ready_info)):
             params = Handler._speech_params(None, {"mode": "studio"}, plan)
         self.assertEqual(params["language_voice_routes"], saved)
 

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "project": "VoxWeaveTTS",
-  "release_tag": "v0.9.2",
+  "release_tag": "v0.9.4",
   "note": "Licenses are as declared at pinned upstream sources. VoxWeaveTTS has not independently certified all training data or voice rights. No warranty of commercial use or compatibility.",
   "packages": [
     {
@@ -10,7 +10,7 @@
       "file": "VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
       "size_bytes": 115562300,
       "sha256": "cb69aaf6b92d2effa6069a208d17410902d49b6f0ce6e1a88fc7cb0e102b75ee",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.4/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
       "engine_adapter": "kokoro-onnx-v1",
       "voices": [
         "af_heart",
@@ -53,7 +53,7 @@
       "file": "VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
       "size_bytes": 234436558,
       "sha256": "c782818d6bc99f7da1e3540d308cedde20f41dc204d2b34ee002089a8057f5f3",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.4/VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
       "engine_adapter": "vachana-onnx-v1",
       "voices": [
         "th_f_1",
@@ -84,7 +84,7 @@
       "file": "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
       "size_bytes": 302412020,
       "sha256": "6aff293704ec5e9f25941eafb897b434c3be47f75eecd89aadc9cb6df9cc6016",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.4/VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
       "engine_adapter": "fastthaig2p-kokoro-v1",
       "voices": [
         "thai_som"
@@ -112,7 +112,7 @@
       "file": "VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
       "size_bytes": 160222867,
       "sha256": "917aee8035eb18a8682dbda1da0db380075316a5d2c3cb17fa521e4552484838",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.4/VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
       "engine_adapter": "sherpa-melo-zh-v1",
       "voices": [
         "zh_melo"
@@ -139,7 +139,7 @@
       "file": "VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
       "size_bytes": 125365097,
       "sha256": "d0566bc75e318685a22e6f3f10d81ad7a370bd0ff03c5ca8f383e807842e0c71",
-      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.2/VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.4/VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
       "engine_adapter": "sherpa-supertonic-v1",
       "voices": [
         "ar_s0",
@@ -224,6 +224,57 @@
         "legal/license.txt",
         "legal/conversion-license.txt",
         "legal/attribution.md"
+      ]
+    },
+    {
+      "package_id": "wayu-paxa-edge-nc",
+      "version": "1.0.0",
+      "file": "VoxWeaveTTS-Wayu-Paxa-Edge-Thai-English-12Voices-NC-v1.0.0.vwmodel",
+      "size_bytes": 306872321,
+      "sha256": "5218f4158dc53e6e20d004068fd60781fd63b0f4177ac1ef806c5f60521035b7",
+      "download_url": "https://github.com/funggier/VoxWeaveTTS/releases/download/v0.9.4/VoxWeaveTTS-Wayu-Paxa-Edge-Thai-English-12Voices-NC-v1.0.0.vwmodel",
+      "engine_adapter": "wayu-nc-v1",
+      "voices": [
+        "f_teen_bright",
+        "f_young_bright",
+        "f_young_clear",
+        "f_young_warm",
+        "f_mid_clear",
+        "f_mid_warm",
+        "f_elderly_soft",
+        "f_elderly_low",
+        "m_teen_bright",
+        "m_young_clear",
+        "m_mid_warm",
+        "m_elderly_deep"
+      ],
+      "upstream_source": "https://huggingface.co/wayu-ai/wayu-paxa-tts-edge",
+      "source_revision": "8196688df56a8d08ccfa186505343adff412ab6b",
+      "upstream_declared_license": "CC-BY-NC-4.0",
+      "training_license": null,
+      "conditions": "Original research model weights unchanged, CC BY-NC 4.0 permits redistribution and adaptation for NonCommercial use only with creator attribution, license link, modification notice and no downstream restrictions. Wayu Research Acceptable Use applies: https://www.wayuresearch.org/terms#acceptable-use . Separate optional archive; never included in Portable, Git, or commercial-cleared bundles.",
+      "review_status": "hold",
+      "upstream_asset_sha256": {
+        "config.json": "82bdfb49f558c262a2eeebc40c78758e48a90ef2d56ac8bd0678aac9d33a089e",
+        "model.pth": "eb26ac6f7da4c651389b28793d0ab59be8fa7e3e7cc5d350278b2a8d0a4d7370",
+        "voices/f_elderly_low.pt": "52bb2fe51db2f16b2ec45cccdd94c60207a307291aeefa43daf9d7da64534fd6",
+        "voices/f_elderly_soft.pt": "8a9d0c9fa39548458d28f36395e8b6688171fcf52705cad84b6a4e2261d9ec62",
+        "voices/f_mid_clear.pt": "60c27208ac13d62027833bad1e9e27728b60b3312b56deffb21b135d248e560a",
+        "voices/f_mid_warm.pt": "70e581e609475023c208de252a1261be5b521ba710f67e2c81a9c12572555f37",
+        "voices/f_teen_bright.pt": "8deb6ea18d3a031d3c9e0ee95cd6c821b17b176dab066eed8cd1edec0fe94210",
+        "voices/f_young_bright.pt": "4a31d0aebe0f933b44338cb4ee7c3d1d02712734c01fa9adf1bc63b8f8504e22",
+        "voices/f_young_clear.pt": "ac1b78525ed2e3ebd21ddc19736307b5ad30f4036bfd46e679b2b80ab1364f56",
+        "voices/f_young_warm.pt": "62ae8e533e82d6bd51965af58be171d95298c135a389a08d77af467632080253",
+        "voices/m_elderly_deep.pt": "0852a4b10a02422c70dcdee702a698cf48ee0135c84b0bdfce609d4a2d31485d",
+        "voices/m_mid_warm.pt": "61fef6ffa19cee7c6d539fb2039bd5bac57647cb649e630f82f2b0d167d096b4",
+        "voices/m_teen_bright.pt": "8a57087e0e1de3cb2d96cc2020a730301cc06c244449518b7975c0b89674153d",
+        "voices/m_young_clear.pt": "86154fe8cf060516dde67fe9ce81fd11ef3e550b3bab66db0fd42ea46cae3623"
+      },
+      "embedded_notices": [
+        "README.md",
+        "legal/license.txt",
+        "legal/attribution.md",
+        "legal/acceptable-use.txt"
       ]
     }
   ]

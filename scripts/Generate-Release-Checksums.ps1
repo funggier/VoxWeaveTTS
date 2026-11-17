@@ -1,4 +1,4 @@
-param([string]$Version = '0.9.3')
+param([string]$Version = '0.9.4')
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $dist = Join-Path $root 'dist'
@@ -10,6 +10,7 @@ $files = @(
     'ModelPackages/VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel',
     'ModelPackages/VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel',
     'ModelPackages/VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel',
+    'ModelPackages/VoxWeaveTTS-Wayu-Paxa-Edge-Thai-English-12Voices-NC-v1.0.0.vwmodel',
     'VoxWeaveTTS-M2M100-418M-v1.0.0.vwmodel'
 )
 $lines = New-Object System.Collections.Generic.List[string]

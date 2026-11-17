@@ -1,5 +1,8 @@
 # VoxWeaveTTS
 
+**Windows Portable v0.9.4 + optional Wayu Paxa Edge NC model package:** The separately downloadable `VoxWeaveTTS-Wayu-Paxa-Edge-Thai-English-12Voices-NC-v1.0.0.vwmodel` adds all 12 Thai/English voices to the Model Package Manager. **Weights are CC BY-NC 4.0 (noncommercial only)**, unchanged from pinned upstream. The .vwmodel includes the original README, attribution and license/use-policy notices. **NC weights are not in the Portable ZIP or Git repository.** [Complete v0.9.4 Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4) · [Release notes](docs/RELEASE_NOTES_v0.9.4.md).
+
+
 **Windows Portable v0.9.3 (complete release):** Isolated TTS Worker Gateway, reusable successful voice workers, safe owner-verified Stop commands (never stop Ollama), English language routing for all installed TTS models, portable worker dependency recipes, optional model/translation packages, TikTok extension and SHA-256 checksums. **Wayu NonCommercial model weights are not distributed.** [Release v0.9.3](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.3) · [Release notes](docs/RELEASE_NOTES_v0.9.3.md).
 
 

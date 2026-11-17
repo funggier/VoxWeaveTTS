@@ -30,8 +30,28 @@ _PACKAGE_ID = re.compile(r"[a-z][a-z0-9_-]{1,47}\Z")
 _VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
 _VOICE = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{0,63}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
-_EXTENSIONS = frozenset((".onnx", ".json", ".npy", ".bin", ".txt", ".md", ".fst", ".utf8"))
-_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1", "sherpa-supertonic-v1", "sherpa-melo-zh-v1"))
+_EXTENSIONS = frozenset((".onnx", ".json", ".npy", ".bin", ".txt", ".md", ".fst", ".utf8", ".pt", ".pth"))
+_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1", "sherpa-supertonic-v1", "sherpa-melo-zh-v1", "wayu-nc-v1"))
+# Only these pinned, original upstream Wayu weights may be deserialized by the
+# trusted PyTorch worker. A .vwmodel manifest is untrusted data, and torch.load
+# on altered .pth/.pt assets could otherwise execute arbitrary pickle code.
+_WAYU_PINNED_SHA256 = {
+    "config.json": "82bdfb49f558c262a2eeebc40c78758e48a90ef2d56ac8bd0678aac9d33a089e",
+    "model.pth": "eb26ac6f7da4c651389b28793d0ab59be8fa7e3e7cc5d350278b2a8d0a4d7370",
+    "voices/f_elderly_low.pt": "52bb2fe51db2f16b2ec45cccdd94c60207a307291aeefa43daf9d7da64534fd6",
+    "voices/f_elderly_soft.pt": "8a9d0c9fa39548458d28f36395e8b6688171fcf52705cad84b6a4e2261d9ec62",
+    "voices/f_mid_clear.pt": "60c27208ac13d62027833bad1e9e27728b60b3312b56deffb21b135d248e560a",
+    "voices/f_mid_warm.pt": "70e581e609475023c208de252a1261be5b521ba710f67e2c81a9c12572555f37",
+    "voices/f_teen_bright.pt": "8deb6ea18d3a031d3c9e0ee95cd6c821b17b176dab066eed8cd1edec0fe94210",
+    "voices/f_young_bright.pt": "4a31d0aebe0f933b44338cb4ee7c3d1d02712734c01fa9adf1bc63b8f8504e22",
+    "voices/f_young_clear.pt": "ac1b78525ed2e3ebd21ddc19736307b5ad30f4036bfd46e679b2b80ab1364f56",
+    "voices/f_young_warm.pt": "62ae8e533e82d6bd51965af58be171d95298c135a389a08d77af467632080253",
+    "voices/m_elderly_deep.pt": "0852a4b10a02422c70dcdee702a698cf48ee0135c84b0bdfce609d4a2d31485d",
+    "voices/m_mid_warm.pt": "61fef6ffa19cee7c6d539fb2039bd5bac57647cb649e630f82f2b0d167d096b4",
+    "voices/m_teen_bright.pt": "8a57087e0e1de3cb2d96cc2020a730301cc06c244449518b7975c0b89674153d",
+    "voices/m_young_clear.pt": "86154fe8cf060516dde67fe9ce81fd11ef3e550b3bab66db0fd42ea46cae3623",
+}
+_WAYU_SOURCE_REVISION = "8196688df56a8d08ccfa186505343adff412ab6b"
 _LOCK = threading.RLock()
 _DIALOG_LOCK = threading.Lock()
 
@@ -162,6 +182,17 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         raise ModelPackageError("model needs one or more voices")
     seen_voices: set[str] = set()
     seen_paths: set[str] = set()
+    if adapter == "wayu-nc-v1":
+        from .personal_wayu_engine import VOICES as WAYU_VOICES
+        if (any(not isinstance(v, dict) or "id" not in v for v in voices)
+            or [v["id"] for v in voices] != [voice_id for voice_id, _ in WAYU_VOICES]
+            or manifest["package_id"] != "wayu-paxa-edge-nc"
+            or manifest["version"] != "1.0.0"
+            or manifest["license"]["spdx"] != "CC-BY-NC-4.0"
+            or manifest["license"]["review_status"] != "hold"
+            or manifest["source"]["url"] != "https://huggingface.co/wayu-ai/wayu-paxa-tts-edge"
+            or manifest["source"]["revision"] != _WAYU_SOURCE_REVISION):
+            raise ModelPackageError("Wayu NC package must retain the vetted upstream version, voices and license")
     for voice in voices:
         if not isinstance(voice, dict) or set(voice) != {"id", "label", "asset"}:
             raise ModelPackageError("invalid voice schema")
@@ -172,7 +203,10 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         if not isinstance(voice["label"], str) or not 1 <= len(voice["label"]) <= 110:
             raise ModelPackageError("invalid voice label")
         asset = _relative_asset(voice["asset"])
-        if adapter == "kokoro-onnx-v1":
+        if adapter == "wayu-nc-v1":
+            if asset != "voices/" + identifier + ".pt":
+                raise ModelPackageError("Wayu NC voice must use its pinned original asset")
+        elif adapter == "kokoro-onnx-v1":
             if asset != "voices-v1.0.bin" or not re.fullmatch(r"[abefhijpz][fm]_[a-z][a-z0-9_]*", identifier):
                 raise ModelPackageError("unsupported Kokoro voice asset or identifier")
         elif adapter == "sherpa-supertonic-v1":
@@ -200,13 +234,23 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
             or not 0 < entry["size"] <= PACKAGE_LIMIT
             or not isinstance(entry["sha256"], str) or not _SHA256.fullmatch(entry["sha256"])):
             raise ModelPackageError("invalid or repeated model file")
+        if Path(path).suffix.lower() in (".pth", ".pt") and adapter != "wayu-nc-v1":
+            raise ModelPackageError("serialized PyTorch weights are only permitted for vetted Wayu NC packages")
+        if adapter == "wayu-nc-v1" and path in _WAYU_PINNED_SHA256:
+            if entry["sha256"] != _WAYU_PINNED_SHA256[path]:
+                raise ModelPackageError("Wayu NC PyTorch model differs from vetted upstream")
+        elif adapter == "wayu-nc-v1" and Path(path).suffix.lower() in (".pth", ".pt"):
+            raise ModelPackageError("unexpected executable-serialization asset")
         file_index[path.lower()] = entry
         total += entry["size"]
-    required_files = (("speaker_config.json",) if adapter == "vachana-onnx-v1" else
+    required_files = (tuple(_WAYU_PINNED_SHA256) if adapter == "wayu-nc-v1" else
+                      ("speaker_config.json",) if adapter == "vachana-onnx-v1" else
                       ("kokoro-v1.0.int8.onnx", "voices-v1.0.bin") if adapter == "kokoro-onnx-v1" else
                       ("duration_predictor.int8.onnx", "text_encoder.int8.onnx", "vector_estimator.int8.onnx", "vocoder.int8.onnx", "tts.json", "unicode_indexer.bin", "voice.bin") if adapter == "sherpa-supertonic-v1" else
                       ("model.onnx", "tokens.txt", "lexicon.txt") if adapter == "sherpa-melo-zh-v1" else
                       ("config.json", "kokoro_thai.onnx"))
+    if adapter == "wayu-nc-v1" and not {"readme.md", "legal/license.txt", "legal/attribution.md", "legal/acceptable-use.txt"} <= set(file_index):
+        raise ModelPackageError("Wayu NC needs complete attribution and acceptable-use notices")
     if total > PACKAGE_LIMIT or not all(name in file_index for name in required_files):
         raise ModelPackageError("model exceeds size limit or has no speaker config")
     for voice in voices:
@@ -563,6 +607,100 @@ def pack_local_kokoro(source: Path, output: Path) -> Path:
         return make_package(stage, create_kokoro_manifest(stage), output)
 
 
+def create_wayu_manifest(source: Path) -> dict[str, Any]:
+    """Only the SHA-pinned Wayu Edge 12-voice original, never arbitrary pickles."""
+    from .personal_wayu_engine import VOICES as WAYU_VOICES
+    source = Path(source)
+    names = [
+        *_WAYU_PINNED_SHA256,
+        "README.md", "legal/license.txt", "legal/attribution.md",
+        "legal/acceptable-use.txt",
+    ]
+    files = []
+    for name in names:
+        path = source / name
+        if not path.is_file() or path.is_symlink():
+            raise ModelPackageError("Wayu NC package missing file: " + name)
+        with path.open("rb") as stream:
+            sha = hashlib.file_digest(stream, "sha256").hexdigest()
+        files.append({"path": name, "size": path.stat().st_size, "sha256": sha})
+    return validate_manifest({
+        "format": FORMAT, "format_version": FORMAT_VERSION,
+        "package_id": "wayu-paxa-edge-nc", "version": "1.0.0",
+        "title": "Wayu Paxa Edge - Thai / English - 12 voices",
+        "engine_adapter": "wayu-nc-v1", "language": "th",
+        "sample_rate": 24_000,
+        "voices": [{"id": ident, "label": ident.replace("_", " "),
+                    "asset": "voices/" + ident + ".pt"}
+                   for ident, _ in WAYU_VOICES],
+        "files": files,
+        "license": {
+            "spdx": "CC-BY-NC-4.0",
+            "url": "https://creativecommons.org/licenses/by-nc/4.0/",
+            "attribution": (
+                "Wayu Research; Kunat Pipatanakul, Potsawee Manakul, "
+                "Warit Sirichotedumrong, Sittipong Sripaisarnmongkol, "
+                "Pakorn Nathong, Phatrasek Jirabovonvisut. "
+                "Original weights unchanged; repackaged for VoxWeaveTTS. "
+                "NonCommercial only. Upstream acceptable-use policy applies."
+            ),
+            "review_status": "hold",
+        },
+        "source": {
+            "url": "https://huggingface.co/wayu-ai/wayu-paxa-tts-edge",
+            "revision": _WAYU_SOURCE_REVISION,
+        },
+        "dependencies": ["wayu-nc-v1"],
+    })
+
+
+def pack_local_wayu(source: Path, output: Path) -> Path:
+    """Local opt-in NC repack, preserving upstream weights and notices intact."""
+    source = Path(source)
+    cache = ROOT / "cache" / "temp"
+    cache.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="pack-wayu-nc-", dir=cache) as temp:
+        stage = Path(temp)
+        for name in (*_WAYU_PINNED_SHA256, "README.md"):
+            _hardlink_or_copy(source / name, stage / name)
+        legal = stage / "legal"
+        legal.mkdir()
+        (legal / "license.txt").write_text(
+            "Wayu Paxa Edge original weights and voices: CC BY-NC 4.0 International.\\n"
+            "Full legally controlling license: https://creativecommons.org/licenses/by-nc/4.0/legalcode.en\\n"
+            "You may share and adapt for NonCommercial purposes only; give attribution, "
+            "link the license, and indicate modifications. No extra restrictions.\\n",
+            encoding="utf-8",
+        )
+        (legal / "attribution.md").write_text(
+            "# Attribution and modification notice\\n\\n"
+            "Original work: Wayu-Paxa-TTS-Edge (Wayu Research / wayu-ai).\\n"
+            "Original weights and 12 voice assets: CC BY-NC 4.0.\\n"
+            "Source: https://huggingface.co/wayu-ai/wayu-paxa-tts-edge\\n"
+            f"Pinned source revision: {_WAYU_SOURCE_REVISION}\\n"
+            "Authors: Kunat Pipatanakul, Potsawee Manakul, "
+            "Warit Sirichotedumrong, Sittipong Sripaisarnmongkol, "
+            "Pakorn Nathong, Phatrasek Jirabovonvisut.\\n"
+            "Paper: Building and Evaluating Fixed-Voice Thai TTS from Synthetic Speech\\n"
+            "https://arxiv.org/abs/2609.03502\\n\\n"
+            "Modification: Model weights, configuration and voice files are byte-for-byte "
+            "unchanged from the pinned upstream revision. Only a data-only VoxWeaveTTS "
+            ".vwmodel ZIP/manifest and additional legal attribution notes were added.\\n"
+            "No affiliation or endorsement by Wayu Research is implied. "
+            "Not commercially licensed. No warranties.\\n",
+            encoding="utf-8",
+        )
+        (legal / "acceptable-use.txt").write_text(
+            "Wayu Research acceptable-use policy also applies to this model and outputs.\\n"
+            "https://www.wayuresearch.org/terms#acceptable-use\\n"
+            "Do not impersonate, deceive, defraud or misrepresent synthetic voice "
+            "as an authentic recording. Do not infringe rights or use in unlawful "
+            "or safety-critical applications. Follow the full upstream terms.\\n",
+            encoding="utf-8",
+        )
+        return make_package(stage, create_wayu_manifest(stage), output)
+
+
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="VoxWeaveTTS model packages")
@@ -581,6 +719,11 @@ def main() -> None:
     fast.add_argument("--source", type=Path, default=ROOT / "models" / "fastthaig2p")
     fast.add_argument("--output", type=Path, default=ROOT / "dist" / "ModelPackages" /
                       "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel")
+    wayu = actions.add_parser("pack-wayu")
+    wayu.add_argument("--source", type=Path,
+                      default=ROOT / "models" / "personal" / "wayu-paxa-tts-edge")
+    wayu.add_argument("--output", type=Path, default=ROOT / "dist" / "ModelPackages" /
+                      "VoxWeaveTTS-Wayu-Paxa-Edge-Thai-English-12Voices-NC-v1.0.0.vwmodel")
     args = parser.parse_args()
     try:
         if args.action == "install":
@@ -599,6 +742,9 @@ def main() -> None:
         elif args.action == "pack-fastthai":
             print("Built", pack_local_fastthai(args.source, args.output))
             print("Rights status: review_required - refer to included Apache/CC BY notices")
+        elif args.action == "pack-wayu":
+            print("Built", pack_local_wayu(args.source, args.output))
+            print("Rights: CC BY-NC 4.0 (NonCommercial only); upstream weights unmodified")
     except (ModelPackageError, OSError, zipfile.BadZipFile) as exc:
         parser.exit(2, "Model package operation failed: " + str(exc) + "\n")
 

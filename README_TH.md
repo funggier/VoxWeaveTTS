@@ -1,5 +1,8 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**Windows Portable v0.9.4 + โมเดล Wayu Paxa Edge NC:** สามารถดาวน์โหลด **Wayu ภาษาไทย/อังกฤษ 12 เสียง** เป็น `.vwmodel` **แยกต่างหาก** และติดตั้งผ่าน Model Package Manager ได้โดยตรง พร้อมข้อมูลผู้สร้างและข้อกำหนดสิทธิ์ **CC BY-NC 4.0 ห้ามใช้เชิงพาณิชย์** น้ำหนักโมเดลเดิมไม่ได้ถูกแก้ไข และยัง **ไม่รวม NC ใน ZIP หลัก/Git Source** [Release v0.9.4 (ครบชุด)](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.4.md)
+
+
 **Windows Portable v0.9.3 (Release ครบชุด):** เพิ่ม TTS Engine Worker Gateway แยกสภาพแวดล้อม, รักษาโมเดลที่โหลดแล้ว, ปิด VoxWeaveTTS และ Worker ที่ค้างด้วย Stop โดยไม่ปิด Ollama, ปรับการเลือกเสียงภาษาอังกฤษให้ใช้ได้กับทุกโมเดลที่พร้อม และเพิ่มไฟล์สูตรติดตั้ง Runtime ลง Portable ครบ พร้อม Model Packages / M2M100 / TikTok Extension / SHA-256 แยกดาวน์โหลดตามสิทธิ์ [ดาวน์โหลด Release v0.9.3](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.3) · [รายละเอียดการเปลี่ยนแปลง](docs/RELEASE_NOTES_v0.9.3.md)
 
 

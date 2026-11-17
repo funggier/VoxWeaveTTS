@@ -11,7 +11,15 @@
 - SHA-256 `model.pth`: `eb26ac6f7da4c651389b28793d0ab59be8fa7e3e7cc5d350278b2a8d0a4d7370`
 - สถานะในโปรแกรม: `[NC / NonCommercial]`, `commercial_status=hold`; ไม่ใช่ Commercial-Cleared และไม่ได้รับรองสิทธิ์เสียง/ข้อมูลฝึกโดยอิสระ
 
-**ไม่รวมไฟล์น้ำหนัก NC ใน GitHub หรือ Portable ZIP หลัก** ไม่ให้เผลอเปลี่ยน License จาก Apache-2.0 ของโค้ดไปเป็น License ของน้ำหนักโมเดล
+**ไม่รวมน้ำหนัก NC ใน Git Source หรือ Portable ZIP หลัก** — ตั้งแต่ v0.9.4 มี Asset `.vwmodel` แบบ **NC แยกต่างหาก** บน GitHub Releases ตามสิทธิ์ CC BY-NC 4.0; ไม่ได้รวมอยู่ในตัวโปรแกรมโดยอัตโนมัติ ไม่ให้เผลอเปลี่ยน License จาก Apache-2.0 ของโค้ดไปเป็น License ของน้ำหนักโมเดล
+
+## ติดตั้งผ่านไฟล์ .vwmodel (v0.9.4 ขึ้นไป)
+
+ดาวน์โหลดโมเดล `VoxWeaveTTS-Wayu-Paxa-Edge-Thai-English-12Voices-NC-v1.0.0.vwmodel` จาก [GitHub Release v0.9.4](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4) หรือใช้ไฟล์เดียวกันที่อยู่ใน `dist/ModelPackages/` บนเครื่องผู้พัฒนา จากนั้นเปิด **ตั้งค่า → Model Packages → ติดตั้งจากไฟล์** แล้วติดตั้ง/ซ่อม Runtime Provider `wayu-nc` หากจำเป็น
+
+Engine ใหม่ `model-wayu-paxa-edge-nc-1_0_0` อยู่แยกจาก Engine เดิม `personal-nc-wayu-paxa-edge-cpu` เพื่อไม่กระทบการตั้งค่าเดิม ทั้งสองรองรับ `th` และ `en` ครบ 12 เสียง
+
+ตัว Installer ยอมรับเฉพาะน้ำหนักเดิมที่มี SHA-256 ตรงกับ Revision ที่ระบุ ป้องกันไฟล์ PyTorch แบบ Serialized ที่ถูกสลับหรือแก้ไข; ไม่มีการอ้างสิทธิ์ให้ใช้งานเชิงพาณิชย์ และต้องปฏิบัติตาม [Wayu Research Acceptable Use](https://www.wayuresearch.org/terms#acceptable-use) ขณะเผยแพร่และใช้งานต่อไป
 
 ## วิธีติดตั้ง
 

@@ -5,6 +5,7 @@ import hashlib
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from voxweavetts.sherpa_voice_engine import (
@@ -36,7 +37,9 @@ class SherpaRoutingTests(unittest.TestCase):
             sample_rate=44100)
         fake = FakeSynth()
         engine._native = fake
-        with patch("voxweavetts.speech._float32_to_pcm", return_value=b"\x00\x00"):
+        with (patch.dict("sys.modules", {"sherpa_onnx": SimpleNamespace(
+                GenerationConfig=lambda: SimpleNamespace(extra={}))}),
+              patch("voxweavetts.speech._float32_to_pcm", return_value=b"\x00\x00")):
             for voice, text, lang in (
                 ("ko_s0", "안녕하세요", "ko"),
                 ("en_s1", "Hello", "en"),
@@ -59,7 +62,8 @@ class SherpaRoutingTests(unittest.TestCase):
             voices=(("zh_melo", "Mandarin"),), sample_rate=44100)
         fake = FakeSynth()
         engine._native = fake
-        with patch("voxweavetts.speech._float32_to_pcm", return_value=b"\x00\x00"):
+        with (patch.dict("sys.modules", {"sherpa_onnx": SimpleNamespace()}),
+              patch("voxweavetts.speech._float32_to_pcm", return_value=b"\x00\x00")):
             engine.select_voice("zh_melo")
             self.assertEqual(engine.generate("你好", 1.2), b"\x00\x00")
             self.assertEqual(fake.calls[0], ("你好", (0, 1.2)))

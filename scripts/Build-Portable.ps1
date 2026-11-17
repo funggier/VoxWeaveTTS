@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.9.3', [switch]$SkipZip)
+param([string]$Version = '0.9.4', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -95,6 +95,7 @@ $notice=@(
   "sherpa-onnx 2.0.1: Apache-2.0 runtime (see bundled dist-info licenses), https://github.com/k2-fsa/sherpa-onnx.",
   "Optional Chinese MeloTTS model: MIT model-card license; source https://huggingface.co/myshell-ai/MeloTTS-Chinese; review separate voice and training rights.",
   "Optional Supertonic 3 model: BigScience OpenRAIL-M with use restrictions, NOT MIT despite MIT sample code; source https://huggingface.co/Supertone/supertonic-3. Model pack includes full license.",
+  "Optional Wayu Paxa Edge: CC BY-NC 4.0 - noncommercial use ONLY, original 12 voices; distributed as a SEPARATE optional .vwmodel with upstream notices. It is NOT in this Portable ZIP. https://huggingface.co/wayu-ai/wayu-paxa-tts-edge",
   "Kokoro-82M multilingual model: Apache-2.0 upstream; installed separately as .vwmodel; rights to voices/training require review.",
   "eSpeak NG DLL/data: GPL-3.0, source https://github.com/espeak-ng/espeak-ng; full GPL text in docs/third-party/ESPEAK_NG_GPL-3.0.txt. Redistributors must follow source and notice obligations.",
   "phonemizer: https://github.com/bootphon/phonemizer (license in bundled package metadata).",

@@ -6,7 +6,7 @@
 
 | Engine/Model | ภาษาอ่านที่รองรับสำหรับการเลือกโมเดลตามภาษา | วิธีเลือก |
 |---|---|---|
-| **[NC / NonCommercial] Wayu Paxa Edge** | **ไทย (th), อังกฤษ (en)** | **Voice ทั้ง 12 เสียงใช้ได้ทั้งสองภาษา** |
+| **[NC / NonCommercial] Wayu Paxa Edge** (Personal / `.vwmodel` v0.9.4) | **ไทย (th), อังกฤษ (en)** | **Voice ทั้ง 12 เสียงใช้ได้ทั้งสองภาษา** |
 | FastThaiG2P Kokoro Thai, FastThaiG2P ThaiSom | ไทย (th), อังกฤษ (en) | Voice `thai_som` ของ Engine หลักหรือแพ็กเกจ ใช้กับทั้งสองภาษา |
 | **MakHam Paradee Thai** | **ไทย (th), อังกฤษ (en)** | Voice `paradee_thai` ตัวเดียวกันใช้กับทั้งสองภาษา |
 | Vachana Thai และ Vachana 4 Voices | ไทย (th), อังกฤษ (en) | เสียงทั้ง 4 เสียงรองรับการเลือกเป็น Route อังกฤษด้วย |

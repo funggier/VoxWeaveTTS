@@ -15,6 +15,14 @@ from voxweavetts import language_routes
 from voxweavetts.server import Handler
 
 
+def _ready_info(engine_id):
+    """Server routing tests must not require locally installed TTS models."""
+    from dataclasses import replace
+    from voxweavetts.speech import get_engine_info
+    return replace(get_engine_info(engine_id),
+                   assets_ready=True, runtime_ready=True)
+
+
 class MultilingualHttpTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -128,7 +136,8 @@ class MultilingualHttpTests(unittest.TestCase):
                 "engine_id": "makham-paradee-cpu", "voice_id": "paradee_thai"}
         with patch("voxweavetts.server.load_workspace_settings",
                    return_value={"language_routes": {"studio": True, "reader": False}}), \
-             patch("voxweavetts.server.choose_route") as routed:
+             patch("voxweavetts.server.choose_route") as routed, \
+             patch("voxweavetts.server.get_engine_info", side_effect=_ready_info):
             params = Handler._speech_params(None, data, plan)
         routed.assert_not_called()
         self.assertEqual(params["engine_id"], data["engine_id"])
@@ -145,7 +154,8 @@ class MultilingualHttpTests(unittest.TestCase):
                     return_value={"settings":{**DEFAULTS,
                         "enabled":True,"operation":"custom","target_language":"th"}}),
               patch("voxweavetts.server.choose_route",
-                    return_value=("th",None)) as routed):
+                    return_value=("th",None)) as routed,
+              patch("voxweavetts.server.get_engine_info", side_effect=_ready_info)):
             plan["processing"]={"ai_status":"processed"}
             Handler._speech_params(None,{"mode":"studio"},plan)
             self.assertEqual(routed.call_args.kwargs["language"],"th")

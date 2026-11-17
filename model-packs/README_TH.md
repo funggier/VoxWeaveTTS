@@ -1,8 +1,8 @@
-# Model Packages ที่ทดลองแล้ว — VoxWeaveTTS v0.9.2
+# Model Packages ที่ทดลองแล้ว — VoxWeaveTTS v0.9.4
 
 ไฟล์โมเดลแยกจากตัวโปรแกรมหลัก: **Git Repository เก็บโค้ดสร้างแพ็กเกจ, Manifest, SHA-256, เครดิตและไฟล์ลิขสิทธิ์** ส่วนไฟล์น้ำหนักที่มีขนาดใหญ่จัดเก็บเป็น **GitHub Release Assets** ใน Repository เดียวกัน ไม่ Commit ไฟล์ ONNX ขนาดหลายร้อย MB ลง Git history
 
-**ดาวน์โหลดแพ็กเกจล่าสุด:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2
+**ดาวน์โหลดแพ็กเกจล่าสุด:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4
 **โปรแกรมหลัก:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2
 **ข้อมูลเครื่องตรวจสอบได้:** [catalog.json](catalog.json) มี SHA-256 ของไฟล์ `.vwmodel` และไฟล์โมเดลต้นทางที่ Pin ตาม Version
 
@@ -10,6 +10,7 @@
 
 | แพ็กเกจ | เสียง | ประกาศลิขสิทธิ์จากผู้เผยแพร่ | ข้อควรทราบ |
 |---|---|---|---|
+| **Wayu Paxa Edge [NC / NonCommercial] v1.0.0** | **12 เสียง ไทย/อังกฤษ** | **CC BY-NC 4.0** อนุญาตแจกจ่าย/ดัดแปลงเฉพาะไม่เชิงพาณิชย์ พร้อม Attribution และ Acceptable Use | แยกจาก Portable ZIP; มี `model.pth` และ `voices/*.pt` ที่ตรวจ SHA-256 ตรงต้นฉบับ; ต้องใช้ Runtime `wayu-nc` และ VoxWeaveTTS v0.9.4 ขึ้นไป |
 | Kokoro-82M Multilingual INT8 v1.0.0 | 18 เสียงใน 7 ภาษา (EN/ES/FR/HI/IT/JA/PT), CPU ONNX | **Apache-2.0** ตาม Model Card ของ hexgrad/Kokoro-82M; ONNX conversion by thewh1teagle | ยังไม่ตรวจสิทธิ์ชุดข้อมูลฝึก/เสียงทุกแหล่งโดยอิสระ; ต้องติดตั้ง `.vwmodel` เพิ่มเอง; Portable v0.9.2 มี Runtime CPU ที่จำเป็นแล้ว |
 | MeloTTS Chinese ONNX v1.0.0 | จีนกลาง 1 เสียง (`zh_melo`) | **MIT** ตาม Model Card ของ MyShell.ai; แปลง ONNX โดย k2-fsa | ต้องลงแพ็กเกจแยก, ติดตั้ง sherpa-onnx (รวมแล้วใน Portable v0.9.1), สิทธิ์เสียง/ข้อมูลฝึกยังไม่รับรอง |
 | Supertonic 3 INT8 v1.0.0 | 31 ภาษา (รวมเกาหลี), 62 รายการเลือกเสียง | **OpenRAIL-M** โดย Supertone (มีข้อจำกัดตามเงื่อนไขการใช้งาน) | ไม่ใช่ MIT หรือ Commercial-Cleared; อ่าน License ใน `.vwmodel` ก่อนแจกต่อ/ใช้เชิงพาณิชย์ |

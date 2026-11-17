@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.4 - Optional Wayu Paxa Edge NonCommercial model package (2026-11-17)
+
+- Add SHA-pinned, data-only `.vwmodel` support for the original Wayu Paxa Edge Thai/English model and its 12 voices; install via the normal local Model Package Manager.
+- Ship the optional NC model **only as a separate GitHub Release asset** (and keep a local copy), never inside the Windows Portable ZIP or Git source. Retain CC BY-NC 4.0 license URI, creator attribution, unmodified-weight notice and Wayu Research acceptable-use policy.
+- Keep the existing personal Wayu model and saved language routes untouched; newly installed package gets its own Engine ID and supports Thai/English per-language routing.
+- The Wayu isolated PyTorch worker accepts only vetted installed models and verifies SHA-256 of all original weights before deserialization; unknown model IDs and altered serialized weights are rejected.
+- [v0.9.4 release notes](docs/RELEASE_NOTES_v0.9.4.md).
+
+
 ## v0.9.3 - Engine worker gateway, bilingual TTS and force-stop (2026-11-17)
 
 - Add scoped Windows Stop commands for dev/portable and ownership markers for Python worker/server processes. Gracefully handle already-exited descendants; never stop Ollama or unrelated apps.
