@@ -20,13 +20,30 @@ def resample_pcm16(pcm: bytes, source_rate: int, output_rate: int) -> bytes:
         import audioop
         return audioop.ratecv(pcm, 2, 1, source_rate, output_rate, None)[0]
     except ImportError:
-        # Python 3.13+ removed audioop; NumPy is already required by TTS.
-        import numpy as np
-        samples = np.frombuffer(pcm, dtype="<i2").astype(np.float64)
+        # Python 3.13+ no longer ships audioop, and our CI intentionally
+        # tests without optional third-party libraries. Linear PCM16 mono
+        # interpolation needs only the Python standard library.
+        from array import array
+        from sys import byteorder
+        if len(pcm) % 2:
+            raise ValueError("partial PCM16 sample cannot be resampled")
+        samples = array("h")
+        samples.frombytes(pcm)
+        if byteorder != "little":
+            samples.byteswap()
         count = max(1, round(len(samples) * output_rate / source_rate))
-        result = np.interp(np.arange(count) * source_rate / output_rate,
-                           np.arange(len(samples)), samples)
-        return np.clip(np.rint(result), -32768, 32767).astype("<i2").tobytes()
+        converted = array("h")
+        for index in range(count):
+            whole, remainder = divmod(index * source_rate, output_rate)
+            if whole >= len(samples) - 1:
+                value = samples[-1]
+            else:
+                value = round((samples[whole] * (output_rate - remainder)
+                              + samples[whole + 1] * remainder) / output_rate)
+            converted.append(max(-32768, min(32767, value)))
+        if byteorder != "little":
+            converted.byteswap()
+        return converted.tobytes()
 
 
 def render_mixed_language_wav(

@@ -125,6 +125,21 @@ class FakeEngine:
 
 
 class SynthesisTests(unittest.TestCase):
+    def test_stdlib_pcm16_resample_works_without_audioop_or_numpy(self):
+        import struct
+        import sys
+        from voxweavetts.mixed_synthesis import resample_pcm16
+        source=struct.pack("<4h",0,1000,-1000,0)
+        # Python 3.13 has no audioop. This test simulates that standard-library
+        # environment on every supported CI version without installing NumPy.
+        with patch.dict(sys.modules,{"audioop":None}):
+            output=resample_pcm16(source,4,8)
+            self.assertEqual(struct.unpack("<8h",output),
+                             (0,500,1000,0,-1000,-500,0,0))
+            self.assertEqual(resample_pcm16(source,4,4),source)
+            with self.assertRaisesRegex(ValueError,"partial PCM16"):
+                resample_pcm16(source+bytes([0]),4,8)
+
     def info(self, key):
         if key == "thai":
             return EngineInfo(
