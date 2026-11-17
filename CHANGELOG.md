@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.0 — Native v2 Portable and Trusted Provider SDK (Phase D — TTS)
+
+- Add separate Ed25519 publisher public-key trust store with out-of-band SHA-256 fingerprint confirmation and explicit per-provider executable approval. Signatures bind provider manifest, worker and requirements; automatic revocation on tamper/key removal; no remote key lookup and no private signing keys in Portable.
+- Add standard-library TTS Provider SDK v1: strict JSON Lines bounds and responses, PCM16 mono validation, bounded oversized-line drain, sanitized synthesis failures and resource errors. Migrate minimal synthetic-tone example; model packages remain data-only.
+- Add offline publisher-key management tool `scripts/manage_signed_provider.py` and tests, preserve separately reviewed legacy/manual SHA approvals without bypassing the signed path. Core signature verifier requires `cryptography`; missing library fails closed.
+- Release pipeline `scripts/Build-Portable-V2.ps1` packages only native Universal v2 MakHam preset and recovery archive (no legacy v1 model manifest), bundles uv for offline runtime installers, includes app-owned wheel locks, and excludes local model cache, user data, private keys and unapproved provider code.
+- Source/release version 0.10.0, expanded v2 package and separated Wheelhouse guidance. [Release notes](docs/RELEASE_NOTES_v0.10.0.md).
+
 ## Unreleased — Native Universal .vwmodel v2 Phase C: Offline Verified Wheelhouse
 
 - Expand locally curated trusted wheelhouses to **Sherpa (3 wheels, 31.7 MB), PyThaiTTS (26 wheels, 72.4 MB), M2M100 (25 wheels, 284.7 MB)**. Complete *real* disconnected-index installs and dependency imports in isolated temporary projects for all three; M2M100 model inference remains unverified due to earlier Windows commit pressure.

@@ -72,7 +72,8 @@ def _execute(command: list[str], *, root: Path, log: Any) -> None:
 def install(root: Path = ROOT) -> Path:
     """Install fixed application-owned deps. No .vwmodel can choose packages."""
     root = Path(root)
-    uv = shutil.which("uv")
+    from .runtime_tools import find_uv
+    uv = find_uv(root)
     if not uv:
         raise M2MRuntimeError("uv is required to install M2M100 runtime")
     recipe = root / REQUIREMENTS

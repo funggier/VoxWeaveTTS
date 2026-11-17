@@ -86,7 +86,8 @@ def install(provider_id: str, *, root: Path = ROOT) -> Path:
     if profile is None:
         raise InstallError("unknown or untrusted engine provider")
     root = Path(root)
-    uv = shutil.which("uv")
+    from .runtime_tools import find_uv
+    uv = find_uv(root)
     if not uv:
         raise InstallError("uv is not installed")
     main_python = (root / ".venv" / "Scripts" / "python.exe")

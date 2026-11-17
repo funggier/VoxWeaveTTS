@@ -157,25 +157,37 @@ def _validate_external_manifest(raw: Any, folder: Path) -> Provider:
                     plugin_path=folder, declared_engine=raw)
 
 
-def _external_provider(folder: Path) -> Provider | None:
+def _external_provider(folder: Path, *, root: Path = ROOT) -> Provider | None:
     """Only code explicitly approved by the user, pinned to exact file hashes."""
     try:
-        if folder.is_symlink():
+        root = Path(root)
+        base = root / "extensions" / "engine-providers"
+        if (folder.is_symlink() or base.is_symlink() or base.parent.is_symlink()
+            or folder.resolve().parent != base.resolve()):
             return None
         files = {name: folder / name for name in
                  ("provider.json", "worker.py", "requirements.txt")}
         approval = folder / "approved.json"
-        if not approval.is_file() or approval.is_symlink() or approval.stat().st_size > 2048:
+        if not approval.is_file() or approval.is_symlink() or approval.stat().st_size > 4096:
             return None
         state = json.loads(approval.read_text(encoding="utf-8"))
-        if (not isinstance(state, dict) or set(state) != {"format", "files"}
-            or state["format"] != "voxweavetts.approved-provider-v1"
-            or not isinstance(state["files"], dict)
-            or set(state["files"]) != set(files)):
+        if not isinstance(state, dict):
             return None
-        if any(not target.is_file() or target.is_symlink()
-               or _sha256(target) != state["files"][name]
-               for name, target in files.items()):
+        if state.get("format") == "voxweavetts.approved-provider-v2":
+            from .provider_signing import signed_approval_valid
+            if not signed_approval_valid(folder=folder, root=root, state=state):
+                return None
+        elif state.get("format") == "voxweavetts.approved-provider-v1":
+            if (set(state) != {"format", "files"}
+                or not isinstance(state["files"], dict)
+                or set(state["files"]) != set(files)
+                or (folder / "provider-signature.json").exists()):
+                return None
+            if any(not target.is_file() or target.is_symlink()
+                   or _sha256(target) != state["files"][name]
+                   for name, target in files.items()):
+                return None
+        else:
             return None
         manifest = json.loads(files["provider.json"].read_text(encoding="utf-8"))
         return _validate_external_manifest(manifest, folder)
@@ -188,10 +200,17 @@ def approve_provider_folder(folder: Path, *, root: Path = ROOT,
     """Explicitly pin locally installed executable code after manual review."""
     if not trust_code:
         raise ProviderApprovalError("executable provider requires explicit trust")
-    base = (Path(root) / "extensions" / "engine-providers").resolve()
+    base_path = Path(root) / "extensions" / "engine-providers"
+    if (base_path.is_symlink() or base_path.parent.is_symlink()
+        or Path(folder).is_symlink()):
+        raise ProviderApprovalError("redirected external provider directory")
+    base = base_path.resolve()
     folder = Path(folder).resolve()
     if folder.parent != base:
         raise ProviderApprovalError("provider must be in extensions/engine-providers")
+    if (folder / "provider-signature.json").exists():
+        raise ProviderApprovalError(
+            "signed provider requires publisher verification and explicit signed approval")
     files = {name: folder / name for name in
              ("provider.json", "worker.py", "requirements.txt")}
     manifest_file = files["provider.json"]
@@ -212,7 +231,7 @@ def all_providers(root: Path = ROOT) -> dict[str, Provider]:
     if base.is_dir():
         for folder in sorted(base.iterdir()):
             if folder.is_dir() and _EXTERNAL_ID.fullmatch(folder.name):
-                p = _external_provider(folder)
+                p = _external_provider(folder, root=root)
                 if p is not None and p.id not in providers and all(
                     p.builtins[0] not in old.builtins for old in providers.values()
                 ):
@@ -259,5 +278,12 @@ def provider_status(root: Path = ROOT) -> list[dict]:
             "engines": attached, "adapter_types": list(item.adapters),
             "independent_environment": str(item.python_path(root).parent.parent.relative_to(root)),
             "external": item.driver == "external",
+            "approval_method": (
+                "signed-ed25519" if item.plugin_path is not None and
+                (item.plugin_path / "approved.json").is_file() and
+                json.loads((item.plugin_path / "approved.json").read_text(
+                    encoding="utf-8")).get("format") == "voxweavetts.approved-provider-v2"
+                else "manual-sha256" if item.plugin_path is not None
+                else "trusted-built-in"),
         })
     return profiles

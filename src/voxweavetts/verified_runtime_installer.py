@@ -67,7 +67,8 @@ def install_verified(runtime_id: str, *, root: Path = ROOT) -> Path:
     runtime_id = _safe_id(runtime_id)
     folder, marker, identity = _environment(root, runtime_id)
     recipe_hash = _digest(_recipe(root, runtime_id))
-    uv = shutil.which("uv")
+    from .runtime_tools import find_uv
+    uv = find_uv(root)
     if not uv:
         raise VerifiedInstallError("uv is required to create a verified runtime")
     base_python = _base_python(root)
