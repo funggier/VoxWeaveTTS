@@ -59,7 +59,19 @@ class SpeechTests(unittest.TestCase):
         with self.assertRaises(InputError):
             render_wav(p, voice_id="my-voice", engine=ConstantEngine())
         with self.assertRaises(InputError):
-            render_wav(process_text("x"*501), engine=ConstantEngine())
+            render_wav(process_text("x"*8001), engine=ConstantEngine())
+
+    def test_eight_thousand_characters_synthesized_in_bounded_chunks(self):
+        from voxweavetts.speech import MAX_SPEECH_CHARS, _chunks
+        self.assertEqual(MAX_SPEECH_CHARS, 8000)
+        text = "speech " * 1000
+        p = process_text(text)
+        engine = ConstantEngine()
+        wav, metadata = render_wav(p, engine=engine)
+        self.assertEqual(len(metadata["chunk_success"]), len(_chunks(text)))
+        self.assertTrue(all(metadata["chunk_success"]))
+        with wave.open(io.BytesIO(wav), "rb") as source:
+            self.assertEqual(source.getnframes(), len(_chunks(text)) * 1000)
 
     def test_stable_seed_metadata_and_validation(self):
         from voxweavetts.speech import DEFAULT_SEED, validate_seed
