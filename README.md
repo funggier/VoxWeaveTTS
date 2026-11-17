@@ -1,5 +1,8 @@
 # VoxWeaveTTS
 
+**Unreleased development after v0.9.5:** Source chat length can be configured up to **8,000 characters**, with explicit per-mode queue settings save and separate speech-error/current-text/completed-read views. The legacy chat list is unchanged. See [Live queue documentation](docs/LIVE_MESSAGE_QUEUE_TH.md).
+
+
 **Windows Portable v0.9.5 — unified runtime inventory and removable built-in MakHam:** MakHam Paradee is now pre-installed as a verified, uninstallable `.vwmodel` while keeping its `makham-paradee-cpu` Engine ID. A reference-aware Runtime Environment Registry protects shared TTS/translation runtimes from accidental removal. M2M100 has an optional isolated translation runtime and clearer installer diagnostics. Model binaries with separate license terms remain separate assets; no model is automatically approved for commercial use. [v0.9.5 Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.5) · [Release notes](docs/RELEASE_NOTES_v0.9.5.md) · [model/runtime architecture](docs/MODEL_PACKAGE_V2_ARCHITECTURE_TH.md).
 
 

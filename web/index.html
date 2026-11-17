@@ -191,7 +191,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid">
 <div><label for="youtubeBrowserFeedSourceId">YouTube Video ID หรือ URL ของ LIVE</label><input type="text" id="youtubeBrowserFeedSourceId" autocomplete="off" placeholder="https://www.youtube.com/watch?v=..."></div>
 <div><label for="youtubeBrowserFeedBlocked">คำที่ไม่อ่าน (คั่นด้วยจุลภาค)</label><input type="text" id="youtubeBrowserFeedBlocked" placeholder="คำที่ไม่ต้องการ"></div>
-<div><label for="youtubeBrowserFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="youtubeBrowserFeedMaxChars" min="20" max="280" value="240"></div>
+<div><label for="youtubeBrowserFeedMaxChars">ความยาวข้อความสูงสุด (20–8,000 ตัวอักษร)</label><input type="number" id="youtubeBrowserFeedMaxChars" min="20" max="8000" value="240"></div>
 <div><label for="youtubeBrowserFeedKeepRead">ประวัติที่อ่านแล้ว (0-100)</label><input type="number" id="youtubeBrowserFeedKeepRead" min="0" max="100" value="20"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="youtubeBrowserFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ</label>
 <div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -208,8 +208,21 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid"><button type="button" id="youtubeBrowserFeedExport">Export / Save As (.json)</button><button type="button" id="youtubeBrowserFeedImport">Import การตั้งค่า (.json)</button><input type="file" id="youtubeBrowserFeedImportFile" accept=".json,application/json" hidden></div>
 <p id="youtubeBrowserFeedStatus" class="small" role="status" aria-live="polite">ยังไม่เชื่อมต่อ · กดเชื่อมต่อเพื่อเปิดหน้าต่างแชท</p>
 <ol id="youtubeBrowserFeedProgress" class="source-message-list small" aria-label="ขั้นตอนการเชื่อมต่อ TikTok Extension"></ol>
+<div class="voice-grid" style="align-items:center;margin-top:8px">
+<button type="button" class="small-button" id="youtubeBrowserFeedSave">บันทึกการตั้งค่าคิว/ความยาวข้อความ</button>
+<span class="small" id="youtubeBrowserFeedSaveStatus" role="status">การตั้งค่าคิวไม่รวม Credentials</span>
+</div>
 <p id="youtubeBrowserFeedQueueStatus" class="small" role="status"></p>
 <ol id="youtubeBrowserFeedItems" class="source-message-list"></ol>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่กำลังแปลงเป็นเสียง / สถานะและข้อผิดพลาด</summary>
+<p id="youtubeBrowserFeedCurrentStatus" role="status" class="small">ยังไม่มีงานสร้างเสียง</p>
+<pre id="youtubeBrowserFeedCurrentText" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto"></pre>
+</details>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่อ่านแล้ว (ตามจำนวนประวัติที่อ่านแล้ว)</summary>
+<ol id="youtubeBrowserFeedReadItems" class="source-message-list small" aria-label="ข้อความที่อ่านสำเร็จแล้ว"></ol>
+</details>
 </details>
 <p id="youtubeBrowserStatus" class="small" role="status">พร้อมทดลองข้อความจาก Extension</p>
 <audio id="youtubeBrowserAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
@@ -238,8 +251,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid">
 <div><label for="liveFeedBlocked">คำที่ไม่ต้องการให้อ่าน (คั่นด้วยจุลภาค)</label>
 <input type="text" id="liveFeedBlocked" placeholder="คำหยาบ, สแปม"></div>
-<div><label for="liveFeedMaxChars">ความยาวข้อความสูงสุด</label>
-<input type="number" id="liveFeedMaxChars" min="20" max="280" value="240"></div>
+<div><label for="liveFeedMaxChars">ความยาวข้อความสูงสุด (20–8,000 ตัวอักษร)</label>
+<input type="number" id="liveFeedMaxChars" min="20" max="8000" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="liveFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
 <div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
 <label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="liveFeedRandomEnable" style="width:auto"> สุ่มลดคิวเมื่อสะสมมากเกินกำหนด</label>
@@ -263,8 +276,21 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <p class="small"><strong>คำเตือน:</strong> Export รวม API Key เป็นข้อความลับใน JSON ที่ไม่เข้ารหัส ควร Export ก่อนกดเชื่อมต่อ (ช่องลับจะถูกล้างหลังเชื่อมสำเร็จ) · Import เติมทุกช่องรวมช่องว่าง แต่ไม่เชื่อมต่อเอง</p>
 <p id="liveFeedStatus" class="small" role="status">ยังไม่ได้เชื่อมต่อ · สามารถใช้ข้อความทดลองด้านบนได้โดยไม่ต้องเชื่อมบัญชี</p>
+<div class="voice-grid" style="align-items:center;margin-top:8px">
+<button type="button" class="small-button" id="liveFeedSave">บันทึกการตั้งค่าคิว/ความยาวข้อความ</button>
+<span class="small" id="liveFeedSaveStatus" role="status">การตั้งค่าคิวไม่รวม Credentials</span>
+</div>
 <p id="liveFeedQueueStatus" class="small" role="status"></p>
 <ol id="liveFeedItems" class="source-message-list"></ol>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่กำลังแปลงเป็นเสียง / สถานะและข้อผิดพลาด</summary>
+<p id="liveFeedCurrentStatus" role="status" class="small">ยังไม่มีงานสร้างเสียง</p>
+<pre id="liveFeedCurrentText" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto"></pre>
+</details>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่อ่านแล้ว (ตามจำนวนประวัติที่อ่านแล้ว)</summary>
+<ol id="liveFeedReadItems" class="source-message-list small" aria-label="ข้อความที่อ่านสำเร็จแล้ว"></ol>
+</details>
 </details>
 <p id="liveStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
 <audio id="liveAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
@@ -288,7 +314,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid">
 <div><label for="tiktokBrowserFeedSourceId">TikTok Username หรือ URL ของ LIVE</label><input type="text" id="tiktokBrowserFeedSourceId" autocomplete="off" placeholder="https://www.tiktok.com/@username/live"></div>
 <div><label for="tiktokBrowserFeedBlocked">คำที่ไม่อ่าน (คั่นด้วยจุลภาค)</label><input type="text" id="tiktokBrowserFeedBlocked" placeholder="คำที่ไม่ต้องการ"></div>
-<div><label for="tiktokBrowserFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="tiktokBrowserFeedMaxChars" min="20" max="280" value="240"></div>
+<div><label for="tiktokBrowserFeedMaxChars">ความยาวข้อความสูงสุด (20–8,000 ตัวอักษร)</label><input type="number" id="tiktokBrowserFeedMaxChars" min="20" max="8000" value="240"></div>
 <div><label for="tiktokBrowserFeedKeepRead">ประวัติที่อ่านแล้ว (0-100)</label><input type="number" id="tiktokBrowserFeedKeepRead" min="0" max="100" value="20"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokBrowserFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ</label>
 <div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -308,8 +334,21 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p id="tiktokBrowserFeedDomDiagnostics" class="small" role="status" aria-live="polite">DOM: รอส่วนเสริมรายงานจำนวนกล่องแชทและแถวคอมเมนต์</p>
 <button type="button" class="small-button" id="tiktokBrowserFeedCopyDiagnostics">คัดลอกสถานะตรวจจับ (ไม่รวมข้อความแชท)</button>
 <ol id="tiktokBrowserFeedProgress" class="source-message-list small" aria-label="ขั้นตอนการเชื่อมต่อ Browser"></ol>
+<div class="voice-grid" style="align-items:center;margin-top:8px">
+<button type="button" class="small-button" id="tiktokBrowserFeedSave">บันทึกการตั้งค่าคิว/ความยาวข้อความ</button>
+<span class="small" id="tiktokBrowserFeedSaveStatus" role="status">การตั้งค่าคิวไม่รวม Credentials</span>
+</div>
 <p id="tiktokBrowserFeedQueueStatus" class="small" role="status"></p>
 <ol id="tiktokBrowserFeedItems" class="source-message-list"></ol>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่กำลังแปลงเป็นเสียง / สถานะและข้อผิดพลาด</summary>
+<p id="tiktokBrowserFeedCurrentStatus" role="status" class="small">ยังไม่มีงานสร้างเสียง</p>
+<pre id="tiktokBrowserFeedCurrentText" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto"></pre>
+</details>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่อ่านแล้ว (ตามจำนวนประวัติที่อ่านแล้ว)</summary>
+<ol id="tiktokBrowserFeedReadItems" class="source-message-list small" aria-label="ข้อความที่อ่านสำเร็จแล้ว"></ol>
+</details>
 </details>
 <p id="tiktokBrowserStatus" class="small" role="status">พร้อมทดลองข้อความจาก Browser</p>
 <audio id="tiktokBrowserAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
@@ -332,7 +371,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid">
 <div><label for="tiktokFeedSourceId">Local WebSocket ของ TikFinity</label><input type="text" id="tiktokFeedSourceId" value="ws://localhost:21213/" autocomplete="off"></div>
 <div><label for="tiktokFeedBlocked">คำที่กรองออก (คั่นด้วยจุลภาค)</label><input type="text" id="tiktokFeedBlocked" placeholder="คำไม่เหมาะสม, สแปม"></div>
-<div><label for="tiktokFeedMaxChars">ความยาวข้อความสูงสุด</label><input type="number" id="tiktokFeedMaxChars" min="20" max="280" value="240"></div>
+<div><label for="tiktokFeedMaxChars">ความยาวข้อความสูงสุด (20–8,000 ตัวอักษร)</label><input type="number" id="tiktokFeedMaxChars" min="20" max="8000" value="240"></div>
 <div><label for="tiktokFeedKeepRead">เก็บข้อความที่อ่านแล้ว (0–100)</label><input type="number" id="tiktokFeedKeepRead" min="0" max="100" value="20"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="tiktokFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
 <div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -356,8 +395,21 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <p class="small">โปรไฟล์ TikTok ไม่ต้องใช้รหัสผ่าน TikTok สามารถ Import แล้วเติมช่องว่างและกดเชื่อมต่อเองได้ ไม่เชื่อมอัตโนมัติ</p>
 <p id="tiktokFeedStatus" class="small" role="status">ยังไม่เชื่อมต่อ TikFinity Desktop</p>
+<div class="voice-grid" style="align-items:center;margin-top:8px">
+<button type="button" class="small-button" id="tiktokFeedSave">บันทึกการตั้งค่าคิว/ความยาวข้อความ</button>
+<span class="small" id="tiktokFeedSaveStatus" role="status">การตั้งค่าคิวไม่รวม Credentials</span>
+</div>
 <p id="tiktokFeedQueueStatus" class="small" role="status"></p>
 <ol id="tiktokFeedItems" class="source-message-list"></ol>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่กำลังแปลงเป็นเสียง / สถานะและข้อผิดพลาด</summary>
+<p id="tiktokFeedCurrentStatus" role="status" class="small">ยังไม่มีงานสร้างเสียง</p>
+<pre id="tiktokFeedCurrentText" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto"></pre>
+</details>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่อ่านแล้ว (ตามจำนวนประวัติที่อ่านแล้ว)</summary>
+<ol id="tiktokFeedReadItems" class="source-message-list small" aria-label="ข้อความที่อ่านสำเร็จแล้ว"></ol>
+</details>
 </details>
 <p id="tiktokStatus" class="small" role="status">รอข้อความทดลองหรือเชื่อม TikFinity</p>
 <audio id="tiktokAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
@@ -386,8 +438,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid">
 <div><label for="discordFeedBlocked">คำที่ไม่ต้องการให้อ่าน (คั่นด้วยจุลภาค)</label>
 <input type="text" id="discordFeedBlocked" placeholder="คำหยาบ, สแปม"></div>
-<div><label for="discordFeedMaxChars">ความยาวข้อความสูงสุด</label>
-<input type="number" id="discordFeedMaxChars" min="20" max="280" value="240"></div>
+<div><label for="discordFeedMaxChars">ความยาวข้อความสูงสุด (20–8,000 ตัวอักษร)</label>
+<input type="number" id="discordFeedMaxChars" min="20" max="8000" value="240"></div>
 <label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="discordFeedAuto" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)</label>
 <div class="queue-random-settings" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
 <label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="discordFeedRandomEnable" style="width:auto"> สุ่มลดคิวเมื่อสะสมมากเกินกำหนด</label>
@@ -411,8 +463,21 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <p class="small"><strong>คำเตือน:</strong> Export รวม Bot Token เป็นข้อความลับใน JSON ที่ไม่เข้ารหัส ควร Export ก่อนกดเชื่อมต่อ (ช่องลับจะถูกล้างหลังเชื่อมสำเร็จ) · Import เติมทุกช่องรวมช่องว่าง แต่ไม่เชื่อมต่อเอง</p>
 <p id="discordFeedStatus" class="small" role="status">ยังไม่ได้เชื่อมต่อ · สามารถใช้ข้อความทดลองด้านบนได้โดยไม่ต้องเชื่อมบัญชี</p>
+<div class="voice-grid" style="align-items:center;margin-top:8px">
+<button type="button" class="small-button" id="discordFeedSave">บันทึกการตั้งค่าคิว/ความยาวข้อความ</button>
+<span class="small" id="discordFeedSaveStatus" role="status">การตั้งค่าคิวไม่รวม Credentials</span>
+</div>
 <p id="discordFeedQueueStatus" class="small" role="status"></p>
 <ol id="discordFeedItems" class="source-message-list"></ol>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่กำลังแปลงเป็นเสียง / สถานะและข้อผิดพลาด</summary>
+<p id="discordFeedCurrentStatus" role="status" class="small">ยังไม่มีงานสร้างเสียง</p>
+<pre id="discordFeedCurrentText" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto"></pre>
+</details>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่อ่านแล้ว (ตามจำนวนประวัติที่อ่านแล้ว)</summary>
+<ol id="discordFeedReadItems" class="source-message-list small" aria-label="ข้อความที่อ่านสำเร็จแล้ว"></ol>
+</details>
 </details>
 <p id="discordStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
 <audio id="discordAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
@@ -447,8 +512,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div class="voice-grid">
 <div><label for="discordClientFeedBlocked">คำที่กรองออก (คั่นด้วยจุลภาค)</label>
 <input id="discordClientFeedBlocked" type="text" placeholder="คำไม่เหมาะสม, สแปม"></div>
-<div><label for="discordClientFeedMaxChars">ความยาวข้อความสูงสุด</label>
-<input id="discordClientFeedMaxChars" type="number" min="20" max="280" value="240"></div>
+<div><label for="discordClientFeedMaxChars">ความยาวข้อความสูงสุด (20–8,000 ตัวอักษร)</label>
+<input id="discordClientFeedMaxChars" type="number" min="20" max="8000" value="240"></div>
 <label style="display:flex;align-items:center;gap:7px">
 <input id="discordClientFeedAuto" type="checkbox" style="width:auto" checked>อ่านข้อความใหม่อัตโนมัติ (เปิดเป็นค่าเริ่มต้น · ปิดได้)
 </label>
@@ -474,8 +539,21 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 <p class="small"><strong>คำเตือน:</strong> Export รวม Client Secret เป็นข้อความลับใน JSON ที่ไม่เข้ารหัส ควร Export ก่อนกดเชื่อมต่อ (ช่องลับจะถูกล้างหลังเชื่อมสำเร็จ) · Import เติมทุกช่องรวมช่องว่าง แต่ไม่เชื่อมต่อเอง</p>
 <p id="discordClientFeedStatus" class="small" role="status">ยังไม่เชื่อมต่อ · ต้องได้รับสิทธิ์ Discord RPC ก่อน หากยังไม่ได้รับสิทธิ์สามารถพิมพ์ข้อความทดลองด้านบนได้</p>
+<div class="voice-grid" style="align-items:center;margin-top:8px">
+<button type="button" class="small-button" id="discordClientFeedSave">บันทึกการตั้งค่าคิว/ความยาวข้อความ</button>
+<span class="small" id="discordClientFeedSaveStatus" role="status">การตั้งค่าคิวไม่รวม Credentials</span>
+</div>
 <p id="discordClientFeedQueueStatus" class="small" role="status"></p>
 <ol id="discordClientFeedItems" class="source-message-list"></ol>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่กำลังแปลงเป็นเสียง / สถานะและข้อผิดพลาด</summary>
+<p id="discordClientFeedCurrentStatus" role="status" class="small">ยังไม่มีงานสร้างเสียง</p>
+<pre id="discordClientFeedCurrentText" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto"></pre>
+</details>
+<details class="source-connector" style="margin-top:8px" open>
+<summary>ข้อความที่อ่านแล้ว (ตามจำนวนประวัติที่อ่านแล้ว)</summary>
+<ol id="discordClientFeedReadItems" class="source-message-list small" aria-label="ข้อความที่อ่านสำเร็จแล้ว"></ol>
+</details>
 </details>
 <p id="discordClientStatus" class="small" role="status">รอข้อความหรือพิมพ์เพื่อทดลองอ่าน</p>
 <audio id="discordClientAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
@@ -876,6 +954,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <script src="/language_routes.js"></script>
 <script src="/mode_workspace.js"></script>
 <script src="/mode_inputs.js"></script>
+<script src="/source_queue_ui.js"></script>
 <script src="/source_feed.js"></script>
 <script src="/playback_clock.js"></script>
 <script src="/waveform_editor.js"></script>
@@ -2378,6 +2457,10 @@ if(typeof VoxModeInputs!=="undefined"){
       playAudio:audio=>audioScheduler.play(audio),
       cancelAudio:audio=>audioScheduler.cancel(audio),
       guard:id=>!modeRuntime || modeRuntime.guard(id),
+      onSpeechDiagnostic:diagnostic=>{
+        const feed=mode==="live"?liveFeed:(mode==="youtube_browser"?youtubeBrowserFeed:(mode==="tiktok_browser"?tiktokBrowserFeed:(mode==="discord"?discordFeed:(mode==="tiktok"?tiktokFeed:discordClientFeed))));
+        feed?.setSpeechDiagnostic(diagnostic);
+      },
       onMessageState:(id,state)=>{
         const feed=mode==="live"?liveFeed:(mode==="youtube_browser"?youtubeBrowserFeed:(mode==="tiktok_browser"?tiktokBrowserFeed:(mode==="discord"?discordFeed:(mode==="tiktok"?tiktokFeed:discordClientFeed))));
         feed?.setMessageState(id,state);

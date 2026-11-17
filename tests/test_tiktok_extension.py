@@ -179,7 +179,7 @@ class AdapterTests(unittest.TestCase):
         token = a.pair(a.pairing_code, EXT_ID, LIVE_URL)
         invalid_batches = (
             [{"id":"a","author":"A","text":""}],
-            [{"id":"a","author":"A","text":"x"*281}],
+            [{"id":"a","author":"A","text":"x"*8001}],
             [{"id":"bad/id","author":"A","text":"ok"}],
             [{"id":"a","author":"A","text":"\x01"}],
             [{"id":"a","author":"A","text":"okay", "secret":"no"}],

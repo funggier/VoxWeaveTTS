@@ -169,7 +169,7 @@
     for(const element of messageNodes.reverse()){
       if(isHeaderOrBadge(element))continue;
       const text=chatText(element).replace(/\s+/g," ").trim();
-      if(text&&text!==author&&text.length<=280)return text;
+      if(text&&text!==author&&text.length<=8000)return text;
     }
     const leaves=[...(node.querySelectorAll?.("span,p,div")||[])];
     for(const element of leaves.reverse()){
@@ -205,7 +205,7 @@
         parts[0]=parts[0].slice(match[0].length).trim();
     }
     const tail=parts.join(" ").trim();
-    return tail.length<=280?tail:"";
+    return tail.length<=8000?tail:"";
   }
   function parseRow(node){
     if(isSystemNotice(node))return null;
@@ -230,7 +230,7 @@
     if(!author)return null;
     const meta=decorations(node,nameNode);
     const text=commentTail(node,nameNode,author,meta);
-    if(!text||text===author||text.length>280)return null;
+    if(!text||text===author||text.length>8000)return null;
     if(/^(joined|followed|liked|shared|is now following)\b/i.test(text))return null;
     // A bare gift-like notification is not a viewer comment. A genuine
     // message can still contain the same words in a dedicated chat node.

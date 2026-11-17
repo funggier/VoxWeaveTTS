@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Saved Live queue preferences, 8,000-character limit and speech diagnostics
+
+- Increase maximum accepted incoming chat length to **8,000 characters** (configurable 20–8,000; default stays 240) across YouTube, Discord, TikTok, profile validation, extension bridges and input fields.
+- Explicit Save buttons for each source mode persist blocked words, maximum length, auto-read, random pruning thresholds/keep counts and read-history limit to local `data/settings/source-queues.json`, with atomic revisions and no credentials.
+- Add a separate per-mode view of the exact submitted speech text and synthesis/playback failure, and a separate list of completed spoken messages bounded by the existing read-history setting; preserve the original chat display and FIFO queue behavior.
+- Add boundary, API, security and UI regression tests. This is development after v0.9.5 and has not been published as a new Release.
+- Universal `.vwmodel v2` remains the separate next architectural milestone.
+
+
 ## v0.9.5 - Managed runtimes, removable MakHam and M2M100 installer fix (2026-11-17)
 
 - Fix wrong model-package installer errors: the standard .vwmodel picker now routes AI/Translation M2M100 to its own validated installer rather than treating it as a TTS engine; existing AI picker continues working.

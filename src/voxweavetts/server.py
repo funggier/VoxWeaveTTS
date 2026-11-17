@@ -77,6 +77,9 @@ from .engine_worker_gateway import gateway
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
 from .mode_voice_settings import load_workspace_settings, save_workspace_settings, VOICE_MODES
+from .source_queue_settings import (load_settings as load_source_queues,
+                                    save_settings as save_source_queues,
+                                    SettingsConflict as SourceQueueConflict)
 from .language_routes import load_routes, save_routes, choose_route, LANGUAGES
 from .speech_coordinator import (
     SpeechCoordinator, QueueFull, JobMissing, JobNotReady, AlignmentConflict, EVENT_SCHEMA_VERSION,
@@ -560,7 +563,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js", "/runtime_registry.js"}:
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/source_queue_ui.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js", "/runtime_registry.js"}:
                 name = ("audio_scheduler.js" if route == "/audio_scheduler.js" else
                         "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
                         "emoji_pronunciation.js" if route == "/emoji_pronunciation.js" else
@@ -568,6 +571,7 @@ class Handler(BaseHTTPRequestHandler):
                         "ai_settings.js" if route == "/ai_settings.js" else
                         "runtime_registry.js" if route == "/runtime_registry.js" else
                         "language_routes.js" if route == "/language_routes.js" else
+                        "source_queue_ui.js" if route == "/source_queue_ui.js" else
                         "source_feed.js" if route == "/source_feed.js" else
                         "mode_inputs.js" if route == "/mode_inputs.js" else
                         "mode_workspace.js" if route == "/mode_workspace.js" else
@@ -702,6 +706,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(404, {"error": "speech job not found"})
                 except JobNotReady:
                     self.send_json(409, {"error": "speech audio is not ready"})
+            elif route == "/v1/settings/source-queues":
+                self.send_json(200, load_source_queues())
             elif route == "/v1/settings/mode-voices":
                 self.send_json(200, load_workspace_settings())
             elif route == "/v1/settings/language-routes":
@@ -1259,6 +1265,28 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(409, {"error": "language routing settings changed elsewhere"})
             except (UnicodeDecodeError, json.JSONDecodeError):
                 self.send_json(400, {"error": "invalid language routing JSON"})
+            return
+        if route == "/v1/settings/source-queues":
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "save-source-queue"):
+                self.reject_unread_post(403, {"error": "same-origin source queue save required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "source queue settings require JSON"})
+                return
+            try:
+                self.send_json(200, save_source_queues(self._read_json(max_bytes=8192)))
+            except SourceQueueConflict:
+                self.send_json(409, {"error": "source queue settings changed in another tab; reload first"})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+                self.send_json(400, {"error": "invalid source queue settings"})
+            except OSError:
+                self.send_json(500, {"error": "could not save source queue settings"})
             return
         if route == "/v1/settings/mode-voices":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-mode-voice":

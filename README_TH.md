@@ -1,5 +1,8 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**กำลังพัฒนา (หลัง Release v0.9.5):** เพิ่มความยาวข้อความสูงสุดของ Live Chat / Discord / TikTok เป็น **8,000 ตัวอักษร** (ค่าเริ่มต้น 240), ปุ่มบันทึกค่าคิวแต่ละโหมด และช่องติดตามข้อความที่กำลังแปลงเป็นเสียง/ข้อผิดพลาดกับข้อความที่อ่านแล้ว โดยไม่เปลี่ยนรายการข้อความเดิม [คู่มือ](docs/LIVE_MESSAGE_QUEUE_TH.md) — ยังไม่รวมใน Release v0.9.5
+
+
 **Windows Portable v0.9.5 — Runtime Registry + MakHam แบบติดตั้ง/ถอนติดตั้งได้:** จัดการ Runtime และจำนวนโมเดลที่ใช้ร่วมกัน โดยไม่ลบ Runtime ที่ยังมีโมเดลอ้างอิงอยู่ MakHam ติดมาใน Portable เป็น `.vwmodel` ที่สามารถถอนได้เองและติดตั้งกลับได้ โดยคง Engine ID, Voice Preset และ Language Routes เดิม เพิ่มตัวติดตั้ง M2M100 Runtime แบบแยก Environment (ติดตั้ง Dependencies เพิ่มภายหลัง) [Release v0.9.5](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.5) · [บันทึก Release](docs/RELEASE_NOTES_v0.9.5.md) · [Model Package Runtime v2](docs/MODEL_PACKAGE_V2_ARCHITECTURE_TH.md) · [M2M100 Setup](docs/M2M100_SETUP_TH.md)
 
 

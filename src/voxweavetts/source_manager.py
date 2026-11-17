@@ -32,7 +32,7 @@ class SourceStreamFull(Exception):
 
 MAX_SEEN = 512
 MAX_BLOCKED_WORDS = 20
-MAX_TEXT_CHARS = 280
+MAX_TEXT_CHARS = 8000
 URL_PATTERN = re.compile(r"https?://|www\.|discord\.gg/", re.IGNORECASE)
 
 
@@ -129,7 +129,7 @@ class SourceManager:
             sanitized.append(entry.strip().casefold())
         limit = value.get("max_chars", 240)
         if type(limit) is not int or not 20 <= limit <= MAX_TEXT_CHARS:
-            raise InputError("max_chars must be 20..280")
+            raise InputError(f"max_chars must be 20..{MAX_TEXT_CHARS}")
         return tuple(sanitized), limit
 
     @staticmethod

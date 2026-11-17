@@ -141,7 +141,7 @@ class TikTokExtensionAdapter:
                 gift_name, gift_count = item.get("gift_name", ""), item.get("gift_count", 0)
                 if (not isinstance(mid, str) or not MESSAGE_ID.fullmatch(mid)
                     or not isinstance(author, str) or len(author) > 80
-                    or not isinstance(body, str) or not 1 <= len(body) <= 280
+                    or not isinstance(body, str) or not 1 <= len(body) <= 8000
                     or any(ord(c) < 32 and c not in "\t" for c in body)
                     or kind not in ("comment", "gift")
                     or any(not isinstance(x, str) or len(x)>48 or

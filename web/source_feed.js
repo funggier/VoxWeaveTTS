@@ -32,7 +32,7 @@ function validateSettingsProfile(value,mode){
   if(!isRecord(value.filters) || Object.keys(value.filters).some(k=>!["blocked_words","max_chars"].includes(k))
      || typeof value.filters.blocked_words!=="string" || value.filters.blocked_words.length>2000
      || !(value.filters.max_chars==="" || (Number.isInteger(value.filters.max_chars)
-          && value.filters.max_chars>=20 && value.filters.max_chars<=280)))
+          && value.filters.max_chars>=20 && value.filters.max_chars<=8000)))
     throw Error("ตัวกรองหรือจำนวนอักษรในไฟล์ไม่ถูกต้อง");
   const randomThreshold="random_queue_threshold" in value?value.random_queue_threshold:20;
   const randomKeep="random_queue_keep" in value?value.random_queue_keep:5;
@@ -167,6 +167,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
   const seen=new Set();
   let visible=[], overflow=0, randomRemoved=0;
+  let spokenHistory=[], currentSpeech=null;
   const browserMode=mode==="youtube_browser"||mode==="tiktok_browser";
   const extensionMode=mode==="tiktok_browser";
   const platform=mode==="tiktok_browser"?"TikTok":"YouTube";
@@ -338,6 +339,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   }
   function clearMessages(){
     visible=[];overflow=0;randomRemoved=0;
+    spokenHistory=[];currentSpeech=null;
+    renderSpokenHistory();
+    if(get("FeedCurrentStatus"))get("FeedCurrentStatus").textContent="ยังไม่มีงานสร้างเสียง";
+    if(get("FeedCurrentText"))get("FeedCurrentText").textContent="";
     get("FeedItems").replaceChildren();
     renderSummary();
   }
@@ -387,11 +392,58 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     }
     renderSummary();
   }
+  function renderSpokenHistory(){
+    const area=get("FeedReadItems");
+    if(!area)return;
+    area.replaceChildren();
+    for(const entry of spokenHistory){
+      const li=document.createElement("li");
+      li.className="source-message";
+      li.textContent=(entry.author?entry.author+": ":"")+entry.text;
+      area.appendChild(li);
+    }
+  }
+  function trimSpokenHistory(){
+    spokenHistory=spokenHistory.slice(0,readLimit());
+    renderSpokenHistory();
+  }
+  // This display is independent of the original incoming-chat list. The
+  // text is the actual composed speech request (including sender header),
+  // never just whatever happens to be in the latest chat input at this time.
+  function setSpeechDiagnostic(record){
+    if(!record||typeof record!=="object")return;
+    if(!["preparing","ready","reading","failed","skipped","read"].includes(record.stage))return;
+    const text=String(record.text||"").slice(0,9000);
+    const error=String(record.error||"").slice(0,240);
+    currentSpeech={message_id:record.message_id==null?null:String(record.message_id),
+                   text,stage:record.stage,error};
+    const status=get("FeedCurrentStatus");
+    const body=get("FeedCurrentText");
+    if(status){
+      const labels={preparing:"กำลังแปลงข้อความเป็นเสียง",ready:"สร้างเสียงเสร็จแล้ว",
+                    reading:"กำลังอ่านออกเสียง",read:"อ่านสำเร็จแล้ว",
+                    skipped:"ข้ามข้อความ",failed:"สร้างเสียง/เล่นเสียงผิดพลาด"};
+      status.textContent=(labels[record.stage]||record.stage)+(error?" · "+error:"");
+    }
+    if(body)body.textContent=text;
+  }
   function setMessageState(messageId,state){
     if(!Object.prototype.hasOwnProperty.call(STATE_LABELS,state))return;
     const entry=visible.find(x=>String(x.message_id)===String(messageId));
     if(!entry)return; // source session already switched or was cleared
     if(state==="random_removed"&&entry.state!=="random_removed")randomRemoved++;
+    if(state==="read"&&entry.state!=="read"){
+      const spoken=currentSpeech?.message_id===String(messageId)
+        ?currentSpeech.text:entry.text;
+      spokenHistory.unshift({text:spoken,author:entry.author||""});
+      trimSpokenHistory();
+      if(currentSpeech?.message_id===String(messageId))
+        setSpeechDiagnostic({...currentSpeech,stage:"read",error:""});
+    }
+    if((state==="preparing"||state==="reading")
+       && currentSpeech?.message_id===String(messageId)){
+      setSpeechDiagnostic({...currentSpeech,stage:state,error:""});
+    }
     entry.state=state;
     prune();
     render();
@@ -519,8 +571,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   function startTikTok(){
     const endpoint=tikTokURL(get("FeedSourceId").value);
     const max=Number(get("FeedMaxChars").value);
-    if(get("FeedMaxChars").value.trim()===""||!Number.isInteger(max)||max<20||max>280)
-      throw Error("กรุณากำหนดความยาวข้อความสูงสุด 20–280 ก่อนเชื่อมต่อ");
+    if(get("FeedMaxChars").value.trim()===""||!Number.isInteger(max)||max<20||max>8000)
+      throw Error("กรุณากำหนดความยาวข้อความสูงสุด 20–8,000 ก่อนเชื่อมต่อ");
     if(typeof root.WebSocket!=="function")throw Error("Browser ไม่รองรับ WebSocket");
     localSuspend();
     clearMessages();
@@ -872,10 +924,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   });
   get("FeedStop").disabled=true;
   get("FeedKeepRead").addEventListener("input",()=>{
-    prune();render();
+    prune();render();trimSpokenHistory();
   });
+  root.VoxSourceQueueUI?.attach(mode,el);
   renderSummary();
-  return {start,stop,poll,resetPending,suspend:localSuspend,setMessageState,exportSettings,importSettings,
+  return {start,stop,poll,resetPending,suspend:localSuspend,setMessageState,setSpeechDiagnostic,exportSettings,importSettings,
           get connected(){return connected;},get visible(){return visible.slice();}};
 }
 root.VoxSourceFeed={attach};

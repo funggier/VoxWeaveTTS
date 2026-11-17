@@ -5,6 +5,7 @@
 (function(root){
 "use strict";
 function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState,
+                 onSpeechDiagnostic,
                  playAudio=async audio=>{await audio.play();return true;},cancelAudio=()=>{}}){
   if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("unknown source mode");
   const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
@@ -194,6 +195,11 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
     stop({discard:true});
     const my=++generation;
+    let diagnosticText=text;
+    let diagnosticId=messageId;
+    const diagnose=(stage,error="")=>onSpeechDiagnostic?.({
+      message_id:diagnosticId,stage,text:diagnosticText,error
+    });
     lastReady=null;
     get("Submit").disabled=true;
     feedback("กำลังสร้างเสียงของโหมด "+mode+"...");
@@ -209,6 +215,9 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       body.text=[parts.sender_prefix_text,parts.content].filter(Boolean).join(" ");
       body.content_text=parts.content;
       body.sender_prefix_text=parts.sender_prefix_text;
+      diagnosticText=body.text;
+      diagnosticId=sender?.message_id??messageId;
+      diagnose("preparing");
       body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":mode==="tiktok_browser"?"tiktok-live-extension":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
@@ -244,6 +253,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           if(my!==generation||!guard(mode))return;
           wavUrl=URL.createObjectURL(wav);
           lastReady=job;
+          diagnose("ready");
           clock.setSpeech(job.speech_id,job.audio);
           audio.src=wavUrl;
           audio.style.display="block";
@@ -257,10 +267,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
             if(!started)return false;
             if(activeIncoming && activeIncoming.message_id===messageId)
               mark(activeIncoming,"reading");
+            diagnose("reading");
           }
           return true;
         }
         if(job.state==="skipped"){
+          diagnose("skipped");
           feedback("ข้ามข้อความนี้ตามกฎกรองหรือการตั้งค่า AI · ไม่ส่งเข้า TTS");
           return "skipped";
         }
@@ -271,6 +283,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       throw Error("งานเสียงยังไม่เสร็จใน 4 นาที กรุณาตรวจคิว");
     }catch(e){
       if(my===generation){
+        diagnose("failed",playbackFailure(e));
         if(autoPlay)throw e; // A failed job is NOT a Firefox autoplay denial.
         manualHolding=false;
         feedback(String(e.message||e));

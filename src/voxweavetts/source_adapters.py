@@ -185,7 +185,7 @@ class PollResult:
     online: bool = True
 
 
-def _normal_text(value: object, max_chars: int = 350) -> str:
+def _normal_text(value: object, max_chars: int = 8000) -> str:
     if not isinstance(value, str):
         return ""
     # Retain Thai diacritics/emoji. Remove ASCII control bytes, not graphemes.
