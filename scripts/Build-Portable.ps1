@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.9.2', [switch]$SkipZip)
+param([string]$Version = '0.9.3', [switch]$SkipZip)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -35,7 +35,9 @@ function Copy-Tree([string]$source,[string]$destination,[string[]]$skip=@(),[str
 Copy-Tree (Join-Path $root 'src') (Join-Path $stage 'src')
 Copy-Tree (Join-Path $root 'web') (Join-Path $stage 'web')
 # Include the manually-installed Chrome extension in the portable distribution.
-Copy-Tree (Join-Path $root 'extensions') (Join-Path $stage 'extensions')
+Copy-Tree (Join-Path $root 'extensions') (Join-Path $stage 'extensions') -skipDirs @('engine-providers')
+# External executable providers are local, explicitly trusted plug-ins: never
+# publish approved worker code or private provider metadata by accident.
 Copy-Tree (Join-Path $root 'docs') (Join-Path $stage 'docs')
 if (!(Test-Path (Join-Path $stage 'docs\third-party\ESPEAK_NG_GPL-3.0.txt'))) {throw 'Missing GPL-3.0 text for bundled eSpeak NG runtime'}
 foreach ($name in @('LICENSE','README_TH.md','README.md')) {
@@ -112,6 +114,17 @@ if ($LASTEXITCODE -ne 0 -or !(Test-Path $exe)) {throw 'Windows launcher compile 
 New-Item -ItemType Directory -Path (Join-Path $stage 'scripts') -Force | Out-Null
 Copy-Item (Join-Path $root 'Stop-VoxWeaveTTS.cmd') (Join-Path $stage 'Stop-VoxWeaveTTS.cmd') -Force
 Copy-Item (Join-Path $root 'scripts\Stop-VoxWeaveTTS.ps1') (Join-Path $stage 'scripts\Stop-VoxWeaveTTS.ps1') -Force
+# The Engine Provider UI installs isolated runtimes using the trusted recipe
+# directory under scripts/engine-dependencies; include it in the ZIP so an
+# extracted Portable can install/repair providers without the source checkout.
+Copy-Tree (Join-Path $root 'scripts\engine-dependencies') (Join-Path $stage 'scripts\engine-dependencies')
+Copy-Item (Join-Path $root 'scripts\Install-EngineProvider.ps1') (Join-Path $stage 'scripts\Install-EngineProvider.ps1') -Force
+Copy-Item (Join-Path $root 'scripts\Install-WayuWorker.ps1') (Join-Path $stage 'scripts\Install-WayuWorker.ps1') -Force
+foreach ($required in @('pythaitts.txt','vachana.txt','kokoro.txt','sherpa.txt','wayu-nc.txt')) {
+  if (!(Test-Path (Join-Path $stage ("scripts\engine-dependencies\{0}" -f $required)))) {
+    throw "Portable missing trusted worker recipe: $required"
+  }
+}
 @'
 @echo off
 call "%~dp0Stop-VoxWeaveTTS.cmd" %*

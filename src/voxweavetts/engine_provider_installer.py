@@ -47,9 +47,26 @@ def ready(provider: Provider, *, root: Path = ROOT) -> bool:
 
 def _execute(command: list[str], *, root: Path, log: Any) -> None:
     # No shell, no user/model-supplied executable paths or pip arguments.
+    # Keep all uv / model download caches inside this portable installation.
+    # Browser-triggered installs do not go through Install-EngineProvider.ps1,
+    # so setting environment only in the CLI wrapper is insufficient.
+    cache = Path(root) / "cache"
+    temp = cache / "temp"
+    for path in (cache / "uv", cache / "huggingface", cache / "torch", temp):
+        path.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env.update({
+        "UV_CACHE_DIR": str(cache / "uv"),
+        "UV_LINK_MODE": "copy",
+        "HF_HOME": str(cache / "huggingface"),
+        "TORCH_HOME": str(cache / "torch"),
+        "XDG_CACHE_HOME": str(cache),
+        "TEMP": str(temp),
+        "TMP": str(temp),
+    })
     result = subprocess.run(
         command, cwd=str(root), stdout=log, stderr=subprocess.STDOUT,
-        timeout=INSTALL_TIMEOUT, check=False,
+        timeout=INSTALL_TIMEOUT, check=False, env=env,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     if result.returncode != 0:

@@ -1,6 +1,7 @@
 """New model-provider lifecycle: isolated environments, trust and old-model migration."""
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 import shutil
@@ -13,7 +14,7 @@ from voxweavetts.engine_provider_catalog import (
     PROVIDERS, ProviderApprovalError, all_providers,
     approve_provider_folder, provider_for_adapter, provider_for_engine,
 )
-from voxweavetts.engine_provider_installer import InstallError, install, ready
+from voxweavetts.engine_provider_installer import InstallError, install, ready, _execute
 from voxweavetts.engine_worker_gateway import gateway
 from voxweavetts.engine_worker_proxy import ProviderVoiceEngine
 
@@ -127,6 +128,28 @@ class EngineProviderTests(unittest.TestCase):
                         json.dumps(manifest), encoding="utf-8")
                     with self.assertRaises(ProviderApprovalError):
                         approve_provider_folder(folder, root=root, trust_code=True)
+
+    def test_browser_worker_installer_keeps_caches_inside_portable_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch("voxweavetts.engine_provider_installer.subprocess.run") as run:
+                run.return_value.returncode = 0
+                _execute(["uv", "pip", "check"], root=root, log=io.StringIO())
+            run.assert_called_once()
+            options = run.call_args.kwargs
+            cache = root / "cache"
+            self.assertEqual(options["cwd"], str(root))
+            for key, path in {
+                "UV_CACHE_DIR": cache / "uv",
+                "HF_HOME": cache / "huggingface",
+                "TORCH_HOME": cache / "torch",
+                "XDG_CACHE_HOME": cache,
+                "TEMP": cache / "temp",
+                "TMP": cache / "temp",
+            }.items():
+                self.assertEqual(options["env"][key], str(path))
+                self.assertTrue(path.is_dir())
+            self.assertEqual(options["env"]["UV_LINK_MODE"], "copy")
 
     def test_installer_rejects_non_catalog_model_dependency_commands(self):
         with tempfile.TemporaryDirectory() as temp:

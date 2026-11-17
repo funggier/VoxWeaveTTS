@@ -1,5 +1,8 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**Windows Portable v0.9.3 (Release ครบชุด):** เพิ่ม TTS Engine Worker Gateway แยกสภาพแวดล้อม, รักษาโมเดลที่โหลดแล้ว, ปิด VoxWeaveTTS และ Worker ที่ค้างด้วย Stop โดยไม่ปิด Ollama, ปรับการเลือกเสียงภาษาอังกฤษให้ใช้ได้กับทุกโมเดลที่พร้อม และเพิ่มไฟล์สูตรติดตั้ง Runtime ลง Portable ครบ พร้อม Model Packages / M2M100 / TikTok Extension / SHA-256 แยกดาวน์โหลดตามสิทธิ์ [ดาวน์โหลด Release v0.9.3](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.3) · [รายละเอียดการเปลี่ยนแปลง](docs/RELEASE_NOTES_v0.9.3.md)
+
+
 **แก้ไขการเลือกโมเดลเสียงตามภาษา (Source หลัง v0.9.2):** FastThaiG2P / ThaiSom, Vachana และ Melo Chinese เพิ่มตัวเลือก English (en) แล้วเช่นเดียวกับ MakHam/Wayu; Kokoro/Supertonic ยังคงเลือกเสียงภาษาอังกฤษเฉพาะทางโดยไม่เปลี่ยนพฤติกรรมดั้งเดิม ดู [ภาษาที่แต่ละโมเดลอ่านได้](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md)
 
 **แก้ไขการเลือกโมเดลเสียงตามภาษา (เวอร์ชันก่อนหน้า):** **[NC / NonCommercial] Wayu Paxa Edge** สามารถกำหนดให้อ่านทั้งไทย (`th`) และอังกฤษ (`en`) ได้แล้วสำหรับเสียงทั้ง 12 เสียง ตั้งค่าเสียงและ Preset แยกตามภาษาได้โดยใช้ Engine/Voice เดียวกัน ส่วน Kokoro/Supertonic ยังคงเลือก Voice ที่ตรงภาษา ดู [รายการภาษาที่ Engine รองรับ](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md)

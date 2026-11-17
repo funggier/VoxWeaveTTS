@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.9.3 - Engine worker gateway, bilingual TTS and force-stop (2026-11-17)
+
+- Add scoped Windows Stop commands for dev/portable and ownership markers for Python worker/server processes. Gracefully handle already-exited descendants; never stop Ollama or unrelated apps.
+- Route English to every installed and ready TTS engine, including MakHam, FastThaiG2P/ThaiSom, Vachana, Wayu NC (user-installed), Melo Chinese, and the existing English voices in Kokoro and Supertonic. Route/voice selection remains independent for each language.
+- Introduce isolated TTS Worker Gateway, provider recipes and trusted external provider registration with explicit language metadata. Preserve successful loaded workers; recover only idle workers under critical memory pressure.
+- Package the missing trusted worker-install recipes and PowerShell wrappers in Windows Portable, and keep UI-triggered uv/model caches under the extracted folder.
+- Redistribute no Wayu CC BY-NC 4.0 weights or private models. Bundle only the approved MakHam weights in the main Portable; optional model/AI archives remain separate with their licenses and hashes.
+- See [complete v0.9.3 release notes](docs/RELEASE_NOTES_v0.9.3.md).
+
+
 ## v0.9.2 — Optional mixed-language TTS in one WAV (2026-11-16)
 
 - Add an independent, per-workspace switch **แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)** (default OFF). Existing whole-message language-routing switch and previously saved workspace preferences remain unchanged; the mixed switch persists separately for all nine modes.

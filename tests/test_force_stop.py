@@ -26,6 +26,10 @@ class StopCommandTests(unittest.TestCase):
         portable_script = (ROOT / "scripts" / "Build-Portable.ps1").read_text(encoding="utf-8")
         self.assertIn("Stop-Console.cmd", portable_script)
         self.assertIn("Stop-VoxWeaveTTS.cmd", portable_script)
+        self.assertIn("engine-dependencies", portable_script)
+        self.assertIn("Install-EngineProvider.ps1", portable_script)
+        self.assertIn("Install-WayuWorker.ps1", portable_script)
+        self.assertIn("@('engine-providers')", portable_script)
 
     @unittest.skipUnless(os.name == "nt", "Windows-specific stop and FILETIME")
     def test_marker_matches_windows_process_creation_time(self):

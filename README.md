@@ -1,5 +1,8 @@
 # VoxWeaveTTS
 
+**Windows Portable v0.9.3 (complete release):** Isolated TTS Worker Gateway, reusable successful voice workers, safe owner-verified Stop commands (never stop Ollama), English language routing for all installed TTS models, portable worker dependency recipes, optional model/translation packages, TikTok extension and SHA-256 checksums. **Wayu NonCommercial model weights are not distributed.** [Release v0.9.3](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.3) · [Release notes](docs/RELEASE_NOTES_v0.9.3.md).
+
+
 **English language routing on all installed TTS models (source after v0.9.2):** FastThaiG2P/ThaiSom, Vachana and Melo Chinese also accept English (`en`) language routes, alongside MakHam and Wayu. Kokoro/Supertonic retain their dedicated English voices. Existing language assignments are not modified. [Language capability guide (TH)](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md).
 
 **Per-language TTS model routing fix (earlier source change):** The **[NC / NonCommercial] Wayu Paxa Edge** voice family now explicitly supports both **Thai (th) and English (en)** for all 12 voices, including independent per-language presets and controls. Existing fixed-language engines and per-voice Kokoro/Supertonic routes remain supported; future approved providers can declare shared/per-voice language capabilities. [Model language capability guide (TH)](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md).
