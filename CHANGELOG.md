@@ -5,9 +5,20 @@
 - Increase maximum accepted incoming chat length to **8,000 characters** (configurable 20–8,000; default stays 240) across YouTube, Discord, TikTok, profile validation, extension bridges and input fields.
 - Explicit Save buttons for each source mode persist blocked words, maximum length, auto-read, random pruning thresholds/keep counts and read-history limit to local `data/settings/source-queues.json`, with atomic revisions and no credentials.
 - Add a separate per-mode view of the exact submitted speech text and synthesis/playback failure, and a separate list of completed spoken messages bounded by the existing read-history setting; preserve the original chat display and FIFO queue behavior.
+- Add a third independent Live source panel showing **post-translation, post-rule model input** for every completed speech job. Preserve the exact text chunks, language and routed engine/voice that were submitted to TTS, grouped as one history entry per completed message; reuse the existing "read history" limit. Never substitute the original chat when private model-input diagnostics are unavailable. Retrieve these details through an explicit same-origin POST, not ordinary public job status/events/subtitles.
+- Simplify all six "ลองอ่านอัตโนมัติต่อ" button labels and Firefox auto-play recovery status messages to **"อ่านอัตโนมัติต่อ"**, without changing retry/FIFO/auto-play behavior.
 - Add boundary, API, security and UI regression tests. This is development after v0.9.5 and has not been published as a new Release.
 - Universal `.vwmodel v2` remains the separate next architectural milestone.
 
+
+
+### Partial-success synthesis and queue error policy
+
+- TTS models now generate speech in independent, ordered chunks. If one engine call fails, the renderer discards that chunk's PCM and joins audio from successful chunks; mixed-language jobs also recover if an entire language/engine fails.
+- Added an explicit, per-source saved switch **อ่านต่อเมื่อสร้างมีเสียงผิดพลาด** (default OFF; old saved queue configurations migrate without losing existing preferences).
+- **ON:** any partially successful speech WAV plays normally and queue continues; when all TTS chunks fail, the message is skipped and FIFO continues without pausing. **OFF:** a partially successful WAV plays to completion, then the queue pauses; if all chunks fail, it pauses and retains the message for manual retry. Unrelated synthesis/pipeline errors still pause.
+- Public speech status exposes only chunk-success/failure counts, while private same-origin TTS-input diagnostics identify each translated chunk as successful or skipped. No model exception contents are exposed to general job status/events.
+- Added tests for single-engine/multilingual partial synthesis, all-failed status, old settings migrations and the four auto-read policy outcomes.
 
 ## v0.9.5 - Managed runtimes, removable MakHam and M2M100 installer fix (2026-11-17)
 

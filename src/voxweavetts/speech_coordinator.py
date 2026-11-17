@@ -69,6 +69,11 @@ class _Job:
     timeline: dict[str, Any] | None = None
     alignment_revision: int = 0
     error: str | None = None
+    # Model-bound text is private and never copied into snapshot()/events().
+    model_inputs: list[dict[str, Any]] | None = None
+    successful_chunks: int = 0
+    failed_chunks: int = 0
+    chunk_outcomes_available: bool = False
 
     def snapshot(self) -> dict[str, Any]:
         # No raw original text, spoken replacement, pronunciation rules or
@@ -86,6 +91,10 @@ class _Job:
             "last_sequence": self.event_seq,
             "audio_ready": self.state == "ready",
         }
+        if self.chunk_outcomes_available:
+            data["successful_chunks"] = self.successful_chunks
+            data["failed_chunks"] = self.failed_chunks
+            data["partial_failure"] = self.successful_chunks > 0 and self.failed_chunks > 0
         if self.state == "ready" and self.timeline:
             data["audio"] = self.timeline
             data["alignment_revision"] = self.alignment_revision
@@ -181,6 +190,7 @@ class SpeechCoordinator:
         job.audio = None
         job.plan = None
         job.prepare = None
+        job.model_inputs = None
         # Drop queued IDs as well as metadata, otherwise repeated cancellation
         # under load may accumulate unbounded stale references.
         for pending in (self._prepare_queue, self._queue):
@@ -354,7 +364,31 @@ class SpeechCoordinator:
             try:
                 if plan is None:
                     raise ValueError("missing plan")
+                # Resolve exactly the TTS language spans and chunks after AI,
+                # replacement and pronunciation processing. Keep them private
+                # even after the mutable speech plan is released.
+                from .tts_model_inputs import collect_model_inputs
+                model_inputs = collect_model_inputs(
+                    plan, {"engine_id": job.engine_id,
+                           "voice_id": job.voice_id, **arguments}
+                )
+                with self._cv:
+                    if job.state == "cancelled" or self._closed:
+                        continue
+                    job.model_inputs = model_inputs
                 wav, metadata = self._renderer(plan, **arguments)
+                outcomes = metadata.get("chunk_success")
+                if (isinstance(outcomes, list)
+                    and len(outcomes) == len(model_inputs)
+                    and all(type(outcome) is bool for outcome in outcomes)):
+                    with self._cv:
+                        job.model_inputs = [
+                            {**item, "success": passed}
+                            for item, passed in zip(model_inputs, outcomes)
+                        ]
+                        job.successful_chunks = sum(outcomes)
+                        job.failed_chunks = len(outcomes) - job.successful_chunks
+                        job.chunk_outcomes_available = True
                 if (not isinstance(wav, bytes) or len(wav) < 44
                     or wav[:4] != b"RIFF" or wav[8:12] != b"WAVE"
                     or len(wav) > MAX_AUDIO_BYTES):
@@ -402,12 +436,45 @@ class SpeechCoordinator:
                     job.plan = None
                     self._audio_bytes += len(wav)
                     self._transition(job, "ready")
-            except Exception:
+            except Exception as exc:
                 # Never leak model exceptions or user input into public events.
+                from .speech import AllChunksFailed
+                all_failed = isinstance(exc, AllChunksFailed)
                 with self._cv:
                     if job.state != "cancelled":
                         job.plan = None
-                        self._transition(job, "failed", error="speech rendering failed")
+                        if all_failed:
+                            job.successful_chunks = 0
+                            job.failed_chunks = len(job.model_inputs or [])
+                            job.chunk_outcomes_available = True
+                            job.model_inputs = [
+                                {**item, "success": False}
+                                for item in (job.model_inputs or [])
+                            ]
+                        self._transition(
+                            job, "failed",
+                            error=("all_tts_chunks_failed" if all_failed
+                                   else "speech rendering failed")
+                        )
+
+    def get_model_inputs(self, job_id: str) -> dict[str, Any]:
+        """Private local diagnostic; never part of ordinary speech status."""
+        with self._cv:
+            self._prune()
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise JobMissing("unknown speech_id")
+            if job.state not in ("ready", "failed", "skipped"):
+                raise JobNotReady("speech has not finished generating")
+            return {
+                "speech_id": job.id,
+                "state": job.state,
+                "available": job.model_inputs is not None,
+                "inputs": [dict(row) for row in (job.model_inputs or [])],
+                "successful_chunks": job.successful_chunks,
+                "failed_chunks": job.failed_chunks,
+                "partial_failure": job.successful_chunks > 0 and job.failed_chunks > 0,
+            }
 
     def get(self, job_id: str) -> dict[str, Any]:
         with self._cv:
@@ -481,6 +548,7 @@ class SpeechCoordinator:
                 job.plan = None
                 job.prepare = None
                 job.timeline = None
+                job.model_inputs = None
                 for pending in (self._prepare_queue, self._queue):
                     try:
                         pending.remove(job.id)
@@ -511,6 +579,7 @@ class SpeechCoordinator:
                 if job.state not in _TERMINAL:
                     job.plan = None
                     job.prepare = None
+                    job.model_inputs = None
                     self._transition(job, "cancelled")
             self._cv.notify_all()
         self._thread.join(timeout=1.0)

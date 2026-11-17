@@ -35,8 +35,8 @@ VACHANA_VOICES = (
     ("th_m_2", "ชาย 2 — Vachana"),
 )
 SAMPLE_RATE = 24_000
-MAX_SPEECH_CHARS = 500
-MAX_PLAN_SEGMENTS = 50
+MAX_SPEECH_CHARS = 8_000
+MAX_PLAN_SEGMENTS = 512  # bounded, source-planned fragments of an 8k-character message
 MAX_WAV_BYTES = 32_000_000
 DEFAULT_SEED = 100
 MAX_SEED = 2_147_483_647
@@ -48,6 +48,10 @@ class EngineUnavailable(Exception):
 
 class SpeechFailure(Exception):
     """Synthesis failed without exposing private input in the API."""
+
+
+class AllChunksFailed(SpeechFailure):
+    """A speech plan produced no successful speech chunk."""
 
 
 def assets_ready() -> bool:
@@ -610,7 +614,7 @@ def validate_speech_request(plan: dict[str, Any], speed: float, voice_id: str,
     if not isinstance(segments, list) or len(segments) > MAX_PLAN_SEGMENTS:
         raise InputError(f"speech plan must have at most {MAX_PLAN_SEGMENTS} segments")
     if sum(len(s["spoken_text"]) for s in segments) > MAX_SPEECH_CHARS:
-        raise InputError(f"initial CPU speech API accepts up to {MAX_SPEECH_CHARS} spoken characters")
+        raise InputError(f"speech renderer accepts up to {MAX_SPEECH_CHARS} spoken characters")
 
 
 def render_wav(
@@ -654,17 +658,32 @@ def render_wav(
     timeline: list[dict[str, Any]] = []
     pieces: list[bytes] = []
     frames = 0
+    chunk_success: list[bool] = []
     for segment in plan["segments"]:
         kind = segment["kind"]
         start_frame = frames
         if kind == "speech" and segment["spoken_text"].strip():
             for chunk in _chunks(segment["spoken_text"]):
                 if chunk.strip():
-                    audio = engine.generate(chunk, float(speed))
-                    if len(audio) % 2:
-                        raise SpeechFailure("engine emitted partial PCM sample")
-                    if any((controls[k] != 0 for k in ("gain_db", "pitch_semitones", "bass_db", "treble_db"))):
-                        audio = apply_voice_controls(audio, rate, controls)
+                    try:
+                        audio = engine.generate(chunk, float(speed))
+                        if not isinstance(audio, bytes) or not audio or len(audio) % 2:
+                            raise SpeechFailure("invalid or empty engine PCM16 output")
+                        if any((controls[k] != 0 for k in ("gain_db", "pitch_semitones", "bass_db", "treble_db"))):
+                            audio = apply_voice_controls(audio, rate, controls)
+                        if not audio or len(audio) % 2:
+                            raise SpeechFailure("invalid processed PCM16 output")
+                    except Exception as exc:
+                        if (isinstance(exc, MemoryError)
+                            or isinstance(exc, OSError) and
+                               (getattr(exc, "winerror", None) == 1455
+                                or "paging file is too small" in str(exc).lower())):
+                            raise  # Cannot safely retry while Windows is out of commit.
+                        # Recover from per-chunk inference errors, not from
+                        # invalid speech plan / global request validation.
+                        chunk_success.append(False)
+                        continue
+                    chunk_success.append(True)
                     frames += len(audio) // 2
                     pieces.append(audio)
         elif kind == "silence":
@@ -684,6 +703,8 @@ def render_wav(
             "start_ms": round(start_frame * 1000 / rate),
             "end_ms": round(frames * 1000 / rate),
         })
+    if chunk_success and not any(chunk_success):
+        raise AllChunksFailed("all TTS chunks failed")
     if frames == 0:
         raise InputError("no speech or silence to render")
     audio_buffer = io.BytesIO()
@@ -702,4 +723,5 @@ def render_wav(
         "sample_rate": rate,
         "duration_ms": round(frames * 1000 / rate),
         "segments": timeline,
+        "chunk_success": chunk_success,
     }

@@ -75,6 +75,30 @@ class SourceQueueSettingsTests(unittest.TestCase):
                                   path=path)
                 self.assertFalse(path.exists())
 
+    def test_existing_saved_preferences_gain_disabled_switch_without_data_loss(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"saved.json"
+            previous={k:v for k,v in DEFAULTS.items()
+                      if k!="continue_on_tts_error"}
+            document={"schema_version":1,"modes":{
+                mode:{"revision":3,"settings":{**previous,"max_chars":8000}}
+                for mode in SOURCE_MODES
+            }}
+            path.write_text(json.dumps(document),encoding="utf-8")
+            loaded=load_settings(path=path)
+            self.assertFalse(loaded["modes"]["live"]["settings"]["continue_on_tts_error"])
+            self.assertEqual(loaded["modes"]["live"]["settings"]["max_chars"],8000)
+            self.assertEqual(loaded["modes"]["live"]["revision"],3)
+            # No implicit mutation of private/old preferences until Save.
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")),document)
+            settings={**loaded["modes"]["live"]["settings"],
+                      "continue_on_tts_error":True}
+            result=save_settings({"mode":"live","expected_revision":3,
+                                  "settings":settings},path=path)
+            self.assertEqual(result["modes"]["live"]["revision"],4)
+            self.assertTrue(result["modes"]["live"]["settings"]["continue_on_tts_error"])
+            self.assertFalse(result["modes"]["discord"]["settings"]["continue_on_tts_error"])
+
     def test_corrupted_settings_do_not_silently_reset(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/"config.json"

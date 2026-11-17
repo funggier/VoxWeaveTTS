@@ -6,7 +6,17 @@ const vm=require("node:vm");
 const html=fs.readFileSync("web/index.html","utf8");
 const scriptInputs=fs.readFileSync("web/mode_inputs.js","utf8");
 const scriptFeed=fs.readFileSync("web/source_feed.js","utf8");
-for(const id of ["liveFeedCurrentStatus","liveFeedCurrentText","liveFeedReadItems","liveFeedItems"])
+assert.ok(!html.includes("ลองอ่านอัตโนมัติต่อ"));
+assert.ok(!scriptInputs.includes("ลองอ่านอัตโนมัติต่อ"));
+for(const prefix of ["live","youtubeBrowser","tiktokBrowser","tiktok",
+                     "discord","discordClient"]){
+  assert.ok(html.includes('id="'+prefix+'AutoRetry">อ่านอัตโนมัติต่อ</button>'),
+            "AutoRetry label "+prefix);
+  assert.ok(html.includes('id="'+prefix+'FeedTtsReadItems"'),
+            "post-translation read-history panel "+prefix);
+}
+assert.ok(scriptInputs.includes("กด 'อ่านอัตโนมัติต่อ'"));
+for(const id of ["liveFeedCurrentStatus","liveFeedCurrentText","liveFeedReadItems","liveFeedTtsReadItems","liveFeedItems"])
   assert.ok(html.includes('id="'+id+'"'),id);
 const tick=()=>new Promise(r=>setImmediate(r));
 const elements=new Map();
@@ -71,6 +81,20 @@ const sandbox={
       jobAttempts++;
       return {ok:true,async json(){return {speech_id:String(jobAttempts).repeat(32),state:"queued"};}};
     }
+    if(path.startsWith("/v1/jobs/")&&path.endsWith("/tts-inputs")){
+      assert.equal(opts.method,"POST");
+      assert.equal(opts.headers["X-VoxWeaveTTS-Intent"],"inspect-tts-inputs");
+      assert.equal(opts.body,"{}");
+      return {ok:true,async json(){return {
+        speech_id:path.split("/")[3],state:"ready",available:true,
+        inputs:[
+          {text:"English translated message",language:"en",
+           engine_id:"kokoro-onnx-cpu",voice_id:"af_heart",success:true},
+          {text:"你好",language:"zh",
+           engine_id:"melo-zh-cpu",voice_id:"zh",success:false}
+        ]
+      };}};
+    }
     if(path.startsWith("/v1/jobs/")&&path.endsWith("/audio"))
       return {ok:true,async blob(){return new Blob(["WAV"]);}};
     if(path.startsWith("/v1/jobs/")&&path.endsWith("/cancel"))
@@ -96,6 +120,7 @@ const input=sandbox.window.VoxModeInputs.attach({
   playAudio:async audio=>{audio.paused=false;return true;},
   onMessageState:(id,state)=>feed?.setMessageState(id,state),
   onSpeechDiagnostic:item=>feed?.setSpeechDiagnostic(item),
+  onSpeechModelInputs:(messageId,items)=>feed?.setSpeechModelInputs(messageId,items),
 });
 feed=sandbox.window.VoxSourceFeed.attach({
   mode:"live",el:dom,guard:()=>true,
@@ -112,6 +137,7 @@ feed=sandbox.window.VoxSourceFeed.attach({
   assert.match(dom("liveFeedCurrentStatus").textContent,/ผิดพลาด/);
   assert.match(dom("liveFeedCurrentStatus").textContent,/worker_inference_failed/);
   assert.equal(dom("liveFeedReadItems").children.length,0,"failed synth is not read");
+  assert.equal(dom("liveFeedTtsReadItems").children.length,0,"failed synth has no completed TTS history");
   assert.equal(feed.visible.length,1,"original chat row preserved");
   assert.equal(input.pendingAuto,1,"failed message can be retried");
   await dom("liveAutoRetry").events.click();
@@ -125,10 +151,22 @@ feed=sandbox.window.VoxSourceFeed.attach({
   for(let i=0;i<4;i++)await tick();
   assert.equal(dom("liveFeedReadItems").children.length,1);
   assert.match(dom("liveFeedReadItems").children[0].textContent,/ข้อความนี้ควรปรากฏ/);
+  assert.equal(dom("liveFeedTtsReadItems").children.length,1);
+  const result=dom("liveFeedTtsReadItems").children[0];
+  assert.equal(result.children.length,2,"one completed message with two TTS language chunks");
+  assert.equal(result.children[0].children[1].textContent,"English translated message");
+  assert.equal(result.children[1].children[1].textContent,"你好");
+  assert.match(result.children[0].children[0].textContent,/kokoro-onnx-cpu/);
+  assert.match(result.children[0].children[0].textContent,/สำเร็จ/);
+  assert.match(result.children[1].children[0].textContent,/melo-zh-cpu/);
+  assert.match(result.children[1].children[0].textContent,/ข้าม/);
+  assert.ok(!JSON.stringify(result).includes(rawText),
+            "model-bound history must not substitute the source text");
   assert.equal(feed.visible.filter(x=>x.state==="read").length,1);
   dom("liveFeedKeepRead").value="0";
   dom("liveFeedKeepRead").events.input();
   assert.equal(dom("liveFeedReadItems").children.length,0);
+  assert.equal(dom("liveFeedTtsReadItems").children.length,0);
   assert.equal(feed.visible.filter(x=>x.state==="read").length,0);
   assert.ok(stored[0].text.includes(rawText));
   assert.equal(stored[0].engine_id,"makham-paradee-cpu");

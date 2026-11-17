@@ -167,7 +167,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   let socket=null, wsMessages=0, wsRejected=0, wsSequence=0;
   const seen=new Set();
   let visible=[], overflow=0, randomRemoved=0;
-  let spokenHistory=[], currentSpeech=null;
+  let spokenHistory=[], modelHistory=[], currentSpeech=null;
+  const pendingModelInputs=new Map();
   const browserMode=mode==="youtube_browser"||mode==="tiktok_browser";
   const extensionMode=mode==="tiktok_browser";
   const platform=mode==="tiktok_browser"?"TikTok":"YouTube";
@@ -339,8 +340,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   }
   function clearMessages(){
     visible=[];overflow=0;randomRemoved=0;
-    spokenHistory=[];currentSpeech=null;
-    renderSpokenHistory();
+    spokenHistory=[];modelHistory=[];currentSpeech=null;
+    pendingModelInputs.clear();
+    renderSpokenHistory();renderModelHistory();
     if(get("FeedCurrentStatus"))get("FeedCurrentStatus").textContent="ยังไม่มีงานสร้างเสียง";
     if(get("FeedCurrentText"))get("FeedCurrentText").textContent="";
     get("FeedItems").replaceChildren();
@@ -407,6 +409,64 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     spokenHistory=spokenHistory.slice(0,readLimit());
     renderSpokenHistory();
   }
+  function renderModelHistory(){
+    const area=get("FeedTtsReadItems");
+    if(!area)return;
+    area.replaceChildren();
+    for(const record of modelHistory){
+      const li=document.createElement("li");
+      li.className="source-message";
+      if(li.style){
+        li.style.whiteSpace="pre-wrap";
+        li.style.overflowWrap="anywhere";
+      }
+      // One top-level history item per COMPLETED speech job; retain all
+      // individual model calls and mixed-language routes within it.
+      if(record.items.length){
+        record.items.forEach(chunk=>{
+          const line=document.createElement("div");
+          const language=chunk.language?"["+chunk.language+" · ":"[";
+          const heading=document.createElement("small");
+          heading.className="source-message-state";
+          const result=chunk.success===false?"ข้าม (สร้างเสียงล้มเหลว) · "
+            :chunk.success===true?"สำเร็จ · ":"";
+          heading.textContent=language+result+chunk.engine_id+" / "+chunk.voice_id+"] ";
+          const text=document.createElement("span");
+          text.textContent=chunk.text;
+          line.append(heading,text);
+          li.appendChild(line);
+        });
+      }else{
+        // Never substitute unprocessed chat text for missing TTS evidence.
+        li.textContent="ไม่พบข้อมูลข้อความหลังแปลจากโมเดล (ไม่ได้แสดงข้อความต้นทางแทน)";
+      }
+      area.appendChild(li);
+    }
+  }
+  function trimModelHistory(){
+    modelHistory=modelHistory.slice(0,readLimit());
+    renderModelHistory();
+  }
+  function setSpeechModelInputs(messageId, modelInputs){
+    if(messageId==null)return;
+    const id=String(messageId);
+    // Keep only metadata from a current, currently visible source item.
+    if(!visible.some(entry=>String(entry.message_id)===id))return;
+    if(!Array.isArray(modelInputs)||modelInputs.length>1024)return;
+    const clean=[];
+    for(const part of modelInputs){
+      if(!part || typeof part!=="object"
+         || typeof part.text!=="string" || part.text.length>12000
+         || typeof part.engine_id!=="string" || part.engine_id.length>80
+         || typeof part.voice_id!=="string" || part.voice_id.length>80
+         || typeof part.language!=="string" || part.language.length>16)
+        return;
+      clean.push({text:part.text,engine_id:part.engine_id,
+                  voice_id:part.voice_id,language:part.language,
+                  success:typeof part.success==="boolean"?part.success:null});
+    }
+    pendingModelInputs.set(id,clean);
+  }
   // This display is independent of the original incoming-chat list. The
   // text is the actual composed speech request (including sender header),
   // never just whatever happens to be in the latest chat input at this time.
@@ -417,6 +477,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     const error=String(record.error||"").slice(0,240);
     currentSpeech={message_id:record.message_id==null?null:String(record.message_id),
                    text,stage:record.stage,error};
+    // A retried speech job must not reuse the model-input data from an
+    // earlier failed attempt that may have used a different translation.
+    if(record.stage==="preparing" && record.message_id!=null)
+      pendingModelInputs.delete(String(record.message_id));
     const status=get("FeedCurrentStatus");
     const body=get("FeedCurrentText");
     if(status){
@@ -432,13 +496,19 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     const entry=visible.find(x=>String(x.message_id)===String(messageId));
     if(!entry)return; // source session already switched or was cleared
     if(state==="random_removed"&&entry.state!=="random_removed")randomRemoved++;
+    if(state==="skipped"||state==="random_removed")
+      pendingModelInputs.delete(String(messageId));
     if(state==="read"&&entry.state!=="read"){
       const spoken=currentSpeech?.message_id===String(messageId)
         ?currentSpeech.text:entry.text;
       spokenHistory.unshift({text:spoken,author:entry.author||""});
+      const modelItems=pendingModelInputs.get(String(messageId))||[];
+      pendingModelInputs.delete(String(messageId));
+      modelHistory.unshift({message_id:String(messageId),items:modelItems});
       trimSpokenHistory();
+      trimModelHistory();
       if(currentSpeech?.message_id===String(messageId))
-        setSpeechDiagnostic({...currentSpeech,stage:"read",error:""});
+        setSpeechDiagnostic({...currentSpeech,stage:"read",error:currentSpeech.error||""});
     }
     if((state==="preparing"||state==="reading")
        && currentSpeech?.message_id===String(messageId)){
@@ -924,11 +994,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   });
   get("FeedStop").disabled=true;
   get("FeedKeepRead").addEventListener("input",()=>{
-    prune();render();trimSpokenHistory();
+    prune();render();trimSpokenHistory();trimModelHistory();
   });
   root.VoxSourceQueueUI?.attach(mode,el);
   renderSummary();
-  return {start,stop,poll,resetPending,suspend:localSuspend,setMessageState,setSpeechDiagnostic,exportSettings,importSettings,
+  return {start,stop,poll,resetPending,suspend:localSuspend,setMessageState,setSpeechDiagnostic,setSpeechModelInputs,exportSettings,importSettings,
           get connected(){return connected;},get visible(){return visible.slice();}};
 }
 root.VoxSourceFeed={attach};

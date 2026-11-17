@@ -5,7 +5,7 @@
 (function(root){
 "use strict";
 function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState,
-                 onSpeechDiagnostic,
+                 onSpeechDiagnostic,onSpeechModelInputs,
                  playAudio=async audio=>{await audio.play();return true;},cancelAudio=()=>{}}){
   if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("unknown source mode");
   const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
@@ -21,6 +21,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   const incoming=[];
   let autoBusy=false, activeIncoming=null, queueEpoch=0, randomRemoved=0;
   let autoPaused=false; // temporary playback error; never alters user preference
+  let activePartialFailure=false; // pause decision applies only after the WAV actually ends
   let manualHolding=false; // manual preview may preempt, but must not erase FIFO
   let pickedMessage=null; // manual pick retains its author until text is edited
   function mark(item,state){
@@ -35,6 +36,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       if(activeIncoming)mark(activeIncoming,"skipped");
       activeIncoming=null;
       autoBusy=false;
+      activePartialFailure=false;
     }
   }
   function resetPending(){
@@ -62,7 +64,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     const detail=String(error?.message||error||"ไม่ทราบสาเหตุ").slice(0,200);
     if(name==="NotAllowedError"||name==="SecurityError")
       return "Firefox/Browser บล็อก Auto-play ("+name+
-        ") · อนุญาตให้เว็บไซต์นี้เล่นเสียงอัตโนมัติ แล้วกดลองอ่านอัตโนมัติต่อ";
+        ") · อนุญาตให้เว็บไซต์นี้เล่นเสียงอัตโนมัติ แล้วกดอ่านอัตโนมัติต่อ";
     if(name==="NotSupportedError")
       return "Browser ไม่รองรับหรืออ่านไฟล์ WAV นี้ไม่ได้ ("+name+")";
     if(name==="AbortError")
@@ -82,7 +84,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       }
     }
     feedback("อ่านอัตโนมัติพักชั่วคราว · "+reason+
-      " · กด 'ลองอ่านอัตโนมัติต่อ' หลังแก้ไข");
+      " · กด 'อ่านอัตโนมัติต่อ' หลังแก้ไข");
   }
   function readOptions(){
     const pick=key=>{
@@ -160,6 +162,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       jobId=null;
     }
     if(discard){
+      activePartialFailure=false;
       releaseAudio();
       lastReady=null;
       jobId=null;
@@ -235,6 +238,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         return;
       }
       jobId=created.speech_id;
+      activePartialFailure=false;
       // The server waits on its speech-job condition (up to 10s) and wakes
       // the browser via a network response. A hidden tab may throttle timers
       // to 60s or longer, so no setTimeout drives Live TTS progression.
@@ -247,13 +251,38 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         const job=await r.json();
         if(!r.ok)throw Error(job.error||"ไม่สามารถอ่านสถานะงานเสียง");
         if(job.state==="ready"){
+          activePartialFailure=autoPlay && job.partial_failure===true;
+          const partialNotice=job.partial_failure===true
+            ?"TTS ข้ามช่วงที่สร้างเสียงล้มเหลว "+Number(job.failed_chunks||0)+" ช่วง":"";
+          // Separate, explicit same-origin inspection: ordinary job status
+          // and subtitle events must never expose post-translation TTS text.
+          // Fetch only after a ready WAV; never substitute source chat text.
+          try{
+            const inspected=await fetch(
+              "/v1/jobs/"+created.speech_id+"/tts-inputs",{
+                method:"POST",cache:"no-store",
+                headers:{"Content-Type":"application/json",
+                         "X-VoxWeaveTTS-Intent":"inspect-tts-inputs"},
+                body:"{}",
+              });
+            if(inspected.ok){
+              const detail=await inspected.json();
+              if(my===generation && guard(mode)
+                 && detail.speech_id===created.speech_id
+                 && detail.state==="ready" && detail.available===true
+                 && Array.isArray(detail.inputs)){
+                onSpeechModelInputs?.(diagnosticId,detail.inputs);
+              }
+            }
+          }catch{/* TTS audio may still be played if optional inspection fails. */}
+          if(my!==generation||!guard(mode))return;
           const downloaded=await fetch("/v1/jobs/"+created.speech_id+"/audio");
           if(!downloaded.ok)throw Error("WAV ไม่พร้อม");
           const wav=await downloaded.blob();
           if(my!==generation||!guard(mode))return;
           wavUrl=URL.createObjectURL(wav);
           lastReady=job;
-          diagnose("ready");
+          diagnose("ready",partialNotice);
           clock.setSpeech(job.speech_id,job.audio);
           audio.src=wavUrl;
           audio.style.display="block";
@@ -267,7 +296,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
             if(!started)return false;
             if(activeIncoming && activeIncoming.message_id===messageId)
               mark(activeIncoming,"reading");
-            diagnose("reading");
+            diagnose("reading",partialNotice);
           }
           return true;
         }
@@ -275,6 +304,11 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           diagnose("skipped");
           feedback("ข้ามข้อความนี้ตามกฎกรองหรือการตั้งค่า AI · ไม่ส่งเข้า TTS");
           return "skipped";
+        }
+        if(job.state==="failed" && job.error==="all_tts_chunks_failed"
+           && autoPlay && get("FeedContinueOnTtsError")?.checked===true){
+          diagnose("failed","ทุกช่วงสร้างเสียงไม่สำเร็จ — ข้ามข้อความนี้แล้วอ่านคิวถัดไป");
+          return "all_failed";
         }
         if(["failed","cancelled"].includes(job.state))
           throw Error("งานเสียง "+job.state+(job.error?" · "+String(job.error).slice(0,200):""));
@@ -308,7 +342,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     try{
       const played=await submit({autoPlay:true,messageId:next.message_id});
       if(ticket!==queueEpoch)return; // stop/mode switch cancelled this job
-      if(played==="skipped"){
+      if(played==="skipped" || played==="all_failed"){
         mark(next,"skipped");
         activeIncoming=null;
         autoBusy=false;
@@ -373,9 +407,18 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   }
   audio.addEventListener("ended",()=>{
     manualHolding=false;
+    const wasPartial=Boolean(activeIncoming)&&activePartialFailure;
     if(activeIncoming)mark(activeIncoming,"read");
     activeIncoming=null;
+    activePartialFailure=false;
     autoBusy=false;
+    if(wasPartial && get("FeedContinueOnTtsError")?.checked!==true){
+      // Do NOT requeue a partially spoken message. Pause *after* its
+      // successful WAV has played, then resume at the next FIFO item.
+      autoPaused=true;
+      feedback("สร้างเสียงบางช่วงไม่สำเร็จ เล่นส่วนที่สำเร็จจบแล้ว — พักคิว · กด 'อ่านอัตโนมัติต่อ' เพื่ออ่านข้อความถัดไป");
+      return;
+    }
     pumpIncoming();
   });
   audio.addEventListener("error",()=>{

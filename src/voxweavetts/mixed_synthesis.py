@@ -67,14 +67,15 @@ def render_mixed_language_wav(
                    for lang, route in language_voice_routes.items())):
         raise InputError("invalid mixed-language model routes")
     default_info = speech.get_engine_info(engine_id)
-    if not (default_info.assets_ready and default_info.runtime_ready):
-        raise speech.EngineUnavailable("default TTS engine is unavailable")
+    # The default may be unavailable while explicitly routed language models
+    # are ready. Mark only the spans using an unavailable engine as failed.
 
     # Private instances per request: no model/voice state leaks between jobs.
     engines = {(engine_id, seed): engine} if engine is not None else {}
     groups: list[list[tuple[bytes, int] | int]] = []
-    sample_rates = [default_info.sample_rate]
+    sample_rates: list[int] = []
     used: list[dict[str, str]] = []
+    chunk_success: list[bool] = []
     count = 0
     for segment in plan["segments"]:
         kind = segment["kind"]
@@ -93,49 +94,71 @@ def render_mixed_language_wav(
                 selected_seed = speech.validate_seed(route.get("seed", seed)) if route else seed
                 selected_controls = (route.get("voice_controls", controls)
                                      if route else controls)
-                info = speech.get_engine_info(selected_engine)
-                if not (info.assets_ready and info.runtime_ready):
-                    raise speech.EngineUnavailable(
-                        "configured language TTS model is not installed or unavailable")
-                key = (selected_engine, selected_seed)
-                if key not in engines:
-                    engines[key] = speech.create_voice_engine(selected_engine, selected_seed)
-                chunk_plan = {
-                    "source": plan.get("source", "manual"),
-                    "spoken_text": span.text, "display_text": "",
-                    "segments": [{
-                        "kind": "speech", "spoken_text": span.text,
-                        "display_text": "", "source_start": 0,
-                        "source_end": len(span.text), "silence_ms": 0,
-                    }],
-                }
-                wav, metadata = speech.render_wav(
-                    chunk_plan, engine_id=selected_engine, voice_id=selected_voice,
-                    speed=selected_speed, seed=selected_seed,
-                    voice_controls=selected_controls, engine=engines[key],
-                )
-                with wave.open(io.BytesIO(wav), "rb") as reader:
-                    if reader.getnchannels() != 1 or reader.getsampwidth() != 2:
-                        raise speech.SpeechFailure(
-                            "language TTS generated unsupported WAV format")
-                    rate = reader.getframerate()
-                    audio = reader.readframes(reader.getnframes())
-                if rate != info.sample_rate or rate != metadata["sample_rate"]:
-                    raise speech.SpeechFailure("language TTS WAV sample rate mismatch")
-                sample_rates.append(rate)
-                group.append((audio, rate))
-                voice_spec = {"language": span.language,
-                              "engine_id": selected_engine, "voice_id": selected_voice}
-                if voice_spec not in used:
-                    used.append(voice_spec)
+                expected_chunks = [part for part in speech._chunks(span.text) if part.strip()]
+                if not expected_chunks:
+                    continue
+                try:
+                    info = speech.get_engine_info(selected_engine)
+                    if not (info.assets_ready and info.runtime_ready):
+                        raise speech.EngineUnavailable(
+                            "configured language TTS model is not installed or unavailable")
+                    key = (selected_engine, selected_seed)
+                    if key not in engines:
+                        engines[key] = speech.create_voice_engine(selected_engine, selected_seed)
+                    chunk_plan = {
+                        "source": plan.get("source", "manual"),
+                        "spoken_text": span.text, "display_text": "",
+                        "segments": [{
+                            "kind": "speech", "spoken_text": span.text,
+                            "display_text": "", "source_start": 0,
+                            "source_end": len(span.text), "silence_ms": 0,
+                        }],
+                    }
+                    wav, metadata = speech.render_wav(
+                        chunk_plan, engine_id=selected_engine, voice_id=selected_voice,
+                        speed=selected_speed, seed=selected_seed,
+                        voice_controls=selected_controls, engine=engines[key],
+                    )
+                    with wave.open(io.BytesIO(wav), "rb") as reader:
+                        if reader.getnchannels() != 1 or reader.getsampwidth() != 2:
+                            raise speech.SpeechFailure(
+                                "language TTS generated unsupported WAV format")
+                        rate = reader.getframerate()
+                        audio = reader.readframes(reader.getnframes())
+                    if rate != info.sample_rate or rate != metadata["sample_rate"] or not audio:
+                        raise speech.SpeechFailure("invalid mixed-language WAV output")
+                    outcomes = metadata.get("chunk_success")
+                    if (not isinstance(outcomes, list)
+                        or len(outcomes) != len(expected_chunks)
+                        or not all(type(value) is bool for value in outcomes)):
+                        raise speech.SpeechFailure("invalid language chunk outcome metadata")
+                    chunk_success.extend(outcomes)
+                    sample_rates.append(rate)
+                    group.append((audio, rate))
+                    voice_spec = {"language": span.language,
+                                  "engine_id": selected_engine, "voice_id": selected_voice}
+                    if voice_spec not in used:
+                        used.append(voice_spec)
+                except Exception as exc:
+                    if (isinstance(exc, MemoryError)
+                        or isinstance(exc, OSError) and
+                           (getattr(exc, "winerror", None) == 1455
+                            or "paging file is too small" in str(exc).lower())):
+                        raise  # Do not exacerbate system-wide memory exhaustion.
+                    # A missing/failed model in one language does not discard
+                    # completed PCM generated by other languages in the job.
+                    chunk_success.extend([False] * len(expected_chunks))
         elif kind == "silence":
             group.append(int(segment["silence_ms"]))
         elif kind != "skip":
             raise speech.SpeechFailure("unknown speech plan segment")
         groups.append(group)
 
+    if chunk_success and not any(chunk_success):
+        raise speech.AllChunksFailed("all TTS chunks failed")
+
     # Select the highest actual source rate to preserve model fidelity.
-    output_rate = max(sample_rates)
+    output_rate = max(sample_rates, default=default_info.sample_rate)
     if output_rate < 8_000 or output_rate > 96_000:
         raise speech.SpeechFailure("unsupported mixed-language output rate")
     buffer = io.BytesIO()
@@ -176,4 +199,5 @@ def render_mixed_language_wav(
         "voice_controls": controls, "sample_rate": output_rate,
         "duration_ms": round(frames * 1000 / output_rate),
         "segments": timeline, "mixed_language": True, "voices_used": used,
+        "chunk_success": chunk_success,
     }

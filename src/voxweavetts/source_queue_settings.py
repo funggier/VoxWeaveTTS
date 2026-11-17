@@ -26,6 +26,7 @@ DEFAULTS = {
     "random_queue_enabled": False,
     "random_queue_threshold": 20,
     "random_queue_keep": 5,
+    "continue_on_tts_error": False,
 }
 _LOCK = threading.RLock()
 _MAX_FILE_SIZE = 96_000  # six modes may each contain 2,000 Thai filter chars
@@ -42,7 +43,7 @@ def validate_settings(raw: Any) -> dict[str, Any]:
     if (not isinstance(blocked, str) or len(blocked) > 2000
         or any(ord(ch) < 32 or ord(ch) == 127 for ch in blocked)):
         raise InputError("invalid blocked words")
-    for key in ("auto_read", "random_queue_enabled"):
+    for key in ("auto_read", "random_queue_enabled", "continue_on_tts_error"):
         if type(raw[key]) is not bool:
             raise InputError("invalid queue switch")
     for key, low, high in (
@@ -83,6 +84,12 @@ def _read(path: Path) -> dict[str, Any]:
                 or type(record["revision"]) is not int
                 or not 0 <= record["revision"] <= 1000000000):
                 raise ValueError("invalid queue settings revision")
+            # Migrate queue settings saved before the new switch existed.
+            # Unexpected keys remain invalid; existing user values survive.
+            stored = record["settings"]
+            if (isinstance(stored, dict)
+                and set(stored) == set(DEFAULTS) - {"continue_on_tts_error"}):
+                record["settings"] = {**stored, "continue_on_tts_error": False}
             validate_settings(record["settings"])
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError, InputError) as exc:
         raise InputError("invalid stored source queue settings") from exc

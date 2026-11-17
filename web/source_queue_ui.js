@@ -19,7 +19,7 @@ function attach(mode,el){
   if(!save||!status)return null;
   let revision=0;
   let loading=false;
-  const ids=["Blocked","MaxChars","KeepRead","Auto","RandomEnable","RandomThreshold","RandomKeep"];
+  const ids=["Blocked","MaxChars","KeepRead","Auto","RandomEnable","RandomThreshold","RandomKeep","ContinueOnTtsError"];
   const initial=ids.map(key=>String(get(key)?.type==="checkbox"?Boolean(get(key).checked):get(key)?.value??""));
   const dirty=()=>ids.some((key,index)=>String(get(key)?.type==="checkbox"?Boolean(get(key).checked):get(key)?.value??"")!==initial[index]);
 
@@ -43,6 +43,7 @@ function attach(mode,el){
       random_queue_enabled:get("RandomEnable")?.checked===true,
       random_queue_threshold:int("RandomThreshold",2,100000),
       random_queue_keep:int("RandomKeep",1,99999),
+      continue_on_tts_error:get("ContinueOnTtsError")?.checked===true,
     };
     if(settings.random_queue_keep>=settings.random_queue_threshold)
       throw Error("จำนวนข้อความที่สุ่มเก็บต้องน้อยกว่าจำนวนเริ่มสุ่มลบ");
@@ -57,6 +58,7 @@ function attach(mode,el){
     get("RandomEnable").checked=value.random_queue_enabled===true;
     get("RandomThreshold").value=String(value.random_queue_threshold);
     get("RandomKeep").value=String(value.random_queue_keep);
+    get("ContinueOnTtsError").checked=value.continue_on_tts_error===true;
     // Existing feed keeps its own queue/render semantics; signal input
     // handlers rather than touching the feed's internal data structures.
     get("KeepRead").dispatchEvent?.(new Event("input"));

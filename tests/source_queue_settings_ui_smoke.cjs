@@ -15,6 +15,7 @@ const root={
     blocked_words:"",max_chars:8000,auto_read:true,
     read_history_limit:2,random_queue_enabled:true,
     random_queue_threshold:30,random_queue_keep:5,
+    continue_on_tts_error:true,
   }}])),
 };
 const sent=[];
@@ -55,7 +56,7 @@ const controllers={};
   for(const [mode,prefix] of modes){
     for(const suffix of ["MaxChars","KeepRead","Save","SaveStatus",
                           "Auto","RandomEnable","RandomThreshold",
-                          "RandomKeep","Blocked"]){
+                          "RandomKeep","Blocked","ContinueOnTtsError"]){
       assert.ok(html.includes('id="'+prefix+"Feed"+suffix+'"'),"missing "+mode+"/"+suffix);
     }
     assert.match(html,new RegExp('id="'+prefix+'FeedMaxChars"[^>]*max="8000"'));
@@ -63,7 +64,7 @@ const controllers={};
     el(prefix+"FeedKeepRead").value="20";
     el(prefix+"FeedRandomThreshold").value="20";
     el(prefix+"FeedRandomKeep").value="5";
-    for(const name of ["Auto","RandomEnable"])
+    for(const name of ["Auto","RandomEnable","ContinueOnTtsError"])
       el(prefix+"Feed"+name).type="checkbox";
     controllers[mode]=browser.VoxSourceQueueUI.attach(mode,el);
   }
@@ -71,6 +72,7 @@ const controllers={};
   for(const [mode,prefix] of modes){
     assert.equal(el(prefix+"FeedMaxChars").value,"8000","load "+mode);
     assert.equal(el(prefix+"FeedKeepRead").value,"2","load history "+mode);
+    assert.equal(el(prefix+"FeedContinueOnTtsError").checked,true,"load error setting "+mode);
     el(prefix+"FeedKeepRead").value="3";
     await el(prefix+"FeedSave").events.click();
   }
@@ -79,6 +81,7 @@ const controllers={};
     assert.equal(root.modes[mode].revision,2);
     assert.equal(root.modes[mode].settings.read_history_limit,3);
     assert.equal(root.modes[mode].settings.max_chars,8000);
+    assert.equal(root.modes[mode].settings.continue_on_tts_error,true);
   }
   // Reject beyond 8,000 *before* sending a POST; no secret inputs are serialized.
   const pref="live";
