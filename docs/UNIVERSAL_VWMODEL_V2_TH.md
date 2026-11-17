@@ -1,6 +1,6 @@
 # Universal .vwmodel v2 — ระบบแพ็กเกจใหม่โดยตรง
 
-สถานะ: **Native v2 Phase A + Managed Runtime Pool Phase B — Source หลัง v0.9.5 (ยังไม่ Release)** · [คู่มือ Phase B](MANAGED_RUNTIME_POOL_TH.md)
+สถานะ: **Native v2 Phase A + Runtime Pool Phase B + Verified Wheelhouse Phase C — Source หลัง v0.9.5 (ยังไม่ Release)** · [คู่มือ Phase B](MANAGED_RUNTIME_POOL_TH.md) · [คู่มือ Phase C](VERIFIED_WHEELHOUSE_TH.md)
 
 Native Universal v2 ไม่ใช่การหุ้ม Manifest v1: ติดตั้งผ่าน Model Package Manager เฉพาะ format_version = 2 และไม่ฝัง Legacy Manifest ในแพ็กเกจใหม่
 
@@ -105,7 +105,7 @@ Builder สร้าง Manifest v2 จาก Spec และ File Hash โดย
 
 Phase B — Managed Environment Pool, Runtime Fingerprint/Health Check และการซ่อม Offline หลังย้ายโฟลเดอร์: **เพิ่มใน Source แล้ว** · [คู่มือและข้อจำกัด Phase B](MANAGED_RUNTIME_POOL_TH.md)
 
-Phase C — Offline Wheelhouse พร้อม SHA, Permission/Consent และ Atomic Runtime Installer
+Phase C — Verified Offline Wheelhouse พร้อม SHA-256, Consent และ Atomic Runtime Installer: **เพิ่มใน Source แล้ว** และมี Wheelhouse จริงสำหรับ Sherpa; ชุด Runtime อื่นยังไม่ครบ · [รายละเอียด](VERIFIED_WHEELHOUSE_TH.md)
 
 Phase D — Signed External Adapter, SDK, STT/LLM/Cloning Runtime และ Stress Test / Native Model Packs สำหรับ Release
 

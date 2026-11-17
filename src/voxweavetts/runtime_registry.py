@@ -103,6 +103,7 @@ def inventory(root: Path = ROOT) -> list[dict]:
     """Derive real reference counts; do not maintain stale editable counters."""
     from .engine_provider_catalog import all_providers
     from .engine_provider_installer import ready as provider_ready
+    from .offline_wheelhouse import status as wheelhouse_status
     from .m2m_runtime import ready as m2m_ready, python_path as m2m_python, REQUIREMENTS
     root = Path(root)
     consumers = _installed_consumers(root)
@@ -121,6 +122,7 @@ def inventory(root: Path = ROOT) -> list[dict]:
             "ready": provider_ready(profile, root=root),
             "health_state": health["state"], "health": health,
             "repair_required": health["repair_required"],
+            "wheelhouse": wheelhouse_status(root, profile.id),
             "repair": dict(_REPAIR_JOBS.get((str(root.resolve()), profile.id),
                                             {"state": "not_started", "error": None})),
             "consumers": list(attached), "reference_count": len(attached),
@@ -143,6 +145,7 @@ def inventory(root: Path = ROOT) -> list[dict]:
         "ready": m2m_ready(root),
         "health_state": health["state"], "health": health,
         "repair_required": health["repair_required"],
+        "wheelhouse": wheelhouse_status(root, "m2m100"),
         "repair": dict(_REPAIR_JOBS.get((str(root.resolve()), "m2m100"),
                                         {"state": "not_started", "error": None})),
         "consumers": list(attached), "reference_count": len(attached),
@@ -184,18 +187,18 @@ def repair_async(runtime_id: str, expected_fingerprint: str,
 
     def work() -> None:
         try:
+            refreshed = next((item for item in inventory(root)
+                              if item["id"] == runtime_id), None)
+            if (refreshed is None or not refreshed["repair_required"]
+                or refreshed["runtime_fingerprint"] != expected_fingerprint):
+                raise RuntimeRegistryError("runtime changed before repair")
+            if runtime_id == "m2m100":
+                from .m2m_runtime import repair
+                repair(root)
+            else:
+                from .engine_provider_installer import repair
+                repair(runtime_id, root=root)
             with _LOCK:
-                refreshed = next((item for item in inventory(root)
-                                  if item["id"] == runtime_id), None)
-                if (refreshed is None or not refreshed["repair_required"]
-                    or refreshed["runtime_fingerprint"] != expected_fingerprint):
-                    raise RuntimeRegistryError("runtime changed before repair")
-                if runtime_id == "m2m100":
-                    from .m2m_runtime import repair
-                    repair(root)
-                else:
-                    from .engine_provider_installer import repair
-                    repair(runtime_id, root=root)
                 _REPAIR_JOBS[key] = {"state": "ready", "error": None}
         except Exception as exc:
             # A worker thread must never remain stuck in "repairing" if a
@@ -208,6 +211,52 @@ def repair_async(runtime_id: str, expected_fingerprint: str,
     return {"state": "repairing", "error": None}
 
 
+def install_verified_async(runtime_id: str, expected_fingerprint: str,
+                           *, root: Path = ROOT) -> dict:
+    """Explicit opt-in: verify every wheel then install/repair from pinned data."""
+    from .offline_wheelhouse import status as wheelhouse_status
+    root = Path(root)
+    if (not isinstance(runtime_id, str) or not _RUNTIME_ID.fullmatch(runtime_id)
+        or not isinstance(expected_fingerprint, str)
+        or not re.fullmatch("[0-9a-f]{64}", expected_fingerprint)):
+        raise RuntimeRegistryError("invalid verified runtime installation request")
+    entry = next((x for x in inventory(root) if x["id"] == runtime_id), None)
+    if (entry is None or entry["runtime_fingerprint"] != expected_fingerprint):
+        raise RuntimeRegistryError("runtime recipe changed; refresh before install")
+    if entry["ready"] or (entry["installed"] and not entry["repair_required"]):
+        raise RuntimeRegistryError("runtime does not require verified installation")
+    if wheelhouse_status(root, runtime_id)["ready_to_verify"] is not True:
+        raise RuntimeRegistryError("trusted verified wheelhouse not prepared")
+    key = (str(root.resolve()), runtime_id)
+    with _LOCK:
+        current = _REPAIR_JOBS.get(key, {})
+        if current.get("state") == "repairing":
+            return dict(current)
+        _REPAIR_JOBS[key] = {"state": "repairing", "source": "wheelhouse",
+                             "error": None}
+
+    def work() -> None:
+        try:
+            refreshed = next((x for x in inventory(root)
+                              if x["id"] == runtime_id), None)
+            if (refreshed is None or refreshed["runtime_fingerprint"] != expected_fingerprint
+                or refreshed["ready"]
+                or (refreshed["installed"] and not refreshed["repair_required"])):
+                raise RuntimeRegistryError("runtime changed before verified install")
+            from .verified_runtime_installer import install_verified
+            install_verified(runtime_id, root=root)
+            with _LOCK:
+                _REPAIR_JOBS[key] = {"state": "ready", "source": "wheelhouse",
+                                     "error": None}
+        except Exception as exc:
+            with _LOCK:
+                _REPAIR_JOBS[key] = {"state": "failed", "source": "wheelhouse",
+                                     "error": str(exc) or "verified install failed"}
+    threading.Thread(target=work, name="verified-runtime-" + runtime_id,
+                     daemon=True).start()
+    return {"state": "repairing", "source": "wheelhouse", "error": None}
+
+
 def remove_unreferenced(runtime_id: str, expected_fingerprint: str,
                         *, root: Path = ROOT) -> bool:
     """Remove only known environment after a freshly derived reference check."""
@@ -217,6 +266,9 @@ def remove_unreferenced(runtime_id: str, expected_fingerprint: str,
         or not re.fullmatch("[0-9a-f]{64}", expected_fingerprint)):
         raise RuntimeRegistryError("invalid runtime removal request")
     with _LOCK:
+        job = _REPAIR_JOBS.get((str(root.resolve()), runtime_id), {})
+        if job.get("state") == "repairing":
+            raise RuntimeRegistryError("runtime is being installed or repaired")
         target = next((entry for entry in inventory(root)
                        if entry["id"] == runtime_id), None)
         if target is None:

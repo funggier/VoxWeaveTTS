@@ -83,6 +83,50 @@ class RuntimeRegistryTests(unittest.TestCase):
                 registry.remove_unreferenced("kokoro","f"*64,root=root)
             self.assertTrue(folder.exists())
 
+    def test_verified_runtime_install_requires_fingerprint_and_wheelhouse(self):
+        record = {
+            "id": "sherpa", "runtime_fingerprint": "a" * 64,
+            "ready": False, "installed": False, "repair_required": False,
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with (patch.object(registry, "inventory", return_value=[record]),
+                  patch("voxweavetts.offline_wheelhouse.status",
+                        return_value={"ready_to_verify": False})):
+                with self.assertRaisesRegex(registry.RuntimeRegistryError,
+                                            "trusted verified wheelhouse"):
+                    registry.install_verified_async("sherpa", "a"*64, root=root)
+                with self.assertRaisesRegex(registry.RuntimeRegistryError,
+                                            "recipe changed"):
+                    registry.install_verified_async("sherpa", "b"*64, root=root)
+                with self.assertRaises(registry.RuntimeRegistryError):
+                    registry.install_verified_async("../sherpa", "a"*64, root=root)
+
+    def test_verified_install_job_reuses_guard_and_publishes_status(self):
+        import threading
+        record = {
+            "id": "sherpa", "runtime_fingerprint": "a"*64,
+            "ready": False, "installed": False, "repair_required": False,
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            key = (str(root.resolve()), "sherpa")
+            with (patch.object(registry, "inventory", return_value=[record]),
+                  patch("voxweavetts.offline_wheelhouse.status",
+                        return_value={"ready_to_verify": True}),
+                  patch("voxweavetts.verified_runtime_installer.install_verified")
+                        as install):
+                job = registry.install_verified_async("sherpa", "a"*64, root=root)
+                self.assertEqual(job["source"], "wheelhouse")
+                for _ in range(500):
+                    state = registry._REPAIR_JOBS[key]["state"]
+                    if state != "repairing":
+                        break
+                    threading.Event().wait(0.01)
+                self.assertEqual(registry._REPAIR_JOBS[key]["state"], "ready")
+                install.assert_called_once_with("sherpa", root=root)
+            registry._REPAIR_JOBS.pop(key, None)
+
     def test_makham_builtin_and_package_share_one_engine_id(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)

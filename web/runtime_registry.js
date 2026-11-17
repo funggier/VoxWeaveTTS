@@ -87,7 +87,7 @@ async function refresh(){
       const action=doc.createElement("button");
       action.type="button";
       action.style.marginLeft="8px";
-      action.textContent=repair.state==="repairing"?"กำลังซ่อม Runtime...":"ซ่อม Runtime (Offline)";
+      action.textContent=repair.state==="repairing"?"กำลังซ่อม Runtime...":"ซ่อมจาก uv cache (Offline)";
       action.disabled=repair.state==="repairing";
       action.addEventListener("click",async()=>{
         const selected=String(info.id);
@@ -111,6 +111,50 @@ async function refresh(){
         }
       });
       li.append(action);
+    }
+    const wheelhouse=info.wheelhouse||{};
+    const wheelMessage=doc.createElement("small");
+    wheelMessage.style.display="block";
+    const sourceState=String(wheelhouse.state||"not-published");
+    wheelMessage.textContent=wheelhouse.ready_to_verify
+      ?"Offline Wheelhouse: พบ "+Number(wheelhouse.wheels||0)+
+        " wheels (รอตรวจ SHA-256 ก่อนติดตั้ง)"
+      :sourceState==="recipe-unsupported"
+        ?"Offline Wheelhouse: Recipe ยังมีแหล่ง Git/URL ที่ไม่ได้แปลงเป็น Wheel ที่ตรวจสอบแล้ว"
+      :"Offline Wheelhouse: ยังไม่มีชุดไฟล์ที่ตรงกับ Trusted Lock";
+    li.append(wheelMessage);
+    if(wheelhouse.ready_to_verify&&!info.ready){
+      const install=doc.createElement("button");
+      install.type="button";
+      install.style.marginLeft="8px";
+      install.textContent=repair.state==="repairing"
+        ?"กำลังตรวจสอบหรือติดตั้ง Runtime..."
+        :"ติดตั้ง/ซ่อมด้วย Verified Wheelhouse";
+      install.disabled=repair.state==="repairing";
+      install.addEventListener("click",async()=>{
+        const name=String(info.id);
+        if(!root.confirm("ติดตั้ง/ซ่อม Runtime "+name+" จาก Offline Wheelhouse ?\\n"+
+          "โปรแกรมจะตรวจ SHA-256 ของ Wheel ทุกไฟล์เทียบ Trusted Lock ก่อนติดตั้ง "+
+          "ไม่ใช้อินเทอร์เน็ต และจะคืน Runtime เดิมถ้าการติดตั้งไม่สำเร็จ"))return;
+        install.disabled=true;
+        try{
+          const result=await fetchJSON("/v1/runtimes/install-verified",{
+            method:"POST",
+            headers:{"Content-Type":"application/json",
+                     "X-VoxWeaveTTS-Intent":"install-verified-runtime"},
+            body:JSON.stringify({id:info.id,
+                                 expected_fingerprint:info.runtime_fingerprint,
+                                 confirm_install:true})
+          });
+          if(!result.install||result.install.state!=="repairing")
+            throw Error("ไม่สามารถเริ่มติดตั้ง Verified Runtime ได้");
+          await refresh();
+        }catch(error){
+          status.textContent="ติดตั้ง Verified Runtime ไม่สำเร็จ: "+String(error.message||error);
+          install.disabled=false;
+        }
+      });
+      li.append(install);
     }
     if(repair.state==="repairing")repairing=true;
     if(repair.state==="failed"&&repair.error){

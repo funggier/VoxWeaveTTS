@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Offline Verified Wheelhouse Phase C — unreleased source:** A trusted per-runtime wheel lock pins SHA-256, recipe hash, Python ABI and platform. Explicit installation verifies and snapshots all local wheels before offline/no-index/hash-required uv installation, with post-activation checks and rollback. Three real Sherpa wheels were prepared and successfully tested in an isolated temporary installation; other runtimes are not yet bundled or verified. [Phase C Thai guide](docs/VERIFIED_WHEELHOUSE_TH.md).
+
 **Managed Runtime Pool Phase B — unreleased source:** Detect moved environments, Python ABI mismatch, missing base interpreters, and trusted recipe drift. The Runtime Registry offers explicit **offline-only repair** with staging/verification, rollback and no deletion of model assets. Existing unpinned runtimes remain usable without forced migration. [Thai Phase B guide](docs/MANAGED_RUNTIME_POOL_TH.md).
 
 **Native Universal .vwmodel v2 — unreleased source (after v0.9.5):** New package schema, native capabilities, isolated v2 model storage and trusted built-in adapter resolution, without embedding v1 manifests. The Model Package Manager only accepts v2. Prior user weights and settings are not automatically deleted. [Native v2 guide (Thai)](docs/UNIVERSAL_VWMODEL_V2_TH.md).

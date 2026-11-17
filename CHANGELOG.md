@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Native Universal .vwmodel v2 Phase C: Offline Verified Wheelhouse
+
+- Add code-owned trusted wheel locks with runtime, Python ABI, platform, recipe SHA-256, per-wheel size/hash/identity, archive metadata/path checks and dependency closure checks for curation.
+- Add separate portable `runtime/wheelhouse/<id>/` storage and local-only curation CLI (`scripts/prepare_verified_wheelhouse.py`); no models or model manifests can authorize package installers or supply executable commands.
+- Add explicit same-origin `/v1/runtimes/install-verified` API and Runtime Registry UI action; verify and snapshot each wheel before calling uv with `--offline --no-index --no-cache --require-hashes` and exact hash-pinned requirements. Final-path Python import and pip check must pass; failure rolls back the venv without altering models/settings.
+- Prepare the 3-wheel (31,744,498 bytes) trusted **Sherpa** wheelhouse locally; validate a real fully offline install in a separate temporary project. Do not modify existing engine runtimes or publish the binaries automatically.
+- Wayu NC VCS/URL recipe and missing other-runtime wheelhouses are explicitly unsupported/incomplete, not falsely reported ready. Wheel hashes establish integrity relative to reviewed trusted locks, not publisher authenticity; redistribute binary dependencies only with proper notices/licenses.
+- Add security, zip/metadata, tamper, rollback, UI and API tests and docs/VERIFIED_WHEELHOUSE_TH.md. No new GitHub Release yet.
+
 ## Unreleased — Native Universal .vwmodel v2 Phase B: Managed Runtime Pool
 
 - Add read-only Runtime Health diagnostics for Windows venv relocation, Python 3.11 ABI mismatch, missing base interpreter, incomplete installs and trusted recipe SHA-256 drift. Existing runtime markers without an installation-root pin remain usable but are explicitly marked `legacy-unpinned`.

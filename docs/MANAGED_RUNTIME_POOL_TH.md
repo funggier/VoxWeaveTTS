@@ -30,7 +30,7 @@
 
 ## ซ่อม Runtime แบบ Offline
 
-เมื่อ Health รายงาน `repair_required=true` จะมีปุ่ม **ซ่อม Runtime (Offline)** ใน Runtime Registry
+เมื่อ Health รายงาน `repair_required=true` จะมีปุ่ม **ซ่อมจาก uv cache (Offline)** ใน Runtime Registry
 
 1. ผู้ใช้กดยืนยันการซ่อมโดยระบุเฉพาะ Runtime ที่ลงทะเบียนไว้แล้ว
 2. Server ตรวจ Same-Origin, Header แสดงเจตนา, `id`, `expected_fingerprint` และ `confirm_repair=true`; ไม่รับพาธ คำสั่ง Shell URL หรือ Dependencies จาก Browser
@@ -45,7 +45,7 @@
 ## ข้อจำกัดปัจจุบันและแผนถัดไป
 
 - Runtime เดิมที่เป็น `legacy-unpinned` ยังไม่ได้ย้ายสถานะเป็น Marker ใหม่โดยอัตโนมัติ เพื่อไม่บันทึกพาธใหม่เป็นต้นทางเทียม
-- **Phase C:** สร้าง Offline Verified Wheelhouse ที่ครบจริงและตรวจ SHA-256 ก่อนติดตั้ง เพื่อให้การซ่อมใช้งานได้แม้ไม่มีแคชเดิม
+- **Phase C:** เพิ่ม Offline Verified Wheelhouse ใน Source แล้ว (พร้อมตัวอย่างจริง Sherpa); ยังต้องจัดชุด Dependencies ให้ครบ Runtime อื่นและตรวจสิทธิ์ก่อน Release · [คู่มือ Phase C](VERIFIED_WHEELHOUSE_TH.md)
 - **Phase D:** Adapter SDK, External Code Signing และการรองรับชนิดโมเดลเพิ่ม
 - M2M100 ยังมีข้อจำกัด RAM/Commit/Paging File ของเครื่องในการโหลดน้ำหนัก 418M; สถานะ Runtime Ready **ไม่ได้หมายความว่าทดสอบการแปลจริงผ่านแล้ว**
 

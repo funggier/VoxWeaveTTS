@@ -242,6 +242,34 @@ class PackageEndpointTests(unittest.TestCase):
             self.assertEqual((status,body),(200,{"removed":True}))
             remove_runtime.assert_called_once_with("sherpa","a"*64)
 
+    def test_verified_wheelhouse_install_rejects_cross_origin_and_payload_extensions(self):
+        payload = {"id": "sherpa", "expected_fingerprint": "a"*64,
+                   "confirm_install": True}
+        with patch("voxweavetts.server.install_verified_runtime_async",
+                   return_value={"state": "repairing", "source": "wheelhouse",
+                                 "error": None}) as installer:
+            for kwargs in (
+                {"origin": None, "intent": "install-verified-runtime"},
+                {"origin": "https://attacker.example", "intent": "install-verified-runtime"},
+                {"intent": None},
+                {"site": "cross-site", "intent": "install-verified-runtime"},
+            ):
+                status, _ = self.post("/v1/runtimes/install-verified", payload, **kwargs)
+                self.assertEqual(status, 403)
+            for invalid in ({"id": "sherpa", "expected_fingerprint": "a"*64},
+                            {**payload, "confirm_install": False},
+                            {**payload, "find_links": "https://evil.example"},
+                            {**payload, "shell": "cmd.exe"}):
+                status, _ = self.post("/v1/runtimes/install-verified", invalid,
+                                       intent="install-verified-runtime")
+                self.assertEqual(status, 409)
+            installer.assert_not_called()
+            status, response = self.post("/v1/runtimes/install-verified",
+                                         payload, intent="install-verified-runtime")
+            self.assertEqual(status, 202)
+            self.assertEqual(response["install"]["source"], "wheelhouse")
+            installer.assert_called_once_with("sherpa", "a"*64)
+
     def test_runtime_repair_requires_origin_intent_and_exact_confirmation(self):
         record = {"id": "vachana", "expected_fingerprint": "b"*64,
                   "confirm_repair": True}

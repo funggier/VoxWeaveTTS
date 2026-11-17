@@ -119,7 +119,8 @@ class RuntimeRebuildError(RuntimeError):
 
 def atomic_rebuild(*, root: Path, folder: Path, build: Callable[[Path], None],
                    verify: Callable[[Path], bool],
-                   quiesce: Callable[[], None] | None = None) -> None:
+                   quiesce: Callable[[], None] | None = None,
+                   verify_activated: Callable[[Path], bool] | None = None) -> None:
     """Rebuild into a sibling, verify, then replace only the managed venv.
 
     Never touch models, settings or caches; never follow a redirected runtime
@@ -159,8 +160,14 @@ def atomic_rebuild(*, root: Path, folder: Path, build: Callable[[Path], None],
         moved_old = True
         stage.rename(folder)
         activated = True
+        # A staged Windows venv can contain location-dependent launchers.
+        # Verify the *final* location; restore old env if relocation failed.
+        if verify_activated is not None and not verify_activated(folder):
+            raise RuntimeRebuildError("activated runtime failed final health check")
     except Exception:
-        if moved_old and not activated:
+        if moved_old:
+            if activated and folder.is_dir() and not folder.is_symlink():
+                folder.rename(stage)
             backup.rename(folder)
         raise
     finally:
@@ -173,3 +180,43 @@ def atomic_rebuild(*, root: Path, folder: Path, build: Callable[[Path], None],
         shutil.rmtree(backup)
     except OSError:
         pass
+
+
+def atomic_install(*, root: Path, folder: Path,
+                   build: Callable[[Path], None], verify: Callable[[Path], bool],
+                   verify_activated: Callable[[Path], bool] | None = None) -> None:
+    """Install one absent managed venv without deleting any preexisting folder."""
+    root = Path(root)
+    folder = Path(folder)
+    try:
+        relative = folder.relative_to(root)
+    except ValueError as exc:
+        raise RuntimeRebuildError("runtime outside application") from exc
+    if (len(relative.parts) != 3 or relative.parts[0] != "runtime"
+        or relative.parts[1] not in ("engine-envs", "ai-envs")
+        or not re.fullmatch(r"[a-z][a-z0-9-]{1,39}", relative.parts[2])
+        or (relative.parts[1] == "ai-envs" and relative.parts[2] != "m2m100")
+        or folder.exists() or folder.is_symlink()
+        or folder.parent.is_symlink() or folder.parent.parent.is_symlink()
+        or not folder.parent.is_dir()
+        or folder.parent.resolve() != (root / relative.parent).resolve()):
+        raise RuntimeRebuildError("runtime exists or directory is unmanaged")
+    stage = folder.with_name("." + folder.name + ".stage-" + secrets.token_hex(8))
+    activated = False
+    try:
+        build(stage)
+        if (not stage.is_dir() or stage.is_symlink()
+            or stage.resolve().parent != folder.parent.resolve()
+            or not verify(stage) or folder.exists()):
+            raise RuntimeRebuildError("staged runtime is not verified")
+        stage.rename(folder)
+        activated = True
+        if verify_activated is not None and not verify_activated(folder):
+            raise RuntimeRebuildError("activated runtime failed final health check")
+    except Exception:
+        if activated and folder.is_dir() and not folder.is_symlink():
+            folder.rename(stage)
+        raise
+    finally:
+        if stage.is_dir() and not stage.is_symlink():
+            shutil.rmtree(stage)

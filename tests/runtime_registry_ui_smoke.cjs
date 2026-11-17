@@ -59,6 +59,16 @@ const fakeWindow={
       records[2].repair={state:"repairing",error:null};
       return {ok:true,async json(){return {repair:records[2].repair};}};
     }
+    if(path==="/v1/runtimes/install-verified"){
+      assert.equal(options.method,"POST");
+      assert.equal(options.headers["X-VoxWeaveTTS-Intent"],
+                   "install-verified-runtime");
+      const body=JSON.parse(options.body);
+      assert.deepEqual(body,{id:"kokoro",expected_fingerprint:"d".repeat(64),
+                             confirm_install:true});
+      records[3].repair={state:"repairing",source:"wheelhouse",error:null};
+      return {ok:true,async json(){return {install:records[3].repair};}};
+    }
     throw Error("unknown runtime URL "+path);
   },
 };
@@ -80,7 +90,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   confirmed=true;
   await remove.events.click();
   assert.equal(requests.filter(x=>x.path==="/v1/runtimes/remove").length,1);
-  assert.equal(get("runtimeRegistryList").children[1].children.length,4);
+  assert.equal(get("runtimeRegistryList").children[1].children.length,5);
   assert.match(get("runtimeRegistryStatus").textContent,/m2m100/);
   records.push({id:"vachana",kind:"tts",driver:"managed",
     installed:true,ready:false,repair_required:true,health_state:"relocated",
@@ -100,5 +110,21 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   await node.children[5].events.click();
   assert.equal(requests.filter(x=>x.path==="/v1/runtimes/repair").length,1);
   assert.equal(records[2].repair.state,"repairing");
-  console.log("PASS: runtime references, guarded uninstall, health status, opt-in offline repair, same-origin intent");
+  records.push({id:"kokoro",kind:"tts",installed:false,ready:false,
+    health_state:"not-installed",repair:{state:"not_started",error:null},
+    wheelhouse:{state:"present-unverified",ready_to_verify:true,wheels:4},
+    reference_count:1,consumers:["v2:kokoro@1.0.0"],can_uninstall:false,
+    runtime_fingerprint:"d".repeat(64),relative_path:"runtime/engine-envs/kokoro"});
+  await fakeWindow.VoxRuntimeRegistry.refresh();
+  const candidate=get("runtimeRegistryList").children[3];
+  assert.match(candidate.children[4].textContent,/SHA-256/);
+  assert.equal(candidate.children[5].disabled,false);
+  confirmed=false;
+  await candidate.children[5].events.click();
+  assert.equal(requests.filter(x=>x.path==="/v1/runtimes/install-verified").length,0);
+  confirmed=true;
+  await candidate.children[5].events.click();
+  assert.equal(requests.filter(x=>x.path==="/v1/runtimes/install-verified").length,1);
+  assert.equal(records[3].repair.source,"wheelhouse");
+  console.log("PASS: guarded runtime uninstall, legacy repair, verified wheelhouse install consent and same-origin intent");
 })().catch(err=>{console.error(err);process.exitCode=1;});
