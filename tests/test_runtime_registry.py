@@ -106,7 +106,9 @@ class RuntimeRegistryTests(unittest.TestCase):
                 self.assertIsNone(makham.active_model_dir(root))
                 self.assertTrue(legacy.exists())
                 models.install_model_package(archive,base=base)
-                self.assertEqual(makham.active_model_dir(root),makham.packaged_model_dir(root))
+                # Legacy format reinstall must not bypass an explicit disable
+                # marker after the native v2 migration.
+                self.assertIsNone(makham.active_model_dir(root))
                 self.assertEqual(makham.recovery_archive(root).exists(),False)
 
 

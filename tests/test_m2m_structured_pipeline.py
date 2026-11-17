@@ -156,8 +156,9 @@ class M2MStructuredTranslationTests(unittest.TestCase):
         with (patch("voxweavetts.ai_engine_registry.m2m_info",
                     return_value=SimpleNamespace(
                         assets_ready=True,runtime_ready=True)),
-              patch("voxweavetts.ai_model_packages.installed_packages",
-                    return_value=[({},Path("unused-model-folder"))]),
+              patch("voxweavetts.universal_model_packages.native_translation_packages",
+                    return_value=[({"package_id":"v2-native-test","version":"1.0.0"},
+                                   Path("unused-model-folder"))]),
               # The actual Portable runtime routes to an isolated worker if
               # optional Torch/Transformers imports are absent. This test
               # deliberately exercises the trusted inline adapter using a
@@ -172,10 +173,10 @@ class M2MStructuredTranslationTests(unittest.TestCase):
                     load.return_value=(tok,model)
                     if length>512:
                         with self.assertRaisesRegex(ValueError, "512 source tokens"):
-                            M2M100Adapter().process("What is your name?",settings(),[])
+                            M2M100Adapter().process("What is your name?",settings(),[],inline_worker=True)
                         self.assertIsNone(model.options)
                     else:
-                        output=M2M100Adapter().process("What is your name?",settings(),[])
+                        output=M2M100Adapter().process("What is your name?",settings(),[],inline_worker=True)
                         self.assertEqual(output,"คุณชื่ออะไร?")
                         self.assertEqual(model.options["forced_bos_token_id"],42)
                         self.assertEqual(tok.language,"th")

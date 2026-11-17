@@ -77,18 +77,19 @@ def install_model_package_dialog(*, choose_file=None) -> dict[str, Any] | None:
         with zipfile.ZipFile(selected) as archive:
             members = archive.infolist()
             if (not members or members[0].filename != "manifest.json"
-                    or members[0].file_size > MAX_MANIFEST):
+                    or members[0].file_size > 65_536):
                 raise ModelPackageError("invalid model package manifest")
             try:
                 format_name = json.loads(archive.read(members[0]))["format"]
             except (ValueError, KeyError, TypeError, UnicodeError) as exc:
                 raise ModelPackageError("invalid model package manifest") from exc
         if format_name == FORMAT:
-            return install_model_package(selected)
-        from .ai_model_packages import FORMAT as AI_FORMAT, install_model_package as install_ai
-        if format_name == AI_FORMAT:
-            return install_ai(selected)
-        raise ModelPackageError("unsupported .vwmodel format")
+            with zipfile.ZipFile(selected) as archive:
+                version = json.loads(archive.read("manifest.json"))["format_version"]
+            if type(version) is int and version == 2:
+                from .universal_model_packages import install_model_package as install_v2
+                return install_v2(selected)
+        raise ModelPackageError("only Universal .vwmodel v2 is supported")
     finally:
         _DIALOG_LOCK.release()
 

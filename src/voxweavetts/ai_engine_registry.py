@@ -126,30 +126,27 @@ def _loaded_m2m(folder: str):
 
 
 class M2M100Adapter:
-    """Translate with explicitly installed local safetensors; no hub downloads."""
+    """Translate with a trusted isolated worker; model weights are data only."""
 
     def process(self, text: str, settings: dict[str, Any],
-                context: list[dict[str, str]]) -> str:
+                context: list[dict[str, str]], *, inline_worker: bool = False) -> str:
         if settings["operation"] != "translate":
             raise RuntimeError("M2M100 translates text only")
-        from .ai_model_packages import resolve_model, installed_packages
+        from .universal_model_packages import native_translation_packages
         info = m2m_info()
         if not info.assets_ready or not info.runtime_ready:
             raise RuntimeError("M2M100 model/runtime not installed")
-        # The minimal Portable core must not acquire Torch/Transformers and
-        # conflict with the TTS ONNX runtimes. Use the persistent isolated
-        # M2M100 worker when optional imports are absent from core Python.
-        if not all(find_spec(name) is not None for name in (
-                "torch", "transformers", "sentencepiece", "safetensors")):
+        # Never load a 418M-parameter model into the portable Core merely
+        # because Torch happened to be installed there. Only the trusted
+        # subprocess may execute the heavy inline inference path.
+        if not inline_worker:
             from .m2m_runtime import translate
             return translate(text, settings)
-        folder = resolve_model(settings["model"]) if settings["model"] else None
-        if folder is None and not settings["model"]:
-            packages = installed_packages()
-            if len(packages) == 1:
-                folder = packages[0][1]
-            elif all((MODEL_DIR / name).is_file() for name in _M2M_FILES):
-                folder = MODEL_DIR
+        packages = native_translation_packages()
+        folder = next((path for m, path in packages
+                       if settings["model"] == m["package_id"] + "@" + m["version"]), None) if settings["model"] else None
+        if folder is None and not settings["model"] and len(packages) == 1:
+            folder = packages[0][1]
         if folder is None:
             raise RuntimeError("choose an installed M2M100 model in AI Settings")
         source = settings["source_language"]
@@ -202,18 +199,14 @@ def ollama_info() -> AIEngineInfo:
 
 
 def m2m_info() -> AIEngineInfo:
-    from .ai_model_packages import installed_packages
-    ready_files = bool(installed_packages()) or all(
-        (MODEL_DIR / name).is_file() for name in _M2M_FILES
-    )
+    from .universal_model_packages import native_translation_packages
+    ready_files = bool(native_translation_packages())
     from .m2m_runtime import ready as isolated_runtime_ready
-    deps = (all(find_spec(name) is not None
-                for name in ("torch", "transformers", "sentencepiece", "safetensors"))
-            or isolated_runtime_ready())
+    deps = isolated_runtime_ready()
     return AIEngineInfo(
         "m2m100", "M2M100 418M (ทดลอง / accuracy varies)", "translation", False, False,
         ready_files, deps,
-        "Optional local safetensors + tokenizer under models/ai/m2m100_418m; "
+        "Native v2 safetensors + tokenizer under models/universal/v2/translation; "
         "requires the optional isolated M2M100 Python runtime (torch, transformers, "
         "sentencepiece, safetensors); Install/Repair in AI Settings; "
         "experimental translation quality - verify meaning before live use",

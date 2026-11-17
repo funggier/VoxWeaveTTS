@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — Native Universal .vwmodel v2 Phase A
+
+- Replace the model-package-manager install/list/remove path with **native Universal v2** (no v1 Compatibility Bridge or v1 manifest wrapped inside v2).
+- Add v2-only metadata validation, SHA-256 streaming verification, bounded ZIP member rules, declarative locked-runtime metadata, atomic staging and rollback, adapter allowlist and data-only installation for unimplemented model kinds.
+- Store v2 model assets under models/universal/v2 by kind, never in v1 TTS/AI package locations. Preserve legacy model files and all user settings without automatic deletion.
+- Discover native v2 TTS via trusted engine providers, native v2 M2M100 via translation adapters, and include v2 runtime consumers in protected runtime reference counts.
+- Add scripts/build_vwmodel_v2.py, native v2 tests and docs/UNIVERSAL_VWMODEL_V2_TH.md.
+- Runtime material carried in packages remains **inert** until a separately trusted, approved environment installer is implemented (Phase B/C). No Release has been published.
+- Build and install **6 native v2 TTS packages** plus **1 native v2 M2M100 translation package** using verified existing weights; preserve original archives and data. The package content version may remain 1.0.0 while the packaging format version is 2.
+- Verify real MakHam Paradee synthesis from the v2 model folder (69,600 PCM16 bytes for a short Thai phrase). M2M100 runtime/model discovery succeeded, but real inference encountered Windows paging-file error 1455; do not claim translation quality verification until memory headroom is available.
+- Always dispatch M2M100 inference through its trusted isolated worker, even if Core has Torch installed. Validate Worker Python ABI separately from Core and display actionable Runtime status in both model managers.
+- Harden safe uninstall (refuse changed or unmanaged model files), Windows/junction path handling and builder output protections against overwrites or partial files.
+
+
 ## Unreleased — Saved Live queue preferences, 8,000-character limit and speech diagnostics
 
 - Increase maximum accepted incoming chat length to **8,000 characters** (configurable 20–8,000; default stays 240) across YouTube, Discord, TikTok, profile validation, extension bridges and input fields.
@@ -8,7 +22,7 @@
 - Add a third independent Live source panel showing **post-translation, post-rule model input** for every completed speech job. Preserve the exact text chunks, language and routed engine/voice that were submitted to TTS, grouped as one history entry per completed message; reuse the existing "read history" limit. Never substitute the original chat when private model-input diagnostics are unavailable. Retrieve these details through an explicit same-origin POST, not ordinary public job status/events/subtitles.
 - Simplify all six "ลองอ่านอัตโนมัติต่อ" button labels and Firefox auto-play recovery status messages to **"อ่านอัตโนมัติต่อ"**, without changing retry/FIFO/auto-play behavior.
 - Add boundary, API, security and UI regression tests. This is development after v0.9.5 and has not been published as a new Release.
-- Universal `.vwmodel v2` remains the separate next architectural milestone.
+- Native Universal `.vwmodel v2` Phase A is now implemented in the working tree; details above. The release remains unpublished.
 
 
 

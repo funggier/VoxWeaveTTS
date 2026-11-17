@@ -67,6 +67,12 @@ from .model_packages import (
     installed_packages, engine_id_for, display_model_title, install_model_package_dialog,
     remove_model_package, ModelPackageError, ModelPackageDialogUnavailable,
 )
+from .universal_model_packages import (
+    installed_packages as installed_universal_packages,
+    package_status as universal_package_status,
+    remove_model_package as remove_universal_package,
+    UniversalPackageError,
+)
 from .makham_package import (legacy_present as legacy_makham_present,
                              remove_legacy_model as remove_legacy_makham,
                              recovery_archive as makham_recovery_archive)
@@ -717,37 +723,12 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/v1/settings/synthesis":
                 self.send_json(200, {"seed": _read_seed()})
             elif route == "/v1/model-packages":
+                # Native Universal v2 is the only supported package format.
                 self.send_json(200, {
-                    "packages": [{
-                        "package_id": m["package_id"], "version": m["version"],
-                        "title": display_model_title(m), "engine_id": engine_id_for(m),
-                        "engine_adapter": m["engine_adapter"],
-                        "voices": m["voices"],
-                        "license": m["license"], "source": m["source"],
-                        "dependencies": m["dependencies"],
-                        "model_kind": "tts", "builtin_engine": (
-                            m["engine_adapter"] == "makham-paradee-onnx-v1"),
-                    } for m, _folder in installed_packages()] + ([
-                        {
-                            "package_id": "makham-paradee-builtin",
-                            "version": "0.0.0", "title": "MakHam Paradee (built-in legacy model)",
-                            "engine_id": "makham-paradee-cpu",
-                            "engine_adapter": "makham-paradee-onnx-v1",
-                            "voices": [{"id": "paradee_thai", "label": "Paradee"}],
-                            "license": {
-                                "spdx": "Apache-2.0",
-                                "url": "https://www.apache.org/licenses/LICENSE-2.0",
-                                "attribution": "PyThaiNLP / Wannaphong Phatthiyaphaibun",
-                                "review_status": "review_required",
-                            },
-                            "source": {"url": "https://huggingface.co/pythainlp/MakHamTTS",
-                                       "revision": "pythaitts-1.0.0-local-int8-snapshot"},
-                            "dependencies": ["pythaitts==1.0.0"],
-                            "model_kind": "tts", "builtin_engine": True,
-                            "legacy_assets": True,
-                            "recovery_available": makham_recovery_archive().is_file(),
-                        }
-                    ] if legacy_makham_present() else [])
+                    "packages": [
+                        universal_package_status(m, folder=folder)
+                        for m, folder in installed_universal_packages()
+                    ],
                 })
             elif route == "/v1/engine-providers":
                 self.send_json(200, {"providers": catalog_status()})
@@ -794,12 +775,22 @@ class Handler(BaseHTTPRequestHandler):
                 except ValueError:
                     self.send_json(400, {"error": "invalid model name"})
             elif route == "/v1/ai/packages":
-                self.send_json(200, {"legacy_m2m": legacy_model_installed(), "packages": [{
-                    "key": ai_package_key(manifest),
-                    "package_id": manifest["package_id"], "version": manifest["version"],
-                    "title": manifest["title"], "adapter": manifest["engine_adapter"],
-                    "license": manifest["license"],
-                } for manifest, _path in installed_ai_packages()]})
+                packages = []
+                for manifest, folder in installed_universal_packages():
+                    if manifest["package"]["kind"] != "translation":
+                        continue
+                    detail = universal_package_status(manifest, folder=folder)
+                    packages.append({
+                        "key": detail["package_id"] + "@" + detail["version"],
+                        "package_id": detail["package_id"],
+                        "version": detail["version"],
+                        "title": detail["title"],
+                        "adapter": detail["engine_adapter"],
+                        "license": detail["license"],
+                        "runtime_state": detail["runtime_state"],
+                        "runtime_ready": detail["runtime_ready"],
+                    })
+                self.send_json(200, {"legacy_m2m": False, "packages": packages})
             elif route == "/v1/reading/progress":
                 params = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
                 values = params.get("document_id", [])
@@ -1012,24 +1003,46 @@ class Handler(BaseHTTPRequestHandler):
                 if route.endswith("install-local"):
                     if data:
                         raise AIModelPackageError("unexpected AI package install request")
-                    installed = install_ai_model_package_dialog()
-                    self.send_json(200, {"cancelled": installed is None, **({
-                        "installed": True, "package_id": installed["package_id"],
+                    from .model_packages import _native_model_picker
+                    from .universal_model_packages import inspect_archive as inspect_v2, install_model_package as install_v2
+                    selected = _native_model_picker()
+                    if not selected:
+                        self.send_json(200, {"cancelled": True})
+                        return
+                    manifest = inspect_v2(selected)
+                    if manifest["package"]["kind"] != "translation":
+                        raise UniversalPackageError("expected Universal v2 translation model")
+                    installed = install_v2(selected)
+                    self.send_json(200, {
+                        "installed": True, "format_version": 2,
+                        "package_id": installed["package_id"],
                         "version": installed["version"],
-                    } if installed else {})})
+                        "runtime_status": installed["runtime_status"],
+                    })
                 elif route.endswith("remove-legacy"):
                     if data:
-                        raise AIModelPackageError("invalid legacy model removal request")
-                    self.send_json(200, {"removed": remove_legacy_m2m()})
+                        raise AIModelPackageError("legacy removal takes no arguments")
+                    self.send_json(410, {"error": "legacy AI packages are retired; use Universal v2"})
                 else:
                     if set(data) != {"package_id", "version"}:
-                        raise AIModelPackageError("invalid AI model removal request")
-                    self.send_json(200, {"removed": remove_ai_model_package(
-                        data["package_id"], data["version"]
-                    )})
-            except AIModelPickerUnavailable:
-                self.send_json(503, {"error": "AI model picker unavailable"})
-            except (AIModelPackageError, ValueError, InputError, UnicodeDecodeError,
+                        raise UniversalPackageError("invalid native AI package removal")
+                    match = next((m for m, _ in installed_universal_packages()
+                                  if m["package"]["kind"] == "translation"
+                                  and m["package"]["id"] == data["package_id"]
+                                  and m["package"]["version"] == data["version"]), None)
+                    if match is None:
+                        self.send_json(200, {"removed": False})
+                        return
+                    from .m2m_runtime import reset as reset_m2m
+                    from .ai_engine_registry import _M2M_INFERENCE_LOCK, _loaded_m2m
+                    with _M2M_INFERENCE_LOCK:
+                        reset_m2m()
+                        _loaded_m2m.cache_clear()
+                        removed = remove_universal_package(data["package_id"], data["version"])
+                    self.send_json(200, {"removed": removed})
+            except (AIModelPickerUnavailable, ModelPackageDialogUnavailable):
+                self.send_json(503, {"error": "native model picker unavailable"})
+            except (AIModelPackageError, UniversalPackageError, ValueError, InputError, UnicodeDecodeError,
                     json.JSONDecodeError, OSError, zipfile.BadZipFile):
                 self.send_json(400, {"error": "invalid AI model package or integrity check"})
             return
@@ -1076,69 +1089,44 @@ class Handler(BaseHTTPRequestHandler):
                 data = self._read_json(max_bytes=2048)
                 if route.endswith("install-local"):
                     if data:
-                        raise ModelPackageError("unexpected install request")
+                        raise UniversalPackageError("model picker needs no request body")
                     installed = install_model_package_dialog()
                     if installed is None:
                         self.send_json(200, {"cancelled": True})
                         return
-                    if installed["engine_adapter"] == "m2m100-transformers-v1":
-                        # The generic .vwmodel picker also accepts AI packages.
-                        # Do not try to register translation weights as a TTS engine.
-                        self.send_json(200, {
-                            "installed": True, "package_kind": "ai",
-                            "package_id": installed["package_id"],
-                            "version": installed["version"],
-                        })
-                        return
                     refresh_engine_registry()
-                    profile = provider_for_adapter(installed["engine_adapter"])
-                    if profile is not None:
-                        install_async(profile.id)
-                    # Keep the existing install-local API response stable.
-                    # Runtime setup status is exposed by /v1/engine-providers.
-                    payload = {
-                        "installed": True, "package_id": installed["package_id"],
-                        "version": installed["version"],
-                    }
-                    if installed["engine_adapter"] == "makham-paradee-onnx-v1":
-                        payload["engine_id"] = engine_id_for(installed)
-                    self.send_json(200, payload)
+                    # Installing model weights cannot install or execute runtime code.
+                    self.send_json(200, {"installed": True, **installed})
                 else:
                     if set(data) != {"package_id", "version"}:
-                        raise ModelPackageError("invalid removal request")
-                    is_legacy_makham = (
-                        data["package_id"] == "makham-paradee-builtin"
-                        and data["version"] == "0.0.0")
-                    adapter = ("makham-paradee-onnx-v1" if is_legacy_makham else
-                               next((m["engine_adapter"] for m, _ in installed_packages()
-                                     if m["package_id"] == data["package_id"]
-                                     and m["version"] == data["version"]), None))
-                    # The built-in Engine ID survives model removal. Its worker
-                    # must release ONNX model handles before Windows can delete
-                    # the now-unneeded model directory.
-                    if is_legacy_makham:
-                        gateway().reset("pythaitts-v1")
-                        removed = remove_legacy_makham()
-                    else:
-                        profile = provider_for_adapter(adapter) if adapter else None
-                        if adapter == "makham-paradee-onnx-v1":
-                            gateway().reset("pythaitts-v1")
-                        elif profile is not None:
-                            gateway().reset(profile.backend)
-                        removed = remove_model_package(data["package_id"], data["version"])
+                        raise UniversalPackageError("invalid v2 package removal request")
+                    match = next((
+                        manifest for manifest, _ in installed_universal_packages()
+                        if manifest["package"]["id"] == data["package_id"]
+                        and manifest["package"]["version"] == data["version"]
+                    ), None)
+                    if match is None:
+                        self.send_json(200, {"removed": False})
+                        return
+                    if match["package"]["kind"] == "tts":
+                        provider = provider_for_adapter(match["adapter"]["id"])
+                        if provider is not None:
+                            gateway().reset(provider.backend)
+                    elif match["package"]["kind"] == "translation":
+                        from .m2m_runtime import reset as reset_m2m
+                        from .ai_engine_registry import _M2M_INFERENCE_LOCK, _loaded_m2m
+                        with _M2M_INFERENCE_LOCK:
+                            reset_m2m()
+                            _loaded_m2m.cache_clear()
+                    removed = remove_universal_package(data["package_id"], data["version"])
                     if removed:
                         refresh_engine_registry()
-                        # Stop only the affected provider. Other voice families
-                        # may still be reading live comments concurrently.
-                        profile = provider_for_adapter(adapter) if adapter else None
-                        if profile is not None:
-                            gateway().reset(profile.backend)
                     self.send_json(200, {"removed": removed})
             except ModelPackageDialogUnavailable:
                 self.send_json(503, {"error": "Windows model selection dialog unavailable"})
             except AIModelPackageError:
                 self.send_json(400, {"error": "invalid AI model package or integrity check"})
-            except ModelPackageError:
+            except (ModelPackageError, UniversalPackageError):
                 self.send_json(400, {"error": "invalid model package, license metadata, or integrity check"})
             except (ValueError, InputError, UnicodeDecodeError, json.JSONDecodeError):
                 self.send_json(400, {"error": "invalid model operation"})

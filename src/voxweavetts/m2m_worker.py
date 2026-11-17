@@ -36,7 +36,7 @@ def process(message: object) -> dict:
     output = M2M100Adapter().process(message["text"], {
         "operation": "translate", "model": model,
         "source_language": source, "target_language": target,
-    }, [])
+    }, [], inline_worker=True)
     return {"version": PROTOCOL, "request_id": message["request_id"],
             "ok": True, "text": output}
 

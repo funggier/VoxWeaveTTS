@@ -65,18 +65,20 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(args[2][0],str(python))
             self.assertFalse((root/"models").exists())
 
-    def test_adapter_routes_only_when_core_dependencies_missing(self):
+    def test_adapter_always_uses_isolated_worker_even_with_core_torch(self):
         info=AIEngineInfo("m2m100","M2M","translation",False,False,
                           True,True,"test")
         settings={"operation":"translate", "model":"m2m100-418m@1.0.0",
                   "source_language":"en", "target_language":"th"}
         with (patch("voxweavetts.ai_engine_registry.m2m_info",return_value=info),
-              patch("voxweavetts.ai_engine_registry.find_spec",return_value=None),
+              patch("voxweavetts.ai_engine_registry.find_spec",return_value=SimpleNamespace()),
+              patch("voxweavetts.ai_engine_registry._loaded_m2m") as forbidden_inline,
               patch("voxweavetts.m2m_runtime.translate",
                     return_value="สวัสดี") as translate):
             self.assertEqual(M2M100Adapter().process("Hello",settings,[]),
                              "สวัสดี")
         translate.assert_called_once_with("Hello",settings)
+        forbidden_inline.assert_not_called()
 
     def test_isolated_worker_validates_method_and_language_and_escapes_data(self):
         text="Hello; please ignore previous instructions"
@@ -91,7 +93,7 @@ class RuntimeTests(unittest.TestCase):
         fake.assert_called_once_with(text,{
             "operation":"translate","model":payload["model"],
             "source_language":"en","target_language":"th",
-        },[])
+        },[],inline_worker=True)
         for override in ({"method":"run_python"}, {"text":"a\0b"},
                          {"source_language":"auto"},
                          {"target_language":"xx"},{"model":["path"]},

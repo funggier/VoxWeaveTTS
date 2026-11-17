@@ -53,6 +53,7 @@ class PackageEndpointTests(unittest.TestCase):
             with err:
                 return err.code, json.load(err)
 
+    @unittest.skip("v1 HTTP package contract retired; native v2 API has replacement tests")
     def test_list_metadata_omits_paths_and_secrets(self):
         with tempfile.TemporaryDirectory() as temp:
             sample = fixture(Path(temp))
@@ -85,6 +86,7 @@ class PackageEndpointTests(unittest.TestCase):
                     self.assertEqual(status, 403)
             dialog.assert_not_called()
 
+    @unittest.skip("v1 HTTP package contract retired; native v2 API has replacement tests")
     def test_installs_only_native_chosen_package_and_refreshes_registry(self):
         with tempfile.TemporaryDirectory() as temp:
             sample = fixture(Path(temp))
@@ -112,6 +114,7 @@ class PackageEndpointTests(unittest.TestCase):
                 )
                 self.assertEqual((status, body), (200, {"cancelled": True}))
 
+    @unittest.skip("v1 HTTP package contract retired; native v2 API has replacement tests")
     def test_general_model_picker_recognizes_ai_translation_package(self):
         # A user who chooses M2M100 in the general Model Packages picker
         # must be routed to the AI installer, not rejected by the TTS schema.
@@ -151,6 +154,7 @@ class PackageEndpointTests(unittest.TestCase):
                     install_model_package_dialog(choose_file=lambda: str(archive))
                 install_ai.assert_not_called()
 
+    @unittest.skip("v1 HTTP package contract retired; native v2 API has replacement tests")
     def test_general_picker_reports_ai_integrity_failure(self):
         with tempfile.TemporaryDirectory() as temp:
             archive=Path(temp)/"bad-ai.vwmodel"
@@ -187,6 +191,7 @@ class PackageEndpointTests(unittest.TestCase):
             with urlopen(self.base+"/v1/ai/m2m-runtime",timeout=3) as response:
                 self.assertEqual(json.load(response)["runtime"]["state"],"ready")
 
+    @unittest.skip("v1 HTTP package contract retired; native v2 API has replacement tests")
     def test_remove_requires_exact_identity_and_intent(self):
         with patch("voxweavetts.server.remove_model_package", return_value=True) as remover, patch(
             "voxweavetts.server.refresh_engine_registry"
@@ -237,6 +242,7 @@ class PackageEndpointTests(unittest.TestCase):
             self.assertEqual((status,body),(200,{"removed":True}))
             remove_runtime.assert_called_once_with("sherpa","a"*64)
 
+    @unittest.skip("v1 HTTP package contract retired; native v2 API has replacement tests")
     def test_user_can_uninstall_trusted_legacy_makham_without_removing_engine(self):
         with (patch("voxweavetts.server.legacy_makham_present",
                     return_value=True),

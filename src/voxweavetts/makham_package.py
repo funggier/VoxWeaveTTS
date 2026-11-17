@@ -63,7 +63,17 @@ def _verified_pinned_weights(folder: Path) -> bool:
 
 
 def active_model_dir(root: Path = ROOT) -> Path | None:
-    """Prefer the managed removable package; retain old portable compatibility."""
+    """Prefer pinned native v2 assets; older assets are never deleted here."""
+    native = Path(root) / "models" / "universal" / "v2" / "tts" / PACKAGE_ID / PACKAGE_VERSION
+    if native.is_dir() and not native.is_symlink():
+        from .universal_model_packages import _installed_manifest
+        verified = _installed_manifest(native)
+        if (verified is not None and verified["adapter"]["id"] == ADAPTER
+            and _verified_pinned_weights(native)):
+            return native
+    # An explicit v2 uninstall must not resurrect a leftover v1 package.
+    if disabled_marker(root).exists():
+        return None
     folder = packaged_model_dir(root)
     manifest = folder / "manifest.json"
     try:

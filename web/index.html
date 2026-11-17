@@ -1459,17 +1459,35 @@ async function loadModelPackages(){
   if(!response.ok)throw Error("ไม่สามารถโหลดรายการแพ็กเกจได้");
   const area=el("modelPackageList");
   area.replaceChildren();
-  for(const item of (body.packages||[])){
+  const packages=body.packages||[];
+  for(const item of packages){
     const li=document.createElement("li");
     const title=document.createElement("strong");
-    title.textContent=item.title+" v"+item.version;
+    title.textContent=item.title+" v"+item.version+
+      (item.format_version===2?" · Universal v2 · "+item.model_kind:"");
     const details=document.createElement("small");
     details.style.display="block";
     const names=(item.voices||[]).map(v=>v.label).join(", ");
-    details.textContent="Engine: "+item.engine_id+" · เสียง: "+names+
+    details.textContent="Engine: "+(item.engine_id||"not registered")+" · เสียง: "+names+
       " · License: "+item.license.spdx+
       " · ตรวจสิทธิ์: "+item.license.review_status+
       " · Requires: "+(item.dependencies||[]).join(", ");
+    if(item.format_version===2){
+      const runtimeLabels={
+        ready:"พร้อมใช้งาน",
+        "adapter-not-approved":"ไม่มี Adapter ที่อนุมัติ",
+        "runtime-not-installed":"ยังไม่ติดตั้ง Runtime",
+        "runtime-recipe-pending":"รออนุมัติการติดตั้ง Runtime",
+        "platform-incompatible":"ระบบปฏิบัติการไม่รองรับ",
+        "python-abi-mismatch":"Python ของ Runtime ไม่ตรง",
+        "accelerator-unsupported":"ยังไม่รองรับ Accelerator",
+        "runtime-kind-unsupported":"ประเภท Runtime ยังไม่รองรับ",
+        "runtime-id-mismatch":"Runtime ไม่ตรงกับ Adapter"
+      };
+      details.textContent+=" · Runtime: "+(runtimeLabels[item.runtime_state]||item.runtime_state)+
+        " · Source: "+item.runtime_source+
+        " · Adapter: "+(item.adapter_trusted?"trusted built-in":"not approved");
+    }
     const source=document.createElement("a");
     source.href=item.license.url;
     source.target="_blank";source.rel="noopener noreferrer";
@@ -1499,13 +1517,13 @@ async function loadModelPackages(){
     li.append(title,details,source,remove);
     area.append(li);
   }
-  if(!(body.packages||[]).length){
+  if(!packages.length){
     const li=document.createElement("li");
     li.textContent="ยังไม่ได้ติดตั้ง Model Package เพิ่ม (โมเดลที่มากับโปรแกรมยังใช้งานได้)";
     area.append(li);
   }
   el("modelPackageStatus").textContent="Model Packages ที่ติดตั้ง: "+
-    (body.packages||[]).length+" ชุด";
+    packages.length+" ชุด";
 }
 el("modelPackageRefresh").addEventListener("click",()=>{
   loadModelPackages().then(loadEngines).catch(()=>{
@@ -1533,6 +1551,31 @@ el("modelPackageInstall").addEventListener("click",async()=>{
     await loadEngines();
     modeVoiceController?.refreshEngines();
     if(typeof loadEngineProviders==="function")loadEngineProviders().catch(()=>{});
+    if(result.format_version===2){
+      if(!result.activation_supported){
+        el("modelPackageStatus").textContent=
+          "ติดตั้ง Universal .vwmodel v2 ("+result.package_kind+
+          ") แล้ว · ยังไม่มี Runtime/Adapter ที่เปิดใช้งานได้";
+      }else if(result.package_kind==="translation"){
+        el("modelPackageStatus").textContent=
+          "ติดตั้ง Translation .vwmodel v2 แล้ว · ตรวจ Runtime สำหรับ M2M100 ในการตั้งค่า AI";
+      }else if(result.package_kind==="tts"){
+        const id=result.engine_id||("model-"+result.package_id+"-"+result.version.replaceAll(".","_"));
+        const ready=engines.some(x=>x.id===id&&x.assets_ready&&x.runtime_ready);
+        if(ready){
+          el("engineSelect").value=id;
+          refreshSelectedEngine();
+        }
+        el("modelPackageStatus").textContent=ready
+          ?"ติดตั้ง Universal TTS v2 พร้อมใช้งาน: "+id
+          :"ติดตั้ง Universal TTS v2 แล้ว · ต้องติดตั้ง Runtime ของ Adapter แยกก่อนใช้งาน";
+      }else{
+        el("modelPackageStatus").textContent=
+          "ติดตั้งแพ็กเกจ Universal v2 ("+result.package_kind+
+          ") แล้ว · รอ Adapter สำหรับความสามารถนี้";
+      }
+      return;
+    }
     if(result.package_kind==="ai"){
       // The same native file picker safely recognizes TTS and AI packages.
       // Never select a translation model as a TTS voice.

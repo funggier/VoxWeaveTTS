@@ -52,9 +52,26 @@ def _installed_consumers(root: Path) -> dict[str, list[str]]:
     for manifest, _folder in installed_ai(base=root / "models" / "ai" / "packages"):
         if manifest["engine_adapter"] == "m2m100-transformers-v1":
             add("m2m100", f"{manifest['package_id']}@{manifest['version']}")
+    # Native v2 packages have their own storage and manifest schema.
+    # Keep legacy consumers in the safety inventory until explicitly removed.
+    from .universal_model_packages import installed_packages as v2_packages
+    for manifest, _folder in v2_packages(root):
+        if manifest["adapter"]["trust"] != "builtin":
+            continue
+        provider_id = ("m2m100" if manifest["package"]["kind"] == "translation"
+                       and manifest["adapter"]["id"] == "m2m100-transformers-v1"
+                       else None)
+        if manifest["package"]["kind"] == "tts":
+            profile = provider_for_adapter(manifest["adapter"]["id"])
+            if profile is not None and profile.plugin_path is None:
+                provider_id = profile.id
+        if provider_id:
+            add(provider_id, f"v2:{manifest['package']['id']}@{manifest['package']['version']}")
 
-    from .makham_package import active_model_dir, packaged_model_dir
-    if active_model_dir(root) is not None and active_model_dir(root) != packaged_model_dir(root):
+    from .makham_package import active_model_dir, packaged_model_dir, PACKAGE_ID, PACKAGE_VERSION
+    current_makham = active_model_dir(root)
+    native_makham = root / "models" / "universal" / "v2" / "tts" / PACKAGE_ID / PACKAGE_VERSION
+    if current_makham is not None and current_makham not in (packaged_model_dir(root), native_makham):
         add("pythaitts", "built-in:makham-paradee-cpu")
     from .speech import ASSETS, MIN_SIZES, VACHANA_VOICES
     # Built-in engines without weights are not runtime consumers.

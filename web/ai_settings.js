@@ -166,7 +166,16 @@ function attach(document, fetcher){
     for(const item of packages){
       const line=document.createElement("li");
       const title=document.createElement("span");
-      title.textContent=item.title+" ("+item.key+") ";
+      const runtimeLabels={
+        ready:"พร้อมใช้งาน",
+        "adapter-not-approved":"ไม่มี Adapter ที่อนุมัติ",
+        "runtime-not-installed":"ยังไม่ติดตั้ง Runtime",
+        "runtime-recipe-pending":"รออนุมัติ Runtime",
+        "platform-incompatible":"ระบบปฏิบัติการไม่รองรับ",
+        "python-abi-mismatch":"Python Runtime ไม่ตรง"
+      };
+      title.textContent=item.title+" ("+item.key+") · "+
+        (runtimeLabels[item.runtime_state]||item.runtime_state||"ต้องตรวจสอบ Runtime")+" ";
       line.appendChild(title);
       const choose=document.createElement("button");
       choose.type="button";choose.textContent="เลือกใช้";

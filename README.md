@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Native Universal .vwmodel v2 — unreleased source (after v0.9.5):** New package schema, native capabilities, isolated v2 model storage and trusted built-in adapter resolution, without embedding v1 manifests. The Model Package Manager only accepts v2. Prior user weights and settings are not automatically deleted. [Native v2 guide (Thai)](docs/UNIVERSAL_VWMODEL_V2_TH.md).
+
 **Unreleased development after v0.9.5:** Source chat length can be configured up to **8,000 characters**, with explicit per-mode queue settings save and separate speech-error/current-text/completed-read views. The legacy chat list is unchanged. See [Live queue documentation](docs/LIVE_MESSAGE_QUEUE_TH.md).
 
 

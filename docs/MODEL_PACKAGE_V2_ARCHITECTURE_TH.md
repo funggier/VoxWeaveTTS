@@ -1,4 +1,6 @@
-# VoxWeaveTTS — Universal Model Package v2 (ข้อเสนอการออกแบบ)
+# VoxWeaveTTS — Universal Model Package v2 (สถาปัตยกรรมและแผนต่อยอด)
+
+**อัปเดต Phase A:** Native v2 เริ่มใช้งานใน Source แล้ว โดยเลิกใช้ Compatibility Bridge และปิดการติดตั้ง v1 ผ่าน Model Package Manager; รายละเอียด Schema ที่ใช้จริงและคำสั่งสร้างแพ็กเกจอยู่ที่ [Universal v2](UNIVERSAL_VWMODEL_V2_TH.md) ตัวอย่าง Concept ด้านล่างเป็นเพียงแนวคิดเก่าที่ไม่ใช่ Schema พร้อมใช้ทุกฟิลด์
 
 สถานะ: **ทยอยใช้งานจริง (Runtime Registry / Uninstall Guard / MakHam managed package) + ข้อเสนอ Phase ถัดไป** · 2026-11-17. การติดตั้ง Wheelhouse และ Adapter จากแพ็กเกจแบบอัตโนมัติยังไม่ได้เปิดใช้งาน
 

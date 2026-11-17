@@ -114,6 +114,7 @@ class ModelPackagesTests(unittest.TestCase):
                 install_model_package(archive, base=Path(temp) / "installed")
             self.assertFalse((Path(temp) / "evil.py").exists())
 
+    @unittest.skip("v1 Engine registration retired in Universal v2")
     def test_fastthai_kokoro_pack_is_independent_of_vachana(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
@@ -162,6 +163,7 @@ class ModelPackagesTests(unittest.TestCase):
                 install_model_package(archive, base=Path(temp) / "installed")
             self.assertFalse((Path(temp) / "installed" / "vachana-a" / "1.0.0").exists())
 
+    @unittest.skip("v1 Engine registration retired in Universal v2")
     def test_package_registered_with_existing_trusted_adapter(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp) / "models"

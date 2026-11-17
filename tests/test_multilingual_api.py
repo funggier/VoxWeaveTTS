@@ -183,9 +183,9 @@ class MultilingualHttpTests(unittest.TestCase):
             remove.assert_not_called()
             status, data = self.post("/v1/ai/packages/remove-legacy", {},
                                      "remove-legacy-ai-model")
-            self.assertEqual(status, 200)
-            self.assertTrue(data["removed"])
-            remove.assert_called_once_with()
+            self.assertEqual(status, 410)
+            self.assertIn("retired", data["error"])
+            remove.assert_not_called()
 
 
 if __name__ == "__main__":

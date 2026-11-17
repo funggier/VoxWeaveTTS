@@ -15,7 +15,7 @@ from typing import Any
 
 from .processing import InputError
 from .engine_contract import EngineInfo, EngineRegistry, VoiceEngine
-from .model_packages import installed_packages, engine_id_for, display_model_title
+from .universal_model_packages import engine_id_for, display_model_title
 from .voice_controls import apply_voice_controls, control_schema, ffmpeg_path, validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -380,8 +380,9 @@ def _register_model_packages(registry: EngineRegistry) -> None:
     """A package selects an existing trusted adapter, never imports pack code."""
     allowed = {"vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1",
                "sherpa-supertonic-v1", "sherpa-melo-zh-v1", "wayu-nc-v1"}
-    for manifest, model_dir in installed_packages():
-        # MakHam is a built-in engine with removable .vwmodel weights.
+    from .universal_model_packages import native_tts_packages
+    for manifest, model_dir in native_tts_packages():
+        # Native v2 packages never embed or depend on v1 manifests.
         # Never register an extra 'model-*' engine or rename saved presets.
         if manifest["engine_adapter"] == "makham-paradee-onnx-v1":
             continue
@@ -572,7 +573,8 @@ def create_voice_engine(engine_id: str, seed: int) -> VoiceEngine:
         proxy = ProviderVoiceEngine(engine_id, profile, info.voice_ids, info.voice_id, seed)
         # Preserve public attributes of the historical FastThaiG2P adapter.
         # Existing user code and model-package tests read these properties.
-        for manifest, model_dir in installed_packages():
+        from .universal_model_packages import native_tts_packages
+        for manifest, model_dir in native_tts_packages():
             if engine_id_for(manifest) == engine_id:
                 proxy.model_dir = model_dir
                 if manifest["engine_adapter"] == "fastthaig2p-kokoro-v1":

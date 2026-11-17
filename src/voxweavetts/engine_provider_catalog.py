@@ -230,8 +230,8 @@ def provider_for_engine(engine_id: str, *, root: Path = ROOT) -> Provider | None
             return profile
     if not engine_id.startswith("model-"):
         return None
-    from .model_packages import engine_id_for, installed_packages
-    for manifest, _ in installed_packages():
+    from .universal_model_packages import engine_id_for, native_tts_packages
+    for manifest, _ in native_tts_packages(root):
         if engine_id_for(manifest) == engine_id:
             return provider_for_adapter(manifest["engine_adapter"])
     return None
@@ -242,13 +242,15 @@ def provider_for_backend(backend: str, *, root: Path = ROOT) -> Provider | None:
 
 
 def provider_status(root: Path = ROOT) -> list[dict]:
-    from .model_packages import installed_packages
-    installed = installed_packages()
+    from .universal_model_packages import native_tts_packages
+    installed = native_tts_packages(root)
     profiles = []
     for item in all_providers(root).values():
         attached = list(item.builtins) + [
             "model-" + m["package_id"] + "-" + m["version"].replace(".", "_")
-            for m, _ in installed if m["engine_adapter"] in item.adapters
+            for m, _ in installed
+            if m["engine_adapter"] in item.adapters
+            and m["engine_adapter"] != "makham-paradee-onnx-v1"
         ]
         profiles.append({
             "id": item.id, "backend": item.backend,
