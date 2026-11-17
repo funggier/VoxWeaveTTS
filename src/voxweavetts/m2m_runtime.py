@@ -128,7 +128,8 @@ def repair(root: Path = ROOT) -> Path:
     recipe = root / REQUIREMENTS
     if not recipe.is_file() or recipe.is_symlink():
         raise M2MRuntimeError("trusted M2M recipe is missing")
-    uv = shutil.which("uv")
+    from .runtime_tools import find_uv
+    uv = find_uv(root)
     if not uv:
         raise M2MRuntimeError("uv is unavailable; offline repair cannot proceed")
     base_python = root / ".venv" / "Scripts" / "python.exe"
@@ -167,8 +168,23 @@ def repair(root: Path = ROOT) -> Path:
             python=stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python"),
             marker=stage / MARKER, expected_recipe_hash=digest)
         return info["ready"] and info["location_pinned"]
+    def verify_final(final: Path) -> bool:
+        if not verify(final):
+            return False
+        final_python = final / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        with (logs / "repair-m2m100.log").open("a", encoding="utf-8") as log:
+            # Final-path launch must work before the previous venv is removed.
+            _execute([str(final_python), "-c",
+                      "import sys; from pathlib import Path; "
+                      "assert Path(sys.prefix).resolve() == Path(sys.argv[1]).resolve()",
+                      str(final)], root=root, log=log)
+            _execute([uv, "pip", "check", "--offline", "--python",
+                      str(final_python)], root=root, log=log)
+        return True
+
     atomic_rebuild(root=root, folder=folder, build=build, verify=verify,
-                   quiesce=reset if root.resolve() == ROOT.resolve() else None)
+                   quiesce=reset if root.resolve() == ROOT.resolve() else None,
+                   verify_activated=verify_final)
     return folder
 
 

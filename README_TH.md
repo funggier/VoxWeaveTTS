@@ -1,5 +1,7 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**งานที่กำลังพัฒนาหลัง v0.10.1 — Portable Doctor (Phase E):** เพิ่มเครื่องมือตรวจโมเดล Native v2/Runtime/สถานะ Wheelhouse และการย้ายโฟลเดอร์แบบอ่านอย่างเดียว พร้อมทางเลือกตรวจ SHA-256, JSON และการซ่อมที่ใช้ `uv.exe` ภายใน Portable โดยไม่ต้องมี `uv` ใน Windows PATH ฟังก์ชันนี้อยู่ใน Source ที่พัฒนาต่อ **ยังไม่รวมใน Release v0.10.1** [คู่มือ Portable Doctor](docs/PORTABLE_DIAGNOSTICS_TH.md)
+
 **v0.10.1 — Native `.vwmodel v2`, Wayu NC และ Trusted Provider SDK:** รองรับลายเซ็น Ed25519 ของ External TTS Provider โดยต้องตรึง Public Key และอนุมัติให้รันโค้ดแยกกัน, ถอนกุญแจ/แก้ไฟล์แล้วปฏิเสธ Provider, เพิ่ม Worker Protocol v1 SDK ที่จำกัดขนาดข้อความและ PCM16 พร้อม Portable ที่ใช้โมเดล MakHam Native v2 เท่านั้น [คู่มือ Phase D](docs/TRUSTED_PROVIDER_SDK_TH.md) · [Release Notes](docs/RELEASE_NOTES_v0.10.1.md) · [คู่มือ Wayu NC v2](docs/WAYU_NC_NATIVE_V2_TH.md)
 
 **Offline Verified Wheelhouse (Phase C — รวมใน Source v0.10.0):** เพิ่มการติดตั้ง/ซ่อม Runtime แบบ Offline จาก Trusted Lock + SHA-256 ของไฟล์ Wheel ทุกตัว พร้อมตรวจ ABI/OS/Recipe และ Rollback หากตรวจสอบไม่ผ่าน เตรียม Trusted Wheelhouse จริงให้ Sherpa, PyThaiTTS, M2M100 รวม 54 ไฟล์แล้วและทดลองติดตั้ง Offline ผ่าน; Vachana/Kokoro มี Draft และติดตั้งทดลองผ่าน แต่ยังไม่อนุมัติแจกจ่ายเพราะต้องตรวจ License เพิ่ม โดยไม่เปลี่ยน Runtime เดิม [คู่มือ Phase C](docs/VERIFIED_WHEELHOUSE_TH.md) · [ตรวจสิทธิ์ Wheel](docs/WHEELHOUSE_LICENSE_REVIEW_TH.md)

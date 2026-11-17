@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Phase E: Portable Doctor & post-relocation runtime resilience
+
+- Add read-only `scripts/Check-Portable.ps1` and `voxweavetts.portable_doctor` with human/JSON output, optional deep wheelhouse SHA-256+ZIP verification and strict nonzero exit for unavailable installed models. Distinguishes bundled MakHam Core from optional PyThaiTTS worker, shows missing/relocated Runtime and wheelhouse rights statuses without mutating user settings.
+- Repair paths for TTS provider and M2M100 prioritize bundled `runtime/tools/uv.exe`, so an extracted ZIP does not depend on a system-installed `uv`. Offline cache repair now validates final relocated interpreter path and dependency metadata before deleting the previous runtime; rollback preserves previous environment on failure.
+- Real clean-folder test: extracted Windows Portable v0.10.1 as a base with the updated Phase E source overlay, added exact Sherpa (3 wheels) and PyThaiTTS (26 wheels) wheelhouses; verified every wheel SHA-256, installed both entirely offline with no system `uv` in PATH, detected both relocated runtimes after folder rename and rebuilt both successfully. No real cross-machine test yet.
+- Expand regression tests, update `scripts/Build-Portable-V2.ps1` to bundle the diagnostic, and document limitations in [Portable Doctor guide](docs/PORTABLE_DIAGNOSTICS_TH.md). This change is source-only until a new release is explicitly requested.
+
 ## v0.10.1 — Wayu Paxa Edge 12-Voice Native v2 (NonCommercial)
 
 - Add separate CC BY-NC 4.0 Wayu Paxa Edge 12-voice Thai/English native `.vwmodel v2` package. Original upstream `.pth/.pt` assets remain byte-for-byte SHA-256 pinned, and the exact publisher/source revision and NC license are enforced before execution.

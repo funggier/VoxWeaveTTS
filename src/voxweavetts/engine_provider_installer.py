@@ -143,7 +143,8 @@ def repair(provider_id: str, *, root: Path = ROOT) -> Path:
     requirements = profile.requirements_path(root)
     if not requirements.is_file() or requirements.is_symlink():
         raise InstallError("trusted provider requirements missing")
-    uv = shutil.which("uv")
+    from .runtime_tools import find_uv
+    uv = find_uv(root)
     if not uv:
         raise InstallError("uv is unavailable; repair cannot proceed offline")
     base_python = root / ".venv" / "Scripts" / "python.exe"
@@ -191,8 +192,25 @@ def repair(provider_id: str, *, root: Path = ROOT) -> Path:
         if root.resolve() == ROOT.resolve():
             from .engine_worker_gateway import gateway
             gateway().reset(profile.backend)
+    def verify_final(final: Path) -> bool:
+        if not verify(final):
+            return False
+        final_python = final / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        with (log_dir / ("repair-" + profile.id + ".log")).open("a", encoding="utf-8") as log:
+            # Ensure the activated path actually launches and its dependencies
+            # remain coherent. Stage-path-only checks are insufficient after
+            # moving Windows virtual environments to their final folder.
+            _execute([str(final_python), "-c",
+                      "import sys; from pathlib import Path; "
+                      "assert Path(sys.prefix).resolve() == Path(sys.argv[1]).resolve()",
+                      str(final)], root=root, log=log)
+            _execute([uv, "pip", "check", "--offline", "--python",
+                      str(final_python)], root=root, log=log)
+        return True
+
     atomic_rebuild(root=root, folder=folder, build=build,
-                   verify=verify, quiesce=quiesce)
+                   verify=verify, quiesce=quiesce,
+                   verify_activated=verify_final)
     return folder
 
 

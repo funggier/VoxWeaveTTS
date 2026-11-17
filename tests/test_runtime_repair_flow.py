@@ -71,8 +71,10 @@ class RuntimeRepairFlowTests(unittest.TestCase):
         self.assertTrue(tts.ready(profile, root=self.root))
         self.assertFalse((folder / "original-state.txt").exists())
         self.assertEqual(self.protected.read_bytes(), b"model must not be touched")
-        self.assertEqual(len(self.commands), 3)
-        self.assertTrue(all("--offline" in cmd for cmd in self.commands))
+        self.assertEqual(len(self.commands), 5)
+        self.assertTrue(all("--offline" in cmd for cmd in self.commands[:3]))
+        self.assertEqual(self.commands[3][0], str(folder / "Scripts" / "python.exe"))
+        self.assertIn("--offline", self.commands[4])
         self.assertFalse(any(".backup-" in p.name or ".stage-" in p.name
                              for p in folder.parent.iterdir()))
 
@@ -114,9 +116,62 @@ class RuntimeRepairFlowTests(unittest.TestCase):
                     side_effect=self.execute)):
             self.assertEqual(m2m.repair(self.root), folder)
         self.assertTrue(m2m.ready(self.root))
-        self.assertEqual(len(self.commands), 4)
+        self.assertEqual(len(self.commands), 6)
         self.assertTrue(all("--offline" in cmd for cmd in self.commands[:3]))
         self.assertEqual(self.commands[3][1], "-c")
+        self.assertEqual(self.commands[4][0], str(folder / "Scripts" / "python.exe"))
+        self.assertIn("--offline", self.commands[5])
+        self.assertTrue(self.protected.is_file())
+
+    def test_final_tts_python_failure_rolls_back_to_original(self):
+        profile = PROVIDERS["vachana"]
+        recipe = profile.requirements_path(self.root)
+        recipe.parent.mkdir(parents=True)
+        recipe.write_bytes(b"onnxruntime==1\n")
+        digest = hashlib.sha256(recipe.read_bytes()).hexdigest()
+        folder = self.create_environment(
+            Path("runtime/engine-envs/vachana"), ".voxweave-ready.json",
+            {"provider": profile.id, "backend": profile.backend, "protocol": 1,
+             **pin_fields(self.root / "old-location", digest)})
+
+        def fail_final(command, *, root, log):
+            self.execute(command, root=root, log=log)
+            if command[0] == str(folder / "Scripts" / "python.exe"):
+                raise tts.InstallError("final relocated python did not start")
+
+        with (patch("voxweavetts.engine_provider_installer.shutil.which",
+                    return_value="uv"),
+              patch("voxweavetts.engine_provider_installer._execute",
+                    side_effect=fail_final)):
+            with self.assertRaisesRegex(tts.InstallError, "relocated python"):
+                tts.repair("vachana", root=self.root)
+        self.assertEqual((folder / "original-state.txt").read_text(),
+                         "preserve on failure")
+        self.assertTrue(self.protected.is_file())
+        self.assertFalse(any(".stage-" in x.name or ".backup-" in x.name
+                             for x in folder.parent.iterdir()))
+
+    def test_final_m2m_python_failure_rolls_back_to_original(self):
+        recipe = self.root / m2m.REQUIREMENTS
+        recipe.parent.mkdir(parents=True)
+        recipe.write_bytes(b"torch==2.8.0\n")
+        digest = hashlib.sha256(recipe.read_bytes()).hexdigest()
+        folder = self.create_environment(
+            Path("runtime/ai-envs/m2m100"), m2m.MARKER,
+            {"runtime": "m2m100", "protocol": 1,
+             **pin_fields(self.root / "old-location", digest)})
+
+        def fail_final(command, *, root, log):
+            self.execute(command, root=root, log=log)
+            if command[0] == str(folder / "Scripts" / "python.exe"):
+                raise m2m.M2MRuntimeError("final interpreter not runnable")
+
+        with (patch("voxweavetts.m2m_runtime.shutil.which", return_value="uv"),
+              patch("voxweavetts.m2m_runtime._execute", side_effect=fail_final)):
+            with self.assertRaisesRegex(m2m.M2MRuntimeError, "interpreter"):
+                m2m.repair(self.root)
+        self.assertEqual((folder / "original-state.txt").read_text(),
+                         "preserve on failure")
         self.assertTrue(self.protected.is_file())
 
     def test_normal_install_refuses_relocated_runtime_before_mutation(self):

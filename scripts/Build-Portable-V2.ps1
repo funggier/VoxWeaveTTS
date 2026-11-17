@@ -131,6 +131,8 @@ Copy-Item (Join-Path $root 'scripts\Stop-VoxWeaveTTS.ps1') (Join-Path $stage 'sc
 Copy-Tree (Join-Path $root 'scripts\engine-dependencies') (Join-Path $stage 'scripts\engine-dependencies')
 Copy-Item (Join-Path $root 'scripts\Install-EngineProvider.ps1') (Join-Path $stage 'scripts\Install-EngineProvider.ps1') -Force
 Copy-Item (Join-Path $root 'scripts\Install-WayuWorker.ps1') (Join-Path $stage 'scripts\Install-WayuWorker.ps1') -Force
+# Read-only portability diagnosis is available even with no system-installed uv.
+Copy-Item (Join-Path $root 'scripts\Check-Portable.ps1') (Join-Path $stage 'scripts\Check-Portable.ps1') -Force
 # M2M100 weights are a separate data-only .vwmodel; its heavy Torch runtime is
 # installed only with opt-in into a separate local Python environment.
 Copy-Tree (Join-Path $root 'scripts\ai-dependencies') (Join-Path $stage 'scripts\ai-dependencies')
