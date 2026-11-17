@@ -158,6 +158,12 @@ class M2MStructuredTranslationTests(unittest.TestCase):
                         assets_ready=True,runtime_ready=True)),
               patch("voxweavetts.ai_model_packages.installed_packages",
                     return_value=[({},Path("unused-model-folder"))]),
+              # The actual Portable runtime routes to an isolated worker if
+              # optional Torch/Transformers imports are absent. This test
+              # deliberately exercises the trusted inline adapter using a
+              # mocked tokenizer/model rather than the worker lifecycle.
+              patch("voxweavetts.ai_engine_registry.find_spec",
+                    return_value=SimpleNamespace()),
               patch("voxweavetts.ai_engine_registry._loaded_m2m") as load):
             for length in (512,513):
                 with self.subTest(tokens=length):
