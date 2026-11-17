@@ -554,7 +554,15 @@ def package_status(manifest: dict, *, root: Path = ROOT, folder: Path | None = N
                       if p["id"] == manifest["runtime"]["id"]), None)
         ready = bool(entry and entry["ready"])
         if not ready:
-            reason = "runtime-not-installed"
+            states = {
+                "relocated": "runtime-relocated",
+                "recipe-changed": "runtime-recipe-changed",
+                "base-python-missing": "runtime-base-python-missing",
+                "incomplete": "runtime-incomplete",
+                "python-abi-mismatch": "python-abi-mismatch",
+            }
+            reason = states.get(entry.get("health_state") if entry else None,
+                                "runtime-not-installed")
     rights = _small_json(folder, manifest["rights"]) if folder else {}
     cap = manifest["capabilities"]
     return {

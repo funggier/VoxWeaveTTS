@@ -1,6 +1,6 @@
 # VoxWeaveTTS — Universal Model Package v2 (สถาปัตยกรรมและแผนต่อยอด)
 
-**อัปเดต Phase A:** Native v2 เริ่มใช้งานใน Source แล้ว โดยเลิกใช้ Compatibility Bridge และปิดการติดตั้ง v1 ผ่าน Model Package Manager; รายละเอียด Schema ที่ใช้จริงและคำสั่งสร้างแพ็กเกจอยู่ที่ [Universal v2](UNIVERSAL_VWMODEL_V2_TH.md) ตัวอย่าง Concept ด้านล่างเป็นเพียงแนวคิดเก่าที่ไม่ใช่ Schema พร้อมใช้ทุกฟิลด์
+**อัปเดต Phase A–B:** Native v2 และ Managed Runtime Pool แบบ Health Check/Offline Repair เริ่มใช้งานใน Source แล้ว · [คู่มือ Runtime Pool](MANAGED_RUNTIME_POOL_TH.md) · Native v2 เริ่มใช้งานใน Source แล้ว โดยเลิกใช้ Compatibility Bridge และปิดการติดตั้ง v1 ผ่าน Model Package Manager; รายละเอียด Schema ที่ใช้จริงและคำสั่งสร้างแพ็กเกจอยู่ที่ [Universal v2](UNIVERSAL_VWMODEL_V2_TH.md) ตัวอย่าง Concept ด้านล่างเป็นเพียงแนวคิดเก่าที่ไม่ใช่ Schema พร้อมใช้ทุกฟิลด์
 
 สถานะ: **ทยอยใช้งานจริง (Runtime Registry / Uninstall Guard / MakHam managed package) + ข้อเสนอ Phase ถัดไป** · 2026-11-17. การติดตั้ง Wheelhouse และ Adapter จากแพ็กเกจแบบอัตโนมัติยังไม่ได้เปิดใช้งาน
 
@@ -10,7 +10,7 @@
 
 - ใช้ได้กับ `tts`, `voice-cloning`, `stt`, `translation`, `llm`, และประเภทเพิ่มเติมในอนาคต
 - ติดตั้งแบบ **reuse existing verified runtime / build new runtime / use verified bundled offline wheels** ตามแพ็กเกจและสิทธิ์การอนุญาต
-- พกพาไปโฟลเดอร์อื่นหรือไดรฟ์อื่นได้ โดย **recreate** environment อัตโนมัติจาก Recipe/Cache เมื่อพบว่า environment เดิมอ้างอิงพาธเก่า (ไม่ถือว่าการย้าย Python venv ที่มี Scripts เป็น portable)
+- พกพาไปโฟลเดอร์อื่นหรือไดรฟ์อื่นได้ โดยตรวจพบการย้ายพาธและให้ผู้ใช้ยืนยันการ **recreate** Environment แบบ Offline จาก Trusted Recipe/Cache (ไม่ซ่อมอัตโนมัติเมื่อยังไม่ยืนยัน) เมื่อ environment เดิมอ้างอิงพาธเก่า (ไม่ถือว่าการย้าย Python venv ที่มี Scripts เป็น portable)
 - ความสามารถในการรัน Code, Python Module, DLL หรือ Install Hooks ต้องผ่าน Trusted Adapter Registry และการยืนยันของผู้ใช้ ไม่อนุญาตให้ Manifest ที่ยังไม่เชื่อถือระบุคำสั่ง Shell/URL executable แล้วทำงานอัตโนมัติ
 - ไม่เปลี่ยน User Settings, Voice Preset, Translation Prompt, Route หรือโมเดลเดิมในการ Upgrade โดยไม่ตั้งใจ
 

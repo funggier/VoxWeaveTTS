@@ -22,6 +22,7 @@ from .m2m_runtime import (status as m2m_runtime_status,
                           M2MRuntimeError)
 from .runtime_registry import (inventory as runtime_inventory,
                                remove_unreferenced as remove_unused_runtime,
+                               repair_async as repair_runtime_async,
                                RuntimeRegistryError)
 from .ai_search_secrets import key_status as ai_search_key_status, update_key as update_ai_search_key, SecretUnavailable
 from .ai_tools import search_selected_provider, ToolDenied, ToolUnavailable
@@ -930,6 +931,34 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "invalid preload settings"})
             except OllamaUnavailable:
                 self.send_json(503, {"error": "Ollama model is not installed, unavailable, or busy"})
+            return
+        if route == "/v1/runtimes/repair":
+            # Offline repair touches only whitelisted app-managed venvs.
+            # Reject all client paths, shell commands, and dependency lists.
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "repair-runtime-offline"):
+                self.reject_unread_post(403, {"error": "same-origin runtime repair required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "runtime repair requires JSON"})
+                return
+            try:
+                payload = self._read_json(max_bytes=256)
+                if (not isinstance(payload, dict)
+                    or set(payload) != {"id", "expected_fingerprint", "confirm_repair"}
+                    or payload["confirm_repair"] is not True):
+                    raise RuntimeRegistryError("explicit offline repair confirmation required")
+                task = repair_runtime_async(payload["id"], payload["expected_fingerprint"])
+                self.send_json(202, {"repair": task})
+            except RuntimeRegistryError as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (OSError, ValueError, InputError):
+                self.send_json(400, {"error": "invalid runtime repair request"})
             return
         if route == "/v1/runtimes/remove":
             # Explicit same-origin user request only; arbitrary paths and

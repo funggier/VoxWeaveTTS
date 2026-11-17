@@ -17,6 +17,7 @@ import time
 from typing import Any
 
 from .engine_provider_catalog import Provider, ROOT, all_providers
+from .managed_runtime_pool import inspect_environment, pin_fields
 
 _LOCK = threading.RLock()
 _JOBS: dict[str, dict[str, Any]] = {}
@@ -40,7 +41,13 @@ def ready(provider: Provider, *, root: Path = ROOT) -> bool:
             approval = provider.plugin_path / "approved.json"
             valid = valid and state.get("approval_hash") == hashlib.sha256(
                 approval.read_bytes()).hexdigest()
-        return valid
+        if not valid:
+            return False
+        recipe = provider.requirements_path(root)
+        recipe_hash = hashlib.sha256(recipe.read_bytes()).hexdigest() if recipe.is_file() else None
+        return inspect_environment(
+            root=Path(root), folder=folder, python=provider.python_path(root),
+            marker=marker, expected_recipe_hash=recipe_hash)["ready"]
     except (OSError, ValueError, TypeError, AttributeError):
         return False
 
@@ -98,6 +105,12 @@ def install(provider_id: str, *, root: Path = ROOT) -> Path:
     log_dir = root / "logs" / "engine-workers"
     log_dir.mkdir(parents=True, exist_ok=True)
     marker = runtime / ".voxweave-ready.json"
+    if marker.is_file():
+        health = inspect_environment(
+            root=root, folder=runtime, python=profile.python_path(root),
+            marker=marker, expected_recipe_hash=hashlib.sha256(requirements.read_bytes()).hexdigest())
+        if health["repair_required"]:
+            raise InstallError("existing runtime requires explicit offline repair; normal install refused")
     # A partial previous environment is never advertised as ready.
     marker.unlink(missing_ok=True)
     with (log_dir / ("install-" + profile.id + ".log")).open("a", encoding="utf-8") as log:
@@ -114,8 +127,72 @@ def install(provider_id: str, *, root: Path = ROOT) -> Path:
     marker.write_text(json.dumps({
         "provider": profile.id, "backend": profile.backend, "protocol": 1,
         "completed_at": int(time.time()), "approval_hash": approved_hash,
+        **pin_fields(root, hashlib.sha256(requirements.read_bytes()).hexdigest()),
     }, indent=2) + "\n", encoding="utf-8")
     return runtime
+
+
+def repair(provider_id: str, *, root: Path = ROOT) -> Path:
+    """Explicit offline, transactional rebuild of one trusted TTS worker venv."""
+    from .managed_runtime_pool import atomic_rebuild
+    profile = all_providers(root).get(provider_id)
+    if profile is None:
+        raise InstallError("unknown or unapproved engine provider")
+    root = Path(root)
+    requirements = profile.requirements_path(root)
+    if not requirements.is_file() or requirements.is_symlink():
+        raise InstallError("trusted provider requirements missing")
+    uv = shutil.which("uv")
+    if not uv:
+        raise InstallError("uv is unavailable; repair cannot proceed offline")
+    base_python = root / ".venv" / "Scripts" / "python.exe"
+    if not base_python.is_file():
+        base_python = root / "runtime" / "python" / "python.exe"
+    if not base_python.is_file():
+        base_python = Path(sys.executable)
+    if not base_python.is_file():
+        raise InstallError("Python 3.11 base runtime is missing")
+    folder = profile.python_path(root).parent.parent
+    marker = folder / ".voxweave-ready.json"
+    try:
+        old = json.loads(marker.read_text(encoding="utf-8"))
+        if (old.get("provider") != profile.id
+            or old.get("backend") != profile.backend or old.get("protocol") != 1):
+            raise InstallError("not an application-managed provider runtime")
+    except (OSError, ValueError, AttributeError) as exc:
+        raise InstallError("provider runtime marker is missing or invalid") from exc
+    digest = hashlib.sha256(requirements.read_bytes()).hexdigest()
+    approved_hash = (hashlib.sha256((profile.plugin_path / "approved.json").read_bytes()).hexdigest()
+                     if profile.plugin_path is not None else None)
+    log_dir = root / "logs" / "engine-workers"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    def build(stage: Path) -> None:
+        staged_python = stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        with (log_dir / ("repair-" + profile.id + ".log")).open("a", encoding="utf-8") as log:
+            _execute([uv, "venv", "--offline", str(stage), "--python", str(base_python)],
+                     root=root, log=log)
+            _execute([uv, "pip", "install", "--offline", "--python", str(staged_python),
+                      "--link-mode", "copy", "-r", str(requirements)], root=root, log=log)
+            _execute([uv, "pip", "check", "--offline", "--python", str(staged_python)],
+                     root=root, log=log)
+        (stage / ".voxweave-ready.json").write_text(json.dumps({
+            "provider": profile.id, "backend": profile.backend, "protocol": 1,
+            "completed_at": int(time.time()), "approval_hash": approved_hash,
+            **pin_fields(root, digest),
+        }, indent=2) + "\n", encoding="utf-8")
+    def verify(stage: Path) -> bool:
+        report = inspect_environment(
+            root=root, folder=stage,
+            python=stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python"),
+            marker=stage / ".voxweave-ready.json", expected_recipe_hash=digest)
+        return report["ready"] and report["location_pinned"]
+    def quiesce() -> None:
+        if root.resolve() == ROOT.resolve():
+            from .engine_worker_gateway import gateway
+            gateway().reset(profile.backend)
+    atomic_rebuild(root=root, folder=folder, build=build,
+                   verify=verify, quiesce=quiesce)
+    return folder
 
 
 def install_async(provider_id: str, *, root: Path = ROOT) -> dict[str, Any]:
@@ -157,6 +234,16 @@ def status(provider_id: str) -> dict[str, Any]:
     if task.get("state") != "installing":
         if ready(profile):
             return {"id": provider_id, "state": "ready", "error": None}
+        if profile.python_path(ROOT).parent.parent.is_dir():
+            recipe = profile.requirements_path(ROOT)
+            digest = hashlib.sha256(recipe.read_bytes()).hexdigest() if recipe.is_file() else None
+            info = inspect_environment(root=ROOT, folder=profile.python_path(ROOT).parent.parent,
+                python=profile.python_path(ROOT),
+                marker=profile.python_path(ROOT).parent.parent / ".voxweave-ready.json",
+                expected_recipe_hash=digest)
+            if info["repair_required"]:
+                return {"id": provider_id, "state": "repair_required",
+                        "error": info["state"]}
         return task or {"id": provider_id, "state": "not_installed", "error": None}
     return task
 

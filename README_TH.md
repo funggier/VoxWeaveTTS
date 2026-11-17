@@ -1,5 +1,7 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**Managed Runtime Pool (Phase B — Source ยังไม่ Release):** ตรวจ Python ABI, Recipe Hash และพาธเมื่อติดตั้ง/ย้ายโฟลเดอร์; แจ้งสถานะ Runtime เดิมที่ยังไม่มีพาธบันทึกไว้ และเพิ่มปุ่ม **ซ่อม Runtime (Offline)** ที่สร้างใน Staging ตรวจสอบก่อนสลับ พร้อม Rollback หากผิดพลาด ใช้เฉพาะ Dependencies Cache ภายในเครื่องโดยผู้ใช้ต้องยืนยันก่อน [คู่มือ Phase B](docs/MANAGED_RUNTIME_POOL_TH.md)
+
 **Native Universal .vwmodel v2 (Source หลัง v0.9.5 — ยังไม่ Release):** เปลี่ยนเป็นระบบแพ็กเกจรุ่นใหม่ แยกเก็บ models/universal/v2/ มี Manifest/Capabilities/Runtime Metadata ของตัวเอง ไม่รองรับการติดตั้ง .vwmodel v1 ผ่าน Model Package Manager แล้ว และไม่มีการลบโมเดล/Presets/Settings ของผู้ใช้อัตโนมัติ อ่าน [คู่มือ Universal v2](docs/UNIVERSAL_VWMODEL_V2_TH.md)
 
 **เพิ่มใน Source ที่ยังไม่ Release:** ตัวเลือกต่อโหมด **อ่านต่อเมื่อสร้างมีเสียงผิดพลาด** สำหรับการสร้างเสียงสำเร็จบางช่วงหรือไม่สำเร็จทุกช่วง พร้อมบันทึกค่าและแสดงสถานะราย Chunk ในประวัติหลังแปล โดยค่าเริ่มต้นปิดเพื่อรักษาพฤติกรรมเดิม ดู [เงื่อนไขคิวและการข้ามช่วงผิดพลาด](docs/LIVE_MESSAGE_QUEUE_TH.md)

@@ -50,6 +50,15 @@ const fakeWindow={
       records[1].ready=false;
       return {ok:true,async json(){return {removed:true};}};
     }
+    if(path==="/v1/runtimes/repair"){
+      assert.equal(options.method,"POST");
+      assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"repair-runtime-offline");
+      const body=JSON.parse(options.body);
+      assert.deepEqual(body,{id:"vachana",confirm_repair:true,
+                             expected_fingerprint:"c".repeat(64)});
+      records[2].repair={state:"repairing",error:null};
+      return {ok:true,async json(){return {repair:records[2].repair};}};
+    }
     throw Error("unknown runtime URL "+path);
   },
 };
@@ -73,5 +82,23 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(requests.filter(x=>x.path==="/v1/runtimes/remove").length,1);
   assert.equal(get("runtimeRegistryList").children[1].children.length,4);
   assert.match(get("runtimeRegistryStatus").textContent,/m2m100/);
-  console.log("PASS: runtime reference counts, guarded orphan uninstall, confirmation, same-origin intent, no code injection");
+  records.push({id:"vachana",kind:"tts",driver:"managed",
+    installed:true,ready:false,repair_required:true,health_state:"relocated",
+    repair:{state:"not_started",error:null},
+    consumers:["v2:vachana@1.0.0"],reference_count:1,can_uninstall:false,
+    runtime_fingerprint:"c".repeat(64),
+    relative_path:"runtime/engine-envs/vachana"});
+  await fakeWindow.VoxRuntimeRegistry.refresh();
+  const node=get("runtimeRegistryList").children[2];
+  assert.match(node.children[1].textContent,/ย้ายโฟลเดอร์/);
+  assert.equal(node.children[4].disabled,true);
+  assert.equal(node.children[5].disabled,false);
+  confirmed=false;
+  await node.children[5].events.click();
+  assert.equal(requests.filter(x=>x.path==="/v1/runtimes/repair").length,0);
+  confirmed=true;
+  await node.children[5].events.click();
+  assert.equal(requests.filter(x=>x.path==="/v1/runtimes/repair").length,1);
+  assert.equal(records[2].repair.state,"repairing");
+  console.log("PASS: runtime references, guarded uninstall, health status, opt-in offline repair, same-origin intent");
 })().catch(err=>{console.error(err);process.exitCode=1;});

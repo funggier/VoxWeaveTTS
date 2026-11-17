@@ -242,6 +242,35 @@ class PackageEndpointTests(unittest.TestCase):
             self.assertEqual((status,body),(200,{"removed":True}))
             remove_runtime.assert_called_once_with("sherpa","a"*64)
 
+    def test_runtime_repair_requires_origin_intent_and_exact_confirmation(self):
+        record = {"id": "vachana", "expected_fingerprint": "b"*64,
+                  "confirm_repair": True}
+        with patch("voxweavetts.server.repair_runtime_async",
+                   return_value={"state": "repairing", "error": None}) as repair:
+            for kwargs in (
+                {"origin": "https://attacker.example", "intent": "repair-runtime-offline"},
+                {"origin": None, "intent": "repair-runtime-offline"},
+                {"intent": None},
+                {"site": "cross-site", "intent": "repair-runtime-offline"},
+            ):
+                with self.subTest(kwargs=kwargs):
+                    status, _ = self.post("/v1/runtimes/repair", record, **kwargs)
+                    self.assertEqual(status, 403)
+            for invalid in (
+                {"id": "vachana", "expected_fingerprint": "b"*64},
+                {**record, "confirm_repair": False},
+                {**record, "command": "powershell.exe"},
+            ):
+                status, _ = self.post("/v1/runtimes/repair", invalid,
+                                       intent="repair-runtime-offline")
+                self.assertEqual(status, 409)
+            repair.assert_not_called()
+            status, body = self.post("/v1/runtimes/repair", record,
+                                     intent="repair-runtime-offline")
+            self.assertEqual(status, 202)
+            self.assertEqual(body["repair"]["state"], "repairing")
+            repair.assert_called_once_with("vachana", "b"*64)
+
     @unittest.skip("v1 HTTP package contract retired; native v2 API has replacement tests")
     def test_user_can_uninstall_trusted_legacy_makham_without_removing_engine(self):
         with (patch("voxweavetts.server.legacy_makham_present",

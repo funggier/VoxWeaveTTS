@@ -243,6 +243,7 @@ def provider_for_backend(backend: str, *, root: Path = ROOT) -> Provider | None:
 
 def provider_status(root: Path = ROOT) -> list[dict]:
     from .universal_model_packages import native_tts_packages
+    from .engine_provider_installer import ready as environment_ready
     installed = native_tts_packages(root)
     profiles = []
     for item in all_providers(root).values():
@@ -254,7 +255,7 @@ def provider_status(root: Path = ROOT) -> list[dict]:
         ]
         profiles.append({
             "id": item.id, "backend": item.backend,
-            "runtime_ready": item.python_path(root).is_file(),
+            "runtime_ready": environment_ready(item, root=root),
             "engines": attached, "adapter_types": list(item.adapters),
             "independent_environment": str(item.python_path(root).parent.parent.relative_to(root)),
             "external": item.driver == "external",

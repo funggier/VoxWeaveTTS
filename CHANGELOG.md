@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Native Universal .vwmodel v2 Phase B: Managed Runtime Pool
+
+- Add read-only Runtime Health diagnostics for Windows venv relocation, Python 3.11 ABI mismatch, missing base interpreter, incomplete installs and trusted recipe SHA-256 drift. Existing runtime markers without an installation-root pin remain usable but are explicitly marked `legacy-unpinned`.
+- Pin new managed TTS/M2M100 runtime markers to the application's original root and trusted dependency recipe; do not execute `.vwmodel`-supplied code or package runtime instructions.
+- Add same-origin, fingerprint-bound, explicit-confirmation `/v1/runtimes/repair` endpoint and Runtime Registry UI button. Rebuild from application-owned recipes with `uv --offline` using the local cache only; stage and validate before switching to prevent loss of a previously installed venv when installation fails.
+- Block normal runtime installation against environments known to be relocated or incompatible; expose actionable health status in provider and model selectors. Preserve model weights, presets, queue/voice settings and unrelated processes.
+- Add rollback, offline-repair and injection/permission tests; docs/MANAGED_RUNTIME_POOL_TH.md. **No automatic rebuild, wheelhouse distribution or completed M2M inference is claimed.**
+
 ## Unreleased — Native Universal .vwmodel v2 Phase A
 
 - Replace the model-package-manager install/list/remove path with **native Universal v2** (no v1 Compatibility Bridge or v1 manifest wrapped inside v2).

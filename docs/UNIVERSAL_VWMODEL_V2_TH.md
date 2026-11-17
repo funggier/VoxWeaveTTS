@@ -1,6 +1,6 @@
 # Universal .vwmodel v2 — ระบบแพ็กเกจใหม่โดยตรง
 
-สถานะ: **Native v2 Phase A — Source หลัง v0.9.5 (ยังไม่ Release)**
+สถานะ: **Native v2 Phase A + Managed Runtime Pool Phase B — Source หลัง v0.9.5 (ยังไม่ Release)** · [คู่มือ Phase B](MANAGED_RUNTIME_POOL_TH.md)
 
 Native Universal v2 ไม่ใช่การหุ้ม Manifest v1: ติดตั้งผ่าน Model Package Manager เฉพาะ format_version = 2 และไม่ฝัง Legacy Manifest ในแพ็กเกจใหม่
 
@@ -103,7 +103,7 @@ Builder สร้าง Manifest v2 จาก Spec และ File Hash โดย
 
 ## ขั้นต่อไป
 
-Phase B — Managed Environment Pool, Runtime Fingerprint/Health Check และ Rebuild หลังย้ายโฟลเดอร์
+Phase B — Managed Environment Pool, Runtime Fingerprint/Health Check และการซ่อม Offline หลังย้ายโฟลเดอร์: **เพิ่มใน Source แล้ว** · [คู่มือและข้อจำกัด Phase B](MANAGED_RUNTIME_POOL_TH.md)
 
 Phase C — Offline Wheelhouse พร้อม SHA, Permission/Consent และ Atomic Runtime Installer
 

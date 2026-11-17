@@ -51,6 +51,8 @@ class RuntimeTests(unittest.TestCase):
             python=m2m_runtime.python_path(root)
             python.parent.mkdir(parents=True)
             python.touch()
+            (python.parent.parent / "pyvenv.cfg").write_text(
+                "version_info = 3.11\nhome = " + str(root) + "\n")
             with (patch("voxweavetts.m2m_runtime.shutil.which",
                         return_value="C:/trusted/uv.exe"),
                   patch("voxweavetts.m2m_runtime._execute") as execute):

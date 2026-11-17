@@ -1,5 +1,5 @@
-/* Runtime inventory and explicit orphan-cleanup actions.
- * No model data, paths or commands from the browser are used to select files.
+/* Managed Runtime Pool: inspection, guarded cleanup and opt-in offline repair.
+ * Browser input cannot specify dependencies, paths, URLs or executable code.
  */
 (function(root){
 "use strict";
@@ -11,25 +11,45 @@ const list=get("runtimeRegistryList");
 const status=get("runtimeRegistryStatus");
 if(!button||!list||!status)return;
 
-async function refresh(){
-  status.textContent="กำลังตรวจสอบ Runtime และจำนวนโมเดลที่ใช้งาน...";
-  const response=await root.fetch("/v1/runtimes",{cache:"no-store"});
+const healthLabels={
+  "ready":"พร้อมใช้งาน · ตรวจสอบตำแหน่งติดตั้งแล้ว",
+  "legacy-unpinned":"พร้อมใช้งาน · Runtime เดิมยังไม่มีข้อมูลพาธสำหรับตรวจสอบการย้าย",
+  "not-installed":"ยังไม่ได้ติดตั้ง",
+  "incomplete":"การติดตั้งไม่สมบูรณ์",
+  "relocated":"ตรวจพบการย้ายโฟลเดอร์โปรแกรม ต้องซ่อม Runtime",
+  "recipe-changed":"Dependencies Recipe เปลี่ยน ต้องสร้าง Runtime ใหม่",
+  "python-abi-mismatch":"เวอร์ชัน Python ไม่ตรงกับ Runtime ที่รองรับ",
+  "base-python-missing":"ไม่พบ Python ต้นทางของ Virtual Environment",
+  "unsafe-environment":"โฟลเดอร์ Runtime ไม่ปลอดภัยหรือถูกเปลี่ยนเส้นทาง"
+};
+const fetchJSON=async(path,options)=>{
+  const response=await root.fetch(path,options);
   const data=await response.json();
-  if(!response.ok||!Array.isArray(data.runtimes))throw Error(data.error||"ไม่สามารถโหลด Runtime Registry");
+  if(!response.ok)throw Error(data.error||"การดำเนินการ Runtime ไม่สำเร็จ");
+  return data;
+};
+let pollQueued=false;
+async function refresh(){
+  status.textContent="กำลังตรวจสอบ Runtime...";
+  const data=await fetchJSON("/v1/runtimes",{cache:"no-store"});
+  if(!Array.isArray(data.runtimes))throw Error("ข้อมูล Runtime Registry ไม่ถูกต้อง");
   list.replaceChildren();
+  let repairing=false;
   for(const info of data.runtimes){
     const li=doc.createElement("li");
     const title=doc.createElement("strong");
     title.textContent=String(info.id)+" · "+String(info.kind);
     const details=doc.createElement("small");
     details.style.display="block";
-    details.textContent=
-      "สถานะ: "+(info.ready?"พร้อมใช้งาน":info.installed?"ยังไม่พร้อม / ติดตั้งไม่ครบ":"ยังไม่ได้ติดตั้ง")+
-      " · ใช้ร่วมกับโมเดล "+Number(info.reference_count||0)+" รายการ";
+    const state=String(info.health_state||(info.ready?"ready":info.installed?"incomplete":"not-installed"));
+    const repair=info.repair||{};
+    const name=healthLabels[state]||state;
+    details.textContent="สถานะ: "+name+
+      " · โมเดลที่อ้างอิง "+Number(info.reference_count||0)+" รายการ";
     const models=doc.createElement("small");
     models.style.display="block";
     models.textContent=(Array.isArray(info.consumers)&&info.consumers.length)
-      ?info.consumers.map(String).join(", "):"ไม่มีโมเดลที่ใช้งาน Runtime นี้";
+      ?info.consumers.map(String).join(", "):"ไม่มีโมเดลอ้างอิง Runtime นี้";
     const path=doc.createElement("small");
     path.style.display="block";
     path.textContent="Runtime: "+String(info.relative_path||"-");
@@ -38,14 +58,14 @@ async function refresh(){
       const remove=doc.createElement("button");
       remove.type="button";
       remove.style.marginLeft="8px";
-      remove.textContent=info.can_uninstall?"ถอน Runtime ที่ไม่ใช้งาน":"กำลังใช้งานร่วมกัน · ถอนไม่ได้";
-      remove.disabled=!info.can_uninstall;
+      remove.textContent=info.can_uninstall?"ถอนการติดตั้ง Runtime":"ใช้งานอยู่ · ถอนไม่ได้";
+      remove.disabled=!info.can_uninstall||repair.state==="repairing";
       remove.addEventListener("click",async()=>{
-        const name=String(info.id);
-        if(!root.confirm("ถอน Runtime "+name+" ? ระบบจะลบเฉพาะ Environment นี้และไม่ลบข้อมูลโมเดล/Presets/Settings"))return;
+        const selected=String(info.id);
+        if(!root.confirm("ถอนการติดตั้ง Runtime "+selected+" ?\nโปรแกรมจะลบเฉพาะ Virtual Environment ที่ไม่มีโมเดลอ้างอิง ไม่ลบโมเดล/Presets/Settings"))return;
         remove.disabled=true;
         try{
-          const result=await root.fetch("/v1/runtimes/remove",{
+          const result=await fetchJSON("/v1/runtimes/remove",{
             method:"POST",
             headers:{"Content-Type":"application/json",
                      "X-VoxWeaveTTS-Intent":"remove-unused-runtime"},
@@ -53,10 +73,9 @@ async function refresh(){
                                  expected_fingerprint:info.runtime_fingerprint,
                                  confirm_uninstall:true})
           });
-          const data=await result.json();
-          if(!result.ok||!data.removed)throw Error(data.error||"Runtime ยังไม่สามารถถอนได้");
+          if(!result.removed)throw Error("ไม่สามารถถอน Runtime ได้");
           await refresh();
-          status.textContent="ถอน Runtime "+name+" สำเร็จ; โมเดลและการตั้งค่าเดิมยังอยู่";
+          status.textContent="ถอน Runtime "+selected+" สำเร็จ โดยไม่แตะโมเดลหรือการตั้งค่า";
         }catch(error){
           status.textContent="ถอน Runtime ไม่สำเร็จ: "+String(error.message||error);
           remove.disabled=false;
@@ -64,12 +83,55 @@ async function refresh(){
       });
       li.append(remove);
     }
+    if(info.installed&&info.repair_required){
+      const action=doc.createElement("button");
+      action.type="button";
+      action.style.marginLeft="8px";
+      action.textContent=repair.state==="repairing"?"กำลังซ่อม Runtime...":"ซ่อม Runtime (Offline)";
+      action.disabled=repair.state==="repairing";
+      action.addEventListener("click",async()=>{
+        const selected=String(info.id);
+        if(!root.confirm("ซ่อม Runtime "+selected+" แบบ Offline ?\nโปรแกรมจะสร้าง Virtual Environment ใหม่จาก Recipe และแคชภายในเครื่องเท่านั้น ไม่ดาวน์โหลดข้อมูล ถ้าซ่อมไม่สำเร็จจะคง Runtime เดิมไว้"))return;
+        action.disabled=true;
+        try{
+          const result=await fetchJSON("/v1/runtimes/repair",{
+            method:"POST",
+            headers:{"Content-Type":"application/json",
+                     "X-VoxWeaveTTS-Intent":"repair-runtime-offline"},
+            body:JSON.stringify({id:info.id,
+                                 expected_fingerprint:info.runtime_fingerprint,
+                                 confirm_repair:true})
+          });
+          if(!result.repair||result.repair.state!=="repairing")
+            throw Error("ไม่ได้เริ่มงานซ่อม Runtime");
+          await refresh();
+        }catch(error){
+          status.textContent="เริ่มซ่อม Runtime ไม่สำเร็จ: "+String(error.message||error);
+          action.disabled=false;
+        }
+      });
+      li.append(action);
+    }
+    if(repair.state==="repairing")repairing=true;
+    if(repair.state==="failed"&&repair.error){
+      const err=doc.createElement("small");
+      err.style.display="block";
+      err.textContent="ซ่อมไม่สำเร็จ: "+String(repair.error);
+      li.append(err);
+    }
     list.append(li);
   }
-  if(!data.runtimes.length)status.textContent="ยังไม่มี Runtime ที่ลงทะเบียนไว้";
-  else status.textContent="Runtime ทั้งหมด "+data.runtimes.length+
-    " · พร้อมใช้ "+data.runtimes.filter(x=>x.ready).length+
-    " · ถอนได้ "+data.runtimes.filter(x=>x.can_uninstall).length;
+  const unhealthy=data.runtimes.filter(x=>x.repair_required).length;
+  status.textContent="Runtime "+data.runtimes.length+" ตัว · ใช้งานได้ "+
+    data.runtimes.filter(x=>x.ready).length+" · ต้องซ่อม "+unhealthy+
+    (repairing?" · กำลังซ่อม โปรดตรวจสอบสถานะอีกครั้ง":"");
+  if(repairing&&!pollQueued&&typeof root.setTimeout==="function"){
+    pollQueued=true;
+    root.setTimeout(()=>{
+      pollQueued=false;
+      refresh().catch(error=>{status.textContent=String(error.message||error);});
+    },2500);
+  }
 }
 button.addEventListener("click",()=>refresh().catch(error=>{
   status.textContent=String(error.message||error);

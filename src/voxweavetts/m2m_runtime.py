@@ -18,6 +18,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .managed_runtime_pool import inspect_environment, pin_fields
+
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_NAME = "m2m100"
 REQUIREMENTS = "scripts/ai-dependencies/m2m100.txt"
@@ -49,9 +51,15 @@ def ready(root: Path = ROOT) -> bool:
     root = Path(root)
     try:
         state = json.loads((python_path(root).parent.parent / MARKER).read_text(encoding="utf-8"))
-        return bool(python_path(root).is_file()
-                    and state == {"runtime": RUNTIME_NAME, "protocol": PROTOCOL,
-                                  "recipe_hash": _recipe_hash(root)})
+        if (not isinstance(state, dict) or state.get("runtime") != RUNTIME_NAME
+            or state.get("protocol") != PROTOCOL
+            or state.get("recipe_hash") != _recipe_hash(root)):
+            return False
+        folder = python_path(root).parent.parent
+        return inspect_environment(
+            root=root, folder=folder, python=python_path(root),
+            marker=folder / MARKER,
+            expected_recipe_hash=_recipe_hash(root))["ready"]
     except (OSError, ValueError, TypeError):
         return False
 
@@ -81,6 +89,12 @@ def install(root: Path = ROOT) -> Path:
     folder = worker_python.parent.parent
     folder.parent.mkdir(parents=True, exist_ok=True)
     marker = folder / MARKER
+    if marker.is_file():
+        health = inspect_environment(root=root, folder=folder,
+            python=worker_python, marker=marker,
+            expected_recipe_hash=_recipe_hash(root))
+        if health["repair_required"]:
+            raise M2MRuntimeError("existing M2M runtime requires explicit offline repair")
     marker.unlink(missing_ok=True)
     log_dir = root / "logs" / "ai-runtime"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -99,10 +113,61 @@ def install(root: Path = ROOT) -> Path:
     except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
         raise M2MRuntimeError("M2M100 runtime installation failed; see logs/ai-runtime/install-m2m100.log") from exc
     state = {"runtime": RUNTIME_NAME, "protocol": PROTOCOL,
-             "recipe_hash": _recipe_hash(root)}
+             **pin_fields(root, _recipe_hash(root))}
     temporary = folder / (MARKER + ".tmp")
     temporary.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
     temporary.replace(marker)
+    return folder
+
+
+def repair(root: Path = ROOT) -> Path:
+    """Explicit offline rebuild of the isolated M2M worker; preserve on failure."""
+    from .managed_runtime_pool import atomic_rebuild
+    root = Path(root)
+    recipe = root / REQUIREMENTS
+    if not recipe.is_file() or recipe.is_symlink():
+        raise M2MRuntimeError("trusted M2M recipe is missing")
+    uv = shutil.which("uv")
+    if not uv:
+        raise M2MRuntimeError("uv is unavailable; offline repair cannot proceed")
+    base_python = root / ".venv" / "Scripts" / "python.exe"
+    if not base_python.is_file():
+        base_python = root / "runtime" / "python" / "python.exe"
+    if not base_python.is_file():
+        base_python = Path(sys.executable)
+    folder = python_path(root).parent.parent
+    try:
+        old = json.loads((folder / MARKER).read_text(encoding="utf-8"))
+        if old.get("runtime") != RUNTIME_NAME or old.get("protocol") != PROTOCOL:
+            raise M2MRuntimeError("not an application-managed M2M runtime")
+    except (OSError, ValueError, AttributeError) as exc:
+        raise M2MRuntimeError("M2M runtime marker is missing or invalid") from exc
+    digest = _recipe_hash(root)
+    logs = root / "logs" / "ai-runtime"
+    logs.mkdir(parents=True, exist_ok=True)
+    def build(stage: Path) -> None:
+        staged_python = stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        with (logs / "repair-m2m100.log").open("a", encoding="utf-8") as log:
+            _execute([uv, "venv", "--offline", str(stage), "--python", str(base_python)],
+                     root=root, log=log)
+            _execute([uv, "pip", "install", "--offline", "--python", str(staged_python),
+                      "--link-mode", "copy", "-r", str(recipe)], root=root, log=log)
+            _execute([uv, "pip", "check", "--offline", "--python", str(staged_python)],
+                     root=root, log=log)
+            _execute([str(staged_python), "-c",
+                      "import torch, transformers, sentencepiece, safetensors"],
+                     root=root, log=log)
+        (stage / MARKER).write_text(json.dumps({
+            "runtime": RUNTIME_NAME, "protocol": PROTOCOL,
+            **pin_fields(root, digest),
+        }, indent=2) + "\n", encoding="utf-8")
+    def verify(stage: Path) -> bool:
+        info = inspect_environment(root=root, folder=stage,
+            python=stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python"),
+            marker=stage / MARKER, expected_recipe_hash=digest)
+        return info["ready"] and info["location_pinned"]
+    atomic_rebuild(root=root, folder=folder, build=build, verify=verify,
+                   quiesce=reset if root.resolve() == ROOT.resolve() else None)
     return folder
 
 
@@ -135,6 +200,16 @@ def status(root: Path = ROOT) -> dict[str, Any]:
         return job
     if ready(root):
         return {"state": "ready", "error": None}
+    folder = python_path(root).parent.parent
+    if folder.is_dir():
+        try:
+            info = inspect_environment(root=Path(root), folder=folder,
+                python=python_path(root), marker=folder / MARKER,
+                expected_recipe_hash=_recipe_hash(root))
+            if info["repair_required"]:
+                return {"state": "repair_required", "error": info["state"]}
+        except (OSError, ValueError):
+            pass
     return job if job["state"] == "failed" else {"state": "not_installed", "error": None}
 
 

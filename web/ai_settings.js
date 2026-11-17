@@ -169,6 +169,10 @@ function attach(document, fetcher){
       const runtimeLabels={
         ready:"พร้อมใช้งาน",
         "adapter-not-approved":"ไม่มี Adapter ที่อนุมัติ",
+        "runtime-relocated":"Runtime ถูกย้ายโฟลเดอร์ กรุณาซ่อม Runtime",
+        "runtime-recipe-changed":"Runtime Recipe เปลี่ยน กรุณาซ่อม Runtime",
+        "runtime-base-python-missing":"ไม่พบ Python ต้นทางของ Runtime",
+        "runtime-incomplete":"Runtime ติดตั้งไม่สมบูรณ์",
         "runtime-not-installed":"ยังไม่ติดตั้ง Runtime",
         "runtime-recipe-pending":"รออนุมัติ Runtime",
         "platform-incompatible":"ระบบปฏิบัติการไม่รองรับ",

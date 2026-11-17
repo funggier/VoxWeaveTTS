@@ -16,8 +16,11 @@ import sys
 import threading
 from pathlib import Path
 
+from .managed_runtime_pool import inspect_environment
+
 ROOT = Path(__file__).resolve().parents[2]
 _LOCK = threading.RLock()
+_REPAIR_JOBS: dict[tuple[str, str], dict] = {}
 _RUNTIME_ID = re.compile(r"[a-z][a-z0-9-]{1,39}\Z")
 
 
@@ -108,10 +111,18 @@ def inventory(root: Path = ROOT) -> list[dict]:
         folder = profile.python_path(root).parent.parent
         attached = consumers.get(profile.id, [])
         recipe = profile.requirements_path(root)
+        digest = hashlib.sha256(recipe.read_bytes()).hexdigest() if recipe.is_file() and not recipe.is_symlink() else None
+        health = inspect_environment(root=root, folder=folder,
+            python=profile.python_path(root), marker=folder / ".voxweave-ready.json",
+            expected_recipe_hash=digest)
         result.append({
             "id": profile.id, "kind": "tts", "driver": profile.driver,
             "installed": folder.is_dir() and not folder.is_symlink(),
             "ready": provider_ready(profile, root=root),
+            "health_state": health["state"], "health": health,
+            "repair_required": health["repair_required"],
+            "repair": dict(_REPAIR_JOBS.get((str(root.resolve()), profile.id),
+                                            {"state": "not_started", "error": None})),
             "consumers": list(attached), "reference_count": len(attached),
             "can_uninstall": not attached and folder.is_dir() and not folder.is_symlink(),
             "runtime_fingerprint": _digest(recipe, "python-worker"),
@@ -121,10 +132,19 @@ def inventory(root: Path = ROOT) -> list[dict]:
         })
     folder = m2m_python(root).parent.parent
     attached = consumers.get("m2m100", [])
+    recipe = root / REQUIREMENTS
+    digest = hashlib.sha256(recipe.read_bytes()).hexdigest() if recipe.is_file() and not recipe.is_symlink() else None
+    health = inspect_environment(root=root, folder=folder,
+        python=m2m_python(root), marker=folder / ".voxweave-ai-ready.json",
+        expected_recipe_hash=digest)
     result.append({
         "id": "m2m100", "kind": "translation", "driver": "trusted-python-worker",
         "installed": folder.is_dir() and not folder.is_symlink(),
         "ready": m2m_ready(root),
+        "health_state": health["state"], "health": health,
+        "repair_required": health["repair_required"],
+        "repair": dict(_REPAIR_JOBS.get((str(root.resolve()), "m2m100"),
+                                        {"state": "not_started", "error": None})),
         "consumers": list(attached), "reference_count": len(attached),
         "can_uninstall": not attached and folder.is_dir() and not folder.is_symlink(),
         "runtime_fingerprint": _digest(root / REQUIREMENTS, "python-worker"),
@@ -132,6 +152,60 @@ def inventory(root: Path = ROOT) -> list[dict]:
         "model_adapter_ids": ["m2m100-transformers-v1"],
     })
     return result
+
+
+def repair_async(runtime_id: str, expected_fingerprint: str,
+                 *, root: Path = ROOT) -> dict:
+    """Start an explicit offline repair from one allowlisted runtime record.
+
+    A model or browser can request only a known ID, never a path, command,
+    dependency list or network source. Existing venv remains on disk until a
+    complete staged environment passes dependency and ABI checks.
+    """
+    root = Path(root)
+    if (not isinstance(runtime_id, str) or not _RUNTIME_ID.fullmatch(runtime_id)
+        or not isinstance(expected_fingerprint, str)
+        or not re.fullmatch("[0-9a-f]{64}", expected_fingerprint)):
+        raise RuntimeRegistryError("invalid runtime repair request")
+    entries = inventory(root)
+    entry = next((item for item in entries if item["id"] == runtime_id), None)
+    if entry is None:
+        raise RuntimeRegistryError("unknown runtime")
+    if entry["runtime_fingerprint"] != expected_fingerprint:
+        raise RuntimeRegistryError("runtime recipe changed; refresh before repair")
+    if not entry["installed"] or not entry["repair_required"]:
+        raise RuntimeRegistryError("runtime does not require repair")
+    key = (str(root.resolve()), runtime_id)
+    with _LOCK:
+        active = _REPAIR_JOBS.get(key, {})
+        if active.get("state") == "repairing":
+            return dict(active)
+        _REPAIR_JOBS[key] = {"state": "repairing", "error": None}
+
+    def work() -> None:
+        try:
+            with _LOCK:
+                refreshed = next((item for item in inventory(root)
+                                  if item["id"] == runtime_id), None)
+                if (refreshed is None or not refreshed["repair_required"]
+                    or refreshed["runtime_fingerprint"] != expected_fingerprint):
+                    raise RuntimeRegistryError("runtime changed before repair")
+                if runtime_id == "m2m100":
+                    from .m2m_runtime import repair
+                    repair(root)
+                else:
+                    from .engine_provider_installer import repair
+                    repair(runtime_id, root=root)
+                _REPAIR_JOBS[key] = {"state": "ready", "error": None}
+        except Exception as exc:
+            # A worker thread must never remain stuck in "repairing" if a
+            # dependency installer times out or a filesystem operation fails.
+            with _LOCK:
+                _REPAIR_JOBS[key] = {"state": "failed",
+                                     "error": str(exc) or "runtime repair failed"}
+    threading.Thread(target=work, name="repair-runtime-" + runtime_id,
+                     daemon=True).start()
+    return {"state": "repairing", "error": None}
 
 
 def remove_unreferenced(runtime_id: str, expected_fingerprint: str,
