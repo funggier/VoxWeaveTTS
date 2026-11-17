@@ -141,6 +141,7 @@ def _paradee_descriptor() -> EngineInfo:
         id=PARADEE_ENGINE_ID,
         label="MakHam Paradee Thai INT8 (CPU ONNX)",
         language="th",
+        supported_languages=("th", "en"),
         voice_id="paradee_thai",
         sample_rate=SAMPLE_RATE,
         assets_ready=paradee_assets_ready(),

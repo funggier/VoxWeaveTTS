@@ -16,6 +16,29 @@ from voxweavetts.processing import InputError
 
 
 class LanguageRoutingTests(unittest.TestCase):
+    def test_makham_paradee_voice_can_be_routed_for_thai_and_english(self):
+        from voxweavetts.speech import get_engine_info
+        info = get_engine_info("makham-paradee-cpu")
+        self.assertEqual(info.language, "th")
+        self.assertEqual(info.supported_languages, ("th", "en"))
+        self.assertEqual(info.as_dict()["supported_languages"], ["th", "en"])
+        self.assertEqual(voice_languages("makham-paradee-cpu", "paradee_thai"),
+                         {"th", "en"})
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "language-voices.json"
+            route = {"engine_id": "makham-paradee-cpu", "voice_id": "paradee_thai"}
+            saved = save_routes(
+                {"expected_revision": 0, "routes": {"th": route, "en": route}},
+                path,
+            )
+            self.assertEqual(saved["routes"]["th"], saved["routes"]["en"])
+            self.assertEqual(choose_route("Hello everyone", path=path),
+                             ("en", route))
+            self.assertEqual(choose_route("สวัสดีทุกคน", path=path),
+                             ("th", route))
+            with self.assertRaises(InputError):
+                save_routes({"expected_revision": 1, "routes": {"ja": route}}, path)
+
     def test_wayu_all_twelve_voices_allow_thai_and_english_routes(self):
         from voxweavetts.personal_wayu_engine import ENGINE_ID, VOICES
         from voxweavetts.speech import get_engine_info
@@ -50,7 +73,6 @@ class LanguageRoutingTests(unittest.TestCase):
         descriptors = {engine.id: engine for engine in list_engine_info()}
         single_language = (
             ("fastthaig2p-cpu", "th"),
-            ("makham-paradee-cpu", "th"),
             ("vachana-cpu", "th"),
             ("model-fastthaig2p-thai-som-0_3_0", "th"),
             ("model-vachana-thai-four-voices-1_0_0", "th"),
