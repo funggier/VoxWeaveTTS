@@ -67,23 +67,45 @@ class LanguageRoutingTests(unittest.TestCase):
                 save_routes({"expected_revision": 1,
                              "routes": {"fr": profile}}, path)
 
+    def test_installed_tts_models_are_selectable_for_english(self):
+        from voxweavetts.speech import list_engine_info
+        descriptors = list_engine_info()
+        self.assertTrue(descriptors)
+        for info in descriptors:
+            if not info.assets_ready or not info.runtime_ready:
+                continue
+            with self.subTest(engine=info.id):
+                english_voices = [voice_id for voice_id in info.voice_ids
+                                  if "en" in voice_languages(info.id, voice_id)]
+                self.assertTrue(english_voices,
+                                f"English must be available on ready model {info.id}")
+                # Every ready model can be saved as an English route without
+                # mutating the user's existing language-voices.json.
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = Path(tmp) / "routes.json"
+                    route = {"engine_id": info.id, "voice_id": english_voices[0]}
+                    result = save_routes(
+                        {"expected_revision": 0, "routes": {"en": route}}, path)
+                    self.assertEqual(result["routes"]["en"], route)
+
     def test_other_engines_only_offer_the_languages_they_support(self):
         from voxweavetts.speech import list_engine_info
         from voxweavetts.kokoro_engine import LANGUAGE_CODES
         descriptors = {engine.id: engine for engine in list_engine_info()}
-        single_language = (
+        bilingual = (
             ("fastthaig2p-cpu", "th"),
+            ("makham-paradee-cpu", "th"),
             ("vachana-cpu", "th"),
             ("model-fastthaig2p-thai-som-0_3_0", "th"),
             ("model-vachana-thai-four-voices-1_0_0", "th"),
             ("model-melo-chinese-onnx-1_0_0", "zh"),
         )
-        for engine_id, expected in single_language:
+        for engine_id, expected in bilingual:
             if engine_id not in descriptors:
                 continue  # Optional model packs need not be installed on CI.
             for voice_id in descriptors[engine_id].voice_ids:
                 with self.subTest(engine=engine_id, voice=voice_id):
-                    self.assertEqual(voice_languages(engine_id, voice_id), {expected})
+                    self.assertEqual(voice_languages(engine_id, voice_id), {expected, "en"})
 
         kokoro = descriptors.get("model-kokoro-multilingual-int8-1_0_0")
         if kokoro:

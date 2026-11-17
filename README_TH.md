@@ -1,6 +1,8 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
-**แก้ไขการเลือกโมเดลเสียงตามภาษา (Source หลัง v0.9.2):** **[NC / NonCommercial] Wayu Paxa Edge** สามารถกำหนดให้อ่านทั้งไทย (`th`) และอังกฤษ (`en`) ได้แล้วสำหรับเสียงทั้ง 12 เสียง ตั้งค่าเสียงและ Preset แยกตามภาษาได้โดยใช้ Engine/Voice เดียวกัน ส่วน Kokoro/Supertonic ยังคงเลือก Voice ที่ตรงภาษา ดู [รายการภาษาที่ Engine รองรับ](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md)
+**แก้ไขการเลือกโมเดลเสียงตามภาษา (Source หลัง v0.9.2):** FastThaiG2P / ThaiSom, Vachana และ Melo Chinese เพิ่มตัวเลือก English (en) แล้วเช่นเดียวกับ MakHam/Wayu; Kokoro/Supertonic ยังคงเลือกเสียงภาษาอังกฤษเฉพาะทางโดยไม่เปลี่ยนพฤติกรรมดั้งเดิม ดู [ภาษาที่แต่ละโมเดลอ่านได้](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md)
+
+**แก้ไขการเลือกโมเดลเสียงตามภาษา (เวอร์ชันก่อนหน้า):** **[NC / NonCommercial] Wayu Paxa Edge** สามารถกำหนดให้อ่านทั้งไทย (`th`) และอังกฤษ (`en`) ได้แล้วสำหรับเสียงทั้ง 12 เสียง ตั้งค่าเสียงและ Preset แยกตามภาษาได้โดยใช้ Engine/Voice เดียวกัน ส่วน Kokoro/Supertonic ยังคงเลือก Voice ที่ตรงภาษา ดู [รายการภาษาที่ Engine รองรับ](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md)
 
 **หยุดโปรแกรมและคืนทรัพยากรทั้งหมด (Source หลัง v0.9.2):** ดับเบิลคลิก `Stop-VoxWeaveTTS.cmd` ในโฟลเดอร์โปรแกรม หรือ `Stop-Dev.cmd` เมื่อใช้งาน Source เพื่อบังคับหยุดเฉพาะ VoxWeaveTTS และ TTS Worker/Process ลูกที่เหลืออยู่ รวมถึงกรณีหน้าต่างหลักปิดแล้วแต่ Python ค้าง ระบบยืนยันเจ้าของ Process ตามโฟลเดอร์และเวลาเริ่ม ไม่สั่งหยุด Ollama, Unity, Firefox หรือ Python โปรเจกต์อื่น พร้อมโหมด `-DryRun` ให้ตรวจรายการที่จะหยุดได้ก่อน อ่าน [คู่มือหยุดโปรแกรม](docs/STOP_VOXWEAVETTS_TH.md)
 

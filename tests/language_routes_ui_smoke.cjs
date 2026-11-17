@@ -30,6 +30,18 @@ const document={
 };
 const engine="model-kokoro-multilingual-int8-1_0_0";
 const engines=[
+  {id:"fastthaig2p-cpu",label:"FastThaiG2P",language:"th",
+   supported_languages:["th","en"],assets_ready:true,runtime_ready:true,
+   voices:[{id:"thai_som",label:"ThaiSom"}]},
+  {id:"vachana-cpu",label:"Vachana",language:"th",
+   supported_languages:["th","en"],assets_ready:true,runtime_ready:true,
+   voices:[{id:"th_f_1",label:"Female 1"},{id:"th_m_1",label:"Male 1"}]},
+  {id:"model-fastthaig2p-thai-som-0_3_0",label:"ThaiSom package",language:"th",
+   supported_languages:["th","en"],assets_ready:true,runtime_ready:true,
+   voices:[{id:"thai_som",label:"ThaiSom"}]},
+  {id:"model-vachana-thai-four-voices-1_0_0",label:"Vachana package",language:"th",
+   supported_languages:["th","en"],assets_ready:true,runtime_ready:true,
+   voices:[{id:"th_f_1",label:"Female 1"}]},
   {id:"makham-paradee-cpu",label:"MakHam Paradee",language:"th",
    supported_languages:["th","en"],assets_ready:true,runtime_ready:true,
    voices:[{id:"paradee_thai",label:"Paradee"}]},
@@ -44,7 +56,7 @@ const engines=[
    voice_language_map:{"ko_s0":"ko","en_s0":"en"},
    voices:[{id:"ko_s0",label:"Korean"},{id:"en_s0",label:"English"}]},
   {id:"model-melo-chinese-onnx-1_0_0",label:"Melo Chinese",language:"zh",
-   assets_ready:true,runtime_ready:true,
+   supported_languages:["zh","en"],assets_ready:true,runtime_ready:true,
    voices:[{id:"zh_melo",label:"Chinese"}]}
 ];
 let stored={revision:0,routes:{}};
@@ -188,9 +200,14 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   ids.languageRouteEngine.value=makhamId;ids.languageRouteEngine.change();
   assert.deepEqual(ids.languageRouteVoice.options.map(o=>o.value),
     ["paradee_thai"]);
-  assert.equal(ids.languageRouteEngine.options.some(o=>o.value===
-    "model-melo-chinese-onnx-1_0_0"),false,
-    "Chinese-only Melo must not appear for English");
+  for(const id of ["fastthaig2p-cpu","makham-paradee-cpu","vachana-cpu",
+    "model-fastthaig2p-thai-som-0_3_0",
+    "model-vachana-thai-four-voices-1_0_0",
+    "model-melo-chinese-onnx-1_0_0",engine,
+    "model-supertonic3-multilingual-int8-1_0_0"]){
+    assert.ok(ids.languageRouteEngine.options.some(o=>o.value===id),
+      "English must be selectable on available model: "+id);
+  }
   const enWayu=[...ids.languageRouteEngine.options].find(o=>o.value===wayuId);
   assert.ok(enWayu,"bilingual Wayu must be selectable as an English TTS model");
   assert.match(enWayu.textContent,/NC \/ NonCommercial/);
@@ -212,5 +229,5 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   assert.equal(stored.routes.th.voice_id,"f_young_warm");
   assert.equal(stored.routes.en.engine_id,wayuId);
   assert.equal(stored.routes.th.engine_id,wayuId);
-  console.log("PASS: Thai/English Wayu and MakHam, independent Kokoro/Supertonic/Melo routes");
+  console.log("PASS: English on all installed engine families, existing per-voice language routing preserved");
 })().catch(e=>{console.error(e);process.exitCode=1;});

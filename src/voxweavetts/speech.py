@@ -102,7 +102,8 @@ def _vachana_descriptor() -> EngineInfo:
     capabilities.update(_built_in_dsp_flags())
     return EngineInfo(
         id=VACHANA_ENGINE_ID, label="Vachana Thai VITS — 4 voices (CPU ONNX)",
-        language="th", voice_id="th_f_1", voice_options=VACHANA_VOICES,
+        language="th", supported_languages=("th", "en"),
+        voice_id="th_f_1", voice_options=VACHANA_VOICES,
         sample_rate=VACHANA_RATE, assets_ready=vachana_assets_ready(),
         runtime_ready=vachana_runtime_ready(), capabilities=capabilities,
         # Public model card says MIT, but full pack/third-party provenance
@@ -182,6 +183,7 @@ def engine_info() -> EngineInfo:
         id=ENGINE_ID,
         label="FastThaiG2P / Kokoro Thai (CPU ONNX)",
         language="th",
+        supported_languages=("th", "en"),
         voice_id="thai_som",
         sample_rate=SAMPLE_RATE,
         assets_ready=assets_ready(),
@@ -412,6 +414,12 @@ def _register_model_packages(registry: EngineRegistry) -> None:
             return EngineInfo(
                 id=engine_id, label=label, language=manifest["language"],
                 voice_id=voices[0][0], voice_options=voices,
+                # These already-installed adapter families can synthesize
+                # English in addition to their original package language.
+                # Keep the manifest language as the native language.
+                supported_languages=((manifest["language"], "en")
+                    if adapter in ("fastthaig2p-kokoro-v1", "vachana-onnx-v1",
+                                   "sherpa-melo-zh-v1") else ()),
                 voice_language_map=({voice_id: voice_id[:2] for voice_id, _ in voices}
                                     if adapter == "sherpa-supertonic-v1" else {}),
                 sample_rate=manifest["sample_rate"],

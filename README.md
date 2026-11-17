@@ -1,6 +1,8 @@
 # VoxWeaveTTS
 
-**Per-language TTS model routing fix (source after v0.9.2):** The **[NC / NonCommercial] Wayu Paxa Edge** voice family now explicitly supports both **Thai (th) and English (en)** for all 12 voices, including independent per-language presets and controls. Existing fixed-language engines and per-voice Kokoro/Supertonic routes remain supported; future approved providers can declare shared/per-voice language capabilities. [Model language capability guide (TH)](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md).
+**English language routing on all installed TTS models (source after v0.9.2):** FastThaiG2P/ThaiSom, Vachana and Melo Chinese also accept English (`en`) language routes, alongside MakHam and Wayu. Kokoro/Supertonic retain their dedicated English voices. Existing language assignments are not modified. [Language capability guide (TH)](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md).
+
+**Per-language TTS model routing fix (earlier source change):** The **[NC / NonCommercial] Wayu Paxa Edge** voice family now explicitly supports both **Thai (th) and English (en)** for all 12 voices, including independent per-language presets and controls. Existing fixed-language engines and per-voice Kokoro/Supertonic routes remain supported; future approved providers can declare shared/per-voice language capabilities. [Model language capability guide (TH)](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md).
 
 **Full-stop recovery utility (source after v0.9.2):** Run `Stop-VoxWeaveTTS.cmd` (or `Stop-Dev.cmd` for the development checkout) to force-stop **only this installation** and any owned TTS workers, including orphaned Python processes after an unclean shutdown. Process identity and creation timestamps are verified to prevent terminating unrelated applications. The new portable build also includes `Stop-Console.cmd`. **Ollama and its model server are deliberately not stopped.** See [Thai stop/recovery guide](docs/STOP_VOXWEAVETTS_TH.md).
 
