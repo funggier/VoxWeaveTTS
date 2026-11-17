@@ -681,6 +681,11 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p id="aiOllamaStatus" class="small" role="status">ยังไม่ได้ตรวจสอบ Ollama · พิมพ์ชื่อโมเดลที่ติดตั้งแล้วหรือเลือกจากรายการ</p>
 <p class="small">ปุ่มโหลดเข้าหน่วยความจำไม่ดาวน์โหลดหรือติดตั้งโมเดลใหม่ และไม่ทำงานอัตโนมัติเมื่อพิมพ์ชื่อโมเดลหรือบันทึก Settings</p>
 </div>
+<div class="voice-grid" style="margin-top:10px">
+<button id="aiM2MInstallRuntime" type="button">ติดตั้ง / ซ่อม Runtime M2M100 (แยก Environment · uv)</button>
+<button id="aiM2MRuntimeCheck" type="button">ตรวจสถานะ Runtime M2M100</button>
+</div>
+<p id="aiM2MRuntimeStatus" class="small" role="status">M2M100: ตรวจสอบ Runtime...</p>
 <p id="aiEngineStatus" class="small" role="status">กำลังตรวจสอบ Engine...</p>
 <details style="margin:12px 0">
 <summary>รายการ AI / Translation Model Packages ที่ติดตั้งในเครื่อง</summary>
@@ -784,6 +789,13 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p id="engineProviderStatus" class="small" role="status"></p>
 <ul id="engineProviderList" style="padding-left:22px"></ul>
 </details>
+<details style="margin-top:12px" id="runtimeRegistryPanel">
+<summary>Runtime Environment Registry · ใช้ร่วมกัน / ถอนเมื่อไม่ถูกใช้งาน</summary>
+<p class="small">Runtime เป็นสภาพแวดล้อมแยกจากไฟล์โมเดล การลบโมเดลไม่ลบ Runtime ของโมเดลอื่นโดยอัตโนมัติ ระบบอนุญาตถอน Runtime เฉพาะเมื่อไม่มีโมเดลใดใช้งานอยู่ และต้องยืนยันทุกครั้ง</p>
+<button type="button" id="runtimeRegistryRefresh">ตรวจสถานะ Runtime</button>
+<p id="runtimeRegistryStatus" class="small" role="status"></p>
+<ul id="runtimeRegistryList" style="padding-left:22px"></ul>
+</details>
 </details>
 </section></div>
 <div class="mode-view" data-mode-view="language_routes" hidden><section class="panel" style="margin-top:18px" id="languageRoutingPanel">
@@ -859,6 +871,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <script src="/emoji_pronunciation.js"></script>
 <script src="/rule_quick_add.js"></script>
 <script src="/ai_settings.js"></script>
+<script src="/runtime_registry.js"></script>
 <script src="/mode_voice_settings.js"></script>
 <script src="/language_routes.js"></script>
 <script src="/mode_workspace.js"></script>
@@ -1387,7 +1400,7 @@ el("modelPackageRefresh").addEventListener("click",()=>{
 el("modelPackageInstall").addEventListener("click",async()=>{
   const button=el("modelPackageInstall");
   button.disabled=true;
-  el("modelPackageStatus").textContent="เลือกไฟล์ .vwmodel ในหน้าต่าง Windows...";
+  el("modelPackageStatus").textContent="เลือกไฟล์ .vwmodel (TTS หรือ AI/M2M100) · หลังเลือก M2M100 จะตรวจไฟล์ขนาดเกือบ 2 GB กรุณารอจนติดตั้งเสร็จ";
   try{
     const response=await fetch("/v1/model-packages/install-local",{
       method:"POST",
@@ -1405,7 +1418,23 @@ el("modelPackageInstall").addEventListener("click",async()=>{
     await loadEngines();
     modeVoiceController?.refreshEngines();
     if(typeof loadEngineProviders==="function")loadEngineProviders().catch(()=>{});
-    const engineId="model-"+result.package_id+"-"+result.version.replaceAll(".","_");
+    if(result.package_kind==="ai"){
+      // The same native file picker safely recognizes TTS and AI packages.
+      // Never select a translation model as a TTS voice.
+      let ready=false;
+      try{
+        const response=await fetch("/v1/ai/engines",{cache:"no-store"});
+        if(response.ok){
+          const metadata=await response.json();
+          ready=Boolean((metadata.engines||[]).find(x=>x.id==="m2m100")?.runtime_ready);
+        }
+      }catch{}
+      el("modelPackageStatus").textContent=ready
+        ?"ติดตั้ง M2M100 สำเร็จ · ไปที่ ตั้งค่า → AI / Translation เพื่อเลือกโมเดล"
+        :"ติดตั้ง M2M100 สำเร็จแล้ว แต่ยังขาด PyTorch/Transformers Runtime สำหรับการแปล";
+      return;
+    }
+    const engineId=result.engine_id||("model-"+result.package_id+"-"+result.version.replaceAll(".","_"));
     if(engines.some(x=>x.id===engineId&&x.assets_ready&&x.runtime_ready)){
       el("engineSelect").value=engineId;
       refreshSelectedEngine();

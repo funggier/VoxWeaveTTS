@@ -31,7 +31,7 @@ _VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\
 _VOICE = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{0,63}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _EXTENSIONS = frozenset((".onnx", ".json", ".npy", ".bin", ".txt", ".md", ".fst", ".utf8", ".pt", ".pth"))
-_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1", "sherpa-supertonic-v1", "sherpa-melo-zh-v1", "wayu-nc-v1"))
+_ADAPTERS = frozenset(("vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1", "sherpa-supertonic-v1", "sherpa-melo-zh-v1", "wayu-nc-v1", "makham-paradee-onnx-v1"))
 # Only these pinned, original upstream Wayu weights may be deserialized by the
 # trusted PyTorch worker. A .vwmodel manifest is untrusted data, and torch.load
 # on altered .pth/.pt assets could otherwise execute arbitrary pickle code.
@@ -68,7 +68,27 @@ def install_model_package_dialog(*, choose_file=None) -> dict[str, Any] | None:
         selected = (choose_file or _native_model_picker)()
         if not selected:
             return None
-        return install_model_package(selected)
+        # Both TTS and AI/Translation packages deliberately use .vwmodel.
+        # Route by the bounded, declared data format in the ZIP manifest,
+        # not by filename or client-controlled paths. Each dedicated installer
+        # still performs its complete independent security/integrity checks.
+        if Path(selected).suffix.lower() != ".vwmodel":
+            raise ModelPackageError("choose a .vwmodel package")
+        with zipfile.ZipFile(selected) as archive:
+            members = archive.infolist()
+            if (not members or members[0].filename != "manifest.json"
+                    or members[0].file_size > MAX_MANIFEST):
+                raise ModelPackageError("invalid model package manifest")
+            try:
+                format_name = json.loads(archive.read(members[0]))["format"]
+            except (ValueError, KeyError, TypeError, UnicodeError) as exc:
+                raise ModelPackageError("invalid model package manifest") from exc
+        if format_name == FORMAT:
+            return install_model_package(selected)
+        from .ai_model_packages import FORMAT as AI_FORMAT, install_model_package as install_ai
+        if format_name == AI_FORMAT:
+            return install_ai(selected)
+        raise ModelPackageError("unsupported .vwmodel format")
     finally:
         _DIALOG_LOCK.release()
 
@@ -118,6 +138,11 @@ def _relative_asset(raw: str) -> str:
 
 
 def engine_id_for(manifest: dict[str, Any]) -> str:
+    # Built-in adapter identity survives reinstallation, model removal and
+    # restoring a .vwmodel. Saved language routes and presets never change.
+    if manifest["engine_adapter"] == "makham-paradee-onnx-v1":
+        from .makham_package import ENGINE_ID
+        return ENGINE_ID
     return "model-" + manifest["package_id"] + "-" + manifest["version"].replace(".", "_")
 
 
@@ -182,6 +207,19 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         raise ModelPackageError("model needs one or more voices")
     seen_voices: set[str] = set()
     seen_paths: set[str] = set()
+    if adapter == "makham-paradee-onnx-v1":
+        from .makham_package import (PACKAGE_ID as MAK_ID, PACKAGE_VERSION as MAK_VERSION,
+                                     SOURCE_REVISION as MAK_REVISION, UPSTREAM as MAK_UPSTREAM,
+                                     PINNED_ASSETS as MAK_ASSETS)
+        if (manifest["package_id"] != MAK_ID
+            or manifest["version"] != MAK_VERSION
+            or manifest["license"]["spdx"] != "Apache-2.0"
+            or manifest["license"]["review_status"] not in ("review_required", "cleared")
+            or manifest["source"] != {"url": MAK_UPSTREAM, "revision": MAK_REVISION}
+            or len(voices) != 1 or not isinstance(voices[0], dict)
+            or voices[0].get("id") != "paradee_thai"
+            or voices[0].get("asset") != "paradee_thai_int8.onnx"):
+            raise ModelPackageError("MakHam must use the vetted original assets and Apache-2.0 license")
     if adapter == "wayu-nc-v1":
         from .personal_wayu_engine import VOICES as WAYU_VOICES
         if (any(not isinstance(v, dict) or "id" not in v for v in voices)
@@ -203,7 +241,10 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         if not isinstance(voice["label"], str) or not 1 <= len(voice["label"]) <= 110:
             raise ModelPackageError("invalid voice label")
         asset = _relative_asset(voice["asset"])
-        if adapter == "wayu-nc-v1":
+        if adapter == "makham-paradee-onnx-v1":
+            if asset != "paradee_thai_int8.onnx":
+                raise ModelPackageError("MakHam must use original model weights")
+        elif adapter == "wayu-nc-v1":
             if asset != "voices/" + identifier + ".pt":
                 raise ModelPackageError("Wayu NC voice must use its pinned original asset")
         elif adapter == "kokoro-onnx-v1":
@@ -234,6 +275,9 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
             or not 0 < entry["size"] <= PACKAGE_LIMIT
             or not isinstance(entry["sha256"], str) or not _SHA256.fullmatch(entry["sha256"])):
             raise ModelPackageError("invalid or repeated model file")
+        if adapter == "makham-paradee-onnx-v1" and path in MAK_ASSETS:
+            if entry["sha256"] != MAK_ASSETS[path]:
+                raise ModelPackageError("MakHam model asset differs from the verified original")
         if Path(path).suffix.lower() in (".pth", ".pt") and adapter != "wayu-nc-v1":
             raise ModelPackageError("serialized PyTorch weights are only permitted for vetted Wayu NC packages")
         if adapter == "wayu-nc-v1" and path in _WAYU_PINNED_SHA256:
@@ -243,12 +287,17 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
             raise ModelPackageError("unexpected executable-serialization asset")
         file_index[path.lower()] = entry
         total += entry["size"]
-    required_files = (tuple(_WAYU_PINNED_SHA256) if adapter == "wayu-nc-v1" else
+    required_files = (tuple(MAK_ASSETS) if adapter == "makham-paradee-onnx-v1" else
+                      tuple(_WAYU_PINNED_SHA256) if adapter == "wayu-nc-v1" else
                       ("speaker_config.json",) if adapter == "vachana-onnx-v1" else
                       ("kokoro-v1.0.int8.onnx", "voices-v1.0.bin") if adapter == "kokoro-onnx-v1" else
                       ("duration_predictor.int8.onnx", "text_encoder.int8.onnx", "vector_estimator.int8.onnx", "vocoder.int8.onnx", "tts.json", "unicode_indexer.bin", "voice.bin") if adapter == "sherpa-supertonic-v1" else
                       ("model.onnx", "tokens.txt", "lexicon.txt") if adapter == "sherpa-melo-zh-v1" else
                       ("config.json", "kokoro_thai.onnx"))
+    if adapter == "makham-paradee-onnx-v1" and set(file_index) != {
+        *MAK_ASSETS, "legal/license.txt", "legal/attribution.md",
+    }:
+        raise ModelPackageError("MakHam requires only pinned weights and legal attribution")
     if adapter == "wayu-nc-v1" and not {"readme.md", "legal/license.txt", "legal/attribution.md", "legal/acceptable-use.txt"} <= set(file_index):
         raise ModelPackageError("Wayu NC needs complete attribution and acceptable-use notices")
     if total > PACKAGE_LIMIT or not all(name in file_index for name in required_files):
@@ -324,6 +373,10 @@ def install_model_package(archive: str | Path, *, base: Path = PACKAGES_DIR) -> 
             # This is a same-volume directory rename; the original installed
             # models/other versions remain untouched on any failure.
             staging.rename(target)
+            if (base == PACKAGES_DIR
+                    and manifest["engine_adapter"] == "makham-paradee-onnx-v1"):
+                from .makham_package import clear_disabled_marker
+                clear_disabled_marker()
             return manifest
         finally:
             if staging.exists():
@@ -374,7 +427,26 @@ def remove_model_package(package_id: str, version: str, *, base: Path = PACKAGES
             raise ModelPackageError("unrecognized package; refusing deletion") from exc
         if manifest["package_id"] != package_id or manifest["version"] != version:
             raise ModelPackageError("manifest/package identity mismatch")
+        if manifest["engine_adapter"] == "makham-paradee-onnx-v1":
+            expected = {"manifest.json"} | {row["path"] for row in manifest["files"]}
+            actual = set()
+            for entry in target.rglob("*"):
+                if entry.is_symlink():
+                    raise ModelPackageError("MakHam package contains symlink; refusing deletion")
+                if entry.is_file():
+                    name = entry.relative_to(target).as_posix()
+                    actual.add(name)
+                    if name != "manifest.json":
+                        row = next((f for f in manifest["files"] if f["path"] == name), None)
+                        if row is None or hashlib.sha256(entry.read_bytes()).hexdigest() != row["sha256"]:
+                            raise ModelPackageError("MakHam package contains modified or unknown files")
+            if actual != expected:
+                raise ModelPackageError("MakHam package files are incomplete; refusing deletion")
         shutil.rmtree(target)
+        if (base == PACKAGES_DIR
+                and manifest["engine_adapter"] == "makham-paradee-onnx-v1"):
+            from .makham_package import disable_legacy_fallback
+            disable_legacy_fallback()
         if not any(target.parent.iterdir()):
             target.parent.rmdir()
         return True
@@ -436,6 +508,87 @@ def _hardlink_or_copy(original_file: Path, target: Path) -> None:
         os.link(original_file, target)
     except OSError:
         shutil.copy2(original_file, target)
+
+
+def create_makham_manifest(source: Path) -> dict[str, Any]:
+    """Signed-by-sha metadata for original MakHam Paradee INT8 + Apache notices."""
+    from .makham_package import (PACKAGE_ID, PACKAGE_VERSION, UPSTREAM,
+                                 SOURCE_REVISION, PINNED_ASSETS, ADAPTER)
+    source = Path(source)
+    files = []
+    for name in (*PINNED_ASSETS, "legal/license.txt", "legal/attribution.md"):
+        file = source.joinpath(*PurePosixPath(name).parts)
+        if not file.is_file() or file.is_symlink():
+            raise ModelPackageError("missing original MakHam asset or license: " + name)
+        with file.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        files.append({"path": name, "size": file.stat().st_size, "sha256": digest})
+    return validate_manifest({
+        "format": FORMAT, "format_version": FORMAT_VERSION,
+        "package_id": PACKAGE_ID, "version": PACKAGE_VERSION,
+        "title": "MakHam Paradee Thai / English INT8 (CPU ONNX)",
+        "engine_adapter": ADAPTER, "language": "th", "sample_rate": 24000,
+        "voices": [{"id": "paradee_thai", "label": "Paradee",
+                    "asset": "paradee_thai_int8.onnx"}],
+        "files": files,
+        "license": {
+            "spdx": "Apache-2.0",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0",
+            "attribution": (
+                "MakHamTTS by PyThaiNLP / Wannaphong Phatthiyaphaibun. "
+                "Paradee distillation by Sahil Mahendrakar. "
+                "Original ONNX weights and config unchanged; model source: "
+                "https://huggingface.co/pythainlp/MakHamTTS. "
+                "Training dataset pythainlp/MakHamTTS-dataset declares CC BY 4.0."
+            ),
+            "review_status": "review_required",
+        },
+        "source": {"url": UPSTREAM, "revision": SOURCE_REVISION},
+        "dependencies": ["pythaitts==1.0.0", "onnxruntime"],
+    })
+
+
+def pack_local_makham(source: Path, output: Path) -> Path:
+    """Export a restorable .vwmodel from the exact byte-pinned local weights."""
+    from .makham_package import PINNED_ASSETS
+    source = Path(source)
+    for name, expected in PINNED_ASSETS.items():
+        file = source / name
+        if not file.is_file() or file.is_symlink():
+            raise ModelPackageError("missing verified MakHam weight: " + name)
+        with file.open("rb") as stream:
+            if hashlib.file_digest(stream, "sha256").hexdigest() != expected:
+                raise ModelPackageError("MakHam weight differs from the verified original")
+    cache = ROOT / "cache" / "temp"
+    cache.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="pack-makham-", dir=cache) as temp:
+        staged = Path(temp)
+        for name in PINNED_ASSETS:
+            _hardlink_or_copy(source / name, staged / name)
+        license_source = ROOT / "docs" / "third-party" / "MAKHAM_APACHE-2.0.txt"
+        if not license_source.is_file():
+            license_source = ROOT / "model-packs" / "fastthaig2p" / "LICENSE.txt"
+        if not license_source.is_file():
+            raise ModelPackageError("full Apache-2.0 license text is unavailable")
+        legal = staged / "legal"
+        legal.mkdir(parents=True)
+        shutil.copy2(license_source, legal / "license.txt")
+        (legal / "attribution.md").write_text(
+            "# MakHam Paradee — attribution and modification notice\n\n"
+            "Authors: PyThaiNLP / Wannaphong Phatthiyaphaibun; "
+            "Paradee distillation framework by Sahil Mahendrakar.\n"
+            "Original model: https://huggingface.co/pythainlp/MakHamTTS\n"
+            "Model license: Apache-2.0 — "
+            "https://www.apache.org/licenses/LICENSE-2.0\n"
+            "Training dataset: https://huggingface.co/datasets/pythainlp/"
+            "MakHamTTS-dataset (declares CC BY 4.0).\n"
+            "Changes: original INT8 ONNX weights and config are unchanged; "
+            "they have only been repackaged into a data-only VoxWeaveTTS "
+            ".vwmodel with this attribution and license.\n"
+            "No affiliation or endorsement by upstream maintainers is implied.\n",
+            encoding="utf-8",
+        )
+        return make_package(staged, create_makham_manifest(staged), output)
 
 
 def create_vachana_manifest(source: Path) -> dict[str, Any]:
@@ -719,6 +872,12 @@ def main() -> None:
     fast.add_argument("--source", type=Path, default=ROOT / "models" / "fastthaig2p")
     fast.add_argument("--output", type=Path, default=ROOT / "dist" / "ModelPackages" /
                       "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel")
+    makham = actions.add_parser("pack-makham")
+    from .makham_package import ARCHIVE_NAME as MAK_ARCHIVE_NAME
+    makham.add_argument("--source", type=Path,
+                        default=ROOT / "models" / "makham-paradee")
+    makham.add_argument("--output", type=Path,
+                        default=ROOT / "dist" / "ModelPackages" / MAK_ARCHIVE_NAME)
     wayu = actions.add_parser("pack-wayu")
     wayu.add_argument("--source", type=Path,
                       default=ROOT / "models" / "personal" / "wayu-paxa-tts-edge")
@@ -742,6 +901,9 @@ def main() -> None:
         elif args.action == "pack-fastthai":
             print("Built", pack_local_fastthai(args.source, args.output))
             print("Rights status: review_required - refer to included Apache/CC BY notices")
+        elif args.action == "pack-makham":
+            print("Built", pack_local_makham(args.source, args.output))
+            print("Rights: Apache-2.0 with full license and training data attribution")
         elif args.action == "pack-wayu":
             print("Built", pack_local_wayu(args.source, args.output))
             print("Rights: CC BY-NC 4.0 (NonCommercial only); upstream weights unmodified")

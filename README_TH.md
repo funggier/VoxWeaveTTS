@@ -1,5 +1,8 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**กำลังพัฒนาใน Source หลัง v0.9.4 (ยังไม่ออก Release):** จัดการ Runtime ด้วย Registry ที่ตรวจการใช้ร่วมกันและถอนเฉพาะ Environment ที่ไม่มีโมเดลใช้งาน, เพิ่ม MakHam เป็น `.vwmodel` ที่ติดตั้ง/ถอนได้แม้ติดมากับ Portable โดยไม่เปลี่ยน Engine ID/Voice Preset/Language Routes และเพิ่มตัวติดตั้ง M2M100 Runtime แยก Environment อ่านรายละเอียดใน [Model Package Runtime v2](docs/MODEL_PACKAGE_V2_ARCHITECTURE_TH.md) และ [M2M100 Setup](docs/M2M100_SETUP_TH.md)
+
+
 **Windows Portable v0.9.4 + โมเดล Wayu Paxa Edge NC:** สามารถดาวน์โหลด **Wayu ภาษาไทย/อังกฤษ 12 เสียง** เป็น `.vwmodel` **แยกต่างหาก** และติดตั้งผ่าน Model Package Manager ได้โดยตรง พร้อมข้อมูลผู้สร้างและข้อกำหนดสิทธิ์ **CC BY-NC 4.0 ห้ามใช้เชิงพาณิชย์** น้ำหนักโมเดลเดิมไม่ได้ถูกแก้ไข และยัง **ไม่รวม NC ใน ZIP หลัก/Git Source** [Release v0.9.4 (ครบชุด)](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.4.md)
 
 

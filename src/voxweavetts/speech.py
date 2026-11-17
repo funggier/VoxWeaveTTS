@@ -62,14 +62,8 @@ def assets_ready() -> bool:
 
 
 def paradee_assets_ready() -> bool:
-    try:
-        return (
-            (PARADEE_DIR / "paradee_thai_int8.onnx").is_file()
-            and (PARADEE_DIR / "paradee_thai_int8.onnx").stat().st_size > 8_000_000
-            and (PARADEE_DIR / "config.json").is_file()
-        )
-    except OSError:
-        return False
+    from .makham_package import active_model_dir
+    return active_model_dir() is not None
 
 
 def vachana_assets_ready() -> bool:
@@ -288,16 +282,18 @@ class MakHamParadeeEngine:
             return b""
         with type(self)._lock:
             if self._native is None:
-                if not paradee_assets_ready():
+                from .makham_package import active_model_dir
+                directory = active_model_dir()
+                if directory is None:
                     raise EngineUnavailable(
-                        "MakHam Paradee assets missing in models/makham-paradee"
+                        "MakHam Paradee model is not installed; restore its .vwmodel"
                     )
                 if not runtime_ready():
                     raise EngineUnavailable("PyThaiTTS ONNX dependencies unavailable")
                 from pythaitts.pretrained.makham.paradee_tts import MakHamTTSParadee
                 self._native = MakHamTTSParadee(
-                    model_path=PARADEE_DIR / "paradee_thai_int8.onnx",
-                    config_path=PARADEE_DIR / "config.json",
+                    model_path=directory / "paradee_thai_int8.onnx",
+                    config_path=directory / "config.json",
                     intra_op_threads=4, speed=1.0,
                 )
             self._native.speed = speed
@@ -381,6 +377,10 @@ def _register_model_packages(registry: EngineRegistry) -> None:
     allowed = {"vachana-onnx-v1", "fastthaig2p-kokoro-v1", "kokoro-onnx-v1",
                "sherpa-supertonic-v1", "sherpa-melo-zh-v1", "wayu-nc-v1"}
     for manifest, model_dir in installed_packages():
+        # MakHam is a built-in engine with removable .vwmodel weights.
+        # Never register an extra 'model-*' engine or rename saved presets.
+        if manifest["engine_adapter"] == "makham-paradee-onnx-v1":
+            continue
         if manifest["engine_adapter"] not in allowed:
             continue
         engine_id = engine_id_for(manifest)

@@ -215,6 +215,8 @@ def remove_model_package(package_id: str, version: str, *, base: Path = PACKAGES
             raise AIModelPackageError("package identity mismatch")
         # A model could have been cached by the translation worker. Finish
         # current inference and release references before deleting model files.
+        from .m2m_runtime import reset as reset_m2m_worker
+        reset_m2m_worker()
         _loaded_m2m.cache_clear()
         shutil.rmtree(folder)
         if not any(folder.parent.iterdir()):
@@ -245,6 +247,8 @@ def remove_legacy_m2m() -> bool:
                 or any(p.is_symlink() or not p.is_file() or p.name not in _ALLOWED
                        for p in MODEL_DIR.iterdir())):
             raise AIModelPackageError("unknown files in legacy M2M100 folder; refusing deletion")
+        from .m2m_runtime import reset as reset_m2m_worker
+        reset_m2m_worker()
         _loaded_m2m.cache_clear()
         shutil.rmtree(MODEL_DIR)
         return True

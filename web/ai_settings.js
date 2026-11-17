@@ -206,6 +206,7 @@ function attach(document, fetcher){
   });
   get("aiPackageInstall").addEventListener("click",async()=>{
     const button=get("aiPackageInstall");button.disabled=true;
+    get("aiPackageStatus").textContent="เลือกไฟล์ M2M100 .vwmodel · หลังเลือกต้องตรวจสอบข้อมูลเกือบ 2 GB อาจใช้เวลานาน กรุณารอจนระบบแจ้งผล";
     try{
       const installed=await requestJson("/v1/ai/packages/install-local",{
         method:"POST",headers:{"Content-Type":"application/json",
@@ -220,6 +221,47 @@ function attach(document, fetcher){
     }catch(e){status("ติดตั้ง AI Model Package ไม่สำเร็จ: "+String(e.message||e));}
     finally{button.disabled=false;}
   });
+  async function loadM2MRuntimeStatus(){
+    const line=get("aiM2MRuntimeStatus");
+    if(!line)return;
+    try{
+      const result=await requestJson("/v1/ai/m2m-runtime",{cache:"no-store"});
+      const state=result.runtime||{};
+      const names={
+        ready:"ติดตั้ง Runtime M2M100 แบบแยก Environment แล้ว · พร้อมใช้งาน",
+        installing:"กำลังติดตั้ง PyTorch/Transformers ใน Environment แยก · ตรวจสถานะอีกครั้งได้",
+        not_installed:"ยังไม่ได้ติดตั้ง Runtime M2M100 · ต้องมี uv และอินเทอร์เน็ตครั้งแรก",
+        failed:"ติดตั้ง Runtime ไม่สำเร็จ · ดู logs/ai-runtime/install-m2m100.log"
+      };
+      line.textContent=names[state.state]||"ไม่ทราบสถานะ Runtime";
+      if(state.error)line.textContent+=" · "+String(state.error);
+      const install=get("aiM2MInstallRuntime");
+      if(install)install.disabled=state.state==="installing";
+      const resultEngines=await requestJson("/v1/ai/engines",{cache:"no-store"});
+      engines=Array.isArray(resultEngines.engines)?resultEngines.engines:engines;
+      updateAvailability();
+    }catch(error){line.textContent="ตรวจสอบ Runtime ไม่สำเร็จ: "+String(error.message||error);}
+  }
+  get("aiM2MRuntimeCheck")?.addEventListener("click",()=>{
+    loadM2MRuntimeStatus().catch(error=>status(String(error.message||error)));
+  });
+  get("aiM2MInstallRuntime")?.addEventListener("click",async()=>{
+    const button=get("aiM2MInstallRuntime");
+    button.disabled=true;
+    get("aiM2MRuntimeStatus").textContent="กำลังเริ่มติดตั้ง M2M100 Runtime ใน Environment แยก...";
+    try{
+      await requestJson("/v1/ai/m2m-runtime/install",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",
+                 "X-VoxWeaveTTS-Intent":"install-m2m-runtime"},
+        body:"{}"
+      });
+      await loadM2MRuntimeStatus();
+    }catch(error){
+      get("aiM2MRuntimeStatus").textContent="ติดตั้ง Runtime ไม่สำเร็จ: "+String(error.message||error);
+    }finally{button.disabled=false;}
+  });
+  if(get("aiM2MRuntimeStatus"))loadM2MRuntimeStatus().catch(()=>{});
   function serverAddressNeedsSave(){
     return lastLoaded!==null &&
       get("aiOllamaBaseUrl").value.trim()!==JSON.parse(lastLoaded).ollama_base_url;

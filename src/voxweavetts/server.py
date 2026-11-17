@@ -17,6 +17,12 @@ from . import __version__
 from .processing import InputError, process_text
 from .ai_pipeline import process_pipeline
 from .ai_engine_registry import ai_engines
+from .m2m_runtime import (status as m2m_runtime_status,
+                          install_async as install_m2m_runtime,
+                          M2MRuntimeError)
+from .runtime_registry import (inventory as runtime_inventory,
+                               remove_unreferenced as remove_unused_runtime,
+                               RuntimeRegistryError)
 from .ai_search_secrets import key_status as ai_search_key_status, update_key as update_ai_search_key, SecretUnavailable
 from .ai_tools import search_selected_provider, ToolDenied, ToolUnavailable
 from .ollama_manager import (model_status as ollama_model_status,
@@ -61,6 +67,9 @@ from .model_packages import (
     installed_packages, engine_id_for, display_model_title, install_model_package_dialog,
     remove_model_package, ModelPackageError, ModelPackageDialogUnavailable,
 )
+from .makham_package import (legacy_present as legacy_makham_present,
+                             remove_legacy_model as remove_legacy_makham,
+                             recovery_archive as makham_recovery_archive)
 from .manual_alignment import timing_metrics
 from .engine_provider_catalog import provider_for_adapter
 from .engine_provider_installer import install_async, catalog_status, InstallError
@@ -551,12 +560,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js"}:
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js", "/runtime_registry.js"}:
                 name = ("audio_scheduler.js" if route == "/audio_scheduler.js" else
                         "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
                         "emoji_pronunciation.js" if route == "/emoji_pronunciation.js" else
                         "rule_quick_add.js" if route == "/rule_quick_add.js" else
                         "ai_settings.js" if route == "/ai_settings.js" else
+                        "runtime_registry.js" if route == "/runtime_registry.js" else
                         "language_routes.js" if route == "/language_routes.js" else
                         "source_feed.js" if route == "/source_feed.js" else
                         "mode_inputs.js" if route == "/mode_inputs.js" else
@@ -709,10 +719,34 @@ class Handler(BaseHTTPRequestHandler):
                         "voices": m["voices"],
                         "license": m["license"], "source": m["source"],
                         "dependencies": m["dependencies"],
-                    } for m, _folder in installed_packages()]
+                        "model_kind": "tts", "builtin_engine": (
+                            m["engine_adapter"] == "makham-paradee-onnx-v1"),
+                    } for m, _folder in installed_packages()] + ([
+                        {
+                            "package_id": "makham-paradee-builtin",
+                            "version": "0.0.0", "title": "MakHam Paradee (built-in legacy model)",
+                            "engine_id": "makham-paradee-cpu",
+                            "engine_adapter": "makham-paradee-onnx-v1",
+                            "voices": [{"id": "paradee_thai", "label": "Paradee"}],
+                            "license": {
+                                "spdx": "Apache-2.0",
+                                "url": "https://www.apache.org/licenses/LICENSE-2.0",
+                                "attribution": "PyThaiNLP / Wannaphong Phatthiyaphaibun",
+                                "review_status": "review_required",
+                            },
+                            "source": {"url": "https://huggingface.co/pythainlp/MakHamTTS",
+                                       "revision": "pythaitts-1.0.0-local-int8-snapshot"},
+                            "dependencies": ["pythaitts==1.0.0"],
+                            "model_kind": "tts", "builtin_engine": True,
+                            "legacy_assets": True,
+                            "recovery_available": makham_recovery_archive().is_file(),
+                        }
+                    ] if legacy_makham_present() else [])
                 })
             elif route == "/v1/engine-providers":
                 self.send_json(200, {"providers": catalog_status()})
+            elif route == "/v1/runtimes":
+                self.send_json(200, {"runtimes": runtime_inventory()})
             elif route == "/v1/engines":
                 # Re-discover explicitly approved providers without restarting Core.
                 refresh_engine_registry()
@@ -743,6 +777,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(503, {"error": "secure local credential storage unavailable"})
             elif route == "/v1/ai/engines":
                 self.send_json(200, {"engines": [e.as_dict() for e in ai_engines().list()]})
+            elif route == "/v1/ai/m2m-runtime":
+                self.send_json(200, {"runtime": m2m_runtime_status()})
             elif route == "/v1/ollama/models":
                 params = parse_qs(urlsplit(self.path).query)
                 name = params.get("model", [""])[0]
@@ -898,6 +934,56 @@ class Handler(BaseHTTPRequestHandler):
             except OllamaUnavailable:
                 self.send_json(503, {"error": "Ollama model is not installed, unavailable, or busy"})
             return
+        if route == "/v1/runtimes/remove":
+            # Explicit same-origin user request only; arbitrary paths and
+            # install commands are never accepted from the browser.
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "remove-unused-runtime"):
+                self.reject_unread_post(403, {"error": "same-origin runtime removal required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "runtime removal requires JSON"})
+                return
+            try:
+                payload = self._read_json(max_bytes=256)
+                if (not isinstance(payload, dict)
+                    or set(payload) != {"id", "expected_fingerprint", "confirm_uninstall"}
+                    or payload["confirm_uninstall"] is not True):
+                    raise RuntimeRegistryError("explicit runtime uninstall confirmation required")
+                removed = remove_unused_runtime(payload["id"], payload["expected_fingerprint"])
+                self.send_json(200, {"removed": removed})
+            except RuntimeRegistryError as exc:
+                self.send_json(409, {"error": str(exc)})
+            except (OSError, ValueError, InputError):
+                self.send_json(400, {"error": "runtime uninstall failed; check runtime folder"})
+            return
+        if route == "/v1/ai/m2m-runtime/install":
+            # Pinned dependencies are installed only after a same-origin
+            # browser action; no client text can supply pip commands or paths.
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            allowed = {f"http://{name}:{self.server.server_port}"
+                       for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in allowed or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "install-m2m-runtime"):
+                self.reject_unread_post(403, {"error": "same-origin runtime install required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "runtime install requires JSON"})
+                return
+            try:
+                if self._read_json(max_bytes=128):
+                    raise M2MRuntimeError("runtime installation does not accept arguments")
+                self.send_json(202, {"runtime": install_m2m_runtime()})
+            except (M2MRuntimeError, ValueError, InputError):
+                self.send_json(400, {"error": "could not begin M2M100 runtime installation"})
+            return
         if route in ("/v1/ai/packages/install-local", "/v1/ai/packages/remove",
                      "/v1/ai/packages/remove-legacy"):
             host = self.headers.get("Host", "").lower().strip()
@@ -989,23 +1075,51 @@ class Handler(BaseHTTPRequestHandler):
                     if installed is None:
                         self.send_json(200, {"cancelled": True})
                         return
+                    if installed["engine_adapter"] == "m2m100-transformers-v1":
+                        # The generic .vwmodel picker also accepts AI packages.
+                        # Do not try to register translation weights as a TTS engine.
+                        self.send_json(200, {
+                            "installed": True, "package_kind": "ai",
+                            "package_id": installed["package_id"],
+                            "version": installed["version"],
+                        })
+                        return
                     refresh_engine_registry()
                     profile = provider_for_adapter(installed["engine_adapter"])
                     if profile is not None:
                         install_async(profile.id)
                     # Keep the existing install-local API response stable.
                     # Runtime setup status is exposed by /v1/engine-providers.
-                    self.send_json(200, {
+                    payload = {
                         "installed": True, "package_id": installed["package_id"],
                         "version": installed["version"],
-                    })
+                    }
+                    if installed["engine_adapter"] == "makham-paradee-onnx-v1":
+                        payload["engine_id"] = engine_id_for(installed)
+                    self.send_json(200, payload)
                 else:
                     if set(data) != {"package_id", "version"}:
                         raise ModelPackageError("invalid removal request")
-                    adapter = next((m["engine_adapter"] for m, _ in installed_packages()
-                                    if m["package_id"] == data["package_id"]
-                                    and m["version"] == data["version"]), None)
-                    removed = remove_model_package(data["package_id"], data["version"])
+                    is_legacy_makham = (
+                        data["package_id"] == "makham-paradee-builtin"
+                        and data["version"] == "0.0.0")
+                    adapter = ("makham-paradee-onnx-v1" if is_legacy_makham else
+                               next((m["engine_adapter"] for m, _ in installed_packages()
+                                     if m["package_id"] == data["package_id"]
+                                     and m["version"] == data["version"]), None))
+                    # The built-in Engine ID survives model removal. Its worker
+                    # must release ONNX model handles before Windows can delete
+                    # the now-unneeded model directory.
+                    if is_legacy_makham:
+                        gateway().reset("pythaitts-v1")
+                        removed = remove_legacy_makham()
+                    else:
+                        profile = provider_for_adapter(adapter) if adapter else None
+                        if adapter == "makham-paradee-onnx-v1":
+                            gateway().reset("pythaitts-v1")
+                        elif profile is not None:
+                            gateway().reset(profile.backend)
+                        removed = remove_model_package(data["package_id"], data["version"])
                     if removed:
                         refresh_engine_registry()
                         # Stop only the affected provider. Other voice families
@@ -1016,6 +1130,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(200, {"removed": removed})
             except ModelPackageDialogUnavailable:
                 self.send_json(503, {"error": "Windows model selection dialog unavailable"})
+            except AIModelPackageError:
+                self.send_json(400, {"error": "invalid AI model package or integrity check"})
             except ModelPackageError:
                 self.send_json(400, {"error": "invalid model package, license metadata, or integrity check"})
             except (ValueError, InputError, UnicodeDecodeError, json.JSONDecodeError):

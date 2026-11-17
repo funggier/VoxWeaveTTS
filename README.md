@@ -1,5 +1,8 @@
 # VoxWeaveTTS
 
+**Unreleased development after v0.9.4:** Shared reference-counted Runtime Environment Registry with guarded orphan-only cleanup; MakHam Paradee as an installable/uninstallable bundled `.vwmodel` retaining its existing Engine ID; and an isolated M2M100 translation runtime. The existing public v0.9.4 release assets have not been modified. See [model/runtime architecture](docs/MODEL_PACKAGE_V2_ARCHITECTURE_TH.md).
+
+
 **Windows Portable v0.9.4 + optional Wayu Paxa Edge NC model package:** The separately downloadable `VoxWeaveTTS-Wayu-Paxa-Edge-Thai-English-12Voices-NC-v1.0.0.vwmodel` adds all 12 Thai/English voices to the Model Package Manager. **Weights are CC BY-NC 4.0 (noncommercial only)**, unchanged from pinned upstream. The .vwmodel includes the original README, attribution and license/use-policy notices. **NC weights are not in the Portable ZIP or Git repository.** [Complete v0.9.4 Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4) · [Release notes](docs/RELEASE_NOTES_v0.9.4.md).
 
 

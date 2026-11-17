@@ -30,8 +30,13 @@ with zipfile.ZipFile(archive) as z:
     assert "VoxWeaveTTS/runtime/python/python.exe" in files
     assert "VoxWeaveTTS/LICENSE" in files
     assert "VoxWeaveTTS/THIRD_PARTY_NOTICES.txt" in files
-    assert "VoxWeaveTTS/models/makham-paradee/paradee_thai_int8.onnx" in files
-    user_directories = ("data/", "voices/", "cache/", "output/", "logs/", "presets/", "models/packages/")
+    makham="VoxWeaveTTS/models/packages/makham-paradee/1.0.0/"
+    assert makham+"paradee_thai_int8.onnx" in files
+    assert makham+"config.json" in files
+    assert makham+"manifest.json" in files
+    assert "VoxWeaveTTS/models/recovery-packages/VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0.vwmodel" in files
+    assert "VoxWeaveTTS/models/makham-paradee/paradee_thai_int8.onnx" not in files
+    user_directories = ("data/", "voices/", "cache/", "output/", "logs/", "presets/")
     assert not any(
         name.startswith("VoxWeaveTTS/" + directory) and not name.endswith("/")
         for directory in user_directories for name in files
@@ -41,7 +46,9 @@ with zipfile.ZipFile(archive) as z:
         for name in files
     ), "unreviewed Fast model included"
     voice_models = [name for name in files if name.endswith((".onnx", ".npy", ".wav", ".mp3", ".safetensors"))]
-    assert voice_models == ["VoxWeaveTTS/models/makham-paradee/paradee_thai_int8.onnx"], voice_models
+    assert voice_models == [makham+"paradee_thai_int8.onnx"], voice_models
+    assert not any(name.startswith("VoxWeaveTTS/models/packages/") and not name.startswith(makham)
+                   for name in files), "private packages included"
     print("ZIP_CONTENTS_PASS", len(files), "entries; only approved model", flush=True)
 
     with tempfile.TemporaryDirectory(dir=archive.parent, prefix="vox-portable-extract-") as temp:

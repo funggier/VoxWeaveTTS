@@ -65,13 +65,24 @@ Copy-Tree $site (Join-Path $runtime 'Lib\site-packages') @('*.onnx','*.npy','*.p
   'safetensors-*.dist-info','sentencepiece-*.dist-info',
   'sympy-*.dist-info','networkx-*.dist-info'
 )
-$modelDir=Join-Path $stage 'models\makham-paradee'
-New-Item -ItemType Directory -Force -Path $modelDir | Out-Null
-foreach ($name in @('paradee_thai_int8.onnx','config.json')) {
-  $from=Join-Path $root ("models\makham-paradee\{0}" -f $name)
-  if (!(Test-Path $from)) {throw "Missing approved MakHam model file: $name"}
-  Copy-Item $from (Join-Path $modelDir $name) -Force
+# MakHam is a BUILT-IN ENGINE with a REMOVABLE MODEL PACKAGE. Supply
+# its official data-only .vwmodel in the release and preinstall a copy into
+# the packaged models registry. Never bake the weights into program code.
+$makArchive=Join-Path $root 'dist\ModelPackages\VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0.vwmodel'
+$makSource=Join-Path $root 'models\makham-paradee'
+if ((Test-Path (Join-Path $makSource 'paradee_thai_int8.onnx')) -and
+    (Test-Path (Join-Path $makSource 'config.json'))) {
+  $env:PYTHONPATH=Join-Path $root 'src'
+  & $venv -m voxweavetts.model_packages pack-makham --source $makSource --output $makArchive
+  if ($LASTEXITCODE -ne 0) {throw 'Could not build verified MakHam .vwmodel'}
 }
+if (!(Test-Path $makArchive)) {throw 'MakHam restore .vwmodel missing'}
+$env:PYTHONPATH=Join-Path $root 'src'
+& $venv -c 'import sys; from pathlib import Path; from voxweavetts.model_packages import install_model_package; install_model_package(Path(sys.argv[1]), base=Path(sys.argv[2]))' $makArchive (Join-Path $stage 'models\packages')
+if ($LASTEXITCODE -ne 0) {throw 'Could not preinstall MakHam .vwmodel into Portable'}
+$modelDir=Join-Path $stage 'models\packages\makham-paradee\1.0.0'
+New-Item -ItemType Directory -Force -Path (Join-Path $stage 'models\recovery-packages') | Out-Null
+Copy-Item $makArchive (Join-Path $stage 'models\recovery-packages\VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0.vwmodel') -Force
 foreach ($dir in @('presets','models\packages','models\fastthaig2p','cache\temp','cache\torch',
                    'cache\huggingface','voices','output','logs','data\settings',
                    'data\reading','data\filters','data\dictionaries',
@@ -101,7 +112,8 @@ $notice=@(
   "phonemizer: https://github.com/bootphon/phonemizer (license in bundled package metadata).",
   "Third-party Python package license metadata/files are in runtime/python/Lib/site-packages/*dist-info/.",
   "User-generated speech, recordings and chat messages have their own rights.",
-  "Only MakHam Paradee weights are bundled. Other models are optional .vwmodel packages: FastThaiG2P, Vachana, Kokoro, MeloTTS Chinese, Supertonic 3, experimental M2M100.",
+  "MakHam Paradee is a built-in Engine with PREINSTALLED removable .vwmodel weights in models/packages/makham-paradee/1.0.0. A standalone recovery .vwmodel is included in models/recovery-packages. Removing the model leaves the Engine installed; shared TTS runtimes are managed separately.",
+  "Other model packages: FastThaiG2P, Vachana, Kokoro, MeloTTS Chinese, Supertonic 3, Wayu NC (separate archive), experimental M2M100.",
   "FastThaiG2P 325MB model, personal voices and private local settings are NOT bundled."
 )
 $notice | Set-Content (Join-Path $stage 'THIRD_PARTY_NOTICES.txt') -Encoding UTF8
@@ -121,6 +133,13 @@ Copy-Item (Join-Path $root 'scripts\Stop-VoxWeaveTTS.ps1') (Join-Path $stage 'sc
 Copy-Tree (Join-Path $root 'scripts\engine-dependencies') (Join-Path $stage 'scripts\engine-dependencies')
 Copy-Item (Join-Path $root 'scripts\Install-EngineProvider.ps1') (Join-Path $stage 'scripts\Install-EngineProvider.ps1') -Force
 Copy-Item (Join-Path $root 'scripts\Install-WayuWorker.ps1') (Join-Path $stage 'scripts\Install-WayuWorker.ps1') -Force
+# M2M100 weights are a separate data-only .vwmodel; its heavy Torch runtime is
+# installed only with opt-in into a separate local Python environment.
+Copy-Tree (Join-Path $root 'scripts\ai-dependencies') (Join-Path $stage 'scripts\ai-dependencies')
+Copy-Item (Join-Path $root 'scripts\Install-M2M100Runtime.ps1') (Join-Path $stage 'scripts\Install-M2M100Runtime.ps1') -Force
+if (!(Test-Path (Join-Path $stage 'scripts\ai-dependencies\m2m100.txt'))) {
+  throw 'Portable missing trusted M2M100 runtime recipe'
+}
 foreach ($required in @('pythaitts.txt','vachana.txt','kokoro.txt','sherpa.txt','wayu-nc.txt')) {
   if (!(Test-Path (Join-Path $stage ("scripts\engine-dependencies\{0}" -f $required)))) {
     throw "Portable missing trusted worker recipe: $required"

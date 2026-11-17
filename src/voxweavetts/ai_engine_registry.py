@@ -136,6 +136,13 @@ class M2M100Adapter:
         info = m2m_info()
         if not info.assets_ready or not info.runtime_ready:
             raise RuntimeError("M2M100 model/runtime not installed")
+        # The minimal Portable core must not acquire Torch/Transformers and
+        # conflict with the TTS ONNX runtimes. Use the persistent isolated
+        # M2M100 worker when optional imports are absent from core Python.
+        if not all(find_spec(name) is not None for name in (
+                "torch", "transformers", "sentencepiece", "safetensors")):
+            from .m2m_runtime import translate
+            return translate(text, settings)
         folder = resolve_model(settings["model"]) if settings["model"] else None
         if folder is None and not settings["model"]:
             packages = installed_packages()
@@ -199,13 +206,16 @@ def m2m_info() -> AIEngineInfo:
     ready_files = bool(installed_packages()) or all(
         (MODEL_DIR / name).is_file() for name in _M2M_FILES
     )
-    deps = all(find_spec(name) is not None
-               for name in ("torch", "transformers", "sentencepiece", "safetensors"))
+    from .m2m_runtime import ready as isolated_runtime_ready
+    deps = (all(find_spec(name) is not None
+                for name in ("torch", "transformers", "sentencepiece", "safetensors"))
+            or isolated_runtime_ready())
     return AIEngineInfo(
         "m2m100", "M2M100 418M (ทดลอง / accuracy varies)", "translation", False, False,
         ready_files, deps,
         "Optional local safetensors + tokenizer under models/ai/m2m100_418m; "
-        "requires torch, transformers, sentencepiece, safetensors; "
+        "requires the optional isolated M2M100 Python runtime (torch, transformers, "
+        "sentencepiece, safetensors); Install/Repair in AI Settings; "
         "experimental translation quality - verify meaning before live use",
     )
 

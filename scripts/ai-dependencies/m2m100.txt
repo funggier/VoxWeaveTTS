@@ -1,0 +1,8 @@
+# Trusted optional M2M100 418M offline translation runtime.
+# Separate Python environment; model weights are installed via data-only .vwmodel.
+# Versions pinned; no arbitrary packages from manifest or live chat.
+numpy==1.26.4
+torch==2.8.0
+transformers==4.57.6
+sentencepiece==0.2.1
+safetensors==0.6.2

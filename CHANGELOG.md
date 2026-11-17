@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — M2M100 installer/runtime fix and Universal Model Package v2 proposal
+
+- Fix wrong model-package installer errors: the standard .vwmodel picker now routes AI/Translation M2M100 to its own validated installer rather than treating it as a TTS engine; existing AI picker continues working.
+- Verify a real 1.2 GB M2M100 ZIP installs atomically, maintains a separate legacy model and translates English to Thai through the installed model.
+- Add a pinned opt-in M2M100 environment recipe, local /v1/ai/m2m-runtime status/install API, AI Settings controls and a persistent offline translation worker. The minimal core TTS runtime stays independent of Torch.
+- Detect Windows insufficient paging-file/commit before launching a new M2M100 worker, and surface a meaningful error without changing OS settings or closing Ollama/other processes.
+- Add a shared **Runtime Environment Registry** for all currently known TTS providers and M2M100, with derived per-model reference counts, runtime recipe fingerprint, same-origin explicit orphan-only uninstall and protective symlink/path checks. No Ollama or unrelated app processes are touched.
+- Convert **MakHam Paradee** from undeletable hardcoded Portable model files to a verified `.vwmodel` managed default; retain `makham-paradee-cpu` for saved routes/presets. Add optional uninstall of verified legacy built-in assets with local recovery archive.
+- Include a separately distributable MakHam `.vwmodel` in local `dist/ModelPackages` and bundled recovery archive in future Portable builds. Source changes are not yet part of a public Release.
+- Advance `docs/MODEL_PACKAGE_V2_ARCHITECTURE_TH.md`: the Runtime Registry, safe uninstall and MakHam managed model are implemented; typed v2 Manifest and offline wheelhouse/portable cross-provider pooling remain planned.
+- No changes to the v0.9.4 published assets or user settings.
+
+
 ## v0.9.4 - Optional Wayu Paxa Edge NonCommercial model package (2026-11-17)
 
 - Add SHA-pinned, data-only `.vwmodel` support for the original Wayu Paxa Edge Thai/English model and its 12 voices; install via the normal local Model Package Manager.

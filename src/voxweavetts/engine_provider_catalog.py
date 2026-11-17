@@ -58,7 +58,7 @@ PROVIDERS: dict[str, Provider] = {
     ),
     "pythaitts": Provider(
         "pythaitts", "pythaitts-v1", "legacy", 24000,
-        ("fastthaig2p-kokoro-v1",), ("fastthaig2p-cpu", "makham-paradee-cpu"),
+        ("fastthaig2p-kokoro-v1", "makham-paradee-onnx-v1"), ("fastthaig2p-cpu", "makham-paradee-cpu"),
         "pythaitts.txt",
     ),
     "vachana": Provider(
