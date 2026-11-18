@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .m2m_runtime import M2MRuntimeError, TranslationWorkerSession, ready
+from .translation_protocol import TranslationContractError, validate_translation
 from .universal_model_packages import native_translation_packages
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +51,17 @@ def verify(root: Path = ROOT, *, timeout: float = 120.0) -> dict[str, Any]:
             })
             if not isinstance(result, str) or not result.strip():
                 raise M2MRuntimeError("M2M100 worker returned empty translation")
+            if result.strip().casefold() == phrase.strip().casefold():
+                raise M2MRuntimeError(
+                    "M2M100 returned unchanged source instead of translation")
+            try:
+                # The smoke test must detect a wrong-script output even if the
+                # worker responded 'ok'. This is a structural/script check,
+                # not proof of linguistic accuracy or commercial rights.
+                validate_translation(phrase, result, target)
+            except TranslationContractError as exc:
+                raise M2MRuntimeError(
+                    "M2M100 output does not satisfy target-language checks") from exc
             outputs.append({
                 "source_language": source,
                 "target_language": target,

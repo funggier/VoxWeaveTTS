@@ -365,7 +365,20 @@ class TranslationWorkerSession:
         proc = self._process
         self._process = None
         if proc is not None:
-            if proc.poll() is None:
+            # Close the private JSONL input first. The worker treats EOF as
+            # a graceful shutdown, allowing Python/Transformers to release
+            # safetensors file handles before a moved Portable is cleaned up.
+            # Forced termination is reserved for stalled/failed workers.
+            stdin = proc.stdin
+            if stdin is not None and not stdin.closed:
+                try:
+                    stdin.close()
+                except OSError:
+                    pass
+            try:
+                if proc.poll() is None:
+                    proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
                 if os.name == "nt":
                     try:
                         subprocess.run(
@@ -378,13 +391,15 @@ class TranslationWorkerSession:
                 else:
                     proc.terminate()
                 try:
-                    proc.wait(timeout=2)
+                    proc.wait(timeout=3)
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.wait(timeout=2)
-            for stream in (proc.stdin, proc.stdout):
-                if stream is not None:
-                    stream.close()
+            finally:
+                if proc.stdout is not None:
+                    proc.stdout.close()
+                if stdin is not None and not stdin.closed:
+                    stdin.close()
         if self._log is not None:
             self._log.close()
             self._log = None

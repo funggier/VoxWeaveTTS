@@ -11,6 +11,10 @@
 - Verify brand-new copied Portable tree end-to-end: install native M2M100 v2 weights and 25-wheel approved M2M100 runtime wholly offline with no system-installed uv; translate en↔th; relocate entire Portable; diagnose `relocated`; transactional offline repair; translate en↔th again. All stages passed. Test-folder cleanup initially hit transient Windows access denied on safetensors but succeeded on retry after workers exited. A physically separate Windows PC has not been tested.
 
 
+- Shut down M2M100 CPU Worker cooperatively via JSONL stdin EOF first, wait for file handles to release and only force-stop stalled owned processes. Add regression tests for normal exit and timeout fallback.
+- Harden bilingual `Verify-M2M100Runtime.ps1` checks: reject unchanged source text and wrong target-language script, and always close the worker after failure.
+- Add opt-in maintainer-only `scripts/verify_portable_m2m_e2e.py` to repeat an offline install + real translation + relocation + repair on a fresh copied Portable and clean only its guarded disposable test directory, with bounded Windows file-lock cleanup retries. The first full test completed all model/runtime/inference stages but its original unguarded cleanup hit WinError 5. The repeated full clean-Portable test with graceful worker exit and guarded cleanup passed all stages, then removed the 2 GB test data successfully (exit code 0).
+
 ## v0.10.1 — Wayu Paxa Edge 12-Voice Native v2 (NonCommercial)
 
 - Add separate CC BY-NC 4.0 Wayu Paxa Edge 12-voice Thai/English native `.vwmodel v2` package. Original upstream `.pth/.pt` assets remain byte-for-byte SHA-256 pinned, and the exact publisher/source revision and NC license are enforced before execution.

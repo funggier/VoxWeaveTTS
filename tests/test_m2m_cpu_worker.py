@@ -4,6 +4,8 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -104,6 +106,46 @@ class M2MCPUWorkerTests(unittest.TestCase):
                 self.assertIsNone(worker._process)
 
 
+class M2MGracefulShutdownTests(unittest.TestCase):
+    def test_graceful_worker_eof_waits_for_normal_exit_without_taskkill(self):
+        worker = m2m_runtime.TranslationWorkerSession()
+        proc = Mock()
+        proc.stdin = io.StringIO()
+        proc.stdout = io.StringIO()
+        proc.poll.return_value = None
+        proc.wait.return_value = 0
+        worker._process = proc
+        worker._log = io.StringIO()
+        with patch("voxweavetts.m2m_runtime.subprocess.run") as hard_kill:
+            worker.close()
+        proc.wait.assert_called_once_with(timeout=3)
+        hard_kill.assert_not_called()
+        self.assertTrue(proc.stdin.closed)
+        self.assertTrue(proc.stdout.closed)
+        self.assertIsNone(worker._process)
+        self.assertIsNone(worker._log)
+
+    @unittest.skipUnless(os.name == "nt", "Windows uses taskkill to end stalled child trees")
+    def test_stalled_worker_uses_owned_tree_kill_after_eof_timeout(self):
+        worker = m2m_runtime.TranslationWorkerSession()
+        proc = Mock()
+        proc.pid = 54321
+        proc.stdin = io.StringIO()
+        proc.stdout = io.StringIO()
+        proc.poll.return_value = None
+        proc.wait.side_effect = [subprocess.TimeoutExpired("python",3),0]
+        worker._process = proc
+        with patch("voxweavetts.m2m_runtime.subprocess.run") as hard_kill:
+            worker.close()
+        hard_kill.assert_called_once()
+        command = hard_kill.call_args.args[0]
+        self.assertEqual(command[:3], ["taskkill", "/PID", "54321"])
+        self.assertIn("/T", command)
+        self.assertIn("/F", command)
+        self.assertEqual(proc.wait.call_count, 2)
+        self.assertTrue(proc.stdin.closed)
+        self.assertTrue(proc.stdout.closed)
+
 class M2MRealSmokeTests(unittest.TestCase):
     def test_uses_only_fixed_two_examples_one_worker_closes(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -130,6 +172,25 @@ class M2MRealSmokeTests(unittest.TestCase):
             self.assertEqual(session.translate.call_args_list[1].args[0],
                              "ขอบคุณครับ")
             session.close.assert_called_once()
+
+    def test_wrong_script_or_unchanged_result_fails_and_releases_worker(self):
+        root = Path("mocked-root")
+        cases = (
+            (("Good morning.", "Thanks."), "unchanged source"),
+            (("Hello.", "Thanks."), "target-language checks"),
+        )
+        for answers, error in cases:
+            with self.subTest(answers=answers):
+                with (patch("voxweavetts.m2m_smoke.ready",return_value=True),
+                      patch("voxweavetts.m2m_smoke.native_translation_packages",
+                            return_value=[({"package_id":"m2m100-418m",
+                                            "version":"1.0.0"},root/"model")]),
+                      patch("voxweavetts.m2m_smoke.TranslationWorkerSession") as build):
+                    instance = build.return_value
+                    instance.translate.side_effect = answers
+                    with self.assertRaisesRegex(m2m_runtime.M2MRuntimeError,error):
+                        m2m_smoke.verify(root)
+                    instance.close.assert_called_once()
 
     def test_no_runtime_fails_closed_without_loading_model(self):
         with tempfile.TemporaryDirectory() as temp:
