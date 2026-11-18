@@ -75,6 +75,7 @@ _REVIEW = {
 _IDS = frozenset(("wayu-nc", "vachana", "kokoro",
                  "pythaitts", "sherpa", "m2m100"))
 _GUIDE = "docs/PROVIDER_RIGHTS_READINESS_TH.md"
+INSTALL_TERMS_VERSION = 1
 _EXTERNAL_ID = re.compile(r"[a-z][a-z0-9-]{2,31}\Z")
 
 
@@ -89,6 +90,15 @@ def review(runtime_id: str, *, approved_external: bool = False) -> dict[str, Any
     return {
         "review_version": 1,
         "runtime_id": runtime_id,
+        "local_install": {
+            "allowed_with_explicit_consent": True,
+            "consent_required": runtime_id in _HOLDS,
+            "terms_version": INSTALL_TERMS_VERSION,
+            "noncommercial_acknowledgment_required": runtime_id == "wayu-nc",
+            "source": "first-party-pinned-recipe",
+            "may_download_third_party_dependencies": True,
+            "consent_is_not_redistribution_clearance": True,
+        },
         "publication_state": (
             "hold" if runtime_id in _HOLDS else "review-required"
         ),
@@ -104,6 +114,33 @@ def review(runtime_id: str, *, approved_external: bool = False) -> dict[str, Any
             False if runtime_id in _HOLDS else None
         ),
     }
+
+
+def require_local_install_consent(
+    runtime_id: str, *, terms_version: int | None = None,
+    acknowledge_noncommercial: bool = False,
+    approved_external: bool = False,
+) -> None:
+    """Validate fresh, provider-specific install consent before any mutation.
+
+    The caller never specifies dependencies, URLs, executable paths, or license
+    metadata. Consent is an in-memory authorization for ONE installation; it
+    does not modify the app-owned publication gate or record commercial rights.
+    """
+    info = review(runtime_id, approved_external=approved_external)
+    policy = info["local_install"]
+    if not policy["consent_required"]:
+        return
+    if type(terms_version) is not int or terms_version != INSTALL_TERMS_VERSION:
+        raise ValueError(
+            runtime_id + ": explicit current-version license/third-party "
+            "dependency acknowledgement is required before local install"
+        )
+    if (policy["noncommercial_acknowledgment_required"]
+            and acknowledge_noncommercial is not True):
+        raise ValueError(
+            "Wayu NC weights require explicit noncommercial-only acknowledgement"
+        )
 
 
 def require_first_party_wheelhouse_publication(runtime_id: str) -> None:

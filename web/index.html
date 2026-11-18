@@ -1412,12 +1412,56 @@ async function loadEngineProviders(){
     small.style.display="block";
     small.textContent=(provider.engines||[]).join(", ")+
       (provider.install.error ? " · "+provider.install.error : "");
+    // Fresh, provider-specific opt-in: accepting local installation is NOT a
+    // grant of redistribution or commercial usage rights.
+    const rights=provider.rights_review||{};
+    const localInstall=rights.local_install||{};
+    const consentRequired=localInstall.consent_required===true;
+    const ncRequired=localInstall.noncommercial_acknowledgment_required===true;
+    let acceptBox=null,noncommercialBox=null;
+    if(consentRequired){
+      const note=document.createElement("small");
+      note.style.display="block";
+      note.textContent="เงื่อนไข Runtime: "+String(rights.description||"ต้องตรวจสิทธิ์")+
+        " · การติดตั้งอาจดาวน์โหลด Dependencies จากภายนอก"+
+        " · การยอมรับไม่ได้ทำให้สิทธิ์ใช้เชิงพาณิชย์หรือแจกจ่ายเปลี่ยนไป";
+      row.append(note);
+      const acceptLabel=document.createElement("label");
+      acceptBox=document.createElement("input");
+      acceptBox.type="checkbox";
+      acceptBox.checked=false;
+      acceptLabel.append(acceptBox,document.createTextNode(
+        " ฉันอ่านและยอมรับเงื่อนไขของ "+provider.id+" สำหรับการติดตั้งบนเครื่องนี้"
+      ));
+      row.append(acceptLabel);
+      if(ncRequired){
+        const ncLabel=document.createElement("label");
+        ncLabel.style.display="block";
+        noncommercialBox=document.createElement("input");
+        noncommercialBox.type="checkbox";
+        noncommercialBox.checked=false;
+        ncLabel.append(noncommercialBox,document.createTextNode(
+          " ฉันรับทราบว่าโมเดล Wayu NC (CC BY-NC 4.0) ห้ามนำไปใช้เชิงพาณิชย์"
+        ));
+        row.append(ncLabel);
+      }
+    }
     const button=document.createElement("button");
     button.type="button";
-    button.textContent=provider.install.state==="ready"?"Runtime ready":"Install / Repair Runtime";
-    button.disabled=provider.install.state==="ready"||provider.install.state==="installing";
+    button.textContent=provider.install.state==="ready"?"Runtime ready":"ติดตั้ง Runtime";
+    const waiting=provider.install.state==="ready"||provider.install.state==="installing";
+    const hasConsent=()=>!consentRequired||Boolean(acceptBox?.checked&&
+      (!ncRequired||noncommercialBox?.checked));
+    const updateDisabled=()=>{button.disabled=waiting||!hasConsent();};
+    if(acceptBox)acceptBox.addEventListener("change",updateDisabled);
+    if(noncommercialBox)noncommercialBox.addEventListener("change",updateDisabled);
+    updateDisabled();
     button.style.margin="6px 0 8px";
     button.addEventListener("click",async()=>{
+      if(waiting||!hasConsent())return;
+      if(!window.confirm("ติดตั้ง Runtime "+provider.id+" บนเครื่องนี้หรือไม่?\n"+
+        "Dependencies อาจดาวน์โหลดจากผู้พัฒนาภายนอก และการยอมรับไม่ใช่การรับรองสิทธิ์เชิงพาณิชย์"+
+        (ncRequired?"\nWayu NC: น้ำหนักโมเดลใช้ได้เฉพาะไม่ใช่เชิงพาณิชย์":"")))return;
       button.disabled=true;
       el("engineProviderStatus").textContent="Installing "+provider.id+" dependencies into an isolated environment...";
       try{
@@ -1425,13 +1469,20 @@ async function loadEngineProviders(){
           method:"POST",
           headers:{"Content-Type":"application/json",
                    "X-VoxWeaveTTS-Intent":"install-engine-provider"},
-          body:JSON.stringify({provider_id:provider.id})
+          body:JSON.stringify(consentRequired?{
+            provider_id:provider.id,
+            accepted_terms_version:localInstall.terms_version,
+            acknowledged_noncommercial:ncRequired&&noncommercialBox.checked
+          }:{provider_id:provider.id})
         });
-        if(!result.ok)throw Error("Provider installation was rejected");
+        if(!result.ok){
+          const problem=await result.json().catch(()=>({}));
+          throw Error(String(problem.error||"Provider installation was rejected"));
+        }
         await loadEngineProviders();
       }catch(e){
         el("engineProviderStatus").textContent=String(e);
-        button.disabled=false;
+        updateDisabled();
       }
     });
     row.append(name,small,button);

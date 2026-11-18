@@ -7,6 +7,28 @@
 
 Hash ตรง **ไม่ได้พิสูจน์สิทธิ์** และการมี Model Card ระบุ MIT/Apache ไม่ได้แปลว่า Dependencies, องค์ประกอบ Native หรือเสียงทุกชุดได้รับสิทธิ์แบบเดียวกัน
 
+## ทางเลือกใหม่: ผู้ใช้ยินยอมก่อนติดตั้ง Runtime บนเครื่องตนเอง
+
+**Source ที่พัฒนาต่อหลัง v0.10.1:** ในหน้า **Engine Providers** ผู้ใช้สามารถเลือกติดตั้ง `vachana`, `kokoro`, `wayu-nc` ได้แม้มีสถานะ HOLD สำหรับ **การเผยแพร่ Wheelhouse ใหม่โดยทีมพัฒนา** โดยต้องอ่านคำเตือนและติ๊กยอมรับเงื่อนไขแยกสำหรับ Runtime นั้นก่อน กดติดตั้งแล้วมีหน้าต่างยืนยันอีกครั้ง
+
+- **Vachana:** แสดงว่าหลักฐาน License ของ Wheel `vachanatts 0.0.7` ยังไม่ครบ และอาจดาวน์โหลด Dependencies จาก PyPI; ผู้ใช้เลือกทดลองติดตั้งเองโดยไม่ได้รับการรับรองเชิงพาณิชย์
+- **Kokoro:** แสดงว่า `phonemizer` มีข้อกำหนด GPLv3-or-later และส่วน Native / Notices ยังต้องตรวจ; การกดยอมรับ **ไม่ได้ยกเลิก** ภาระตาม License ของ GPL
+- **Wayu NC:** ต้องติ๊กสองช่อง ได้แก่ ยอมรับเงื่อนไขการติดตั้ง และยืนยันแยกว่ารับทราบ **CC BY-NC 4.0 / ใช้โมเดลเฉพาะที่ไม่ใช่เชิงพาณิชย์**; การยอมรับไม่เปลี่ยนสิทธิ์ของน้ำหนักโมเดล
+
+คำสั่งสำหรับผู้เลือกติดตั้งผ่าน PowerShell ใน Source/Portable รุ่นพัฒนานี้:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Install-EngineProvider.ps1 -Provider vachana -AcceptProviderTerms
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Install-EngineProvider.ps1 -Provider kokoro -AcceptProviderTerms
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Install-WayuWorker.ps1 -AcceptProviderTerms -AcknowledgeNonCommercial
+```
+
+การเรียก `Install-EngineProvider.ps1` แบบ `-Provider all` โดยไม่ระบุการยอมรับ จะข้ามสาม Runtime ที่ต้องยอมรับเงื่อนไข ไม่กดยินยอมให้อัตโนมัติ ส่วน UI/API ตรวจการยอมรับ **แยกตาม Provider ทุกครั้งที่จะเริ่มติดตั้งใหม่** และไม่เก็บ Flag ยอมรับลง Settings เพื่อไม่ให้การตั้งค่าเดิมถูกนำมาอนุญาตติดตั้งรอบใหม่โดยไม่รู้ตัว
+
+การติดตั้งยังใช้ **Recipe ที่ระบุใน Source** และ Isolated Python Environment เดิม; การยินยอมไม่อนุญาตให้ Model Package ที่นำเข้ามาระบุคำสั่ง Shell, Wheel URL หรือ Dependency เพิ่มเอง หากต้องใช้เครือข่ายหรือเซิร์ฟเวอร์ภายนอก การดาวน์โหลดจะเกิดเฉพาะหลังผู้ใช้สั่งติดตั้งจริง
+
+**ขอบเขต:** คำสั่งนี้เป็นการติดตั้ง Dependencies บนเครื่องผู้ใช้ ไม่ใช่การแจกจ่าย Dependency Wheels หรือโมเดลใหม่ และไม่ใช่คำวินิจฉัยว่าการใช้งานที่วางแผนไว้ได้รับอนุญาตแล้ว สถานะ `publication_state=hold` และข้อห้ามของ Wayu NC ยังคงเดิม
+
 ## ตารางติดตาม (ผลตรวจจาก Candidate Windows x64 / Python 3.11)
 
 | Runtime | สภาพทางเทคนิค | สภาพสิทธิ์สำหรับการคัดเป็น Wheelhouse ใหม่ | สิ่งที่ยังติดขัด |

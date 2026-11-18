@@ -342,14 +342,68 @@ class PackageEndpointTests(unittest.TestCase):
                     status, _ = self.post(route, {"provider_id": "kokoro"}, **kwargs)
                     self.assertEqual(status, 403)
             setup.assert_not_called()
-            status, result = self.post(route, {"provider_id": "kokoro"},
-                                       intent="install-engine-provider")
+            status, _ = self.post(route, {"provider_id": "kokoro"},
+                                  intent="install-engine-provider")
+            self.assertEqual(status, 400)
+            setup.assert_not_called()
+            for invalid in (
+                {"accepted_terms_version": True, "acknowledged_noncommercial": False},
+                {"accepted_terms_version": 0, "acknowledged_noncommercial": False},
+                {"accepted_terms_version": 1, "acknowledged_noncommercial": "yes"},
+                {"accepted_terms_version": 1, "acknowledged_noncommercial": False,
+                 "requirements": "https://example.invalid/evil.whl"},
+            ):
+                with self.subTest(invalid=invalid):
+                    status, _ = self.post(
+                        route, {"provider_id": "kokoro", **invalid},
+                        intent="install-engine-provider")
+                    self.assertEqual(status, 400)
+            setup.assert_not_called()
+            status, result = self.post(route, {
+                "provider_id": "kokoro", "accepted_terms_version": 1,
+                "acknowledged_noncommercial": False,
+            }, intent="install-engine-provider")
             self.assertEqual(status, 200)
             self.assertEqual(result["install"]["state"], "installing")
-            setup.assert_called_once_with("kokoro")
+            setup.assert_called_once_with(
+                "kokoro", terms_version=1, acknowledge_noncommercial=False)
         status, _ = self.post(route, {"provider_id": "../../bad"},
                               intent="install-engine-provider")
         self.assertEqual(status, 400)
+
+    def test_wayu_nc_needs_separate_noncommercial_acknowledgment(self):
+        route="/v1/engine-providers/install"
+        with patch("voxweavetts.server.install_async",
+                   return_value={"id":"wayu-nc","state":"installing"}) as setup:
+            for payload in (
+                {"provider_id":"wayu-nc"},
+                {"provider_id":"wayu-nc","accepted_terms_version":1,
+                 "acknowledged_noncommercial":False},
+                {"provider_id":"wayu-nc","accepted_terms_version":0,
+                 "acknowledged_noncommercial":True},
+            ):
+                with self.subTest(payload=payload):
+                    status,_=self.post(route,payload,intent="install-engine-provider")
+                    self.assertEqual(status,400)
+            setup.assert_not_called()
+            status,body=self.post(route,{
+                "provider_id":"wayu-nc","accepted_terms_version":1,
+                "acknowledged_noncommercial":True
+            },intent="install-engine-provider")
+            self.assertEqual(status,200)
+            self.assertEqual(body["install"]["state"],"installing")
+            setup.assert_called_once_with(
+                "wayu-nc", terms_version=1, acknowledge_noncommercial=True)
+
+    def test_nonheld_provider_keeps_simple_install_contract(self):
+        route="/v1/engine-providers/install"
+        with patch("voxweavetts.server.install_async",
+                   return_value={"id":"pythaitts","state":"installing"}) as setup:
+            status,body=self.post(route,{"provider_id":"pythaitts"},
+                                  intent="install-engine-provider")
+            self.assertEqual(status,200)
+            self.assertEqual(body["install"]["state"],"installing")
+            setup.assert_called_once_with("pythaitts")
 
 if __name__ == "__main__":
     unittest.main()

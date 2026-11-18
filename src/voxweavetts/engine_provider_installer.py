@@ -80,11 +80,21 @@ def _execute(command: list[str], *, root: Path, log: Any) -> None:
         raise InstallError("provider environment installation failed; see logs/engine-workers")
 
 
-def install(provider_id: str, *, root: Path = ROOT) -> Path:
+def install(provider_id: str, *, root: Path = ROOT,
+            terms_version: int | None = None,
+            acknowledge_noncommercial: bool = False) -> Path:
     """Synchronous install, intentionally used by background jobs / CLI."""
     profile = all_providers(root).get(provider_id)
     if profile is None:
         raise InstallError("unknown or untrusted engine provider")
+    from .provider_rights import require_local_install_consent
+    try:
+        require_local_install_consent(
+            provider_id, terms_version=terms_version,
+            acknowledge_noncommercial=acknowledge_noncommercial,
+            approved_external=profile.plugin_path is not None)
+    except ValueError as exc:
+        raise InstallError(str(exc)) from exc
     root = Path(root)
     from .runtime_tools import find_uv
     uv = find_uv(root)
@@ -214,9 +224,20 @@ def repair(provider_id: str, *, root: Path = ROOT) -> Path:
     return folder
 
 
-def install_async(provider_id: str, *, root: Path = ROOT) -> dict[str, Any]:
-    if provider_id not in all_providers(root):
+def install_async(provider_id: str, *, root: Path = ROOT,
+                  terms_version: int | None = None,
+                  acknowledge_noncommercial: bool = False) -> dict[str, Any]:
+    profile = all_providers(root).get(provider_id)
+    if profile is None:
         raise InstallError("unknown engine provider")
+    from .provider_rights import require_local_install_consent
+    try:
+        require_local_install_consent(
+            provider_id, terms_version=terms_version,
+            acknowledge_noncommercial=acknowledge_noncommercial,
+            approved_external=profile.plugin_path is not None)
+    except ValueError as exc:
+        raise InstallError(str(exc)) from exc
     with _LOCK:
         current = _JOBS.get(provider_id)
         if current and current["state"] == "installing":
@@ -230,7 +251,8 @@ def install_async(provider_id: str, *, root: Path = ROOT) -> dict[str, Any]:
 
     def run() -> None:
         try:
-            install(provider_id, root=root)
+            install(provider_id, root=root, terms_version=terms_version,
+                    acknowledge_noncommercial=acknowledge_noncommercial)
             state_name, error = "ready", None
         except (InstallError, OSError, subprocess.TimeoutExpired) as exc:
             state_name, error = "failed", str(exc)
@@ -269,8 +291,14 @@ def status(provider_id: str) -> dict[str, Any]:
 
 def catalog_status() -> list[dict[str, Any]]:
     from .engine_provider_catalog import provider_status
-    return [{**entry, **{"install": status(entry["id"])}}
-            for entry in provider_status()]
+    from .provider_rights import review as rights_review
+    return [{
+        **entry,
+        "install": status(entry["id"]),
+        "rights_review": rights_review(
+            entry["id"], approved_external=bool(entry.get("external"))
+        ),
+    } for entry in provider_status()]
 
 
 def main() -> None:
@@ -281,6 +309,10 @@ def main() -> None:
     parser.add_argument("operation", choices=("install", "approve-install"))
     parser.add_argument("provider_id")
     parser.add_argument("--trust-executable-code", action="store_true")
+    parser.add_argument("--accept-provider-terms", action="store_true",
+                        help="explicit opt-in to install reviewed third-party dependencies")
+    parser.add_argument("--acknowledge-noncommercial", action="store_true",
+                        help="Wayu NC weights must not be used commercially")
     args = parser.parse_args()
     if args.operation == "approve-install":
         if not args.trust_executable_code:
@@ -289,7 +321,12 @@ def main() -> None:
         approved = approve_provider_folder(provider_path, trust_code=True)
         print("Approved engine provider", approved.id, flush=True)
     print("Installing", args.provider_id, flush=True)
-    installed = install(args.provider_id)
+    from .provider_rights import INSTALL_TERMS_VERSION
+    installed = install(
+        args.provider_id,
+        terms_version=INSTALL_TERMS_VERSION if args.accept_provider_terms else None,
+        acknowledge_noncommercial=args.acknowledge_noncommercial,
+    )
     print("Runtime ready:", installed, flush=True)
 
 

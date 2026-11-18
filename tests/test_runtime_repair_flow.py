@@ -188,7 +188,7 @@ class RuntimeRepairFlowTests(unittest.TestCase):
                     return_value="uv"),
               patch("voxweavetts.engine_provider_installer._execute") as execute):
             with self.assertRaisesRegex(tts.InstallError, "offline repair"):
-                tts.install("vachana", root=self.root)
+                tts.install("vachana", root=self.root, terms_version=1)
         execute.assert_not_called()
         self.assertTrue((folder / ".voxweave-ready.json").exists())
 

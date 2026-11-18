@@ -1122,11 +1122,51 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 data = self._read_json(max_bytes=2048)
-                if set(data) != {"provider_id"} or not isinstance(data["provider_id"], str):
+                if not isinstance(data, dict) or not isinstance(data.get("provider_id"), str):
                     raise InstallError("invalid provider request")
-                task = install_async(data["provider_id"])
+                provider_id = data["provider_id"]
+                from .provider_rights import review as rights_review
+                from .engine_provider_catalog import all_providers
+                profile = all_providers().get(provider_id)
+                if profile is None:
+                    raise InstallError("unknown provider")
+                rights = rights_review(
+                    provider_id, approved_external=profile.plugin_path is not None
+                )
+                # Exact schema: no client-supplied dependencies, URLs or paths.
+                if rights["local_install"]["consent_required"]:
+                    if set(data) != {
+                        "provider_id", "accepted_terms_version",
+                        "acknowledged_noncommercial"
+                    }:
+                        raise InstallError("explicit provider consent required")
+                    if (type(data["accepted_terms_version"]) is not int
+                        or type(data["acknowledged_noncommercial"]) is not bool):
+                        raise InstallError("invalid provider consent values")
+                    from .provider_rights import require_local_install_consent
+                    require_local_install_consent(
+                        provider_id,
+                        terms_version=data["accepted_terms_version"],
+                        acknowledge_noncommercial=data["acknowledged_noncommercial"],
+                        approved_external=profile.plugin_path is not None,
+                    )
+                    task = install_async(
+                        provider_id,
+                        terms_version=data["accepted_terms_version"],
+                        acknowledge_noncommercial=data["acknowledged_noncommercial"],
+                    )
+                else:
+                    if set(data) != {"provider_id"}:
+                        raise InstallError("unrecognized provider install fields")
+                    task = install_async(provider_id)
                 self.send_json(200, {"install": task})
-            except (InstallError, ValueError, InputError):
+            except InstallError as exc:
+                message = str(exc)
+                self.send_json(400, {"error": (
+                    message if "acknowledg" in message.lower() or "consent" in message.lower()
+                    else "unknown or untrusted engine provider"
+                )})
+            except (ValueError, InputError):
                 self.send_json(400, {"error": "unknown or untrusted engine provider"})
             return
         if route in ("/v1/model-packages/install-local", "/v1/model-packages/remove"):

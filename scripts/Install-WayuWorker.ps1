@@ -1,8 +1,12 @@
 # Backwards-compatible wrapper for the generic isolated TTS provider installer.
 [CmdletBinding()]
-param([switch]$DownloadModel)
+param(
+    [switch]$DownloadModel,
+    [switch]$AcceptProviderTerms,
+    [switch]$AcknowledgeNonCommercial
+)
 $ErrorActionPreference='Stop'
-& (Join-Path $PSScriptRoot 'Install-EngineProvider.ps1') -Provider 'wayu-nc'
+& (Join-Path $PSScriptRoot 'Install-EngineProvider.ps1') -Provider 'wayu-nc' -AcceptProviderTerms:$AcceptProviderTerms -AcknowledgeNonCommercial:$AcknowledgeNonCommercial
 if ($LASTEXITCODE -ne 0) { throw 'Wayu worker setup failed' }
 if ($DownloadModel) {
     Write-Warning 'Wayu model weights are licensed CC BY-NC 4.0. Do not use them commercially.'

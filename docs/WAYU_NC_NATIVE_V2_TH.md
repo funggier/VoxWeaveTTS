@@ -21,10 +21,10 @@
 1. ใช้ Windows Portable **v0.10.1 หรือใหม่กว่า** แพ็กเกจนี้ใช้ไม่ได้กับ v0.10.0 ที่ยังปิดการรองรับไฟล์ PyTorch .pth/.pt ใน Native v2
 2. ดาวน์โหลดไฟล์ Wayu NC ที่ระบุข้างต้นจาก Release เดียวกันไปเก็บที่ใดก็ได้
 3. เปิดโปรแกรม → **ตั้งค่า → Model Packages → ติดตั้งโมเดล** แล้วเลือกไฟล์ `.vwmodel` ที่ดาวน์โหลดมา การติดตั้งตรวจชนิดไฟล์/Manifest/SHA-256/ต้นทาง/สิทธิ์ก่อนนำไปลงใน `models/universal/v2/tts/wayu-paxa-edge-nc/1.0.0`
-4. หาก Wayu Runtime ยังไม่พร้อม เปิด PowerShell ที่โฟลเดอร์ Portable แล้วติดตั้งแบบยืนยันเอง:
+4. หาก Wayu Runtime ยังไม่พร้อม เปิด PowerShell ที่โฟลเดอร์ Portable แล้วติดตั้งแบบยืนยันเอง **สำหรับ Source ที่พัฒนาหลัง v0.10.1** (ตัวเลือก `-AcceptProviderTerms` และ `-AcknowledgeNonCommercial` ยังไม่มีในไฟล์ Release v0.10.1 ที่เผยแพร่ไปก่อนหน้า):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Install-WayuWorker.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Install-WayuWorker.ps1 -AcceptProviderTerms -AcknowledgeNonCommercial
 ```
 
 ข้อควรระวัง: **Wayu Runtime ยังไม่ได้มี Verified Offline Wheelhouse** เนื่องจาก Dependencies ของ Worker มี Git URL และ Direct URL (รวมถึง `wayu-tts-inference`, โมเดลภาษา spaCy) จึงอาจต้องใช้อินเทอร์เน็ตและเครื่องมือพัฒนาตาม Dependencies; ไม่ควรเข้าใจว่าติดตั้ง Offline ได้เหมือน Sherpa/PyThaiTTS/M2M100. ติดตั้งเฉพาะเมื่อยอมรับให้รัน Dependencies จากแหล่งที่อยู่ใน Recipe ที่ตรวจสอบแล้ว
