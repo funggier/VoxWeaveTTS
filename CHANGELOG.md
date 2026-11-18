@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased — Phase E: Portable Doctor & post-relocation runtime resilience
+## v0.10.2 — Portable Doctor, M2M100 CPU and opt-in provider installation
+
+- Release uses native-v2 Portable builder with bundled uv and Portable Doctor, keeps eight optional `.vwmodel v2` packages and the three previously curated wheelhouses separate. The Vachana/Kokoro candidates and Wayu NC runtime wheelhouse are deliberately not published; user consent to local install does not transfer redistribution rights.
+- Release notes: [v0.10.2](docs/RELEASE_NOTES_v0.10.2.md).
+
+### Technical changes since v0.10.1
 
 - Opt-in local install for Wayu NC, Vachana and Kokoro: per-provider rights disclosure, unchecked consent checkbox and explicit browser confirmation. Wayu NC needs a second, separate noncommercial-only acknowledgment. Strict same-origin HTTP request validation and synchronous/asynchronous install guards refuse missing, stale or wrong-type consent before opening uv/creating environments. Consent is for one installation, not persisted or treated as commercial/redistribution clearance. CLI/PowerShell wrappers provide explicit acceptance flags; installer `-Provider all` skips held providers unless explicitly opted in. The first-party reviewed wheelhouse publication HOLD remains unchanged.
 
