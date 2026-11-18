@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from voxweavetts.offline_wheelhouse import (WheelhouseError, _digest, _wheel_dir,
     _lock_path, draft_lock, trusted_lock, verified_wheels)
+from voxweavetts.provider_rights import require_first_party_wheelhouse_publication
 
 
 def main() -> int:
@@ -40,6 +41,8 @@ def main() -> int:
     if not args.publish_reviewed:
         print("Not trusted or installed. Use --publish-reviewed after review.")
         return 0
+    # --publish-reviewed cannot override a first-party license/provenance HOLD.
+    require_first_party_wheelhouse_publication(args.runtime_id)
     lock_file = _lock_path(ROOT, args.runtime_id)
     destination = _wheel_dir(ROOT, args.runtime_id)
     if lock_file.exists() or destination.exists() or destination.is_symlink():

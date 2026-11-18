@@ -25,6 +25,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Check-Portable.ps1 -
 
 ใช้ API ภายในได้ด้วย: `voxweavetts.portable_doctor.report(root, verify_wheelhouse=False)` ซึ่งส่ง `format=voxweavetts.portable-doctor-v1`, `core`, `models`, `runtimes`, `summary`, `overall_state` เป็นข้อมูลภาษาอังกฤษสำหรับ Parsing
 
+**สิทธิ์ Runtime:** ใน Source เวอร์ชันพัฒนานี้ Report ยังแสดง `rights_review` และจำนวน `runtimes_with_rights_hold` เพื่อแยกสถานะพร้อมใช้งานทางเทคนิคออกจากสิทธิ์แจกจ่าย/ใช้งานเชิงพาณิชย์ ตาม [คู่มือ Rights Readiness](PROVIDER_RIGHTS_READINESS_TH.md) โดย `overall_state=ready` ไม่ใช่การรับรองสิทธิ์
+
 ## ความหมายของสถานะ
 
 - `ready`: ในระดับ Manifest, Runtime Metadata และการติดตั้งที่ตรวจสอบได้ตามสถานะ ปัจจัยบางอย่าง (RAM/Windows Pagefile/ภาษา/ความถูกต้องเสียง) ยังต้องทดลองสร้างเสียงจริงแยกต่างหาก

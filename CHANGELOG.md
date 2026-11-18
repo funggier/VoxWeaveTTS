@@ -15,6 +15,10 @@
 - Harden bilingual `Verify-M2M100Runtime.ps1` checks: reject unchanged source text and wrong target-language script, and always close the worker after failure.
 - Add opt-in maintainer-only `scripts/verify_portable_m2m_e2e.py` to repeat an offline install + real translation + relocation + repair on a fresh copied Portable and clean only its guarded disposable test directory, with bounded Windows file-lock cleanup retries. The first full test completed all model/runtime/inference stages but its original unguarded cleanup hit WinError 5. The repeated full clean-Portable test with graceful worker exit and guarded cleanup passed all stages, then removed the 2 GB test data successfully (exit code 0).
 
+- Add app-owned dependency rights review metadata to Runtime Registry/Portable Doctor: Wayu NC model weights remain noncommercial-only; Vachana wheel has missing license evidence; Kokoro dependency chain includes GPL-3.0-or-later phonemizer and native eSpeak/UniDic/OpenJTalk notice questions. All are explicit HOLD for new first-party wheelhouse publication; technical readiness remains independent.
+- Fail closed when `prepare_verified_wheelhouse.py --publish-reviewed` tries to curate new first-party Wayu NC, Vachana or Kokoro trusted locks before an explicit source-reviewed policy change. Preserve draft and existing runtimes, wheelhouses and model data. Wheelhouse rights audit now joins recipe SHA-256, full wheel SHA-256 and app-owned rights status into cache-only review reports, without granting permission.
+- Add safe text-only rights messaging to the UI, tests for publication gate/read-only policy and UI XSS regression, and [rights readiness guidance](docs/PROVIDER_RIGHTS_READINESS_TH.md).
+
 ## v0.10.1 — Wayu Paxa Edge 12-Voice Native v2 (NonCommercial)
 
 - Add separate CC BY-NC 4.0 Wayu Paxa Edge 12-voice Thai/English native `.vwmodel v2` package. Original upstream `.pth/.pt` assets remain byte-for-byte SHA-256 pinned, and the exact publisher/source revision and NC license are enforced before execution.

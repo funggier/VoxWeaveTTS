@@ -123,6 +123,23 @@ async function refresh(){
         ?"Offline Wheelhouse: Recipe ยังมีแหล่ง Git/URL ที่ไม่ได้แปลงเป็น Wheel ที่ตรวจสอบแล้ว"
       :"Offline Wheelhouse: ยังไม่มีชุดไฟล์ที่ตรงกับ Trusted Lock";
     li.append(wheelMessage);
+    // Operational readiness is not a third-party license or distribution grant.
+    // The server returns app-owned review metadata; never trust model manifests
+    // to override this flag or render license text as HTML.
+    const rights=info.rights_review||null;
+    if(rights){
+      const notice=doc.createElement("small");
+      notice.style.display="block";
+      const commercial=String(rights.commercial_status||"review-required");
+      const release=String(rights.publication_state||"review-required");
+      const reason=Array.isArray(rights.reasons)?rights.reasons.map(String).join(", "):"unknown";
+      notice.textContent="สิทธิ์ Runtime (Rights): "+
+        (release==="hold"?"HOLD / งดเผยแพร่ Wheelhouse ใหม่":"รอตรวจสิทธิ์เพิ่มเติม")+
+        " · Commercial: "+commercial+" · Publication: "+release+
+        " · "+reason+
+        " · Runtime พร้อมใช้งาน ไม่ใช่การรับรองสิทธิ์ใช้งานเชิงพาณิชย์";
+      li.append(notice);
+    }
     if(wheelhouse.ready_to_verify&&!info.ready){
       const install=doc.createElement("button");
       install.type="button";

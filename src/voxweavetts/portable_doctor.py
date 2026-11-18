@@ -124,6 +124,7 @@ def report(root: Path = ROOT, *, verify_wheelhouse: bool = False) -> dict[str, A
             "relative_path": raw["relative_path"],
             "consumers": list(raw["consumers"]),
             "reference_count": int(raw["reference_count"]),
+            "rights_review": raw.get("rights_review"),
         }
         info["recommended_action"] = _next_action(
             info, uv_available=bundled_uv, base_python=py_ok,
@@ -199,6 +200,10 @@ def report(root: Path = ROOT, *, verify_wheelhouse: bool = False) -> dict[str, A
             "invalid_native_manifests": invalid_count,
             "invalid_wheelhouses": invalid_wheelhouses,
             "runtimes_ready": sum(x["ready"] for x in runtimes),
+            "runtimes_with_rights_hold": sum(
+                (r.get("rights_review") or {}).get("publication_state") == "hold"
+                for r in runtimes
+            ),
             "runtimes_total": len(runtimes),
         },
         "models": models,
@@ -242,7 +247,10 @@ def main(argv: list[str] | None = None) -> int:
         for runtime in data["runtimes"]:
             print(f"  RUNTIME {runtime['id']}: {runtime['health_state']} "
                   f"| wheelhouse={runtime['wheelhouse_state']} "
-                  f"| next={runtime['recommended_action']}")
+                  f"| next={runtime['recommended_action']}"
+                  + (" | rights=" + runtime["rights_review"]["commercial_status"]
+                     + "/" + runtime["rights_review"]["publication_state"]
+                     if runtime.get("rights_review") else ""))
         print("Read-only diagnosis. No dependencies, models or settings changed.")
     return 2 if args.strict and data["overall_state"] != "ready" else 0
 

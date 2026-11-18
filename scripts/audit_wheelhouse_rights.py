@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from voxweavetts.offline_wheelhouse import WheelhouseError, draft_lock
+from voxweavetts.provider_rights import review as provider_review
 
 
 def audit_wheels(directory: Path) -> list[dict]:
@@ -71,12 +72,23 @@ def main() -> int:
     audit = audit_wheels(args.source)
     if len(audit) != len(draft["wheels"]):
         raise WheelhouseError("incomplete wheel inventory")
+    # Draft lock already checks pinned dependency closure and SHA-256. Couple
+    # those exact file hashes to license evidence, but never turn a matching
+    # wheel or an operator's claim into legal clearance.
+    hashes = {row["filename"]: row["sha256"] for row in draft["wheels"]}
+    for row in audit:
+        row["sha256"] = hashes[row["filename"]]
     warnings = [{"name": x["name"], "flags": x["flags"]}
                 for x in audit if x["flags"]]
+    policy = provider_review(args.runtime_id)
     result = {
         "status": "manual-review-required",
         "legal_clearance": False,
         "runtime_id": args.runtime_id,
+        "recipe_sha256": draft["recipe_sha256"],
+        "platform": draft["platform"],
+        "python_abi": draft["python_abi"],
+        "rights_review": policy,
         "wheels": audit,
         "review_queue": warnings,
         "note": "Do not infer redistribution/commercial rights from hashes or package classifiers.",

@@ -109,6 +109,19 @@ class PortableDoctorTests(unittest.TestCase):
         self.assertEqual(data["runtimes"][1]["recommended_action"],
                          "review-online-provider-recipe")
 
+    def test_rights_hold_is_separate_from_technical_ready(self):
+        from voxweavetts.provider_rights import review as rights_review
+        row = runtime("wayu-nc", ready=True, state="ready",
+                      wheels="recipe-unsupported")
+        row["rights_review"] = rights_review("wayu-nc")
+        result = self.inspect(runtimes=[row])
+        self.assertEqual(result["overall_state"], "ready")
+        self.assertEqual(result["summary"]["runtimes_with_rights_hold"], 1)
+        status = result["runtimes"][0]["rights_review"]
+        self.assertEqual(status["commercial_status"], "noncommercial-only")
+        self.assertEqual(status["publication_state"], "hold")
+        self.assertFalse(status["legal_clearance"])
+
     def test_relocated_runtime_recommends_verified_rebuild(self):
         result = self.inspect(runtimes=[
             runtime("sherpa", state="relocated", wheels="present-unverified")])

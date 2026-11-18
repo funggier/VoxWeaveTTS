@@ -2,6 +2,8 @@
 
 **สถานะ:** ตรวจเบื้องต้นในเครื่องพัฒนา วันที่ 17 พฤศจิกายน 2026; **ไม่ใช่การอนุมัติให้แจกจ่ายหรือคำรับรองการใช้งานเชิงพาณิชย์**
 
+**อัปเดต 18 พฤศจิกายน 2026:** เพิ่ม First-party Rights Gate สำหรับ Wayu NC / Vachana / Kokoro ซึ่งปฏิเสธการย้าย Candidate ไป Trusted Lock แม้จะระบุ `--publish-reviewed` จนกว่าจะตรวจหลักฐานสิทธิ์และแก้ Policy ใน Source โดยเจตนา พร้อมสถานะสิทธิ์ใน Runtime Registry/Portable Doctor [รายละเอียด](PROVIDER_RIGHTS_READINESS_TH.md)
+
 ระบบ Wheelhouse ต้องตรวจ **สองเรื่องที่เป็นอิสระกัน**:
 
 1. **ความสมบูรณ์ทางเทคนิค:** เวอร์ชัน, Python/OS ABI, Dependency closure, Trusted Recipe, ZIP และ SHA-256 ของไฟล์ Wheel

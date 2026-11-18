@@ -126,5 +126,25 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   await candidate.children[5].events.click();
   assert.equal(requests.filter(x=>x.path==="/v1/runtimes/install-verified").length,1);
   assert.equal(records[3].repair.source,"wheelhouse");
-  console.log("PASS: guarded runtime uninstall, legacy repair, verified wheelhouse install consent and same-origin intent");
+  records.push({
+    id:"wayu-nc",kind:"tts",installed:true,ready:true,
+    health_state:"ready",repair_required:false,
+    consumers:["v2:wayu@1.0.0"],reference_count:1,can_uninstall:false,
+    runtime_fingerprint:"e".repeat(64),relative_path:"runtime/engine-envs/wayu-nc",
+    rights_review:{
+      commercial_status:"noncommercial-only",
+      publication_state:"hold",
+      legal_clearance:false,
+      reasons:["wayu-weight-noncommercial-license","<img src=x onerror=alert(1)>"]
+    }
+  });
+  await fakeWindow.VoxRuntimeRegistry.refresh();
+  const wayu=get("runtimeRegistryList").children[4];
+  const notices=wayu.children.filter(node=>String(node.textContent||"").includes("สิทธิ์ Runtime (Rights):"));
+  assert.equal(notices.length,1,"NC rights must be shown even with runtime ready");
+  assert.match(notices[0].textContent,/HOLD/);
+  assert.match(notices[0].textContent,/Commercial: noncommercial-only/);
+  assert.match(notices[0].textContent,/ไม่ใช่การรับรองสิทธิ์/);
+  assert.match(notices[0].textContent,/<img src=x/);
+  console.log("PASS: guarded runtime lifecycle and clear NC/HOLD license warning");
 })().catch(err=>{console.error(err);process.exitCode=1;});

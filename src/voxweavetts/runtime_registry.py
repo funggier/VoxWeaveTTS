@@ -104,6 +104,7 @@ def inventory(root: Path = ROOT) -> list[dict]:
     from .engine_provider_catalog import all_providers
     from .engine_provider_installer import ready as provider_ready
     from .offline_wheelhouse import status as wheelhouse_status
+    from .provider_rights import review as rights_review
     from .m2m_runtime import ready as m2m_ready, python_path as m2m_python, REQUIREMENTS
     root = Path(root)
     consumers = _installed_consumers(root)
@@ -123,6 +124,9 @@ def inventory(root: Path = ROOT) -> list[dict]:
             "health_state": health["state"], "health": health,
             "repair_required": health["repair_required"],
             "wheelhouse": wheelhouse_status(root, profile.id),
+            "rights_review": rights_review(
+                profile.id, approved_external=profile.plugin_path is not None
+            ),
             "repair": dict(_REPAIR_JOBS.get((str(root.resolve()), profile.id),
                                             {"state": "not_started", "error": None})),
             "consumers": list(attached), "reference_count": len(attached),
@@ -146,6 +150,7 @@ def inventory(root: Path = ROOT) -> list[dict]:
         "health_state": health["state"], "health": health,
         "repair_required": health["repair_required"],
         "wheelhouse": wheelhouse_status(root, "m2m100"),
+        "rights_review": rights_review("m2m100"),
         "repair": dict(_REPAIR_JOBS.get((str(root.resolve()), "m2m100"),
                                         {"state": "not_started", "error": None})),
         "consumers": list(attached), "reference_count": len(attached),
