@@ -9,6 +9,7 @@ jobs:
   unit:
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.11', '3.13']
     steps:
@@ -16,7 +17,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Test (standard library only)
+      # Test-only dependencies: wheel dependency closure and Ed25519 signing
+      # tests are security-critical, not stdlib-only. Install on both Python ABIs.
+      - name: Install test-only audit and signature dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check "packaging>=24,<27" "cryptography>=46,<48"
+      - name: Unit tests with audit/signature dependencies
         shell: pwsh
         run: |
           $env:PYTHONPATH = Join-Path (Get-Location) 'src'
