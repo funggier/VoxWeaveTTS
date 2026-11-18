@@ -275,7 +275,7 @@ class TranslationWorkerSession:
         # apps in an attempt to free memory.
         from .worker_memory_budget import memory_headroom
         memory = memory_headroom()
-        if memory is not None and (memory.commit_available < 4 * 1024**3
+        if memory is not None and (memory.commit_available < 6 * 1024**3
                                    or memory.physical_available < 2 * 1024**3):
             raise M2MRuntimeError(
                 "M2M100 requires more available Windows RAM/commit. "
@@ -288,8 +288,13 @@ class TranslationWorkerSession:
         env.update({
             "PYTHONPATH": str(self.root / "src"),
             "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8",
-            "PYTHONUTF8": "1", "HF_HUB_OFFLINE": "1",
-            "TRANSFORMERS_OFFLINE": "1",
+            "PYTHONUTF8": "1", "PYTHONNOUSERSITE": "1",
+            "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1",
+            "HF_HUB_DISABLE_TELEMETRY": "1",
+            # Only the isolated CPU translation process is thread-capped.
+            # Do not change Core, Ollama, TTS workers or user's system env.
+            "OMP_NUM_THREADS": "2", "MKL_NUM_THREADS": "2",
+            "TOKENIZERS_PARALLELISM": "false",
             "HF_HOME": str(self.root / "cache" / "huggingface"),
             "TORCH_HOME": str(self.root / "cache" / "torch"),
             "XDG_CACHE_HOME": str(self.root / "cache"),

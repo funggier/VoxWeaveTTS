@@ -57,4 +57,8 @@ Doctor เป็น **Read-only**: ไม่เรียก subprocess, ไม�
 
 **การทดสอบกับโฟลเดอร์ใหม่บนเครื่องเดียวกัน:** แตก Portable v0.10.1 ลงโฟลเดอร์ชั่วคราวและทับเฉพาะโค้ดที่แก้ใน Phase E, แยก Sherpa (3 Wheels) และ PyThaiTTS (26 Wheels) Wheelhouse, จำกัด Windows PATH ไม่ให้พบ uv ภายนอก, ตรวจ SHA-256 ของทุก Wheel, ติดตั้งทั้งสอง Runtime แบบ Offline จริง, เปลี่ยนชื่อโฟลเดอร์ Portable และซ่อมทั้งสองใหม่จาก Verified Wheelhouse สำเร็จโดยไม่แตะ Runtime production นอกจากนี้ Legacy uv-cache repair ของ TTS/M2M100 ตรวจว่า Python ในพาธสุดท้ายเรียกได้และ Dependencies ยังตรงหลัง Activation; หากตรวจไม่ผ่านจะ Rollback กลับไปใช้ Runtime เดิม
 
+การทดสอบ Phase E เพิ่มเติมได้ลอง M2M100 ทั้งโมเดล Native v2 ขนาด 1.9 GB และ Wheelhouse ที่ตรวจสอบแล้วจำนวน 25 Wheels ใน Portable โฟลเดอร์ใหม่ ติดตั้งแบบ Offline → แปลจริง → ย้ายโฟลเดอร์ → ซ่อมจาก Verified Wheelhouse → แปลจริงซ้ำ **สำเร็จครบทุกขั้นตอน**; เครื่องมือทดสอบใช้โฟลเดอร์ชั่วคราวแยกจากข้อมูลจริงและลบได้สำเร็จหลัง Worker ปิดแล้ว (การลบรอบแรกบน Windows ติด Access Denied ชั่วคราว จึงต้องลบซ้ำ)
+
+สำหรับการยืนยัน **M2M100 ว่าแปลจริง** (ไม่ใช่ Read-only Doctor) มีคำสั่งแยกที่ผู้ใช้ต้องเรียกเอง: `scripts/Verify-M2M100Runtime.ps1` ซึ่งจะสร้าง Worker และรันโมเดล CPU จริงสองตัวอย่าง ดู [คู่มือ M2M CPU Validation](M2M100_CPU_RUNTIME_VALIDATION_TH.md)
+
 งานถัดไป: ติดตั้ง Verified Wheelhouse บน **คอมพิวเตอร์ Windows คนละเครื่อง** ที่ไม่มี Developer Tools, ตรวจสิทธิ์ Vachana/Kokoro Dependencies, และทดสอบ M2M100 Translation Inference กับ Pagefile/RAM ที่เพียงพอ

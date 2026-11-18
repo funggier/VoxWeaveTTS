@@ -150,6 +150,8 @@ New-Item -ItemType Directory -Force -Path (Join-Path $stage 'runtime\wheelhouse'
 # notices, never embedded in the base Portable ZIP.
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'extensions\engine-providers') | Out-Null
 Copy-Item (Join-Path $root 'scripts\Install-M2M100Runtime.ps1') (Join-Path $stage 'scripts\Install-M2M100Runtime.ps1') -Force
+# An explicit real-inference smoke, not run at startup or by Portable Doctor.
+Copy-Item (Join-Path $root 'scripts\Verify-M2M100Runtime.ps1') (Join-Path $stage 'scripts\Verify-M2M100Runtime.ps1') -Force
 if (!(Test-Path (Join-Path $stage 'scripts\ai-dependencies\m2m100.txt'))) {
   throw 'Portable missing trusted M2M100 runtime recipe'
 }

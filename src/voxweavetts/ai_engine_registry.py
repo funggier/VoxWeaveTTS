@@ -117,7 +117,20 @@ from functools import lru_cache
 
 @lru_cache(maxsize=2)
 def _loaded_m2m(folder: str):
+    # Only isolated M2M workers call this function; never import PyTorch into
+    # the Portable Core. Default high CPU thread counts plus beam search can
+    # exceed the Live queue deadline, even for a tiny sentence.
+    import os
+    import torch
     from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
+
+    torch.set_num_threads(min(2, max(1, os.cpu_count() or 2)))
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        # PyTorch permits only one inter-op configuration per interpreter.
+        pass
+    torch.set_grad_enabled(False)
     tokenizer = M2M100Tokenizer.from_pretrained(folder, local_files_only=True)
     model = M2M100ForConditionalGeneration.from_pretrained(
         folder, local_files_only=True, use_safetensors=True
@@ -171,10 +184,16 @@ class M2M100Adapter:
             tokens = tokenizer(text, return_tensors="pt", truncation=False)
             if tokens["input_ids"].shape[-1] > 512:
                 raise ValueError("M2M100 segment exceeds 512 source tokens; split or shorten text")
+            # Preserve the original four-beam translation quality; the
+            # dedicated worker uses only two CPU threads and no autograd.
+            # On the tested Windows host four beams then completed faster
+            # than a second instead of timing out with default thread count.
+            # Keep the standard non-early beam stopping: early_stopping=True
+            # produced shorter/incomplete Thai translations in a real test.
             output = model.generate(**tokens,
                                     forced_bos_token_id=tokenizer.get_lang_id(target),
                                     max_new_tokens=192, num_beams=4,
-                                    early_stopping=True)
+                                    early_stopping=False, do_sample=False)
             decoded = tokenizer.batch_decode(output, skip_special_tokens=True)
         return decoded[0] if decoded else ""
 

@@ -1,4 +1,16 @@
-# M2M100 418M — วิธีติดตั้งและแก้ปัญหา (VoxWeaveTTS v0.9.5)
+# M2M100 418M — วิธีติดตั้งและแก้ปัญหา
+
+## อัปเดต Native v2 และการแปลจริง (หลัง v0.10.1)
+
+**สำหรับรุ่นใหม่:** ตั้งแต่ v0.10.0 ระบบ Model Package Manager ใช้ Native `.vwmodel v2` แทน AI Package v1 แบบเดิม โดยใช้ `VoxWeaveTTS-M2M100-418M-v1.0.0-format-v2.vwmodel` (ไฟล์โมเดล) และ `VoxWeaveTTS-m2m100-win_amd64-py311-wheelhouse.zip` (Dependencies สำหรับ Windows x64 / Python 3.11) ซึ่งดาวน์โหลดแยกจาก Portable หลัก
+
+หลังติดตั้งโมเดลผ่าน **ตั้งค่า → Model Packages** ให้เตรียม Wheelhouse แล้วเลือกติดตั้ง Runtime แบบ Offline จาก Runtime Registry เมื่อย้ายโฟลเดอร์ ให้ใช้ **Portable Doctor** และคำสั่งซ่อมจาก Verified Wheelhouse โดยต้องยืนยันก่อนทำงาน
+
+**Source ที่พัฒนาหลัง v0.10.1:** แก้ปัญหา M2M100 Worker ทำงานช้า/หมดเวลาโดยจำกัด CPU Threads เฉพาะ Worker และทดสอบแปลอังกฤษ↔ไทยจริงแล้ว [รายละเอียดและคำสั่งทดสอบ](M2M100_CPU_RUNTIME_VALIDATION_TH.md) / [Portable Doctor](PORTABLE_DIAGNOSTICS_TH.md) แพ็กเกจ Release v0.10.1 ยังไม่มีการแก้ประสิทธิภาพนี้
+
+**เนื้อหาด้านล่างเป็นคู่มือเก่าของ v0.9.5** โดยกล่าวถึง Manifest ของ AI Package v1 และ Path เก่า; ไม่ควรนำขั้นตอนนั้นไปใช้ติดตั้งไฟล์ Native v2 รุ่นปัจจุบัน
+
+---
 
 **สถานะ:** โมเดลทดลอง (Experimental) ไม่รับรองความแม่นยำการแปลหรือความเหมาะสมสำหรับ Live ทุกกรณี
 

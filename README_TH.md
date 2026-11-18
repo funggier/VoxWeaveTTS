@@ -1,6 +1,6 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
-**งานที่กำลังพัฒนาหลัง v0.10.1 — Portable Doctor (Phase E):** เพิ่มเครื่องมือตรวจโมเดล Native v2/Runtime/สถานะ Wheelhouse และการย้ายโฟลเดอร์แบบอ่านอย่างเดียว พร้อมทางเลือกตรวจ SHA-256, JSON และการซ่อมที่ใช้ `uv.exe` ภายใน Portable โดยไม่ต้องมี `uv` ใน Windows PATH ฟังก์ชันนี้อยู่ใน Source ที่พัฒนาต่อ **ยังไม่รวมใน Release v0.10.1** [คู่มือ Portable Doctor](docs/PORTABLE_DIAGNOSTICS_TH.md)
+**งานที่กำลังพัฒนาหลัง v0.10.1 — Portable Doctor (Phase E):** เพิ่มเครื่องมือตรวจโมเดล Native v2/Runtime/สถานะ Wheelhouse และการย้ายโฟลเดอร์แบบอ่านอย่างเดียว พร้อมทางเลือกตรวจ SHA-256, JSON และการซ่อมที่ใช้ `uv.exe` ภายใน Portable โดยไม่ต้องมี `uv` ใน Windows PATH ฟังก์ชันนี้อยู่ใน Source ที่พัฒนาต่อ **ยังไม่รวมใน Release v0.10.1** [คู่มือ Portable Doctor](docs/PORTABLE_DIAGNOSTICS_TH.md) · **M2M100:** ปรับ Worker ให้จำกัด CPU Threads และคง 4 Beam Search ทดสอบแปลภาษาอังกฤษ↔ไทยจริงผ่านแล้วด้วยเวลา ~3.6 วินาทีสำหรับคำขอแรกบนเครื่องพัฒนา ทั้งนี้คุณภาพภาษาไทยยังต้องปรับเพิ่มเติม [รายละเอียดและคำสั่งทดสอบ](docs/M2M100_CPU_RUNTIME_VALIDATION_TH.md)
 
 **v0.10.1 — Native `.vwmodel v2`, Wayu NC และ Trusted Provider SDK:** รองรับลายเซ็น Ed25519 ของ External TTS Provider โดยต้องตรึง Public Key และอนุมัติให้รันโค้ดแยกกัน, ถอนกุญแจ/แก้ไฟล์แล้วปฏิเสธ Provider, เพิ่ม Worker Protocol v1 SDK ที่จำกัดขนาดข้อความและ PCM16 พร้อม Portable ที่ใช้โมเดล MakHam Native v2 เท่านั้น [คู่มือ Phase D](docs/TRUSTED_PROVIDER_SDK_TH.md) · [Release Notes](docs/RELEASE_NOTES_v0.10.1.md) · [คู่มือ Wayu NC v2](docs/WAYU_NC_NATIVE_V2_TH.md)
 
