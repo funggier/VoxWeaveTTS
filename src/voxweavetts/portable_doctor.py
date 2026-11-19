@@ -1,9 +1,7 @@
-"""Read-only portability and runtime readiness diagnosis.
+"""Read-only Universal v3 model and relocatable-runtime diagnosis.
 
-No installs, subprocesses, downloads, settings writes or model deserialization.
-Reports only trusted runtime IDs and data-only installed v2 model metadata.
-Optional deep wheel inspection verifies *bytes* against application-owned locks,
-without creating a temporary wheel snapshot or marking a runtime installed.
+No installs, subprocesses, network requests, settings writes, or model
+deserialization. Deep verification hashes installed model files only.
 """
 from __future__ import annotations
 
@@ -13,17 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .offline_wheelhouse import (
-    WheelhouseError, _check_directory, _digest, _inspect_wheel,
-    _present, trusted_lock,
-)
-from .runtime_registry import inventory
-from .universal_model_packages import (
-    installed_packages, native_adapter_profile, platform_compatible,
-)
-
 ROOT = Path(__file__).resolve().parents[2]
-FORMAT = "voxweavetts.portable-doctor-v1"
+FORMAT = "voxweavetts.portable-doctor-v3"
 _MAKHAM = ("makham-paradee", "1.0.0")
 
 
@@ -44,175 +33,117 @@ def _local_file(root: Path, relative: str) -> bool:
             and current.resolve().is_relative_to(root.resolve()))
 
 
-def _check_wheels(root: Path, runtime_id: str) -> tuple[str, int]:
-    """Full lock/wheel SHA-256 and structural checks; never change bytes."""
-    try:
-        lock = trusted_lock(root, runtime_id)
-        folder = _check_directory(root, runtime_id)
-        _present(lock, folder)
-        for row in lock["wheels"]:
-            file = folder / row["filename"]
-            _inspect_wheel(file, row)
-            if _digest(file) != row["sha256"]:
-                return "hash-mismatch", len(lock["wheels"])
-        return "verified-for-inspection", len(lock["wheels"])
-    except (OSError, ValueError, UnicodeError, RuntimeError, WheelhouseError):
-        return "unavailable-or-unsafe", 0
-
-
-def _next_action(entry: dict, *, uv_available: bool, base_python: bool) -> str:
-    # A corrupt wheelhouse is unsafe even if an already-installed runtime
-    # happens to work; never give a falsely reassuring "none" in deep mode.
-    if entry["wheelhouse_state"] in ("hash-mismatch", "unavailable-or-unsafe"):
-        return "replace-corrupt-wheelhouse"
-    if entry["ready"]:
-        return "none"
-    if entry["health_state"] == "unsafe-environment":
-        return "inspect-unsafe-runtime-manually"
-    if not base_python:
-        return "restore-portable-python"
-    if not uv_available:
-        return "restore-bundled-uv"
-    if entry["wheelhouse_state"] == "verified-for-inspection":
-        return ("rebuild-from-verified-wheelhouse" if entry["installed"]
-                else "install-from-verified-wheelhouse")
-    if entry["wheelhouse_state"] == "present-unverified":
-        return ("verify-and-rebuild-wheelhouse" if entry["installed"]
-                else "verify-and-install-wheelhouse")
-    if entry["wheelhouse_state"] == "recipe-unsupported":
-        return "review-online-provider-recipe"
-    if entry["wheelhouse_state"] == "not-published":
-        return "wheelhouse-not-published"
-    return "supply-matching-wheelhouse"
-
-
 def report(root: Path = ROOT, *, verify_wheelhouse: bool = False) -> dict[str, Any]:
-    """Inspect an extracted portable root without loading any ML models."""
+    """Read-only v3 package and relocatable-runtime diagnosis.
+
+    The --verify-wheelhouse compatibility flag now verifies *installed v3
+    package assets*, not a separately distributed runtime download.
+    """
+    from .universal_model_packages import (
+        installed_packages, package_status, platform_compatible,
+        native_adapter_profile,
+    )
+    from .portable_runtime_v3 import (
+        ready as runtime_ready, fingerprint, runtime_folder,
+    )
     root = Path(root)
     if not root.is_dir() or root.is_symlink():
-        raise PortableDoctorError("select a real extracted Portable directory")
+        raise PortableDoctorError("select a real extracted portable directory")
     bundled_python = _local_file(root, "runtime/python/python.exe")
     dev_python = _local_file(root, ".venv/Scripts/python.exe")
-    core = ("bundled" if bundled_python else
-            "development" if dev_python else "missing")
     bundled_uv = _local_file(root, "runtime/tools/uv.exe")
-    # External uv in PATH is deliberately NOT portable or required to run doctor.
-    # Do not launch it and do not trust arbitrary PATH for a standalone build.
-    uv = "bundled" if bundled_uv else "missing"
-    py_ok = bundled_python or dev_python
-
-    records = inventory(root)
-    runtimes: list[dict] = []
-    state_by_id: dict[str, dict] = {}
-    for raw in records:
-        wheel = raw["wheelhouse"]
-        wheel_state = wheel["state"]
-        checked = False
-        wheel_count = int(wheel["wheels"])
-        if verify_wheelhouse and wheel["ready_to_verify"]:
-            wheel_state, wheel_count = _check_wheels(root, raw["id"])
-            checked = True
-        info = {
-            "id": raw["id"],
-            "kind": raw["kind"],
-            "installed": bool(raw["installed"]),
-            "ready": bool(raw["ready"]),
-            "health_state": raw["health_state"],
-            "wheelhouse_state": wheel_state,
-            "wheelhouse_sha256_checked": checked,
-            "wheel_count": wheel_count,
-            "relative_path": raw["relative_path"],
-            "consumers": list(raw["consumers"]),
-            "reference_count": int(raw["reference_count"]),
-            "rights_review": raw.get("rights_review"),
-        }
-        info["recommended_action"] = _next_action(
-            info, uv_available=bundled_uv, base_python=py_ok,
-        )
-        runtimes.append(info)
-        state_by_id[raw["id"]] = info
-
-    models: list[dict] = []
-    valid = installed_packages(root)
-    for manifest, folder in valid:
-        metadata = native_adapter_profile(manifest, folder)
-        runtime_id = manifest["runtime"]["id"]
-        builtin_makham = (
-            manifest["package"]["kind"] == "tts"
-            and (manifest["package"]["id"], manifest["package"]["version"]) == _MAKHAM
-            and manifest["adapter"]["id"] == "makham-paradee-onnx-v1"
-        )
-        runtime_ready = (
-            builtin_makham and bundled_python
-            or bool(state_by_id.get(runtime_id, {}).get("ready", False))
-        )
+    py_name = ("bundled" if bundled_python else "development" if dev_python else "missing")
+    models = []
+    runtimes_by_fingerprint = {}
+    invalid_count = 0
+    for manifest, folder in installed_packages(root):
+        profile = native_adapter_profile(manifest, folder)
+        status = package_status(manifest, root=root, folder=folder)
+        files_verified = False
+        if verify_wheelhouse:
+            from hashlib import file_digest
+            files_verified = True
+            for entry in manifest["files"]:
+                if entry["path"].startswith("runtime/wheels/"):
+                    continue  # v3 discards wheel archives after verified installation
+                item = folder / entry["path"]
+                with item.open("rb") as stream:
+                    if file_digest(stream, "sha256").hexdigest() != entry["sha256"]:
+                        files_verified = False
+                        break
+        rt_ready = runtime_ready(root, manifest)
         models.append({
             "package_id": manifest["package"]["id"],
             "version": manifest["package"]["version"],
             "kind": manifest["package"]["kind"],
-            "adapter_trusted": metadata is not None,
-            "runtime_id": runtime_id,
-            "runtime_ready": runtime_ready,
+            "adapter_trusted": profile is not None,
+            "runtime_id": manifest["runtime"]["id"],
+            "runtime_ready": rt_ready,
             "platform_compatible": platform_compatible(manifest),
-            "license_spdx": metadata["license"]["spdx"] if metadata else "unknown",
-            "rights_review_status": (
-                metadata["license"]["review_status"] if metadata else "unknown"
-            ),
-            "file_hashes_checked": "metadata-only",
+            "license_spdx": status["license"].get("spdx", "unknown"),
+            "rights_review_status": status["license"].get("review_status", "unknown"),
+            "file_hashes_checked": "valid" if files_verified else
+                "failed" if verify_wheelhouse else "metadata-only",
         })
-
-    # An invalid manifest is not silently counted as an installed model;
-    # report count only, never follow links or expose user-added paths.
-    invalid_count = 0
-    valid_files = {(folder / "manifest.json").resolve() for _, folder in valid}
-    for kind in ("tts", "translation"):
-        base = root / "models" / "universal" / "v2" / kind
-        if base.is_dir() and not base.is_symlink():
-            for file in base.glob("*/*/manifest.json"):
-                if file.is_symlink() or file.resolve() not in valid_files:
+        if manifest["runtime"]["source"] != "core-bundled":
+            digest = fingerprint(manifest)
+            if digest not in runtimes_by_fingerprint:
+                relative = runtime_folder(root, manifest).relative_to(root).as_posix()
+                runtimes_by_fingerprint[digest] = {
+                    "id": manifest["runtime"]["id"],
+                    "kind": manifest["package"]["kind"],
+                    "health_state": "ready" if rt_ready else "not-installed",
+                    "relative_path": relative,
+                    "ready": rt_ready,
+                    "wheelhouse_state": "embedded-in-v3-package",
+                    "recommended_action": "none" if rt_ready else
+                        "uninstall-model-and-reinstall-v3-package",
+                    "rights_review": None,
+                    "reference_count": 0,
+                    "consumers": [],
+                }
+            runtimes_by_fingerprint[digest]["reference_count"] += 1
+            runtimes_by_fingerprint[digest]["consumers"].append(
+                manifest["package"]["id"] + "@" + manifest["package"]["version"])
+    # Old v2 directories are deliberately ignored, never deleted.
+    base = root / "models" / "universal" / "v3"
+    for kind in ("tts", "translation", "voice-cloning", "stt", "llm"):
+        folder = base / kind
+        if folder.is_dir() and not folder.is_symlink():
+            for marker in folder.glob("*/*/manifest.json"):
+                if not any((root / "models" / "universal" / "v3" /
+                            item["kind"] / item["package_id"] /
+                            item["version"] / "manifest.json") == marker
+                           for item in models):
                     invalid_count += 1
-
-    blocking_models = [
-        m for m in models if not (
-            m["adapter_trusted"] and m["platform_compatible"] and m["runtime_ready"]
-        )
-    ]
-    core_ready = core != "missing"
-    invalid_wheelhouses = sum(
-        r["wheelhouse_state"] in ("hash-mismatch", "unavailable-or-unsafe")
-        for r in runtimes
-    )
-    status = ("incomplete" if not core_ready or not models
-              else "needs-attention" if blocking_models or invalid_count
-              or invalid_wheelhouses else "ready")
+    runtimes = list(runtimes_by_fingerprint.values())
+    failures = [m for m in models if not
+                (m["adapter_trusted"] and m["runtime_ready"] and
+                 m["platform_compatible"] and m["file_hashes_checked"] != "failed")]
+    overall = ("incomplete" if py_name == "missing"
+               else "needs-attention" if failures or invalid_count
+               else "incomplete" if not models else "ready")
     return {
-        "format": FORMAT,
+        "format": "voxweavetts.portable-doctor-v3",
         "version": __version__,
-        "core": {
-            "python": core, "uv": uv,
-            "portable": bundled_python and bundled_uv,
-            "no_operations_performed": True,
-        },
-        "overall_state": status,
-        "summary": {
-            "native_models": len(models),
-            "models_waiting_for_runtime": len(blocking_models),
-            "invalid_native_manifests": invalid_count,
-            "invalid_wheelhouses": invalid_wheelhouses,
-            "runtimes_ready": sum(x["ready"] for x in runtimes),
-            "runtimes_with_rights_hold": sum(
-                (r.get("rights_review") or {}).get("publication_state") == "hold"
-                for r in runtimes
-            ),
-            "runtimes_total": len(runtimes),
-        },
-        "models": models,
-        "runtimes": runtimes,
+        "core": {"python": py_name,
+                 "uv": "bundled" if bundled_uv else "missing",
+                 "portable": bundled_python and bundled_uv,
+                 "no_operations_performed": True},
+        "overall_state": overall,
+        "summary": {"native_models": len(models),
+                    "models_waiting_for_runtime": len(failures),
+                    "invalid_native_manifests": invalid_count,
+                    "invalid_wheelhouses": 0,
+                    "runtimes_ready": sum(x["ready"] for x in runtimes),
+                    "runtimes_with_rights_hold": 0,
+                    "runtimes_total": len(runtimes)},
+        "models": models, "runtimes": runtimes,
         "limitations": [
-            "Model weight bytes are not SHA-checked by this report",
-            "Wheelhouse hash verification is read-only and not legal clearance",
-            "A ready runtime does not prove model inference succeeds",
-            "Fresh-machine install and third-party dependency licenses need separate tests",
+            "No network access or modification by Doctor",
+            "Normal report does not rehash large model assets",
+            "A ready runtime does not prove inference succeeds",
+            "Native DLL and target-machine compatibility need real-device testing",
         ],
     }
 

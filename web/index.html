@@ -796,10 +796,9 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p class="small">ปุ่มโหลดเข้าหน่วยความจำไม่ดาวน์โหลดหรือติดตั้งโมเดลใหม่ และไม่ทำงานอัตโนมัติเมื่อพิมพ์ชื่อโมเดลหรือบันทึก Settings</p>
 </div>
 <div class="voice-grid" style="margin-top:10px">
-<button id="aiM2MInstallRuntime" type="button">ติดตั้ง / ซ่อม Runtime M2M100 (แยก Environment · uv)</button>
-<button id="aiM2MRuntimeCheck" type="button">ตรวจสถานะ Runtime M2M100</button>
+
 </div>
-<p id="aiM2MRuntimeStatus" class="small" role="status">M2M100: ตรวจสอบ Runtime...</p>
+
 <p id="aiEngineStatus" class="small" role="status">กำลังตรวจสอบ Engine...</p>
 <details style="margin:12px 0">
 <summary>รายการ AI / Translation Model Packages ที่ติดตั้งในเครื่อง</summary>
@@ -896,20 +895,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button type="button" id="modelPackageRefresh">รีเฟรชรายการโมเดล</button>
 <p id="modelPackageStatus" class="small" role="status">กำลังโหลดแพ็กเกจ...</p>
 <ul id="modelPackageList" style="padding-left:22px"></ul>
-<details style="margin-top:12px">
-<summary>Engine Providers — Isolated Python Runtimes</summary>
-<p class="small">แต่ละกลุ่มโมเดลมี Python และ Dependencies แยกกัน ติดตั้งเฉพาะเมื่อเลือกใช้งาน Runtime จะอยู่ใต้โฟลเดอร์โปรแกรม ไม่เปลี่ยน Python หลัก และจะไม่ดาวน์โหลดโมเดล NC โดยอัตโนมัติ</p>
-<button type="button" id="engineProviderRefresh">Refresh Providers</button>
-<p id="engineProviderStatus" class="small" role="status"></p>
-<ul id="engineProviderList" style="padding-left:22px"></ul>
-</details>
-<details style="margin-top:12px" id="runtimeRegistryPanel">
-<summary>Runtime Environment Registry · ใช้ร่วมกัน / ถอนเมื่อไม่ถูกใช้งาน</summary>
-<p class="small">Runtime เป็นสภาพแวดล้อมแยกจากไฟล์โมเดล การลบโมเดลไม่ลบ Runtime ของโมเดลอื่นโดยอัตโนมัติ ระบบอนุญาตถอน Runtime เฉพาะเมื่อไม่มีโมเดลใดใช้งานอยู่ และต้องยืนยันทุกครั้ง</p>
-<button type="button" id="runtimeRegistryRefresh">ตรวจสถานะ Runtime</button>
-<p id="runtimeRegistryStatus" class="small" role="status"></p>
-<ul id="runtimeRegistryList" style="padding-left:22px"></ul>
-</details>
+
+
 </details>
 </section></div>
 <div class="mode-view" data-mode-view="language_routes" hidden><section class="panel" style="margin-top:18px" id="languageRoutingPanel">
@@ -985,7 +972,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <script src="/emoji_pronunciation.js"></script>
 <script src="/rule_quick_add.js"></script>
 <script src="/ai_settings.js"></script>
-<script src="/runtime_registry.js"></script>
+
 <script src="/mode_voice_settings.js"></script>
 <script src="/language_routes.js"></script>
 <script src="/mode_workspace.js"></script>
@@ -1396,114 +1383,6 @@ async function loadEngines(){
   el("formant_preserve").disabled=!ffmpegReady;
   refreshSelectedEngine();
 }
-let engineProviderPolling=null;
-async function loadEngineProviders(){
-  const response=await fetch("/v1/engine-providers",{cache:"no-store"});
-  if(!response.ok)throw Error("Engine Provider catalog unavailable");
-  const body=await response.json();
-  const panel=el("engineProviderList");
-  panel.replaceChildren();
-  let installing=false;
-  for(const provider of (body.providers||[])){
-    const row=document.createElement("li");
-    const name=document.createElement("strong");
-    name.textContent=provider.id+" — "+provider.install.state;
-    const small=document.createElement("small");
-    small.style.display="block";
-    small.textContent=(provider.engines||[]).join(", ")+
-      (provider.install.error ? " · "+provider.install.error : "");
-    // Fresh, provider-specific opt-in: accepting local installation is NOT a
-    // grant of redistribution or commercial usage rights.
-    const rights=provider.rights_review||{};
-    const localInstall=rights.local_install||{};
-    const consentRequired=localInstall.consent_required===true;
-    const ncRequired=localInstall.noncommercial_acknowledgment_required===true;
-    let acceptBox=null,noncommercialBox=null;
-    if(consentRequired){
-      const note=document.createElement("small");
-      note.style.display="block";
-      note.textContent="เงื่อนไข Runtime: "+String(rights.description||"ต้องตรวจสิทธิ์")+
-        " · การติดตั้งอาจดาวน์โหลด Dependencies จากภายนอก"+
-        " · การยอมรับไม่ได้ทำให้สิทธิ์ใช้เชิงพาณิชย์หรือแจกจ่ายเปลี่ยนไป";
-      row.append(note);
-      const acceptLabel=document.createElement("label");
-      acceptBox=document.createElement("input");
-      acceptBox.type="checkbox";
-      acceptBox.checked=false;
-      acceptLabel.append(acceptBox,document.createTextNode(
-        " ฉันอ่านและยอมรับเงื่อนไขของ "+provider.id+" สำหรับการติดตั้งบนเครื่องนี้"
-      ));
-      row.append(acceptLabel);
-      if(ncRequired){
-        const ncLabel=document.createElement("label");
-        ncLabel.style.display="block";
-        noncommercialBox=document.createElement("input");
-        noncommercialBox.type="checkbox";
-        noncommercialBox.checked=false;
-        ncLabel.append(noncommercialBox,document.createTextNode(
-          " ฉันรับทราบว่าโมเดล Wayu NC (CC BY-NC 4.0) ห้ามนำไปใช้เชิงพาณิชย์"
-        ));
-        row.append(ncLabel);
-      }
-    }
-    const button=document.createElement("button");
-    button.type="button";
-    button.textContent=provider.install.state==="ready"?"Runtime ready":"ติดตั้ง Runtime";
-    const waiting=provider.install.state==="ready"||provider.install.state==="installing";
-    const hasConsent=()=>!consentRequired||Boolean(acceptBox?.checked&&
-      (!ncRequired||noncommercialBox?.checked));
-    const updateDisabled=()=>{button.disabled=waiting||!hasConsent();};
-    if(acceptBox)acceptBox.addEventListener("change",updateDisabled);
-    if(noncommercialBox)noncommercialBox.addEventListener("change",updateDisabled);
-    updateDisabled();
-    button.style.margin="6px 0 8px";
-    button.addEventListener("click",async()=>{
-      if(waiting||!hasConsent())return;
-      if(!window.confirm("ติดตั้ง Runtime "+provider.id+" บนเครื่องนี้หรือไม่?\n"+
-        "Dependencies อาจดาวน์โหลดจากผู้พัฒนาภายนอก และการยอมรับไม่ใช่การรับรองสิทธิ์เชิงพาณิชย์"+
-        (ncRequired?"\nWayu NC: น้ำหนักโมเดลใช้ได้เฉพาะไม่ใช่เชิงพาณิชย์":"")))return;
-      button.disabled=true;
-      el("engineProviderStatus").textContent="Installing "+provider.id+" dependencies into an isolated environment...";
-      try{
-        const result=await fetch("/v1/engine-providers/install",{
-          method:"POST",
-          headers:{"Content-Type":"application/json",
-                   "X-VoxWeaveTTS-Intent":"install-engine-provider"},
-          body:JSON.stringify(consentRequired?{
-            provider_id:provider.id,
-            accepted_terms_version:localInstall.terms_version,
-            acknowledged_noncommercial:ncRequired&&noncommercialBox.checked
-          }:{provider_id:provider.id})
-        });
-        if(!result.ok){
-          const problem=await result.json().catch(()=>({}));
-          throw Error(String(problem.error||"Provider installation was rejected"));
-        }
-        await loadEngineProviders();
-      }catch(e){
-        el("engineProviderStatus").textContent=String(e);
-        updateDisabled();
-      }
-    });
-    row.append(name,small,button);
-    panel.append(row);
-    if(provider.install.state==="installing")installing=true;
-  }
-  el("engineProviderStatus").textContent=
-    (body.providers||[]).filter(p=>p.install.state==="ready").length+
-    " / "+(body.providers||[]).length+" isolated runtimes ready";
-  if(engineProviderPolling){clearTimeout(engineProviderPolling);engineProviderPolling=null;}
-  if(installing){
-    engineProviderPolling=setTimeout(async()=>{
-      try{await loadEngineProviders();await loadEngines();modeVoiceController?.refreshEngines();}
-      catch(e){el("engineProviderStatus").textContent=String(e);}
-    },2200);
-  }
-}
-el("engineProviderRefresh").addEventListener("click",()=>{
-  loadEngineProviders().catch(e=>{el("engineProviderStatus").textContent=String(e);});
-});
-loadEngineProviders().catch(e=>{el("engineProviderStatus").textContent=String(e);});
 async function loadModelPackages(){
   const response=await fetch("/v1/model-packages",{cache:"no-store"});
   const body=await response.json();
@@ -1515,7 +1394,7 @@ async function loadModelPackages(){
     const li=document.createElement("li");
     const title=document.createElement("strong");
     title.textContent=item.title+" v"+item.version+
-      (item.format_version===2?" · Universal v2 · "+item.model_kind:"");
+      (item.format_version===3?" · Universal v3 · "+item.model_kind:"");
     const details=document.createElement("small");
     details.style.display="block";
     const names=(item.voices||[]).map(v=>v.label).join(", ");
@@ -1523,21 +1402,13 @@ async function loadModelPackages(){
       " · License: "+item.license.spdx+
       " · ตรวจสิทธิ์: "+item.license.review_status+
       " · Requires: "+(item.dependencies||[]).join(", ");
-    if(item.format_version===2){
+    if(item.format_version===3){
       const runtimeLabels={
         ready:"พร้อมใช้งาน",
-        "adapter-not-approved":"ไม่มี Adapter ที่อนุมัติ",
-        "runtime-relocated":"Runtime ถูกย้ายโฟลเดอร์ กรุณาซ่อม Runtime",
-        "runtime-recipe-changed":"Runtime Recipe เปลี่ยน กรุณาซ่อม Runtime",
-        "runtime-base-python-missing":"ไม่พบ Python ต้นทางของ Runtime",
-        "runtime-incomplete":"Runtime ติดตั้งไม่สมบูรณ์",
-        "runtime-not-installed":"ยังไม่ติดตั้ง Runtime",
-        "runtime-recipe-pending":"รออนุมัติการติดตั้ง Runtime",
-        "platform-incompatible":"ระบบปฏิบัติการไม่รองรับ",
-        "python-abi-mismatch":"Python ของ Runtime ไม่ตรง",
-        "accelerator-unsupported":"ยังไม่รองรับ Accelerator",
-        "runtime-kind-unsupported":"ประเภท Runtime ยังไม่รองรับ",
-        "runtime-id-mismatch":"Runtime ไม่ตรงกับ Adapter"
+        "adapter-not-approved":"ไม่มี Engine Adapter ที่อนุมัติ",
+        "runtime-not-installed":"ยังไม่ได้ติดตั้ง Runtime · ถอนแล้วติดตั้งแพ็กเกจ v3 อีกครั้ง",
+        "platform-incompatible":"ไม่รองรับแพลตฟอร์มนี้",
+        "runtime-id-mismatch":"Runtime ไม่ตรงกับ Engine"
       };
       details.textContent+=" · Runtime: "+(runtimeLabels[item.runtime_state]||item.runtime_state)+
         " · Source: "+item.runtime_source+
@@ -1588,76 +1459,56 @@ el("modelPackageRefresh").addEventListener("click",()=>{
 el("modelPackageInstall").addEventListener("click",async()=>{
   const button=el("modelPackageInstall");
   button.disabled=true;
-  el("modelPackageStatus").textContent="เลือกไฟล์ .vwmodel (TTS หรือ AI/M2M100) · หลังเลือก M2M100 จะตรวจไฟล์ขนาดเกือบ 2 GB กรุณารอจนติดตั้งเสร็จ";
+  el("modelPackageStatus").textContent="เลือก Universal .vwmodel v3 (ติดตั้งโมเดลและ Dependencies แบบออฟไลน์)";
   try{
-    const response=await fetch("/v1/model-packages/install-local",{
+    const previewResponse=await fetch("/v1/model-packages/inspect-local",{
+      method:"POST",
+      headers:{"Content-Type":"application/json",
+               "X-VoxWeaveTTS-Intent":"inspect-model-package"},
+      body:"{}",
+    });
+    const preview=await previewResponse.json();
+    if(!previewResponse.ok)throw Error(preview.error||"ไม่สามารถอ่านแพ็กเกจ v3 ได้");
+    if(preview.cancelled){
+      el("modelPackageStatus").textContent="ยกเลิกการเลือกไฟล์";
+      return;
+    }
+    const lic=preview.license||{};
+    const notice="ติดตั้ง "+preview.package.title+" v"+preview.package.version+
+      "\nLicense: "+String(lic.spdx||"ไม่ระบุ")+
+      "\nAttribution: "+String(lic.attribution||"")+
+      "\nสถานะสิทธิ์: "+String(lic.review_status||"review_required")+
+      "\n\nติดตั้งจากไฟล์ในเครื่องเท่านั้น (ไม่ออนไลน์) ยอมรับเงื่อนไขและติดตั้ง?";
+    if(!window.confirm(notice)){
+      el("modelPackageStatus").textContent="ยกเลิกการติดตั้ง";
+      return;
+    }
+    const nc=/BY-NC|NONCOMMERCIAL/i.test(String(lic.spdx||""));
+    if(nc&&!window.confirm("โมเดลนี้จำกัดการใช้งานแบบ NonCommercial เท่านั้น ยืนยันว่าเข้าใจข้อจำกัดนี้?")){
+      el("modelPackageStatus").textContent="ยกเลิกการติดตั้งโมเดล NC";
+      return;
+    }
+    el("modelPackageStatus").textContent="กำลังตรวจสอบและติดตั้ง v3 จากไฟล์ออฟไลน์...";
+    const response=await fetch("/v1/model-packages/install-confirmed",{
       method:"POST",
       headers:{"Content-Type":"application/json",
                "X-VoxWeaveTTS-Intent":"install-model-package"},
-      body:"{}",
+      body:JSON.stringify({token:preview.token,accepted_rights:true,
+                           acknowledged_noncommercial:nc}),
     });
     const result=await response.json();
-    if(!response.ok)throw Error("แพ็กเกจไม่ผ่านการตรวจสอบหรือ Engine ยังไม่รองรับ");
-    if(result.cancelled){
-      el("modelPackageStatus").textContent="ยกเลิกการติดตั้งโมเดล";
-      return;
-    }
+    if(!response.ok)throw Error(result.error||"ติดตั้งโมเดลไม่สำเร็จ");
     await loadModelPackages();
     await loadEngines();
     modeVoiceController?.refreshEngines();
-    if(typeof loadEngineProviders==="function")loadEngineProviders().catch(()=>{});
-    if(result.format_version===2){
-      if(!result.activation_supported){
-        el("modelPackageStatus").textContent=
-          "ติดตั้ง Universal .vwmodel v2 ("+result.package_kind+
-          ") แล้ว · ยังไม่มี Runtime/Adapter ที่เปิดใช้งานได้";
-      }else if(result.package_kind==="translation"){
-        el("modelPackageStatus").textContent=
-          "ติดตั้ง Translation .vwmodel v2 แล้ว · ตรวจ Runtime สำหรับ M2M100 ในการตั้งค่า AI";
-      }else if(result.package_kind==="tts"){
-        const id=result.engine_id||("model-"+result.package_id+"-"+result.version.replaceAll(".","_"));
-        const ready=engines.some(x=>x.id===id&&x.assets_ready&&x.runtime_ready);
-        if(ready){
-          el("engineSelect").value=id;
-          refreshSelectedEngine();
-        }
-        el("modelPackageStatus").textContent=ready
-          ?"ติดตั้ง Universal TTS v2 พร้อมใช้งาน: "+id
-          :"ติดตั้ง Universal TTS v2 แล้ว · ต้องติดตั้ง Runtime ของ Adapter แยกก่อนใช้งาน";
-      }else{
-        el("modelPackageStatus").textContent=
-          "ติดตั้งแพ็กเกจ Universal v2 ("+result.package_kind+
-          ") แล้ว · รอ Adapter สำหรับความสามารถนี้";
-      }
-      return;
-    }
-    if(result.package_kind==="ai"){
-      // The same native file picker safely recognizes TTS and AI packages.
-      // Never select a translation model as a TTS voice.
-      let ready=false;
-      try{
-        const response=await fetch("/v1/ai/engines",{cache:"no-store"});
-        if(response.ok){
-          const metadata=await response.json();
-          ready=Boolean((metadata.engines||[]).find(x=>x.id==="m2m100")?.runtime_ready);
-        }
-      }catch{}
-      el("modelPackageStatus").textContent=ready
-        ?"ติดตั้ง M2M100 สำเร็จ · ไปที่ ตั้งค่า → AI / Translation เพื่อเลือกโมเดล"
-        :"ติดตั้ง M2M100 สำเร็จแล้ว แต่ยังขาด PyTorch/Transformers Runtime สำหรับการแปล";
-      return;
-    }
-    const engineId=result.engine_id||("model-"+result.package_id+"-"+result.version.replaceAll(".","_"));
-    if(engines.some(x=>x.id===engineId&&x.assets_ready&&x.runtime_ready)){
+    const engineId=result.engine_id;
+    if(engineId&&engines.some(x=>x.id===engineId&&x.assets_ready&&x.runtime_ready)){
       el("engineSelect").value=engineId;
       refreshSelectedEngine();
-      el("modelPackageStatus").textContent="ติดตั้งแล้วและเลือกโมเดล: "+engineId;
-    }else{
-      el("modelPackageStatus").textContent="ติดตั้งโมเดลแล้ว แต่ Engine Runtime ยังไม่พร้อม ตรวจ Dependencies";
     }
-  }catch{
-    el("modelPackageStatus").textContent=
-      "ติดตั้งไม่สำเร็จ: ตรวจไฟล์ .vwmodel, SHA-256, License หรือ Engine ที่รองรับ";
+    el("modelPackageStatus").textContent="ติดตั้ง v3 และ Runtime ออฟไลน์เรียบร้อย: "+result.package_id;
+  }catch(error){
+    el("modelPackageStatus").textContent="ติดตั้งไม่สำเร็จ: "+String(error.message||error);
   }finally{button.disabled=false;}
 });
 loadModelPackages().catch(()=>{

@@ -171,21 +171,16 @@ class MultilingualHttpTests(unittest.TestCase):
             Handler._speech_params(None, {"mode":"unknown", "language":"en"},
                                    process_text("Hello"))
 
-    def test_legacy_removal_requires_intent_no_arbitrary_path(self):
-        with patch("voxweavetts.server.remove_legacy_m2m", return_value=True) as remove:
-            status, _ = self.post("/v1/ai/packages/remove-legacy", {},
-                                  "remove-ai-model-package")
-            self.assertEqual(status, 403)
-            remove.assert_not_called()
-            status, _ = self.post("/v1/ai/packages/remove-legacy",
-                                  {"path": "C:/private"}, "remove-legacy-ai-model")
-            self.assertEqual(status, 400)
-            remove.assert_not_called()
-            status, data = self.post("/v1/ai/packages/remove-legacy", {},
-                                     "remove-legacy-ai-model")
-            self.assertEqual(status, 410)
-            self.assertIn("retired", data["error"])
-            remove.assert_not_called()
+    def test_retired_legacy_removal_endpoint_never_accepts_arbitrary_paths(self):
+        # v3 deliberately has no legacy M2M remover or path-based destructive API.
+        for body, intent in (
+            ({}, "remove-ai-model-package"),
+            ({"path": "C:/private"}, "remove-legacy-ai-model"),
+            ({}, "remove-legacy-ai-model"),
+        ):
+            status, data = self.post("/v1/ai/packages/remove-legacy", body, intent)
+            self.assertIn(status, (403, 404, 410))
+            self.assertNotEqual(status, 200)
 
 
 if __name__ == "__main__":

@@ -17,27 +17,11 @@ from . import __version__
 from .processing import InputError, process_text
 from .ai_pipeline import process_pipeline
 from .ai_engine_registry import ai_engines
-from .m2m_runtime import (status as m2m_runtime_status,
-                          install_async as install_m2m_runtime,
-                          M2MRuntimeError)
-from .runtime_registry import (inventory as runtime_inventory,
-                               remove_unreferenced as remove_unused_runtime,
-                               repair_async as repair_runtime_async,
-                               install_verified_async as install_verified_runtime_async,
-                               RuntimeRegistryError)
 from .ai_search_secrets import key_status as ai_search_key_status, update_key as update_ai_search_key, SecretUnavailable
 from .ai_tools import search_selected_provider, ToolDenied, ToolUnavailable
 from .ollama_manager import (model_status as ollama_model_status,
                              preload as preload_ollama_model,
                              OllamaUnavailable)
-from .ai_model_packages import (
-    legacy_model_installed, remove_legacy_m2m,
-    installed_packages as installed_ai_packages,
-    package_key as ai_package_key,
-    install_model_package_dialog as install_ai_model_package_dialog,
-    remove_model_package as remove_ai_model_package,
-    AIModelPackageError, AIModelPickerUnavailable,
-)
 from .ai_processing import (load_settings as load_ai_settings, save_settings as save_ai_settings,
                             AISettingsConflict)
 from .document_reader import prepare_document, MAX_DOCUMENT_REQUEST_BYTES
@@ -65,22 +49,15 @@ from .source_manager import SourceManager, SourceStreamFull
 from .tiktok_extension import extension_id_from_origin, ExtensionBridgeError
 from .profile_export import (save_source_profile_dialog, SaveDialogBusy,
                              SaveDialogUnavailable)
-from .model_packages import (
-    installed_packages, engine_id_for, display_model_title, install_model_package_dialog,
-    remove_model_package, ModelPackageError, ModelPackageDialogUnavailable,
-)
+from .model_file_picker import ModelPackageDialogUnavailable
 from .universal_model_packages import (
     installed_packages as installed_universal_packages,
     package_status as universal_package_status,
     remove_model_package as remove_universal_package,
     UniversalPackageError,
 )
-from .makham_package import (legacy_present as legacy_makham_present,
-                             remove_legacy_model as remove_legacy_makham,
-                             recovery_archive as makham_recovery_archive)
 from .manual_alignment import timing_metrics
 from .engine_provider_catalog import provider_for_adapter
-from .engine_provider_installer import install_async, catalog_status, InstallError
 from .engine_worker_gateway import gateway
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
@@ -571,13 +548,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/source_queue_ui.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js", "/runtime_registry.js"}:
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/source_queue_ui.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js"}:
                 name = ("audio_scheduler.js" if route == "/audio_scheduler.js" else
                         "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
                         "emoji_pronunciation.js" if route == "/emoji_pronunciation.js" else
                         "rule_quick_add.js" if route == "/rule_quick_add.js" else
                         "ai_settings.js" if route == "/ai_settings.js" else
-                        "runtime_registry.js" if route == "/runtime_registry.js" else
                         "language_routes.js" if route == "/language_routes.js" else
                         "source_queue_ui.js" if route == "/source_queue_ui.js" else
                         "source_feed.js" if route == "/source_feed.js" else
@@ -725,17 +701,13 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/v1/settings/synthesis":
                 self.send_json(200, {"seed": _read_seed()})
             elif route == "/v1/model-packages":
-                # Native Universal v2 is the only supported package format.
+                # Only self-contained, offline Universal v3 is supported.
                 self.send_json(200, {
                     "packages": [
                         universal_package_status(m, folder=folder)
                         for m, folder in installed_universal_packages()
                     ],
                 })
-            elif route == "/v1/engine-providers":
-                self.send_json(200, {"providers": catalog_status()})
-            elif route == "/v1/runtimes":
-                self.send_json(200, {"runtimes": runtime_inventory()})
             elif route == "/v1/engines":
                 # Re-discover explicitly approved providers without restarting Core.
                 refresh_engine_registry()
@@ -766,8 +738,6 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(503, {"error": "secure local credential storage unavailable"})
             elif route == "/v1/ai/engines":
                 self.send_json(200, {"engines": [e.as_dict() for e in ai_engines().list()]})
-            elif route == "/v1/ai/m2m-runtime":
-                self.send_json(200, {"runtime": m2m_runtime_status()})
             elif route == "/v1/ollama/models":
                 params = parse_qs(urlsplit(self.path).query)
                 name = params.get("model", [""])[0]
@@ -933,276 +903,62 @@ class Handler(BaseHTTPRequestHandler):
             except OllamaUnavailable:
                 self.send_json(503, {"error": "Ollama model is not installed, unavailable, or busy"})
             return
-        if route == "/v1/runtimes/install-verified":
-            # User-initiated only. A wheelhouse must match an app-owned lock;
-            # no wheel/path/install flags may come from the HTTP request.
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "install-verified-runtime"):
-                self.reject_unread_post(403, {"error": "same-origin verified install required"})
-                return
-            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.reject_unread_post(415, {"error": "verified install requires JSON"})
-                return
-            try:
-                payload = self._read_json(max_bytes=256)
-                if (not isinstance(payload, dict)
-                    or set(payload) != {"id", "expected_fingerprint", "confirm_install"}
-                    or payload["confirm_install"] is not True):
-                    raise RuntimeRegistryError("explicit verified install confirmation required")
-                task = install_verified_runtime_async(
-                    payload["id"], payload["expected_fingerprint"])
-                self.send_json(202, {"install": task})
-            except RuntimeRegistryError as exc:
-                self.send_json(409, {"error": str(exc)})
-            except (OSError, ValueError, InputError):
-                self.send_json(400, {"error": "invalid verified runtime install request"})
-            return
-        if route == "/v1/runtimes/repair":
-            # Offline repair touches only whitelisted app-managed venvs.
-            # Reject all client paths, shell commands, and dependency lists.
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "repair-runtime-offline"):
-                self.reject_unread_post(403, {"error": "same-origin runtime repair required"})
-                return
-            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.reject_unread_post(415, {"error": "runtime repair requires JSON"})
-                return
-            try:
-                payload = self._read_json(max_bytes=256)
-                if (not isinstance(payload, dict)
-                    or set(payload) != {"id", "expected_fingerprint", "confirm_repair"}
-                    or payload["confirm_repair"] is not True):
-                    raise RuntimeRegistryError("explicit offline repair confirmation required")
-                task = repair_runtime_async(payload["id"], payload["expected_fingerprint"])
-                self.send_json(202, {"repair": task})
-            except RuntimeRegistryError as exc:
-                self.send_json(409, {"error": str(exc)})
-            except (OSError, ValueError, InputError):
-                self.send_json(400, {"error": "invalid runtime repair request"})
-            return
-        if route == "/v1/runtimes/remove":
-            # Explicit same-origin user request only; arbitrary paths and
-            # install commands are never accepted from the browser.
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "remove-unused-runtime"):
-                self.reject_unread_post(403, {"error": "same-origin runtime removal required"})
-                return
-            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.reject_unread_post(415, {"error": "runtime removal requires JSON"})
-                return
-            try:
-                payload = self._read_json(max_bytes=256)
-                if (not isinstance(payload, dict)
-                    or set(payload) != {"id", "expected_fingerprint", "confirm_uninstall"}
-                    or payload["confirm_uninstall"] is not True):
-                    raise RuntimeRegistryError("explicit runtime uninstall confirmation required")
-                removed = remove_unused_runtime(payload["id"], payload["expected_fingerprint"])
-                self.send_json(200, {"removed": removed})
-            except RuntimeRegistryError as exc:
-                self.send_json(409, {"error": str(exc)})
-            except (OSError, ValueError, InputError):
-                self.send_json(400, {"error": "runtime uninstall failed; check runtime folder"})
-            return
-        if route == "/v1/ai/m2m-runtime/install":
-            # Pinned dependencies are installed only after a same-origin
-            # browser action; no client text can supply pip commands or paths.
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "install-m2m-runtime"):
-                self.reject_unread_post(403, {"error": "same-origin runtime install required"})
-                return
-            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.reject_unread_post(415, {"error": "runtime install requires JSON"})
-                return
-            try:
-                if self._read_json(max_bytes=128):
-                    raise M2MRuntimeError("runtime installation does not accept arguments")
-                self.send_json(202, {"runtime": install_m2m_runtime()})
-            except (M2MRuntimeError, ValueError, InputError):
-                self.send_json(400, {"error": "could not begin M2M100 runtime installation"})
-            return
-        if route in ("/v1/ai/packages/install-local", "/v1/ai/packages/remove",
+        if route in ("/v1/ai/packages/install-local",
                      "/v1/ai/packages/remove-legacy"):
+            self.send_json(410, {"error": "use the single offline v3 Model Package Manager"})
+            return
+        if route == "/v1/ai/packages/remove":
+            self.send_json(410, {"error": "use /v1/model-packages/remove"})
+            return
+        if route in ("/v1/model-packages/inspect-local",
+                     "/v1/model-packages/install-confirmed",
+                     "/v1/model-packages/remove"):
+            # All package actions require a same-origin local user action.
             host = self.headers.get("Host", "").lower().strip()
             origin = self.headers.get("Origin", "").lower().strip()
             allowed = {f"http://{name}:{self.server.server_port}"
                        for name in ("127.0.0.1", "localhost")}
-            intent = ("install-ai-model-package" if route.endswith("install-local") else
-                      "remove-legacy-ai-model" if route.endswith("remove-legacy") else
-                      "remove-ai-model-package")
+            intent = {
+                "/v1/model-packages/inspect-local": "inspect-model-package",
+                "/v1/model-packages/install-confirmed": "install-model-package",
+                "/v1/model-packages/remove": "remove-model-package",
+            }[route]
             if (f"http://{host}" not in allowed or origin != f"http://{host}"
                 or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
                 or self.headers.get("X-VoxWeaveTTS-Intent") != intent):
-                self.reject_unread_post(403, {"error": "same-origin AI model operation required"})
+                self.reject_unread_post(403, {"error": "same-origin package action required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.reject_unread_post(415, {"error": "AI model operation requires JSON"})
+                self.reject_unread_post(415, {"error": "package action requires JSON"})
                 return
             try:
-                data = self._read_json(max_bytes=2048)
-                if route.endswith("install-local"):
-                    if data:
-                        raise AIModelPackageError("unexpected AI package install request")
-                    from .model_packages import _native_model_picker
-                    from .universal_model_packages import inspect_archive as inspect_v2, install_model_package as install_v2
-                    selected = _native_model_picker()
-                    if not selected:
-                        self.send_json(200, {"cancelled": True})
-                        return
-                    manifest = inspect_v2(selected)
-                    if manifest["package"]["kind"] != "translation":
-                        raise UniversalPackageError("expected Universal v2 translation model")
-                    installed = install_v2(selected)
-                    self.send_json(200, {
-                        "installed": True, "format_version": 2,
-                        "package_id": installed["package_id"],
-                        "version": installed["version"],
-                        "runtime_status": installed["runtime_status"],
-                    })
-                elif route.endswith("remove-legacy"):
-                    if data:
-                        raise AIModelPackageError("legacy removal takes no arguments")
-                    self.send_json(410, {"error": "legacy AI packages are retired; use Universal v2"})
-                else:
-                    if set(data) != {"package_id", "version"}:
-                        raise UniversalPackageError("invalid native AI package removal")
-                    match = next((m for m, _ in installed_universal_packages()
-                                  if m["package"]["kind"] == "translation"
-                                  and m["package"]["id"] == data["package_id"]
-                                  and m["package"]["version"] == data["version"]), None)
-                    if match is None:
-                        self.send_json(200, {"removed": False})
-                        return
-                    from .m2m_runtime import reset as reset_m2m
-                    from .ai_engine_registry import _M2M_INFERENCE_LOCK, _loaded_m2m
-                    with _M2M_INFERENCE_LOCK:
-                        reset_m2m()
-                        _loaded_m2m.cache_clear()
-                        removed = remove_universal_package(data["package_id"], data["version"])
-                    self.send_json(200, {"removed": removed})
-            except (AIModelPickerUnavailable, ModelPackageDialogUnavailable):
-                self.send_json(503, {"error": "native model picker unavailable"})
-            except (AIModelPackageError, UniversalPackageError, ValueError, InputError, UnicodeDecodeError,
-                    json.JSONDecodeError, OSError, zipfile.BadZipFile):
-                self.send_json(400, {"error": "invalid AI model package or integrity check"})
-            return
-        if route == "/v1/engine-providers/install":
-            # Runtime creation installs third-party dependencies. Explicit
-            # same-origin action and curated provider IDs are mandatory.
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "install-engine-provider"):
-                self.reject_unread_post(403, {"error": "same-origin provider installation required"})
-                return
-            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.reject_unread_post(415, {"error": "provider installation requires JSON"})
-                return
-            try:
-                data = self._read_json(max_bytes=2048)
-                if not isinstance(data, dict) or not isinstance(data.get("provider_id"), str):
-                    raise InstallError("invalid provider request")
-                provider_id = data["provider_id"]
-                from .provider_rights import review as rights_review
-                from .engine_provider_catalog import all_providers
-                profile = all_providers().get(provider_id)
-                if profile is None:
-                    raise InstallError("unknown provider")
-                rights = rights_review(
-                    provider_id, approved_external=profile.plugin_path is not None
-                )
-                # Exact schema: no client-supplied dependencies, URLs or paths.
-                if rights["local_install"]["consent_required"]:
-                    if set(data) != {
-                        "provider_id", "accepted_terms_version",
-                        "acknowledged_noncommercial"
-                    }:
-                        raise InstallError("explicit provider consent required")
-                    if (type(data["accepted_terms_version"]) is not int
-                        or type(data["acknowledged_noncommercial"]) is not bool):
-                        raise InstallError("invalid provider consent values")
-                    from .provider_rights import require_local_install_consent
-                    require_local_install_consent(
-                        provider_id,
-                        terms_version=data["accepted_terms_version"],
-                        acknowledge_noncommercial=data["acknowledged_noncommercial"],
-                        approved_external=profile.plugin_path is not None,
-                    )
-                    task = install_async(
-                        provider_id,
-                        terms_version=data["accepted_terms_version"],
-                        acknowledge_noncommercial=data["acknowledged_noncommercial"],
-                    )
-                else:
-                    if set(data) != {"provider_id"}:
-                        raise InstallError("unrecognized provider install fields")
-                    task = install_async(provider_id)
-                self.send_json(200, {"install": task})
-            except InstallError as exc:
-                message = str(exc)
-                self.send_json(400, {"error": (
-                    message if "acknowledg" in message.lower() or "consent" in message.lower()
-                    else "unknown or untrusted engine provider"
-                )})
-            except (ValueError, InputError):
-                self.send_json(400, {"error": "unknown or untrusted engine provider"})
-            return
-        if route in ("/v1/model-packages/install-local", "/v1/model-packages/remove"):
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            expected_intent = ("install-model-package" if route.endswith("install-local")
-                               else "remove-model-package")
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != expected_intent):
-                self.reject_unread_post(403, {"error": "same-origin model operation required"})
-                return
-            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
-                self.reject_unread_post(415, {"error": "model operation requires JSON"})
-                return
-            try:
-                data = self._read_json(max_bytes=2048)
-                if route.endswith("install-local"):
-                    if data:
-                        raise UniversalPackageError("model picker needs no request body")
-                    installed = install_model_package_dialog()
-                    if installed is None:
-                        self.send_json(200, {"cancelled": True})
-                        return
+                payload = self._read_json(max_bytes=2048)
+                if route.endswith("/inspect-local"):
+                    if payload != {}:
+                        raise UniversalPackageError("package preview has no user parameters")
+                    from .package_install_v3 import preview
+                    self.send_json(200, preview())
+                elif route.endswith("/install-confirmed"):
+                    if (not isinstance(payload, dict)
+                        or set(payload) != {"token", "accepted_rights", "acknowledged_noncommercial"}
+                        or not isinstance(payload["token"], str)
+                        or payload["accepted_rights"] is not True
+                        or type(payload["acknowledged_noncommercial"]) is not bool):
+                        raise UniversalPackageError("explicit offline package consent required")
+                    from .package_install_v3 import commit
+                    installed = commit(
+                        payload["token"],
+                        accepted_rights=payload["accepted_rights"],
+                        acknowledged_noncommercial=payload["acknowledged_noncommercial"])
                     refresh_engine_registry()
-                    # Installing model weights cannot install or execute runtime code.
                     self.send_json(200, {"installed": True, **installed})
                 else:
-                    if set(data) != {"package_id", "version"}:
-                        raise UniversalPackageError("invalid v2 package removal request")
+                    if not isinstance(payload, dict) or set(payload) != {"package_id", "version"}:
+                        raise UniversalPackageError("invalid v3 package removal request")
                     match = next((
                         manifest for manifest, _ in installed_universal_packages()
-                        if manifest["package"]["id"] == data["package_id"]
-                        and manifest["package"]["version"] == data["version"]
+                        if manifest["package"]["id"] == payload["package_id"]
+                        and manifest["package"]["version"] == payload["version"]
                     ), None)
                     if match is None:
                         self.send_json(200, {"removed": False})
@@ -1217,20 +973,23 @@ class Handler(BaseHTTPRequestHandler):
                         with _M2M_INFERENCE_LOCK:
                             reset_m2m()
                             _loaded_m2m.cache_clear()
-                    removed = remove_universal_package(data["package_id"], data["version"])
+                    removed = remove_universal_package(payload["package_id"], payload["version"])
                     if removed:
                         refresh_engine_registry()
                     self.send_json(200, {"removed": removed})
             except ModelPackageDialogUnavailable:
-                self.send_json(503, {"error": "Windows model selection dialog unavailable"})
-            except AIModelPackageError:
-                self.send_json(400, {"error": "invalid AI model package or integrity check"})
-            except (ModelPackageError, UniversalPackageError):
-                self.send_json(400, {"error": "invalid model package, license metadata, or integrity check"})
-            except (ValueError, InputError, UnicodeDecodeError, json.JSONDecodeError):
-                self.send_json(400, {"error": "invalid model operation"})
+                self.send_json(503, {"error": "native file chooser is unavailable"})
+            except (UniversalPackageError, ValueError, KeyError, InputError,
+                    UnicodeDecodeError, json.JSONDecodeError, TypeError):
+                self.send_json(400, {"error": "offline v3 package, rights, or checksum invalid"})
             except (OSError, zipfile.BadZipFile):
-                self.send_json(400, {"error": "could not verify the selected model package"})
+                self.send_json(400, {"error": "local v3 package is missing or invalid"})
+            except Exception as exc:
+                from .portable_runtime_v3 import OfflineRuntimeError
+                if isinstance(exc, OfflineRuntimeError):
+                    self.send_json(409, {"error": str(exc)[:800]})
+                else:
+                    raise
             return
         if route == "/v1/sources/save-profile":
             # JSON may contain a Bot Token or Client Secret. Browsers cannot

@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from voxweavetts import speech
-from voxweavetts.model_packages import display_model_title
+from voxweavetts.universal_model_packages import display_model_title
 from voxweavetts.personal_wayu_engine import (
     ENGINE_ID, PersonalWayuEngine, VOICES, assets_ready, descriptor, runtime_ready,
 )

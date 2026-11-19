@@ -17,6 +17,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      # Universal v3's offline wheel installation regression runs uv against
+      # a synthetic local wheelhouse. CI must provide uv explicitly rather
+      # than assume a particular Windows hosted-runner image includes it.
+      - uses: astral-sh/setup-uv@v7
       # Test-only dependencies: wheel dependency closure and Ed25519 signing
       # tests are security-critical, not stdlib-only. Install on both Python ABIs.
       - name: Install test-only audit and signature dependencies

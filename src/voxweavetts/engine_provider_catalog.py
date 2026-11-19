@@ -258,32 +258,3 @@ def provider_for_engine(engine_id: str, *, root: Path = ROOT) -> Provider | None
 
 def provider_for_backend(backend: str, *, root: Path = ROOT) -> Provider | None:
     return next((p for p in all_providers(root).values() if p.backend == backend), None)
-
-
-def provider_status(root: Path = ROOT) -> list[dict]:
-    from .universal_model_packages import native_tts_packages
-    from .engine_provider_installer import ready as environment_ready
-    installed = native_tts_packages(root)
-    profiles = []
-    for item in all_providers(root).values():
-        attached = list(item.builtins) + [
-            "model-" + m["package_id"] + "-" + m["version"].replace(".", "_")
-            for m, _ in installed
-            if m["engine_adapter"] in item.adapters
-            and m["engine_adapter"] != "makham-paradee-onnx-v1"
-        ]
-        profiles.append({
-            "id": item.id, "backend": item.backend,
-            "runtime_ready": environment_ready(item, root=root),
-            "engines": attached, "adapter_types": list(item.adapters),
-            "independent_environment": str(item.python_path(root).parent.parent.relative_to(root)),
-            "external": item.driver == "external",
-            "approval_method": (
-                "signed-ed25519" if item.plugin_path is not None and
-                (item.plugin_path / "approved.json").is_file() and
-                json.loads((item.plugin_path / "approved.json").read_text(
-                    encoding="utf-8")).get("format") == "voxweavetts.approved-provider-v2"
-                else "manual-sha256" if item.plugin_path is not None
-                else "trusted-built-in"),
-        })
-    return profiles

@@ -1,5 +1,5 @@
 # Build a Windows self-contained ZIP. Never include local user data, logs or secrets.
-param([string]$Version = '0.10.3', [switch]$SkipZip)
+param([string]$Version = '0.11.0', [switch]$SkipZip, [string]$StageDirectory = '')
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $venv=Join-Path $root '.venv\Scripts\python.exe'
@@ -19,6 +19,14 @@ $pythonHome=(& $venv -c 'import sys; print(sys.base_prefix)').Trim()
 if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $pythonHome 'LICENSE.txt'))) {throw 'Python runtime not found'}
 
 $stage=Join-Path $root 'dist\VoxWeaveTTS'
+if ($StageDirectory) {
+  if (!$SkipZip) {throw 'Custom staging directories require -SkipZip'}
+  $stage=[IO.Path]::GetFullPath($StageDirectory)
+  $distRoot=[IO.Path]::GetFullPath((Join-Path $root 'dist'))
+  if (!$stage.StartsWith(($distRoot.TrimEnd('\')+'\'), [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Custom staging must be inside this project dist directory'
+  }
+}
 $zip=Join-Path $root ("dist\VoxWeaveTTS-v{0}-portable.zip" -f $Version)
 if (Test-Path $stage) {Remove-Item -LiteralPath $stage -Recurse -Force}
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
@@ -67,20 +75,27 @@ Copy-Tree $site (Join-Path $runtime 'Lib\site-packages') @('*.onnx','*.npy','*.p
   'safetensors-*.dist-info','sentencepiece-*.dist-info',
   'sympy-*.dist-info','networkx-*.dist-info'
 )
-# Native Universal format-v2 data-only model. Never bundle obsolete v1
-# manifest/recovery packages; include only the independently verified MakHam.
-$makSource=Join-Path $root 'models\universal\v2\tts\makham-paradee\1.0.0'
-$makArchive=Join-Path $root 'dist\ModelPackagesV2\VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0-format-v2.vwmodel'
+# Universal v3 ships a complete, pinned MakHam core package only.
+# Other models must arrive as independent, offline, self-contained v3 files.
+$makSource=Join-Path $root 'models\universal\v3\tts\makham-paradee\1.0.0'
+$makArchive=Join-Path $root 'dist\ModelPackagesV3\VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0-format-v3.vwmodel'
 if (!(Test-Path (Join-Path $makSource 'manifest.json')) -or
-    !(Test-Path (Join-Path $makSource 'paradee_thai_int8.onnx')) -or
-    !(Test-Path $makArchive)) {throw 'Native Universal v2 MakHam source/recovery package missing'}
-$modelDir=Join-Path $stage 'models\universal\v2\tts\makham-paradee\1.0.0'
+    !(Test-Path (Join-Path $makSource 'paradee_thai_int8.onnx'))) {
+  throw 'Universal v3 MakHam source is missing; v2 assets cannot be used'
+}
+if (!(Test-Path $makArchive)) {
+  New-Item -ItemType Directory -Force -Path (Split-Path $makArchive) | Out-Null
+  $env:PYTHONPATH=Join-Path $root 'src'
+  & $venv -c 'import json,sys; from pathlib import Path; from voxweavetts.universal_model_packages import make_package; root=Path(sys.argv[1]);make_package(root,json.loads((root/"manifest.json").read_text(encoding="utf-8")),Path(sys.argv[2]))' $makSource $makArchive
+  if($LASTEXITCODE -ne 0){throw 'Could not create verified Universal v3 recovery package'}
+}
+$modelDir=Join-Path $stage 'models\universal\v3\tts\makham-paradee\1.0.0'
 Copy-Tree $makSource $modelDir
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'models\recovery-packages') | Out-Null
-Copy-Item $makArchive (Join-Path $stage 'models\recovery-packages\VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0-format-v2.vwmodel') -Force
+Copy-Item $makArchive (Join-Path $stage 'models\recovery-packages\VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0-format-v3.vwmodel') -Force
 $env:PYTHONPATH=Join-Path $root 'src'
 & $venv -c 'import sys; from pathlib import Path; from voxweavetts.universal_model_packages import native_tts_packages; root=Path(sys.argv[1]); packs=native_tts_packages(root); assert len(packs)==1' $stage
-if ($LASTEXITCODE -ne 0) {throw 'Native Universal v2 MakHam staged verification failed'}
+if ($LASTEXITCODE -ne 0) {throw 'Universal v3 MakHam staged verification failed'}
 foreach ($dir in @('presets','models\packages','models\fastthaig2p','cache\temp','cache\torch',
                    'cache\huggingface','voices','output','logs','data\settings',
                    'data\reading','data\filters','data\dictionaries',
@@ -110,8 +125,8 @@ $notice=@(
   "phonemizer: https://github.com/bootphon/phonemizer (license in bundled package metadata).",
   "Third-party Python package license metadata/files are in runtime/python/Lib/site-packages/*dist-info/.",
   "User-generated speech, recordings and chat messages have their own rights.",
-  "MakHam Paradee is a built-in Engine with PREINSTALLED native Universal v2 data-only weights in models/universal/v2/tts/makham-paradee/1.0.0. A native v2 recovery .vwmodel is included in models/recovery-packages. Removing the model leaves the Engine installed; shared TTS runtimes are managed separately.",
-  "Optional native v2 packages: FastThaiG2P, Vachana, Kokoro, MeloTTS Chinese, Supertonic 3, experimental M2M100, Wayu Paxa Edge NC (CC BY-NC 4.0, strictly NonCommercial). See separate archive rights; no package is automatically commercial-cleared.",
+  "MakHam Paradee is a built-in Engine with PREINSTALLED Universal v3 data-only weights in models/universal/v3/tts/makham-paradee/1.0.0. A v3 recovery .vwmodel is included in models/recovery-packages. Removing the model leaves the Engine installed; shared TTS runtimes are managed separately.",
+  "Optional v3 packages: FastThaiG2P, Vachana, Kokoro, MeloTTS Chinese, Supertonic 3, experimental M2M100, Wayu Paxa Edge NC (CC BY-NC 4.0, strictly NonCommercial). See separate archive rights; no package is automatically commercial-cleared.",
   "FastThaiG2P 325MB model, personal voices and private local settings are NOT bundled."
 )
 $notice | Set-Content (Join-Path $stage 'THIRD_PARTY_NOTICES.txt') -Encoding UTF8
@@ -125,40 +140,16 @@ if ($LASTEXITCODE -ne 0 -or !(Test-Path $exe)) {throw 'Windows launcher compile 
 New-Item -ItemType Directory -Path (Join-Path $stage 'scripts') -Force | Out-Null
 Copy-Item (Join-Path $root 'Stop-VoxWeaveTTS.cmd') (Join-Path $stage 'Stop-VoxWeaveTTS.cmd') -Force
 Copy-Item (Join-Path $root 'scripts\Stop-VoxWeaveTTS.ps1') (Join-Path $stage 'scripts\Stop-VoxWeaveTTS.ps1') -Force
-# The Engine Provider UI installs isolated runtimes using the trusted recipe
-# directory under scripts/engine-dependencies; include it in the ZIP so an
-# extracted Portable can install/repair providers without the source checkout.
-Copy-Tree (Join-Path $root 'scripts\engine-dependencies') (Join-Path $stage 'scripts\engine-dependencies')
-Copy-Item (Join-Path $root 'scripts\Install-EngineProvider.ps1') (Join-Path $stage 'scripts\Install-EngineProvider.ps1') -Force
-Copy-Item (Join-Path $root 'scripts\Install-WayuWorker.ps1') (Join-Path $stage 'scripts\Install-WayuWorker.ps1') -Force
-# Read-only portability diagnosis is available even with no system-installed uv.
+# The v3 one-file installer uses only locally bundled tools and trusted locks.
 Copy-Item (Join-Path $root 'scripts\Check-Portable.ps1') (Join-Path $stage 'scripts\Check-Portable.ps1') -Force
-# M2M100 weights are a separate data-only .vwmodel; its heavy Torch runtime is
-# installed only with opt-in into a separate local Python environment.
-Copy-Tree (Join-Path $root 'scripts\ai-dependencies') (Join-Path $stage 'scripts\ai-dependencies')
 Copy-Tree (Join-Path $root 'scripts\wheelhouse-locks') (Join-Path $stage 'scripts\wheelhouse-locks')
-foreach ($toolName in @('prepare_verified_wheelhouse.py','audit_wheelhouse_rights.py','manage_signed_provider.py')) {
-  Copy-Item (Join-Path $root ('scripts\'+$toolName)) (Join-Path $stage 'scripts') -Force
+if (!(Test-Path (Join-Path $stage 'runtime\tools'))) {
+  New-Item -ItemType Directory -Path (Join-Path $stage 'runtime\tools') -Force | Out-Null
 }
-# uv is required for new isolated runtimes, and must not rely on host PATH.
 $uvPath=(Get-Command uv -ErrorAction Stop).Source
-$toolsPath=Join-Path $stage 'runtime\tools'
-New-Item -ItemType Directory -Force -Path $toolsPath | Out-Null
-Copy-Item $uvPath (Join-Path $toolsPath 'uv.exe') -Force
-New-Item -ItemType Directory -Force -Path (Join-Path $stage 'runtime\wheelhouse') | Out-Null
-# Large Wheelhouse binaries remain separate release assets with licensing
-# notices, never embedded in the base Portable ZIP.
-New-Item -ItemType Directory -Force -Path (Join-Path $stage 'extensions\engine-providers') | Out-Null
-Copy-Item (Join-Path $root 'scripts\Install-M2M100Runtime.ps1') (Join-Path $stage 'scripts\Install-M2M100Runtime.ps1') -Force
-# An explicit real-inference smoke, not run at startup or by Portable Doctor.
-Copy-Item (Join-Path $root 'scripts\Verify-M2M100Runtime.ps1') (Join-Path $stage 'scripts\Verify-M2M100Runtime.ps1') -Force
-if (!(Test-Path (Join-Path $stage 'scripts\ai-dependencies\m2m100.txt'))) {
-  throw 'Portable missing trusted M2M100 runtime recipe'
-}
-foreach ($required in @('pythaitts.txt','vachana.txt','kokoro.txt','sherpa.txt','wayu-nc.txt')) {
-  if (!(Test-Path (Join-Path $stage ("scripts\engine-dependencies\{0}" -f $required)))) {
-    throw "Portable missing trusted worker recipe: $required"
-  }
+Copy-Item $uvPath (Join-Path $stage 'runtime\tools\uv.exe') -Force
+if (!(Test-Path (Join-Path $stage 'runtime\tools\uv.exe'))) {
+  throw 'Offline v3 installer requires bundled uv.exe'
 }
 @'
 @echo off

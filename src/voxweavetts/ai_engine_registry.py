@@ -225,9 +225,9 @@ def m2m_info() -> AIEngineInfo:
     return AIEngineInfo(
         "m2m100", "M2M100 418M (ทดลอง / accuracy varies)", "translation", False, False,
         ready_files, deps,
-        "Native v2 safetensors + tokenizer under models/universal/v2/translation; "
+        "Universal .vwmodel v3: bundled offline safetensors and tokenizer; "
         "requires the optional isolated M2M100 Python runtime (torch, transformers, "
-        "sentencepiece, safetensors); Install/Repair in AI Settings; "
+        "sentencepiece, safetensors) installed automatically from one verified file; "
         "experimental translation quality - verify meaning before live use",
     )
 

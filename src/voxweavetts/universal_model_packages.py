@@ -1,8 +1,8 @@
-"""Universal .vwmodel v2: independent, declarative, data-only model packages.
+"""Universal .vwmodel v3: offline, single-file, relocatable model packages.
 
-No embedded v1 manifests, code execution, pip hooks or untrusted imports.
-v2 assets live separately from earlier packages, and model installation never
-creates or modifies a Python runtime. Runtime setup is an explicit separate step.
+v3 is the sole accepted package format. There is no v1/v3 reader or fallback.
+Runtime wheels may be bundled, but executable scripts, hooks, unpinned model
+weights and external installers are never run from the model archive.
 """
 from __future__ import annotations
 
@@ -22,10 +22,10 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 FORMAT = "voxweavetts.model-package"
-VERSION = 2
+VERSION = 3
 MAX_MANIFEST = 65_536
-MAX_FILES = 120
-MAX_TOTAL_SIZE = 4_000_000_000
+MAX_FILES = 160
+MAX_TOTAL_SIZE = 8_000_000_000
 MAX_METADATA = 65_536
 CHUNK = 1024 * 1024
 _ID = re.compile(r"[a-z][a-z0-9_-]{1,47}\Z")
@@ -56,14 +56,14 @@ _BUILTINS = {
 
 
 class UniversalPackageError(ValueError):
-    """Rejected a malformed or unsafe Universal v2 package."""
+    """Rejected a malformed or unsafe Universal v3 package."""
 
 
 def _path(value: Any) -> str:
     if not isinstance(value, str) or not value or len(value) > 230:
-        raise UniversalPackageError("invalid v2 file path")
+        raise UniversalPackageError("invalid v3 file path")
     if "\\" in value or ":" in value or value.startswith("/"):
-        raise UniversalPackageError("unsafe v2 file path")
+        raise UniversalPackageError("unsafe v3 file path")
     parts = PurePosixPath(value).parts
     windows_devices = {"CON", "PRN", "AUX", "NUL"} | {
         f"{prefix}{index}" for prefix in ("COM", "LPT") for index in range(1, 10)
@@ -76,28 +76,28 @@ def _path(value: Any) -> str:
     ) or PurePosixPath(value).as_posix() != value or
         (PurePosixPath(value).suffix.lower() not in _EXTENSIONS
          and value not in ("LICENSE", "NOTICE"))):
-        raise UniversalPackageError("unsupported v2 file path")
+        raise UniversalPackageError("unsupported v3 file path")
     return value
 
 
 def _index(files: Any) -> dict[str, dict]:
     if not isinstance(files, list) or not 2 <= len(files) <= MAX_FILES:
-        raise UniversalPackageError("invalid v2 file index")
+        raise UniversalPackageError("invalid v3 file index")
     result: dict[str, dict] = {}
     total = 0
     for row in files:
         if not isinstance(row, dict) or set(row) != {"path", "size", "sha256"}:
-            raise UniversalPackageError("invalid v2 file descriptor")
+            raise UniversalPackageError("invalid v3 file descriptor")
         name = _path(row["path"])
         if name.casefold() in result or name.casefold() == "manifest.json":
-            raise UniversalPackageError("duplicate or reserved v2 file name")
+            raise UniversalPackageError("duplicate or reserved v3 file name")
         if (type(row["size"]) is not int or not 0 < row["size"] <= MAX_TOTAL_SIZE or
             not isinstance(row["sha256"], str) or not _SHA.fullmatch(row["sha256"])):
-            raise UniversalPackageError("invalid v2 file size/hash")
+            raise UniversalPackageError("invalid v3 file size/hash")
         total += row["size"]
         result[name.casefold()] = row
     if total > MAX_TOTAL_SIZE:
-        raise UniversalPackageError("v2 package too large")
+        raise UniversalPackageError("v3 package too large")
     return result
 
 
@@ -106,43 +106,38 @@ def _runtime(spec: Any, files: dict[str, dict]) -> None:
         "id", "kind", "python", "platform", "accelerator",
         "source", "install_policy", "lockfile",
     }:
-        raise UniversalPackageError("invalid v2 runtime metadata")
+        raise UniversalPackageError("invalid v3 runtime declaration")
     if not isinstance(spec["id"], str) or not _ADAPTER.fullmatch(spec["id"]):
-        raise UniversalPackageError("invalid v2 runtime id")
-    if spec["kind"] not in ("python-venv", "none"):
-        raise UniversalPackageError("invalid runtime kind")
-    if not isinstance(spec["python"], str) or not re.fullmatch(r"3\.(?:11|12|13|14)|none", spec["python"]):
-        raise UniversalPackageError("invalid runtime Python version")
-    if spec["platform"] not in ("windows-x64", "linux-x64", "macos-arm64", "any"):
-        raise UniversalPackageError("invalid runtime platform")
-    if spec["accelerator"] not in ("cpu", "cuda", "directml", "none"):
-        raise UniversalPackageError("invalid runtime accelerator")
-    if spec["source"] not in ("reuse-only", "recipe-only", "bundled-wheels"):
-        raise UniversalPackageError("invalid runtime source")
-    if spec["install_policy"] not in ("reuse-only", "reuse-or-create"):
-        raise UniversalPackageError("invalid runtime install policy")
-    lock = spec["lockfile"]
-    if spec["source"] == "reuse-only":
-        if lock is not None or spec["install_policy"] != "reuse-only":
-            raise UniversalPackageError("reuse-only package cannot declare an installer")
-    elif (spec["install_policy"] != "reuse-or-create"
-          or not isinstance(lock, str) or _path(lock) != lock
-          or not lock.startswith("runtime/locks/")
-          or lock.casefold() not in files or files[lock.casefold()]["size"] > MAX_METADATA):
-        raise UniversalPackageError("v2 runtime requires verified lock")
-    if spec["kind"] == "none" and (spec["source"] != "reuse-only" or
-                                   spec["python"] != "none" or
-                                   spec["accelerator"] != "none"):
-        raise UniversalPackageError("runtime-free model cannot install dependencies")
-    if spec["kind"] == "python-venv" and spec["python"] == "none":
-        raise UniversalPackageError("Python runtime needs its version")
+        raise UniversalPackageError("invalid runtime id")
+    if spec["kind"] not in ("core", "python-target"):
+        raise UniversalPackageError("unsupported v3 runtime kind")
+    if spec["python"] != "3.11":
+        raise UniversalPackageError("v3 supports Python 3.11 portable only")
+    if spec["platform"] not in ("windows-x64", "any"):
+        raise UniversalPackageError("v3 runtime must target Windows x64 or any")
+    if spec["accelerator"] != "cpu":
+        raise UniversalPackageError("unsupported v3 accelerator")
+    if spec["source"] == "core-bundled":
+        if (spec["kind"] != "core" or spec["install_policy"] != "reuse-only"
+            or spec["lockfile"] is not None):
+            raise UniversalPackageError("invalid bundled-core runtime")
+    elif spec["source"] == "bundled-wheels":
+        lock = spec["lockfile"]
+        if (spec["kind"] != "python-target" or spec["install_policy"] != "auto"
+            or not isinstance(lock, str) or _path(lock) != lock
+            or not lock.startswith("runtime/locks/")
+            or lock.casefold() not in files
+            or files[lock.casefold()]["size"] > MAX_METADATA):
+            raise UniversalPackageError("v3 requires hash-pinned offline wheels")
+    else:
+        raise UniversalPackageError("online/recipe/reuse-only dependency install forbidden")
 
 
 def _capabilities(manifest: dict, files: dict[str, dict]) -> None:
     kind = manifest["package"]["kind"]
     cap = manifest["capabilities"]
     if not isinstance(cap, dict):
-        raise UniversalPackageError("invalid v2 native capabilities")
+        raise UniversalPackageError("invalid v3 native capabilities")
     if kind == "tts":
         if set(cap) != {"language", "sample_rate", "voices"}:
             raise UniversalPackageError("TTS capabilities required")
@@ -151,7 +146,7 @@ def _capabilities(manifest: dict, files: dict[str, dict]) -> None:
             or not 8_000 <= cap["sample_rate"] <= 96_000):
             raise UniversalPackageError("unsupported voice sample rate/language")
         if not isinstance(cap["voices"], list) or not 1 <= len(cap["voices"]) <= 64:
-            raise UniversalPackageError("invalid v2 voice list")
+            raise UniversalPackageError("invalid v3 voice list")
         ids = set()
         for voice in cap["voices"]:
             if not isinstance(voice, dict) or set(voice) != {"id", "label", "asset"}:
@@ -161,7 +156,7 @@ def _capabilities(manifest: dict, files: dict[str, dict]) -> None:
                 or not 1 <= len(voice["label"]) <= 110 or
                 not isinstance(voice["asset"], str) or
                 _path(voice["asset"]).casefold() not in files):
-                raise UniversalPackageError("invalid native v2 voice asset")
+                raise UniversalPackageError("invalid native v3 voice asset")
             ids.add(voice["id"])
     elif kind == "translation":
         if (set(cap) != {"model_family"} or
@@ -182,34 +177,37 @@ def validate_manifest(value: Any) -> dict:
         "assets", "rights", "files", "capabilities",
     } or value["format"] != FORMAT or
         type(value["format_version"]) is not int or value["format_version"] != VERSION):
-        raise UniversalPackageError("expected native Universal .vwmodel v2 (no v1 bridge)")
+        raise UniversalPackageError("expected Universal .vwmodel v3; older packages are unsupported")
     pkg = value["package"]
     if (not isinstance(pkg, dict) or set(pkg) != {
         "id", "version", "kind", "title", "languages",
     } or not isinstance(pkg["id"], str) or not _ID.fullmatch(pkg["id"])):
-        raise UniversalPackageError("invalid v2 package identity")
+        raise UniversalPackageError("invalid v3 package identity")
     if not isinstance(pkg["version"], str) or not _VERSION.fullmatch(pkg["version"]):
-        raise UniversalPackageError("invalid v2 version")
+        raise UniversalPackageError("invalid v3 version")
     if pkg["kind"] not in _KINDS or not isinstance(pkg["title"], str) or not 1 <= len(pkg["title"]) <= 120:
-        raise UniversalPackageError("invalid v2 package kind/title")
+        raise UniversalPackageError("invalid v3 package kind/title")
     langs = pkg["languages"]
     if (not isinstance(langs, list) or not 1 <= len(langs) <= 64
         or any(not isinstance(s, str) or not _LANGUAGE.fullmatch(s) for s in langs)
         or len(set(langs)) != len(langs)):
-        raise UniversalPackageError("invalid v2 languages")
+        raise UniversalPackageError("invalid v3 languages")
     adapter = value["adapter"]
     if (not isinstance(adapter, dict) or set(adapter) != {"id", "api_version", "trust"}
         or not isinstance(adapter["id"], str) or not _ADAPTER.fullmatch(adapter["id"])
         or type(adapter["api_version"]) is not int or adapter["api_version"] != 1
         or adapter["trust"] not in ("builtin", "external")):
-        raise UniversalPackageError("invalid v2 adapter identity")
+        raise UniversalPackageError("invalid v3 adapter identity")
     files = _index(value["files"])
     if (value["assets"] != "manifest-assets.json" or value["rights"] != "legal/rights.json"
         or value["assets"] not in files or value["rights"] not in files
         or files[value["assets"]]["size"] > MAX_METADATA
         or files[value["rights"]]["size"] > MAX_METADATA):
-        raise UniversalPackageError("v2 package needs hashed assets and rights metadata")
+        raise UniversalPackageError("v3 package needs hashed assets and rights metadata")
     _runtime(value["runtime"], files)
+    if (value["runtime"]["source"] == "core-bundled"
+        and value["adapter"]["id"] != "makham-paradee-onnx-v1"):
+        raise UniversalPackageError("core-bundled is reserved for verified MakHam")
     _capabilities(value, files)
     for row in files.values():
         name = row["path"]
@@ -227,7 +225,7 @@ def validate_manifest(value: Any) -> dict:
                 or row["sha256"] != PINNED_ASSETS[name]):
                 raise UniversalPackageError("untrusted serialized PyTorch asset")
         if ext in (".pkl", ".py", ".dll", ".exe"):
-            raise UniversalPackageError("executable asset forbidden in native v2")
+            raise UniversalPackageError("executable asset forbidden in native v3")
     if adapter["id"] == "wayu-nc-v1":
         from .wayu_native_trust import PINNED_ASSETS, PACKAGE_ID, PACKAGE_VERSION
         from .personal_wayu_engine import VOICES
@@ -236,9 +234,9 @@ def validate_manifest(value: Any) -> dict:
             or pkg["id"] != PACKAGE_ID or pkg["version"] != PACKAGE_VERSION
             or pkg["languages"] != ["th", "en"]
             or value["runtime"]["id"] != "wayu-nc"
-            or value["runtime"]["kind"] != "python-venv"
-            or value["runtime"]["source"] != "reuse-only"
-            or value["runtime"]["install_policy"] != "reuse-only"
+            or value["runtime"]["kind"] != "python-target"
+            or value["runtime"]["source"] != "bundled-wheels"
+            or value["runtime"]["install_policy"] != "auto"
             or value["runtime"]["accelerator"] != "cpu"
             or cap["language"] != "th" or cap["sample_rate"] != 24000
             or set(PINNED_ASSETS) - {r["path"] for r in value["files"]}
@@ -247,20 +245,20 @@ def validate_manifest(value: Any) -> dict:
                    for v in cap["voices"])
             or any(files[name.casefold()]["sha256"] != sha
                    for name, sha in PINNED_ASSETS.items())):
-            raise UniversalPackageError("Wayu NC v2 requires the exact pinned weights/voices")
+            raise UniversalPackageError("Wayu NC v3 requires the exact pinned weights/voices")
     return value
 
 
 def _small_json(folder: Path, name: str) -> dict:
     file = folder.joinpath(*PurePosixPath(name).parts)
     if not file.is_file() or file.is_symlink() or file.stat().st_size > MAX_METADATA:
-        raise UniversalPackageError("invalid v2 metadata location/size")
+        raise UniversalPackageError("invalid v3 metadata location/size")
     try:
         data = json.loads(file.read_text(encoding="utf-8"))
     except (ValueError, UnicodeError) as exc:
-        raise UniversalPackageError("invalid v2 JSON metadata") from exc
+        raise UniversalPackageError("invalid v3 JSON metadata") from exc
     if not isinstance(data, dict):
-        raise UniversalPackageError("v2 metadata must be an object")
+        raise UniversalPackageError("v3 metadata must be an object")
     return data
 
 
@@ -274,10 +272,10 @@ def _validate_assets(folder: Path, manifest: dict) -> None:
         or any(not isinstance(x, str) for x in paths["paths"])
         or len(set(paths["paths"])) != len(paths["paths"])
         or set(paths["paths"]) != expected):
-        raise UniversalPackageError("v2 asset index mismatch")
+        raise UniversalPackageError("v3 asset index mismatch")
     rights = _small_json(folder, manifest["rights"])
     if set(rights) != {"license", "source"}:
-        raise UniversalPackageError("v2 rights/provenance metadata required")
+        raise UniversalPackageError("v3 rights/provenance metadata required")
     lic, src = rights["license"], rights["source"]
     if (not isinstance(lic, dict) or set(lic) != {"spdx", "url", "attribution", "review_status"}
         or any(not isinstance(v, str) for v in lic.values())
@@ -288,14 +286,14 @@ def _validate_assets(folder: Path, manifest: dict) -> None:
         or not all(isinstance(v, str) for v in src.values())
         or not src["url"].startswith("https://") or len(src["url"]) > 350
         or len(src["revision"]) > 150):
-        raise UniversalPackageError("invalid v2 rights declaration")
+        raise UniversalPackageError("invalid v3 rights declaration")
     lock_path = manifest["runtime"]["lockfile"]
     if lock_path:
         lock = _small_json(folder, lock_path)
         if (set(lock) != {"requirements", "wheels"}
             or not isinstance(lock["requirements"], list) or not isinstance(lock["wheels"], list)
             or len(lock["requirements"]) > 100 or len(lock["wheels"]) > MAX_FILES):
-            raise UniversalPackageError("invalid v2 runtime lock")
+            raise UniversalPackageError("invalid v3 runtime lock")
         requirements = set()
         for item in lock["requirements"]:
             if (not isinstance(item, dict) or set(item) != {"name", "version"}
@@ -317,7 +315,7 @@ def _validate_assets(folder: Path, manifest: dict) -> None:
                 raise UniversalPackageError("unverified offline wheel")
             wheels.add(wheel["path"])
         if len(wheels) != len(lock["wheels"]) or wheels != expected_wheels:
-            raise UniversalPackageError("v2 wheels and lock disagree")
+            raise UniversalPackageError("v3 wheels and lock disagree")
         if manifest["runtime"]["source"] == "bundled-wheels" and not wheels:
             raise UniversalPackageError("declared offline wheels missing")
 
@@ -337,17 +335,16 @@ def _trusted_adapter(manifest: dict) -> tuple[str, str, tuple[str, ...], int] | 
 
 
 def native_adapter_profile(manifest: dict, folder: Path) -> dict | None:
-    """Validate a v2-native model against a known built-in worker contract.
+    """Validate a v3-native model against a known built-in worker contract.
 
-    The resulting descriptor is constructed from v2 capabilities in memory.
-    There is no v1 manifest, migration or dependency on the v1 validator.
+    The descriptor is constructed from v3 capabilities, not archived code.
     """
     trusted = _trusted_adapter(manifest)
     if trusted is None:
         return None
     kind, runtime_id, required, sample_rate = trusted
     if manifest["runtime"]["id"] != runtime_id:
-        raise UniversalPackageError("v2 adapter/runtime mismatch")
+        raise UniversalPackageError("v3 adapter/runtime mismatch")
     installed = {r["path"]: r for r in _model_files(manifest)}
     if not set(required).issubset(installed):
         raise UniversalPackageError("native model lacks built-in adapter assets")
@@ -418,12 +415,12 @@ def native_adapter_profile(manifest: dict, folder: Path) -> dict | None:
         "sample_rate": manifest["capabilities"].get("sample_rate", 0),
         "voices": manifest["capabilities"].get("voices", []),
         "dependencies": [],
-        "format_version": 2,
+        "format_version": 3,
     }
 
 
 def engine_id_for(manifest: dict) -> str:
-    """Stable native v2 engine identity, independent of legacy packages."""
+    """Stable v3 engine identity, independent of old stored manifests."""
     package_id = manifest["package_id"] if "package_id" in manifest else manifest["package"]["id"]
     version = manifest["version"] if "version" in manifest else manifest["package"]["version"]
     return "model-" + package_id + "-" + version.replace(".", "_")
@@ -448,72 +445,34 @@ def platform_compatible(manifest: dict) -> bool:
     return wanted in ("any", current)
 
 
-def _runtime_python_abi(manifest: dict, root: Path = ROOT) -> str | None:
-    """Read an existing *worker* environment, never assume Core's Python ABI."""
-    runtime_id = manifest["runtime"]["id"]
-    folder = (Path(root) / "runtime" /
-              ("ai-envs" if runtime_id == "m2m100" else "engine-envs") /
-              runtime_id)
-    config = folder / "pyvenv.cfg"
-    try:
-        if not config.is_file() or config.is_symlink():
-            return None
-        if not config.resolve(strict=True).is_relative_to(folder.resolve(strict=True)):
-            return None
-        if config.stat().st_size > 8192:
-            return "invalid"
-        lines = config.read_text(encoding="utf-8").splitlines()
-        for key in ("version_info", "version"):
-            for line in lines:
-                label, sep, value = line.partition("=")
-                if sep and label.strip().lower() == key:
-                    match = re.match(r"\s*(3\.\d+)(?:\.|\s|$)", value)
-                    return match.group(1) if match else "invalid"
-    except (OSError, UnicodeError):
-        return "invalid"
-    return None
-
-
 def runtime_compatibility(manifest: dict, *, root: Path = ROOT) -> str:
-    """Return an actionable reason without installing or executing anything."""
+    """Structural compatibility, independent of whether dependencies are installed."""
     rt = manifest["runtime"]
-    trusted = _trusted_adapter(manifest)
-    if trusted is None:
+    if _trusted_adapter(manifest) is None:
         return "adapter-not-approved"
-    if rt["id"] != trusted[1]:
+    if rt["id"] != _trusted_adapter(manifest)[1]:
         return "runtime-id-mismatch"
     if not platform_compatible(manifest):
         return "platform-incompatible"
-    if rt["kind"] != "python-venv":
-        return "runtime-kind-unsupported"
-    if rt["accelerator"] != "cpu":
-        return "accelerator-unsupported"
-    if rt["source"] != "reuse-only":
-        return "runtime-recipe-pending"
-    abi = _runtime_python_abi(manifest, root)
-    if abi is not None and abi != rt["python"]:
-        return "python-abi-mismatch"
+    if rt["python"] != "3.11" or rt["accelerator"] != "cpu":
+        return "runtime-unsupported"
+    if rt["source"] not in ("core-bundled", "bundled-wheels"):
+        return "offline-runtime-required"
     return "compatible"
 
 
 def activation_compatible(manifest: dict, root: Path = ROOT) -> bool:
-    # A missing runtime is installable separately; mismatched installed
-    # runtime environments are not eligible for synthesis.
     return runtime_compatibility(manifest, root=root) == "compatible"
 
 
 def runtime_fingerprint(manifest: dict) -> str:
     validate_manifest(manifest)
-    rt = manifest["runtime"]
-    index = {r["path"]: r["sha256"] for r in manifest["files"]}
-    record = {**rt, "lock_sha256": index.get(rt["lockfile"], ""),
-              "adapter_id": manifest["adapter"]["id"],
-              "adapter_api_version": manifest["adapter"]["api_version"]}
-    return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    from .portable_runtime_v3 import fingerprint
+    return fingerprint(manifest)
 
 
 def _base(root: Path, kind: str) -> Path:
-    return Path(root) / "models" / "universal" / "v2" / kind
+    return Path(root) / "models" / "universal" / "v3" / kind
 
 
 def _is_contained_file(folder: Path, relative_name: str) -> bool:
@@ -542,6 +501,10 @@ def _installed_manifest(folder: Path) -> dict | None:
             return None
         manifest = validate_manifest(json.loads(marker.read_text(encoding="utf-8")))
         for row in manifest["files"]:
+            # Verified wheels are consumed once, never duplicated inside the
+            # installed model. Manifest/lock hashes remain immutable.
+            if row["path"].startswith("runtime/wheels/"):
+                continue
             asset = folder.joinpath(*PurePosixPath(row["path"]).parts)
             if (not _is_contained_file(folder, row["path"])
                 or asset.stat().st_size != row["size"]):
@@ -588,32 +551,52 @@ def native_translation_packages(root: Path = ROOT) -> list[tuple[dict, Path]]:
             if m["package"]["kind"] == "translation" and activation_compatible(m, root)]
 
 
+def installed_for_engine(engine_id: str, *, root: Path = ROOT) -> tuple[dict, Path] | None:
+    """Resolve a trusted v3 model by its stable Engine ID."""
+    from .makham_package import ENGINE_ID
+    for manifest, folder in installed_packages(root):
+        if manifest["package"]["kind"] != "tts":
+            continue
+        expected = (ENGINE_ID if manifest["adapter"]["id"] == "makham-paradee-onnx-v1"
+                    else engine_id_for(manifest))
+        if expected == engine_id:
+            return manifest, folder
+    return None
+
+
+def runtime_for_provider(provider_id: str, *, root: Path = ROOT,
+                         engine_id: str | None = None) -> dict | None:
+    """Select the exact package runtime; no global Python-venv fallback."""
+    from .portable_runtime_v3 import ready
+    if engine_id:
+        pair = installed_for_engine(engine_id, root=root)
+        if pair is None:
+            return None
+        manifest = pair[0]
+        return manifest if (manifest["runtime"]["id"] == provider_id
+                            and ready(root, manifest)) else None
+    for manifest, _folder in installed_packages(root):
+        if (manifest["package"]["kind"] == "tts"
+            and manifest["runtime"]["id"] == provider_id
+            and ready(root, manifest)):
+            return manifest
+    return None
+
+
 def package_status(manifest: dict, *, root: Path = ROOT, folder: Path | None = None) -> dict:
-    from .runtime_registry import inventory
+    from .portable_runtime_v3 import ready as runtime_ready
     native = native_adapter_profile(manifest, folder) if folder else None
     reason = runtime_compatibility(manifest, root=root)
     allow = reason == "compatible" and native is not None
-    ready = False
-    if allow:
-        entry = next((p for p in inventory(root)
-                      if p["id"] == manifest["runtime"]["id"]), None)
-        ready = bool(entry and entry["ready"])
-        if not ready:
-            states = {
-                "relocated": "runtime-relocated",
-                "recipe-changed": "runtime-recipe-changed",
-                "base-python-missing": "runtime-base-python-missing",
-                "incomplete": "runtime-incomplete",
-                "python-abi-mismatch": "python-abi-mismatch",
-            }
-            reason = states.get(entry.get("health_state") if entry else None,
-                                "runtime-not-installed")
+    ready = bool(allow and runtime_ready(root, manifest))
+    if allow and not ready:
+        reason = "runtime-not-installed"
     rights = _small_json(folder, manifest["rights"]) if folder else {}
     cap = manifest["capabilities"]
     return {
         "package_id": manifest["package"]["id"], "version": manifest["package"]["version"],
         "title": manifest["package"]["title"], "model_kind": manifest["package"]["kind"],
-        "format_version": 2, "engine_adapter": manifest["adapter"]["id"],
+        "format_version": 3, "engine_adapter": manifest["adapter"]["id"],
         "adapter_trusted": native is not None,
         "runtime_id": manifest["runtime"]["id"],
         "runtime_fingerprint": runtime_fingerprint(manifest),
@@ -637,21 +620,21 @@ def package_status(manifest: dict, *, root: Path = ROOT, folder: Path | None = N
 def inspect_archive(archive: str | Path) -> dict:
     source = Path(archive)
     if source.suffix.lower() != ".vwmodel" or not source.is_file():
-        raise UniversalPackageError("select a native Universal .vwmodel v2")
+        raise UniversalPackageError("select a Universal .vwmodel v3")
     with zipfile.ZipFile(source) as bundle:
         members = bundle.infolist()
         if (not 3 <= len(members) <= MAX_FILES + 1
             or members[0].filename != "manifest.json"
             or members[0].file_size > MAX_MANIFEST
             or len({m.filename.casefold() for m in members}) != len(members)):
-            raise UniversalPackageError("invalid v2 ZIP member list")
+            raise UniversalPackageError("invalid v3 ZIP member list")
         try:
             manifest = validate_manifest(json.loads(bundle.read(members[0]).decode("utf-8")))
         except (ValueError, UnicodeError) as exc:
-            raise UniversalPackageError("malformed native v2 manifest") from exc
+            raise UniversalPackageError("malformed v3 manifest") from exc
         index = _index(manifest["files"])
         if {m.filename.casefold() for m in members} != set(index) | {"manifest.json"}:
-            raise UniversalPackageError("v2 archive files disagree with manifest")
+            raise UniversalPackageError("v3 archive files disagree with manifest")
         for item in members:
             if (item.is_dir() or item.flag_bits & 1 or
                 stat.S_IFMT(item.external_attr >> 16) == stat.S_IFLNK):
@@ -661,7 +644,7 @@ def inspect_archive(archive: str | Path) -> dict:
             row = index[item.filename.casefold()]
             if (item.filename != row["path"] or item.file_size != row["size"]
                 or not item.compress_size or item.file_size > item.compress_size * 1500):
-                raise UniversalPackageError("v2 ZIP contains unsafe/compressed asset")
+                raise UniversalPackageError("v3 ZIP contains unsafe/compressed asset")
         return manifest
 
 
@@ -676,14 +659,14 @@ def install_model_package(archive: str | Path, *, root: Path = ROOT) -> dict:
             and m["package"]["version"] == manifest["package"]["version"]
             for m, _ in installed_packages(root)
         )):
-            raise UniversalPackageError("this v2 package identity is already installed")
+            raise UniversalPackageError("this v3 package identity is already installed")
         if (base.is_symlink() or target.parent.is_symlink()
             or not base.resolve().is_relative_to(root.resolve())):
             raise UniversalPackageError("symlinked model destination forbidden")
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.parent.resolve().is_relative_to(root.resolve()):
             raise UniversalPackageError("redirected model destination forbidden")
-        stage = Path(tempfile.mkdtemp(prefix=".install-v2-", dir=target.parent))
+        stage = Path(tempfile.mkdtemp(prefix=".install-v3-", dir=target.parent))
         try:
             with zipfile.ZipFile(archive) as bundle:
                 for row in manifest["files"]:
@@ -696,19 +679,35 @@ def install_model_package(archive: str | Path, *, root: Path = ROOT) -> dict:
                         while chunk := src.read(CHUNK):
                             amount += len(chunk)
                             if amount > row["size"]:
-                                raise UniversalPackageError("v2 asset exceeds declared size")
+                                raise UniversalPackageError("v3 asset exceeds declared size")
                             digest.update(chunk)
                             dst.write(chunk)
                     if amount != row["size"] or digest.hexdigest() != row["sha256"]:
-                        raise UniversalPackageError("v2 asset SHA-256 mismatch")
+                        raise UniversalPackageError("v3 asset SHA-256 mismatch")
             _validate_assets(stage, manifest)
-            native_adapter_profile(manifest, stage)
+            if native_adapter_profile(manifest, stage) is None:
+                raise UniversalPackageError("unsupported v3 adapter: trusted built-in worker required")
+            if runtime_compatibility(manifest, root=root) != "compatible":
+                raise UniversalPackageError("v3 runtime is incompatible with this device")
             (stage / "manifest.json").write_text(
                 json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8")
             if target.exists():
-                raise UniversalPackageError("v2 package was installed concurrently")
-            stage.rename(target)
+                raise UniversalPackageError("v3 package was installed concurrently")
+            from .portable_runtime_v3 import install as install_runtime, uninstall_if_unreferenced
+            created_runtime = False
+            try:
+                created_runtime = install_runtime(root, manifest, stage)
+                # The imported and SHA-verified wheels are no longer needed
+                # after installing the relocatable shared runtime.
+                wheel_dir = stage / "runtime" / "wheels"
+                if wheel_dir.is_dir():
+                    shutil.rmtree(wheel_dir)
+                stage.rename(target)
+            except BaseException:
+                if created_runtime:
+                    uninstall_if_unreferenced(root, manifest)
+                raise
             if manifest["adapter"]["id"] == "makham-paradee-onnx-v1" and root.resolve() == ROOT.resolve():
                 from .makham_package import clear_disabled_marker
                 clear_disabled_marker(root)
@@ -719,8 +718,8 @@ def install_model_package(archive: str | Path, *, root: Path = ROOT) -> dict:
                 "version": manifest["package"]["version"],
                 "package_kind": manifest["package"]["kind"],
                 "engine_adapter": manifest["adapter"]["id"],
-                "format_version": 2,
-                "runtime_status": "runtime-not-executed",
+                "format_version": 3,
+                "runtime_status": "ready",
                 "activation_supported": activation_compatible(manifest),
             }
         finally:
@@ -731,13 +730,13 @@ def install_model_package(archive: str | Path, *, root: Path = ROOT) -> dict:
 def remove_model_package(package_id: str, version: str, *, root: Path = ROOT) -> bool:
     if (not isinstance(package_id, str) or not _ID.fullmatch(package_id)
         or not isinstance(version, str) or not _VERSION.fullmatch(version)):
-        raise UniversalPackageError("invalid v2 package removal identity")
+        raise UniversalPackageError("invalid v3 package removal identity")
     with _LOCK:
         for manifest, folder in installed_packages(root):
             if manifest["package"]["id"] == package_id and manifest["package"]["version"] == version:
                 if (folder.is_symlink()
                     or not folder.resolve().is_relative_to(_base(root, manifest["package"]["kind"]).resolve())):
-                    raise UniversalPackageError("unmanaged or redirected v2 model directory")
+                    raise UniversalPackageError("unmanaged or redirected v3 model directory")
                 declared = {"manifest.json"} | {r["path"] for r in manifest["files"]}
                 directories = set()
                 for name in declared:
@@ -755,10 +754,14 @@ def remove_model_package(package_id: str, version: str, *, root: Path = ROOT) ->
                 # This is an explicit destructive action. Do not delete model
                 # weights or user-added files modified after installation.
                 for row in manifest["files"]:
+                    if row["path"].startswith("runtime/wheels/"):
+                        continue
                     with (folder / row["path"]).open("rb") as stream:
                         if hashlib.file_digest(stream, "sha256").hexdigest() != row["sha256"]:
-                            raise UniversalPackageError("modified v2 model asset; refusing deletion")
+                            raise UniversalPackageError("modified v3 model asset; refusing deletion")
                 shutil.rmtree(folder)
+                from .portable_runtime_v3 import uninstall_if_unreferenced
+                uninstall_if_unreferenced(root, manifest)
                 if manifest["adapter"]["id"] == "makham-paradee-onnx-v1" and Path(root).resolve() == ROOT.resolve():
                     from .makham_package import disable_legacy_fallback
                     disable_legacy_fallback(root)
@@ -774,17 +777,17 @@ def make_package(source: Path, manifest: dict, output: Path) -> Path:
     if output.suffix.lower() != ".vwmodel":
         raise UniversalPackageError("output must end with .vwmodel")
     if output.exists() or output.is_symlink():
-        raise UniversalPackageError("v2 output already exists; refusing overwrite")
+        raise UniversalPackageError("v3 output already exists; refusing overwrite")
     if output.resolve().is_relative_to(source.resolve()):
-        raise UniversalPackageError("v2 output cannot be inside source assets")
+        raise UniversalPackageError("v3 output cannot be inside source assets")
     for row in manifest["files"]:
         file = source.joinpath(*PurePosixPath(row["path"]).parts)
         if (not _is_contained_file(source, row["path"])
             or file.stat().st_size != row["size"]):
-            raise UniversalPackageError("missing, redirected or symlinked v2 source asset")
+            raise UniversalPackageError("missing, redirected or symlinked v3 source asset")
         with file.open("rb") as f:
             if hashlib.file_digest(f, "sha256").hexdigest() != row["sha256"]:
-                raise UniversalPackageError("v2 source SHA-256 mismatch")
+                raise UniversalPackageError("v3 source SHA-256 mismatch")
     _validate_assets(source, manifest)
     native_adapter_profile(manifest, source)
     output.parent.mkdir(parents=True, exist_ok=True)

@@ -8,10 +8,6 @@ from unittest.mock import patch
 from voxweavetts.language_routes import (
     detect_language, load_routes, save_routes, choose_route, voice_languages,
 )
-from voxweavetts.model_packages import validate_manifest, ModelPackageError
-from voxweavetts.ai_model_packages import (
-    remove_legacy_m2m, legacy_model_installed, AIModelPackageError,
-)
 from voxweavetts.processing import InputError
 
 
@@ -261,59 +257,7 @@ class LanguageRoutingTests(unittest.TestCase):
                                 Path(temp) / "voices.json")
 
 
-class KokoroPackageManifestTests(unittest.TestCase):
-    def test_data_only_manifest_allows_shared_voice_archive(self):
-        data = {
-            "format": "voxweavetts.model-package", "format_version": 1,
-            "package_id": "kokoro-test-onnx", "version": "1.0.0",
-            "title": "Kokoro CPU test", "engine_adapter": "kokoro-onnx-v1",
-            "language": "multi", "sample_rate": 24000,
-            "voices": [
-                {"id": name, "label": name, "asset": "voices-v1.0.bin"}
-                for name in ("af_heart", "ff_siwis", "jf_alpha")
-            ],
-            "files": [
-                {"path": name, "size": 2048, "sha256": "a" * 64}
-                for name in ("kokoro-v1.0.int8.onnx", "voices-v1.0.bin")
-            ],
-            "license": {
-                "spdx": "Apache-2.0", "url": "https://example.org",
-                "attribution": "Kokoro authors", "review_status": "review_required"
-            },
-            "source": {"url": "https://example.org", "revision": "test"},
-            "dependencies": ["kokoro-onnx==0.6.0"],
-        }
-        self.assertIs(validate_manifest(data), data)
-        bad = {**data, "language": "th"}
-        with self.assertRaises(ModelPackageError):
-            validate_manifest(bad)
-        bad = {**data, "voices": [{"id": "invalid",
-                                  "label": "Unsupported",
-                                  "asset": "voices-v1.0.bin"}]}
-        with self.assertRaises(ModelPackageError):
-            validate_manifest(bad)
-
-
-class LegacyAIUninstallTests(unittest.TestCase):
-    def test_only_known_fixed_folder_can_be_removed(self):
-        from voxweavetts.ai_engine_registry import _M2M_FILES
-        with tempfile.TemporaryDirectory() as tmp:
-            location = Path(tmp) / "m2m100_418m"
-            location.mkdir()
-            for filename in _M2M_FILES:
-                (location / filename).write_bytes(b"dummy")
-            extra = location / "private.txt"
-            extra.write_text("do not delete")
-            with patch("voxweavetts.ai_engine_registry.MODEL_DIR", location):
-                self.assertTrue(legacy_model_installed())
-                with self.assertRaises(AIModelPackageError):
-                    remove_legacy_m2m()
-                self.assertTrue(extra.exists(), "unknown data must survive")
-                extra.unlink()
-                self.assertTrue(remove_legacy_m2m())
-                self.assertFalse(location.exists())
-                self.assertFalse(remove_legacy_m2m())
-
-
+# v3-only package manifest/rights validation is covered by
+# test_v3_offline_relocatable.py and test_model_package_api.py.
 if __name__ == "__main__":
     unittest.main()

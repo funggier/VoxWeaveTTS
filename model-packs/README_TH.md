@@ -1,3 +1,19 @@
+# Universal v3 — v0.11.0 (ปัจจุบัน)
+
+**ดาวน์โหลด:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0 · [รายละเอียด Release](../docs/RELEASE_NOTES_v0.11.0.md) · [วิธีติดตั้ง](../docs/UNIVERSAL_VWMODEL_V3_TH.md)
+
+แพ็กเกจ Universal v3 เป็นไฟล์เดียว **ติดตั้งโมเดลและ Dependencies ออฟไลน์** รวมสิทธิ์และ SHA-256 ไว้ด้วย รุ่นนี้ไม่รองรับไฟล์ `.vwmodel v1/v2` และไม่มีการติดตั้งหรือซ่อม Runtime แบบแยกใน UI
+
+**แพ็กเกจที่ตรวจ SHA-256 และเตรียมไว้สำหรับ v3:** MakHam (รวมใน Portable + ไฟล์กู้คืนแยก), FastThaiG2P Thai Som, Melo Chinese, Supertonic 3, M2M100 Translation (ทดลองและต้องใช้หน่วยความจำสูง) · [Catalog v3](https://github.com/funggier/VoxWeaveTTS/releases/download/v0.11.0/CATALOG-v3.json)
+
+สิทธิ์โมเดลเสริมยังอยู่ในสถานะ `review_required` และ **ไม่รับรองสิทธิ์การใช้เชิงพาณิชย์แบบครอบคลุม** โดยเฉพาะ Supertonic 3 ใช้ OpenRAIL-M พร้อมข้อจำกัด; Wayu NC ไม่มีแพ็กเกจ v3 แจกในรุ่นนี้ Vachana/Kokoro v2 เดิมก็ไม่สามารถติดตั้งใน v3 ได้โดยตรง
+
+---
+
+## ประวัติแพ็กเกจรุ่นเก่า (v0.9.x / v2)
+
+> เนื้อหาด้านล่างเก็บไว้เป็นประวัติเท่านั้น คำสั่ง `voxweavetts.model_packages` และ `create_multilingual_model_packs.py` เดิมถูกยกเลิกใน v3 ใช้ `scripts/build_vwmodel_v3.py` แทนเมื่อต้องการสร้างแพ็กเกจใหม่
+
 # VoxWeaveTTS Model Packages v0.9.5
 
 **Release:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.5

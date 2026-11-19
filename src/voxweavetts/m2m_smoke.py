@@ -1,6 +1,6 @@
 """Opt-in, offline M2M100 real-inference verification for an extracted Portable.
 
-Loads only the installed first-party native-v2 model using its isolated worker.
+Loads only the installed first-party Universal v3 model using its isolated worker.
 Uses two fixed non-sensitive short examples, never changes user settings or
 downloads data. This is NOT a semantic accuracy or commercial-rights audit.
 """
@@ -29,15 +29,15 @@ def verify(root: Path = ROOT, *, timeout: float = 120.0) -> dict[str, Any]:
         raise ValueError("translation verification timeout must be 15-180 seconds")
     if not ready(root):
         raise M2MRuntimeError(
-            "M2M100 isolated runtime is not ready; install the verified wheelhouse "
-            "or repair the runtime in Settings")
+            "M2M100 isolated runtime is not ready; install a complete offline v3 package "
+            "from Model Package Manager")
     candidates = native_translation_packages(root)
     if not any(
         m["package_id"] == "m2m100-418m" and m["version"] == "1.0.0"
         for m, _ in candidates
     ):
         raise M2MRuntimeError(
-            "M2M100 native-v2 model package is not installed or failed verification")
+            "M2M100 Universal v3 package is not installed or failed verification")
     session = TranslationWorkerSession(root=root, timeout=timeout)
     outputs = []
     started = time.monotonic()

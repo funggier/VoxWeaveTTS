@@ -1,10 +1,10 @@
-"""Verify redistributable optional model packs against pinned upstream hashes.
+"""VoxWeaveTTS v3 offline package-integrity and rights-metadata release gate.
 
-Offline release gate: does not download anything, upload credentials or execute
-untrusted code. Runs in the developer checkout with already downloaded source
-model files and checks exact asset digests, legal notices and package integrity.
+Validates a *curated* list of independent v3 files against pinned model
+asset digests. This validates bytes and notices, NOT legal title or permission
+to commercially redistribute third-party voices or training data.
 
-  python scripts/verify_model_pack_release.py --write-catalog
+Run: python scripts/verify_model_pack_release.py --write-catalog
 """
 from __future__ import annotations
 
@@ -17,215 +17,152 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from voxweavetts.model_packages import validate_manifest  # noqa: E402
+from voxweavetts.universal_model_packages import inspect_archive  # noqa: E402
 
-PACKS = (
-    {
-        "file": "VoxWeaveTTS-Kokoro82M-Multilingual-INT8-v1.0.0.vwmodel",
-        "id": "kokoro-multilingual-int8",
-        "version": "1.0.0",
-        "adapter": "kokoro-onnx-v1",
-        "license": "Apache-2.0",
-        "source": "https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1",
-        "pinned_revision": "model-files-v1.1 (Kokoro v1.0 INT8, voices-v1.0.bin)",
-        "assets": {
-            "kokoro-v1.0.int8.onnx": "ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c",
-            "voices-v1.0.bin": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d",
-        },
-        "notices": ("legal/license.txt", "legal/attribution.md"),
-        "conditions": (
-            "Kokoro-82M upstream model card declares Apache-2.0; ONNX conversion "
-            "by thewh1teagle. All voice dataset and training rights were not "
-            "independently audited; review before commercial deployment."
-        ),
-        "additional_training_license": None,
+MODELS = {
+    "makham-paradee": {
+        "version": "1.0.0", "license": "Apache-2.0",
+        "assets": {"paradee_thai_int8.onnx": "ad179a2c11b54b1185e84d9c0b759a57058588405620f12163084aaad250813d"},
+        "notices": ["legal/license.txt", "legal/attribution.md"],
     },
-    {
-        "file": "VoxWeaveTTS-Vachana-Thai-4Voices-v1.0.0.vwmodel",
-        "id": "vachana-thai-four-voices",
-        "version": "1.0.0",
-        "adapter": "vachana-onnx-v1",
-        "license": "MIT",
-        "source": "https://huggingface.co/VIZINTZOR/VachanaTTS",
-        "pinned_revision": "6fa5f03a26f8ec0c0e0582e9e6812efa84d38688",
+    "fastthaig2p-thai-som": {
+        "version": "0.3.0", "license": "Apache-2.0",
         "assets": {
-            "voices/th_f_1.onnx": "e87f6d6f825680118cc412f6f9da944bdece5ebe772769a14b2d8359a07c5bf1",
-            "voices/th_f_2.onnx": "9131b63ef9699e40f59b579be50cd32c688b86a73269394529248274883edb1c",
-            "voices/th_m_1.onnx": "c63bedc664d8a2c525181360f4dfa624d2940b3636de6caff141353f72d984bd",
-            "voices/th_m_2.onnx": "dbb7e73e093b5ba7b1bc0612c1a31a63e76874a1af3d0231bbf4ab68720cb837",
-        },
-        "notices": ("legal/license.txt", "legal/attribution.md"),
-        "conditions": (
-            "Upstream model card declares MIT for the model repository; "
-            "retain publisher/permission notice. Training data and voice "
-            "rights were not independently audited."
-        ),
-        "additional_training_license": None,
-    },
-    {
-        "file": "VoxWeaveTTS-FastThaiG2P-ThaiSom-v0.3.0.vwmodel",
-        "id": "fastthaig2p-thai-som",
-        "version": "0.3.0",
-        "adapter": "fastthaig2p-kokoro-v1",
-        "license": "Apache-2.0",
-        "source": "https://github.com/awslabs/FastThaiG2P/releases/tag/v0.3.0",
-        "pinned_revision": "v0.3.0",
-        "assets": {
-            "config.json": "ea8e1a52dd433e27d953255d2bf340fc754ec62a60686d112136c4eee603709f",
             "kokoro_thai.onnx": "a41a5ea020919e47df03226aebe72a64833bc666dfd6eeca6744d8c248270038",
             "voices/thai_som.npy": "bdec2300889bd5db59c81a4f0e1604c78124abf6096d6e84d4db1bbeef122240",
         },
-        "notices": ("legal/license.txt", "legal/notice.txt", "legal/attribution.md"),
-        "conditions": (
-            "FastThaiG2P repository is Apache-2.0 with upstream NOTICE; "
-            "Thai Som training dataset declares CC BY 4.0 and must be "
-            "attributed. Complete provenance/voice rights not independently audited."
-        ),
-        "additional_training_license": "CC-BY-4.0 (Som TTS dataset)",
+        "notices": ["legal/license.txt", "legal/notice.txt", "legal/attribution.md"],
     },
-    {
-        "file": "VoxWeaveTTS-MeloTTS-Chinese-ONNX-v1.0.0.vwmodel",
-        "id": "melo-chinese-onnx",
-        "version": "1.0.0",
-        "adapter": "sherpa-melo-zh-v1",
-        "license": "MIT",
-        "source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models",
-        "pinned_revision": "vits-melo-tts-zh_en (converted from MyShell.ai MeloTTS Chinese)",
-        "assets": {
-            "model.onnx": "bf30582eb1b012250a35b1a4a80e7dfbcf8485e7bb9de0d95efbbeef0e4ad86d",
-            "tokens.txt": "d18664a7e12bd7ea1022ddaf951e534e136815016c5a809d6b64156bffb4369d",
-            "lexicon.txt": "7236884b02435ac5d10cf69b4be40a61b45aa676b5300f0e412f185748fee528",
-        },
-        "notices": ("legal/license.txt", "legal/attribution.md"),
-        "conditions": (
-            "MeloTTS Chinese / MyShell.ai model card reports MIT. "
-            "ONNX conversion by k2-fsa/sherpa-onnx; voice/data provenance "
-            "has not been independently audited for commercial redistribution."
-        ),
-        "additional_training_license": None,
+    "m2m100-418m": {
+        "version": "1.0.0", "license": "MIT",
+        "assets": {"model.safetensors": "c061a21eec15453944783ceb4a13a216477dd4765c98fac10811818adf994968"},
+        "notices": ["LICENSE", "NOTICE", "attribution.md"],
     },
-    {
-        "file": "VoxWeaveTTS-Supertonic3-31Languages-INT8-v1.0.0.vwmodel",
-        "id": "supertonic3-multilingual-int8",
-        "version": "1.0.0",
-        "adapter": "sherpa-supertonic-v1",
-        "license": "OpenRAIL-M",
-        "source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models",
-        "pinned_revision": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11",
+    "melo-chinese-onnx": {
+        "version": "1.0.0", "license": "MIT",
+        "assets": {"model.onnx": "bf30582eb1b012250a35b1a4a80e7dfbcf8485e7bb9de0d95efbbeef0e4ad86d"},
+        "notices": ["legal/license.txt", "legal/attribution.md"],
+    },
+    "supertonic3-multilingual-int8": {
+        "version": "1.0.0", "license": "OpenRAIL-M",
         "assets": {
             "duration_predictor.int8.onnx": "c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db",
             "text_encoder.int8.onnx": "c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff",
             "vector_estimator.int8.onnx": "20cd86fa5c6effedfda0e7cffe5b0569ca401c440a0c3a1d72bf39286c0db3fd",
             "vocoder.int8.onnx": "e923d60f53f95eb1ce235f1dc33ec56d9c057823c96fa6f8acf98f32b0da6152",
-            "tts.json": "42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09",
-            "unicode_indexer.bin": "8402ca48e5189a8950138580b0fff64db6f072f24ac07cd54ba8b2fbb9883b30",
-            "voice.bin": "67d5209b0ee8ce6c74105ffbe12fe6a7628aea3b4ba2fcb308a4a67938a93ce8",
         },
-        "notices": ("legal/license.txt", "legal/conversion-license.txt", "legal/attribution.md"),
-        "conditions": (
-            "Supertone Supertonic 3 is under BigScience OpenRAIL-M with use-based restrictions; "
-            "its model weights are NOT blanket MIT. k2-fsa CPU ONNX conversion. "
-            "Follow enclosed full license; training and voice rights not independently certified."
-        ),
-        "additional_training_license": None,
+        "notices": ["legal/license.txt", "legal/conversion-license.txt", "legal/attribution.md"],
     },
-)
+}
+
+def digest(stream) -> str:
+    sha = hashlib.sha256()
+    while chunk := stream.read(1024 * 1024):
+        sha.update(chunk)
+    return sha.hexdigest()
 
 
-def sha256_stream(handle) -> str:
-    digest = hashlib.sha256()
-    while block := handle.read(1024 * 1024):
-        digest.update(block)
-    return digest.hexdigest()
-
-
-def verify_one(package_spec: dict, *, release_tag: str = "v0.9.2") -> dict:
-    file = ROOT / "dist" / "ModelPackages" / package_spec["file"]
-    if not file.is_file():
-        raise ValueError(f"missing package: {file}")
-    with zipfile.ZipFile(file) as zipped:
-        names = zipped.namelist()
-        if not names or names[0] != "manifest.json":
-            raise ValueError("manifest must be the first member")
-        manifest = validate_manifest(json.loads(zipped.read("manifest.json")))
-        if (manifest["package_id"] != package_spec["id"]
-            or manifest["version"] != package_spec["version"]
-            or manifest["engine_adapter"] != package_spec["adapter"]
-            or manifest["license"]["spdx"] != package_spec["license"]
-            or manifest["source"]["revision"] != package_spec["pinned_revision"]
-            or manifest["license"]["review_status"] != "review_required"):
-            raise ValueError("package manifest identity/licensing changed")
-        expected = {entry["path"]: entry for entry in manifest["files"]}
-        if len(names) != len(expected) + 1 or set(names) != {"manifest.json", *expected}:
-            raise ValueError("package member list does not match manifest")
-        for name in [*package_spec["assets"], *package_spec["notices"]]:
-            if name not in expected:
-                raise ValueError("package lacks required source file or legal notice: " + name)
-        for name, row in expected.items():
-            with zipped.open(name) as handle:
-                actual = sha256_stream(handle)
-            if actual != row["sha256"]:
-                raise ValueError("package bytes and manifest digest mismatch: " + name)
-            if name in package_spec["assets"] and actual != package_spec["assets"][name]:
-                raise ValueError("package model bytes differ from pinned upstream: " + name)
-        with zipped.open("legal/attribution.md") as handle:
-            notes = handle.read()
-        if package_spec["source"].split("/")[2].encode() not in notes:
-            raise ValueError("upstream attribution URL missing")
-    with file.open("rb") as handle:
-        package_digest = sha256_stream(handle)
+def inspect_one(archive: Path) -> dict:
+    manifest = inspect_archive(archive)
+    package_id = manifest["package"]["id"]
+    expected = MODELS.get(package_id)
+    if expected is None:
+        raise ValueError("unreviewed v3 model package: " + package_id)
+    if manifest["package"]["version"] != expected["version"]:
+        raise ValueError("unexpected model version: " + package_id)
+    with zipfile.ZipFile(archive) as bundle:
+        rights = json.loads(bundle.read(manifest["rights"]))
+        license = rights["license"]
+        if license["spdx"] != expected["license"]:
+            raise ValueError("license metadata differs from reviewed source")
+        if license["review_status"] != "review_required":
+            raise ValueError("model rights must not be silently marked cleared")
+        index = {row["path"]: row for row in manifest["files"]}
+        if not set(expected["assets"]) <= set(index):
+            raise ValueError("missing pinned native model weights: " + package_id)
+        if not set(expected["notices"]) <= set(index):
+            raise ValueError("missing model license/attribution/notice")
+        for name, pinned in expected["assets"].items():
+            if index[name]["sha256"] != pinned:
+                raise ValueError("model weights differ from immutable source pin: " + name)
+        for item in manifest["files"]:
+            with bundle.open(item["path"]) as source:
+                actual = digest(source)
+            if actual != item["sha256"]:
+                raise ValueError("archive SHA-256 mismatch: " + item["path"])
+            pinned = expected["assets"].get(item["path"])
+            if pinned is not None and actual != pinned:
+                raise ValueError("model weights do not match source pin: " + item["path"])
+        for name in expected["notices"]:
+            with bundle.open(name) as stream:
+                notice = stream.read(1024 * 1024)
+            if not notice.strip() or len(notice) > 1024 * 1024:
+                raise ValueError("missing/empty notice text: " + name)
+        if manifest["runtime"]["source"] == "bundled-wheels":
+            if not any(row["path"].endswith(".whl") for row in manifest["files"]):
+                raise ValueError("v3 offline wheel bundle missing")
+            if manifest["runtime"]["lockfile"] not in index:
+                raise ValueError("v3 wheel lock missing")
+    with archive.open("rb") as stream:
+        sha = digest(stream)
     return {
-        "package_id": package_spec["id"],
-        "version": package_spec["version"],
-        "file": file.name,
-        "size_bytes": file.stat().st_size,
-        "sha256": package_digest,
-        "download_url": (
-            "https://github.com/funggier/VoxWeaveTTS/releases/download/"
-            + release_tag + "/" + file.name
-        ),
-        "engine_adapter": package_spec["adapter"],
-        "voices": [x["id"] for x in manifest["voices"]],
-        "upstream_source": package_spec["source"],
-        "source_revision": package_spec["pinned_revision"],
-        "upstream_declared_license": package_spec["license"],
-        "training_license": package_spec["additional_training_license"],
-        "conditions": package_spec["conditions"],
-        "review_status": manifest["license"]["review_status"],
-        "upstream_asset_sha256": package_spec["assets"],
-        "embedded_notices": list(package_spec["notices"]),
+        "package_id": package_id, "version": manifest["package"]["version"],
+        "format_version": 3, "filename": archive.name,
+        "sha256": sha, "size_bytes": archive.stat().st_size,
+        "kind": manifest["package"]["kind"], "adapter": manifest["adapter"]["id"],
+        "offline": True, "runtime_source": manifest["runtime"]["source"],
+        "license_spdx": license["spdx"],
+        "rights_status": "review_required",
+        "source_url": rights["source"]["url"],
+        "declared_provenance": rights["source"]["revision"],
+        "commercial_redistribution_audited": False,
+        "notices": expected["notices"],
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
+def verify_all(root: Path) -> list[dict]:
+    root = Path(root)
+    found: dict[str, dict] = {}
+    files = sorted(root.glob("*.vwmodel"))
+    if len(files) != len(MODELS):
+        raise ValueError(f"expected {len(MODELS)} curated v3 archives, found {len(files)}")
+    for path in files:
+        result = inspect_one(path)
+        if result["package_id"] in found:
+            raise ValueError("duplicate model identity")
+        found[result["package_id"]] = result
+        print("V3_PACKAGE_INTEGRITY_OK", result["package_id"],
+              result["license_spdx"], result["size_bytes"], flush=True)
+    if set(found) != set(MODELS):
+        raise ValueError("one or more curated v3 archives are missing")
+    return [found[name] for name in sorted(found)]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=ROOT / "dist" / "ModelPackagesV3")
     parser.add_argument("--write-catalog", action="store_true")
-    parser.add_argument("--release-tag", default="v0.9.2")
-    args = parser.parse_args()
-    items = []
-    for source in PACKS:
-        result = verify_one(source, release_tag=args.release_tag)
-        items.append(result)
-        print(f"VERIFIED {result['file']} ({result['size_bytes']:,} bytes) "
-              f"SHA256={result['sha256']}", flush=True)
-    doc = {
-        "schema_version": 1,
-        "project": "VoxWeaveTTS",
-        "release_tag": args.release_tag,
-        "note": (
-            "Licenses are as declared at pinned upstream sources. "
-            "VoxWeaveTTS has not independently certified all training data "
-            "or voice rights. No warranty of commercial use or compatibility."
-        ),
-        "packages": items,
-    }
+    parser.add_argument("--release-tag", default="v0.11.0")
+    args = parser.parse_args(argv)
+    results = verify_all(args.root)
     if args.write_catalog:
-        output = ROOT / "model-packs" / "catalog.json"
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+        catalog = {
+            "format": "voxweavetts.v3-audited-archive-catalog",
+            "release_tag": args.release_tag,
+            "integrity_verified": True,
+            "rights_warning": (
+                "All model rights carry review_required: hash integrity, license metadata "
+                "and upstream claims do not certify commercial/training/voice rights. "
+                "Follow the terms within each optional package."
+            ),
+            "packages": results,
+        }
+        target = args.root / "CATALOG-v3.json"
+        target.write_text(json.dumps(catalog, ensure_ascii=False, indent=2)+"\n",
                           encoding="utf-8")
-        print("CATALOG_WRITTEN", output, flush=True)
+        print("V3_CATALOG", target, flush=True)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

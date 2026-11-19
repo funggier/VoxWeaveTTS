@@ -92,7 +92,7 @@ class PersonalWayuEngine:
             raise EngineUnavailable("Wayu NC model assets missing from models/personal")
         if not runtime_ready():
             from .speech import EngineUnavailable
-            raise EngineUnavailable("isolated Wayu NC runtime missing; run Install-WayuWorker.ps1")
+            raise EngineUnavailable("Wayu NC requires an approved self-contained offline v3 package")
         try:
             return gateway().synthesize(
                 WORKER_BACKEND, text=text, voice_id=self.voice_id,

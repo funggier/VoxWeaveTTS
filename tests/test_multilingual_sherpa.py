@@ -12,7 +12,6 @@ from voxweavetts.sherpa_voice_engine import (
     SherpaVoiceEngine, SUPER_FILES, SUPER_VOICES, SUPER_LANGUAGES,
 )
 from voxweavetts.engine_contract import EngineInfo
-from voxweavetts.model_packages import validate_manifest, ModelPackageError
 
 
 class FakeAudio:
@@ -84,41 +83,6 @@ class SherpaRoutingTests(unittest.TestCase):
         self.assertEqual(info.as_dict()["voice_language_map"]["en_s1"], "en")
 
 
-class ModelSchemaTests(unittest.TestCase):
-    def fixture(self, adapter):
-        is_super = adapter == "sherpa-supertonic-v1"
-        paths = list(SUPER_FILES) if is_super else [
-            "model.onnx", "tokens.txt", "lexicon.txt"
-        ]
-        voices = ([{"id": v, "label": label, "asset": "voice.bin"}
-                   for v, label in SUPER_VOICES] if is_super else
-                  [{"id": "zh_melo", "label": "Mandarin", "asset": "model.onnx"}])
-        return {
-            "format": "voxweavetts.model-package", "format_version": 1,
-            "package_id": "supertonic-fixture" if is_super else "melo-fixture",
-            "version": "1.0.0", "title": "Test only",
-            "engine_adapter": adapter, "language": "multi" if is_super else "zh",
-            "sample_rate": 44100, "voices": voices,
-            "files": [{"path": p, "size": 5000,
-                       "sha256": hashlib.sha256(p.encode()).hexdigest()} for p in paths],
-            "license": {"spdx": "OpenRAIL-M" if is_super else "MIT",
-                        "url": "https://example.org/license",
-                        "attribution": "Test only provenance",
-                        "review_status": "review_required"},
-            "source": {"url": "https://example.org/source", "revision": "test"},
-            "dependencies": ["sherpa-onnx==2.0.1"],
-        }
-
-    def test_new_packs_validate_but_unsupported_voices_fail(self):
-        for adapter in ("sherpa-supertonic-v1", "sherpa-melo-zh-v1"):
-            with self.subTest(adapter=adapter):
-                manifest = self.fixture(adapter)
-                self.assertIs(validate_manifest(manifest), manifest)
-                modified = {**manifest, "voices": [
-                    {**manifest["voices"][0], "id": "evil_voice"}]}
-                with self.assertRaises(ModelPackageError):
-                    validate_manifest(modified)
-
-
+# Universal v3 model schema and voice validation are tested independently.
 if __name__ == "__main__":
     unittest.main()

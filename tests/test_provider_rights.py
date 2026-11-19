@@ -18,7 +18,6 @@ from unittest.mock import patch
 from voxweavetts.provider_rights import (
     review, require_first_party_wheelhouse_publication,
 )
-from voxweavetts.runtime_registry import inventory
 
 
 def script_module(filename: str):
@@ -96,19 +95,12 @@ class RightsReviewTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "HOLD"):
                     require_first_party_wheelhouse_publication(runtime_id)
 
-    def test_runtime_registry_surfaces_noncommercial_and_license_holds(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            records = {item["id"]: item for item in inventory(root)}
-        self.assertEqual(records["wayu-nc"]["rights_review"]
-                         ["commercial_status"], "noncommercial-only")
-        self.assertEqual(records["vachana"]["rights_review"]
-                         ["publication_state"], "hold")
-        self.assertEqual(records["kokoro"]["rights_review"]
-                         ["publication_state"], "hold")
-        self.assertEqual(records["m2m100"]["rights_review"]
-                         ["publication_state"], "review-required")
-        self.assertNotIn("legal_clearance", records["wayu-nc"]["wheelhouse"])
+    def test_rights_review_keeps_distribution_holds(self):
+        from voxweavetts.provider_rights import review
+        self.assertEqual(review("wayu-nc")["commercial_status"], "noncommercial-only")
+        self.assertEqual(review("vachana")["publication_state"], "hold")
+        self.assertEqual(review("kokoro")["publication_state"], "hold")
+        self.assertEqual(review("m2m100")["publication_state"], "review-required")
 
 
 class ReviewedPublicationGateTests(unittest.TestCase):

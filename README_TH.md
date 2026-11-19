@@ -1,5 +1,8 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**v0.11.0 — Universal .vwmodel v3 (Windows Portable):** รุ่นใหม่ใช้แพ็กเกจโมเดลไฟล์เดียวที่ติดตั้งโมเดลและ Dependencies แบบออฟไลน์โดยสมบูรณ์ มีหน้าต่างยอมรับสิทธิ์ แยก Runtime และย้ายโฟลเดอร์ได้ รองรับเฉพาะ `.vwmodel v3` (v1/v2 ไม่สามารถติดตั้งในรุ่นนี้) ดาวน์โหลด [Release v0.11.0](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0) และอ่าน [คู่มือ v3](docs/UNIVERSAL_VWMODEL_V3_TH.md) / [Release Notes](docs/RELEASE_NOTES_v0.11.0.md) ส่วนด้านล่างเป็นประวัติ Release เก่า
+
+
 **v0.10.3 — แก้ปัญหา Kokoro Runtime บน Windows:** เปลี่ยน Recipe ของ Kokoro เป็น Misaki Japanese G2P 0.8.0 เพื่อตัดการคอมไพล์ pyopenjtalk ที่ล้มเหลวใน Portable โฟลเดอร์ลึก โดยยังคงเสียงญี่ปุ่นได้ [วิธีแก้และผลทดสอบ](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md) · **รวมแล้วใน ZIP v0.10.3**
 
 **Release v0.10.2:** ปรับความเสถียรของ M2M100 และ Portable, เพิ่มระบบยินยอมก่อนติดตั้ง Runtime เสริมและคำเตือนสิทธิ์อย่างชัดเจน [รายละเอียด Release](docs/RELEASE_NOTES_v0.10.2.md)

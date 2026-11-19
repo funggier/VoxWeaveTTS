@@ -83,6 +83,11 @@ class M2MCPUWorkerTests(unittest.TestCase):
             with (patch("voxweavetts.m2m_runtime.ready",return_value=True),
                   patch("voxweavetts.worker_memory_budget.memory_headroom",
                         return_value=MemoryHeadroom(8*GiB,8*GiB)),
+                  patch("voxweavetts.universal_model_packages.installed_packages",
+                        return_value=[({"adapter":{"id":"m2m100-transformers-v1"}},root/"model")]),
+                  patch("voxweavetts.portable_runtime_v3.ready",return_value=True),
+                  patch("voxweavetts.portable_runtime_v3.run_command",
+                        return_value=["python","-S","-u","-c","runner","src","site","voxweavetts.m2m_worker"]),
                   patch("voxweavetts.m2m_runtime.subprocess.Popen",
                         return_value=proc) as popen,
                   patch("voxweavetts.m2m_runtime.threading.Thread") as thread,
@@ -90,8 +95,8 @@ class M2MCPUWorkerTests(unittest.TestCase):
                 worker._start()
                 args=popen.call_args.args[0]
                 env=popen.call_args.kwargs["env"]
-                self.assertEqual(args[2:],
-                                 ["-m", "voxweavetts.m2m_worker"])
+                self.assertEqual(args[:4], ["python","-S","-u","-c"])
+                self.assertEqual(args[-1], "voxweavetts.m2m_worker")
                 self.assertEqual(env["OMP_NUM_THREADS"], "2")
                 self.assertEqual(env["MKL_NUM_THREADS"], "2")
                 self.assertEqual(env["TOKENIZERS_PARALLELISM"], "false")

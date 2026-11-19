@@ -58,10 +58,12 @@ class WorkerSession:
     """Synchronous requests over a persistent process, with bounded wait/restart."""
 
     def __init__(self, spec: WorkerSpec, *, root: Path = ROOT,
-                 timeout: float = REQUEST_TIMEOUT) -> None:
+                 timeout: float = REQUEST_TIMEOUT,
+                 runtime_manifest: dict | None = None) -> None:
         self.spec = spec
         self.root = Path(root)
         self.timeout = timeout
+        self.runtime_manifest = runtime_manifest
         self._lock = threading.RLock()
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue(maxsize=4)
@@ -115,9 +117,24 @@ class WorkerSession:
         if self._process is not None and self._process.poll() is None:
             return
         self._stop()
-        python = self.spec.python_path(root=self.root)
-        if not python.is_file():
-            raise WorkerError(f"isolated runtime missing: {self.spec.python_dir}; install it first")
+        if self.runtime_manifest is not None:
+            from .portable_runtime_v3 import run_command
+            try:
+                command = run_command(
+                    self.root, self.runtime_manifest,
+                    "voxweavetts.engine_worker_host",
+                    ["--backend", self.spec.backend])
+            except Exception as exc:
+                raise WorkerError("verified v3 runtime is unavailable") from exc
+            python = Path(command[0])
+        else:
+            python = self.spec.python_path(root=self.root)
+            if not python.is_file():
+                raise WorkerError(f"isolated runtime missing: {self.spec.python_dir}")
+            command = ([str(python), "-u", str(self.spec.worker_script)]
+                       if self.spec.worker_script else
+                       [str(python), "-u", "-m", "voxweavetts.engine_worker_host",
+                        "--backend", self.spec.backend])
         log_dir = self.root / "logs" / "engine-workers"
         log_dir.mkdir(parents=True, exist_ok=True)
         self._log = (log_dir / (self.spec.backend + ".log")).open("a", encoding="utf-8")
@@ -136,10 +153,6 @@ class WorkerSession:
         })
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         try:
-            command = ([str(python), "-u", str(self.spec.worker_script)]
-                       if self.spec.worker_script else
-                       [str(python), "-u", "-m", "voxweavetts.engine_worker_host",
-                        "--backend", self.spec.backend])
             process = subprocess.Popen(
                 command,
                 cwd=str(self.root), env=env,
@@ -272,13 +285,14 @@ class EngineWorkerGateway:
 
     def available(self, backend: str) -> bool:
         spec = self._resolve_spec(backend)
-        if spec is None or not spec.python_path(root=self.root).is_file():
+        if spec is None:
             return False
         profile = provider_for_backend(backend, root=self.root)
         if profile is None:
-            return self._allow_custom_specs  # Never keep revoked extension providers.
-        from .engine_provider_installer import ready
-        return ready(profile, root=self.root)
+            return (self._allow_custom_specs
+                    and spec.python_path(root=self.root).is_file())
+        from .universal_model_packages import runtime_for_provider
+        return runtime_for_provider(profile.id, root=self.root) is not None
 
     def _reclaim_idle_for_memory(self, exclude_backend: str) -> int:
         """Keep loaded models cached unless Windows reports low memory.
@@ -310,15 +324,27 @@ class EngineWorkerGateway:
         spec = self._resolve_spec(backend)
         if spec is None or not self.available(backend):
             raise WorkerError("unregistered or unavailable worker backend")
+        profile = provider_for_backend(backend, root=self.root)
+        manifest = None
+        key = backend
+        if profile is not None:
+            from .universal_model_packages import runtime_for_provider
+            from .portable_runtime_v3 import fingerprint
+            manifest = runtime_for_provider(profile.id, root=self.root,
+                                            engine_id=engine_id)
+            if manifest is None:
+                raise WorkerError("selected v3 model runtime is unavailable")
+            key = backend + "|" + fingerprint(manifest)
         with self._lock:
-            if backend not in self._sessions:
-                self._sessions[backend] = WorkerSession(
-                    spec, root=self.root, timeout=self.timeout)
-            session = self._sessions[backend]
+            if key not in self._sessions:
+                self._sessions[key] = WorkerSession(
+                    spec, root=self.root, timeout=self.timeout,
+                    runtime_manifest=manifest)
+            session = self._sessions[key]
         # Loading an additional model is the only proactive eviction point.
         # Reusing an already loaded, successful model never unloads it.
         if not session.running():
-            self._reclaim_idle_for_memory(backend)
+            self._reclaim_idle_for_memory(key)
         try:
             return session.synthesize(text=text, voice_id=voice_id,
                                       speed=speed, seed=seed, engine_id=engine_id)
@@ -327,7 +353,7 @@ class EngineWorkerGateway:
             # idle model. Never loop forever or retry a non-memory model error.
             from .worker_memory_budget import memory_headroom
             pressure = memory_headroom()
-            released = (self._reclaim_idle_for_memory(backend)
+            released = (self._reclaim_idle_for_memory(key)
                         if pressure is not None and pressure.critical else 0)
             if not released:
                 raise
@@ -337,8 +363,10 @@ class EngineWorkerGateway:
     def reset(self, backend: str) -> None:
         """Recycle a provider after packages were installed or removed."""
         with self._lock:
-            session = self._sessions.pop(backend, None)
-        if session is not None:
+            names = [name for name in self._sessions
+                     if name == backend or name.startswith(backend + "|")]
+            sessions = [self._sessions.pop(name) for name in names]
+        for session in sessions:
             session.close()
 
     def close(self) -> None:

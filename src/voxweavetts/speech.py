@@ -423,6 +423,10 @@ def _register_model_packages(registry: EngineRegistry) -> None:
                 adapter_ready = vachana_runtime_ready
             else:
                 adapter_ready = runtime_ready
+            from .universal_model_packages import installed_for_engine
+            from .portable_runtime_v3 import ready as v3_runtime_ready
+            selected = installed_for_engine(engine_id)
+            environment_ready = bool(selected and v3_runtime_ready(ROOT, selected[0]))
             return EngineInfo(
                 id=engine_id, label=label, language=manifest["language"],
                 voice_id=voices[0][0], voice_options=voices,
@@ -435,7 +439,7 @@ def _register_model_packages(registry: EngineRegistry) -> None:
                 voice_language_map=({voice_id: voice_id[:2] for voice_id, _ in voices}
                                     if adapter == "sherpa-supertonic-v1" else {}),
                 sample_rate=manifest["sample_rate"],
-                assets_ready=ready, runtime_ready=adapter_ready(),
+                assets_ready=ready, runtime_ready=environment_ready,
                 capabilities=flags, commercial_status=commercial,
             )
 

@@ -1,4 +1,4 @@
-"""Build a native Universal .vwmodel v2 from model assets and v2-only metadata.
+"""Build a native Universal .vwmodel v3 from model assets and v3-only metadata.
 
 Input folder must already contain:
   manifest-assets.json : {"paths": ["model.onnx", ...]}
@@ -25,14 +25,14 @@ from voxweavetts.universal_model_packages import (
 def build(source: Path, spec_path: Path, output: Path) -> Path:
     source, spec_path, output = map(Path, (source, spec_path, output))
     if not source.is_dir() or not spec_path.is_file():
-        raise UniversalPackageError("source folder and native v2 spec required")
+        raise UniversalPackageError("source folder and native v3 spec required")
     if spec_path.stat().st_size > 65_536:
-        raise UniversalPackageError("v2 spec too large")
+        raise UniversalPackageError("v3 spec too large")
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     if not isinstance(spec, dict) or set(spec) != {
         "package", "adapter", "runtime", "capabilities",
     }:
-        raise UniversalPackageError("invalid native v2 spec keys")
+        raise UniversalPackageError("invalid native v3 spec keys")
     assets = source / "manifest-assets.json"
     rights = source / "legal" / "rights.json"
     if not assets.is_file() or not rights.is_file():
@@ -75,14 +75,14 @@ def build(source: Path, spec_path: Path, output: Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, required=True, help="Directory with model files and v2 data-only metadata")
-    parser.add_argument("--spec", type=Path, required=True, help="Native Universal v2 spec JSON")
+    parser.add_argument("--source", type=Path, required=True, help="Directory with model files and v3 data-only metadata")
+    parser.add_argument("--spec", type=Path, required=True, help="Native Universal v3 spec JSON")
     parser.add_argument("--output", type=Path, required=True, help="Output .vwmodel filename")
     args = parser.parse_args()
     result = build(args.source, args.spec, args.output)
     with result.open("rb") as inp:
         digest = hashlib.file_digest(inp, "sha256").hexdigest()
-    print("Native Universal v2 package created:", result)
+    print("Native Universal v3 package created:", result)
     print("SHA256:", digest)
     print("No v1 format, scripts, dependencies or install hooks executed")
 

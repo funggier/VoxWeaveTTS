@@ -1,7 +1,7 @@
-"""Install and use optional M2M100 in its own portable-local Python runtime.
+"""Offline-only M2M100 v3 translation worker.
 
-The .vwmodel is data-only. It never supplies commands, import paths or code.
-A trusted, pinned runtime recipe is installed only after explicit user action.
+The model and dependencies install solely through Universal .vwmodel v3.
+No separate installer, repair mechanism or online dependencies.
 """
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .managed_runtime_pool import inspect_environment, pin_fields
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_NAME = "m2m100"
@@ -29,205 +28,20 @@ MAX_LINE = 65536
 MAX_TEXT = 5000
 WORKER_TIMEOUT = 180.0
 _LOCK = threading.RLock()
-_JOBS: dict[str, Any] = {"state": "not_installed", "error": None}
 
 
 class M2MRuntimeError(RuntimeError):
     pass
 
 
-def python_path(root: Path = ROOT) -> Path:
-    base = Path(root) / "runtime" / "ai-envs" / RUNTIME_NAME
-    return base / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-
-
-def _recipe_hash(root: Path) -> str:
-    recipe = Path(root) / REQUIREMENTS
-    with recipe.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
-
-
 def ready(root: Path = ROOT) -> bool:
-    root = Path(root)
-    try:
-        state = json.loads((python_path(root).parent.parent / MARKER).read_text(encoding="utf-8"))
-        if (not isinstance(state, dict) or state.get("runtime") != RUNTIME_NAME
-            or state.get("protocol") != PROTOCOL
-            or state.get("recipe_hash") != _recipe_hash(root)):
-            return False
-        folder = python_path(root).parent.parent
-        return inspect_environment(
-            root=root, folder=folder, python=python_path(root),
-            marker=folder / MARKER,
-            expected_recipe_hash=_recipe_hash(root))["ready"]
-    except (OSError, ValueError, TypeError):
-        return False
-
-
-def _execute(command: list[str], *, root: Path, log: Any) -> None:
-    from .engine_provider_installer import _execute as execute_provider
-    execute_provider(command, root=root, log=log)
-
-
-def install(root: Path = ROOT) -> Path:
-    """Install fixed application-owned deps. No .vwmodel can choose packages."""
-    root = Path(root)
-    from .runtime_tools import find_uv
-    uv = find_uv(root)
-    if not uv:
-        raise M2MRuntimeError("uv is required to install M2M100 runtime")
-    recipe = root / REQUIREMENTS
-    if not recipe.is_file():
-        raise M2MRuntimeError("M2M100 trusted dependency recipe is missing")
-    base_python = root / ".venv" / "Scripts" / "python.exe"
-    if not base_python.is_file():
-        base_python = root / "runtime" / "python" / "python.exe"
-    if not base_python.is_file():
-        base_python = Path(sys.executable)
-    if not base_python.is_file():
-        raise M2MRuntimeError("Python 3.11 runtime is unavailable")
-    worker_python = python_path(root)
-    folder = worker_python.parent.parent
-    folder.parent.mkdir(parents=True, exist_ok=True)
-    marker = folder / MARKER
-    if marker.is_file():
-        health = inspect_environment(root=root, folder=folder,
-            python=worker_python, marker=marker,
-            expected_recipe_hash=_recipe_hash(root))
-        if health["repair_required"]:
-            raise M2MRuntimeError("existing M2M runtime requires explicit offline repair")
-    marker.unlink(missing_ok=True)
-    log_dir = root / "logs" / "ai-runtime"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        with (log_dir / "install-m2m100.log").open("a", encoding="utf-8") as log:
-            if not worker_python.is_file():
-                _execute([uv, "venv", str(folder), "--python", str(base_python)],
-                         root=root, log=log)
-            _execute([uv, "pip", "install", "--python", str(worker_python),
-                      "--link-mode", "copy", "-r", str(recipe)], root=root, log=log)
-            _execute([uv, "pip", "check", "--python", str(worker_python)],
-                     root=root, log=log)
-            _execute([str(worker_python), "-c",
-                      "import torch, transformers, sentencepiece, safetensors"],
-                     root=root, log=log)
-    except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
-        raise M2MRuntimeError("M2M100 runtime installation failed; see logs/ai-runtime/install-m2m100.log") from exc
-    state = {"runtime": RUNTIME_NAME, "protocol": PROTOCOL,
-             **pin_fields(root, _recipe_hash(root))}
-    temporary = folder / (MARKER + ".tmp")
-    temporary.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(marker)
-    return folder
-
-
-def repair(root: Path = ROOT) -> Path:
-    """Explicit offline rebuild of the isolated M2M worker; preserve on failure."""
-    from .managed_runtime_pool import atomic_rebuild
-    root = Path(root)
-    recipe = root / REQUIREMENTS
-    if not recipe.is_file() or recipe.is_symlink():
-        raise M2MRuntimeError("trusted M2M recipe is missing")
-    from .runtime_tools import find_uv
-    uv = find_uv(root)
-    if not uv:
-        raise M2MRuntimeError("uv is unavailable; offline repair cannot proceed")
-    base_python = root / ".venv" / "Scripts" / "python.exe"
-    if not base_python.is_file():
-        base_python = root / "runtime" / "python" / "python.exe"
-    if not base_python.is_file():
-        base_python = Path(sys.executable)
-    folder = python_path(root).parent.parent
-    try:
-        old = json.loads((folder / MARKER).read_text(encoding="utf-8"))
-        if old.get("runtime") != RUNTIME_NAME or old.get("protocol") != PROTOCOL:
-            raise M2MRuntimeError("not an application-managed M2M runtime")
-    except (OSError, ValueError, AttributeError) as exc:
-        raise M2MRuntimeError("M2M runtime marker is missing or invalid") from exc
-    digest = _recipe_hash(root)
-    logs = root / "logs" / "ai-runtime"
-    logs.mkdir(parents=True, exist_ok=True)
-    def build(stage: Path) -> None:
-        staged_python = stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-        with (logs / "repair-m2m100.log").open("a", encoding="utf-8") as log:
-            _execute([uv, "venv", "--offline", str(stage), "--python", str(base_python)],
-                     root=root, log=log)
-            _execute([uv, "pip", "install", "--offline", "--python", str(staged_python),
-                      "--link-mode", "copy", "-r", str(recipe)], root=root, log=log)
-            _execute([uv, "pip", "check", "--offline", "--python", str(staged_python)],
-                     root=root, log=log)
-            _execute([str(staged_python), "-c",
-                      "import torch, transformers, sentencepiece, safetensors"],
-                     root=root, log=log)
-        (stage / MARKER).write_text(json.dumps({
-            "runtime": RUNTIME_NAME, "protocol": PROTOCOL,
-            **pin_fields(root, digest),
-        }, indent=2) + "\n", encoding="utf-8")
-    def verify(stage: Path) -> bool:
-        info = inspect_environment(root=root, folder=stage,
-            python=stage / ("Scripts/python.exe" if os.name == "nt" else "bin/python"),
-            marker=stage / MARKER, expected_recipe_hash=digest)
-        return info["ready"] and info["location_pinned"]
-    def verify_final(final: Path) -> bool:
-        if not verify(final):
-            return False
-        final_python = final / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-        with (logs / "repair-m2m100.log").open("a", encoding="utf-8") as log:
-            # Final-path launch must work before the previous venv is removed.
-            _execute([str(final_python), "-c",
-                      "import sys; from pathlib import Path; "
-                      "assert Path(sys.prefix).resolve() == Path(sys.argv[1]).resolve()",
-                      str(final)], root=root, log=log)
-            _execute([uv, "pip", "check", "--offline", "--python",
-                      str(final_python)], root=root, log=log)
-        return True
-
-    atomic_rebuild(root=root, folder=folder, build=build, verify=verify,
-                   quiesce=reset if root.resolve() == ROOT.resolve() else None,
-                   verify_activated=verify_final)
-    return folder
-
-
-def install_async(root: Path = ROOT) -> dict[str, Any]:
-    root = Path(root)
-    with _LOCK:
-        if _JOBS["state"] == "installing":
-            return dict(_JOBS)
-        if ready(root):
-            _JOBS.update(state="ready", error=None)
-            return dict(_JOBS)
-        _JOBS.update(state="installing", error=None)
-
-    def work() -> None:
-        try:
-            install(root)
-            status = {"state": "ready", "error": None}
-        except M2MRuntimeError as exc:
-            status = {"state": "failed", "error": str(exc)}
-        with _LOCK:
-            _JOBS.update(status)
-    threading.Thread(target=work, name="install-ai-m2m100", daemon=True).start()
-    return {"state": "installing", "error": None}
-
-
-def status(root: Path = ROOT) -> dict[str, Any]:
-    with _LOCK:
-        job = dict(_JOBS)
-    if job["state"] == "installing":
-        return job
-    if ready(root):
-        return {"state": "ready", "error": None}
-    folder = python_path(root).parent.parent
-    if folder.is_dir():
-        try:
-            info = inspect_environment(root=Path(root), folder=folder,
-                python=python_path(root), marker=folder / MARKER,
-                expected_recipe_hash=_recipe_hash(root))
-            if info["repair_required"]:
-                return {"state": "repair_required", "error": info["state"]}
-        except (OSError, ValueError):
-            pass
-    return job if job["state"] == "failed" else {"state": "not_installed", "error": None}
+    """M2M100 is ready only when its self-contained v3 runtime is installed."""
+    from .universal_model_packages import installed_packages
+    from .portable_runtime_v3 import ready as runtime_ready
+    return any(m["package"]["kind"] == "translation"
+               and m["adapter"]["id"] == "m2m100-transformers-v1"
+               and runtime_ready(root, m)
+               for m, _folder in installed_packages(root))
 
 
 class TranslationWorkerSession:
@@ -283,7 +97,7 @@ class TranslationWorkerSession:
                 "file; Ollama and other processes were not stopped.")
         logs = self.root / "logs" / "ai-runtime"
         logs.mkdir(parents=True, exist_ok=True)
-        self._log = (logs / "m2m100-worker.log").open("a", encoding="utf-8")
+        # Do not open a Windows-locked log until the v3 model and command are verified.
         env = os.environ.copy()
         env.update({
             "PYTHONPATH": str(self.root / "src"),
@@ -299,9 +113,18 @@ class TranslationWorkerSession:
             "TORCH_HOME": str(self.root / "cache" / "torch"),
             "XDG_CACHE_HOME": str(self.root / "cache"),
         })
+        from .universal_model_packages import installed_packages
+        from .portable_runtime_v3 import run_command, ready as runtime_ready
+        manifest = next((m for m, _folder in installed_packages(self.root)
+                         if m["adapter"]["id"] == "m2m100-transformers-v1"
+                         and runtime_ready(self.root, m)), None)
+        if manifest is None:
+            raise M2MRuntimeError("verified offline M2M100 v3 package is missing")
+        command = run_command(self.root, manifest, "voxweavetts.m2m_worker")
+        self._log = (logs / "m2m100-worker.log").open("a", encoding="utf-8")
         try:
             proc = subprocess.Popen(
-                [str(python_path(self.root)), "-u", "-m", "voxweavetts.m2m_worker"],
+                command,
                 cwd=str(self.root), env=env,
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self._log,
                 text=True, encoding="utf-8", errors="replace", bufsize=1,
@@ -419,19 +242,3 @@ def translate(text: str, settings: dict[str, Any]) -> str:
 
 def reset() -> None:
     _SESSION.close()
-
-
-def main() -> None:
-    import argparse
-    parser = argparse.ArgumentParser(description="Install optional isolated M2M100 runtime")
-    parser.add_argument("operation", choices=("install", "status"))
-    args = parser.parse_args()
-    if args.operation == "status":
-        print(json.dumps(status(), ensure_ascii=False), flush=True)
-        return
-    folder = install()
-    print("M2M100 isolated runtime installed:", folder, flush=True)
-
-
-if __name__ == "__main__":
-    main()
