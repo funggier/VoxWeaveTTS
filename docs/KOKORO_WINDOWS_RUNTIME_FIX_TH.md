@@ -1,6 +1,6 @@
 # Kokoro Runtime บน Windows Portable — แก้ปัญหาติดตั้ง pyopenjtalk ไม่สำเร็จ
 
-**สถานะ:** แก้ใน Source หลัง GitHub Release v0.10.2; **ยังไม่อยู่ใน ZIP v0.10.2 ที่เผยแพร่แล้ว**
+**สถานะ:** รวมการแก้ไขใน Release v0.10.3; **ยังไม่อยู่ใน ZIP รุ่นเก่า v0.10.2**
 
 ## อาการและสาเหตุ
 
@@ -12,7 +12,7 @@
 
 Recipe ใน v0.10.2 ใช้ `misaki[ja]==0.9.4` ซึ่งดึง `pyopenjtalk` มาติดตั้งจาก Source บน Windows แทนการใช้ Wheel สำเร็จรูป จึงต้องคอมไพล์ C/C++ การย้ายโปรแกรมไปโฟลเดอร์ที่สั้นลงช่วยลดโอกาสพบปัญหา แต่ไม่ใช่การแก้สาเหตุที่ต้อง Build Native Package
 
-## การแก้ไขใน Source หลัง v0.10.2
+## การแก้ไขใน Release v0.10.3
 
 แก้เฉพาะ Recipe ที่โปรแกรมควบคุมเอง `scripts/engine-dependencies/kokoro.txt` เป็น:
 

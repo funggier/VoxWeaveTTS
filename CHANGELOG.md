@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased — Kokoro Windows Portable dependency repair
+## v0.10.3 — Kokoro Windows Portable dependency repair
 
 - Avoid the native CMake/MSBuild build failure of pyopenjtalk 0.4.1 in long Windows Portable paths: the isolated Kokoro trusted runtime recipe now uses Misaki Japanese G2P 0.8.0 and UniDic Lite, preserving Japanese reading without the pyopenjtalk source dependency.
-- Verified fresh 19-package runtime installation, actual Japanese phonemization, and English/Japanese PCM WAV synthesis from the installed Kokoro v2 model on the affected Windows 10 Portable instance; this **does not change the already published v0.10.2 ZIP**. See [Kokoro Windows runtime repair](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md).
+- Verified fresh 19-package runtime installation, actual Japanese phonemization, and English/Japanese PCM WAV synthesis from the installed Kokoro v2 model on the affected Windows 10 Portable instance; this fix is included in the v0.10.3 Portable ZIP; the existing v0.10.2 ZIP remains unchanged. See [Kokoro Windows runtime repair](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md).
 
 ## v0.10.2 — Portable Doctor, M2M100 CPU and opt-in provider installation
 

@@ -1,6 +1,6 @@
 # VoxWeaveTTS
 
-**Unreleased post-v0.10.2 Windows Kokoro Runtime fix:** the isolated Kokoro provider recipe now uses Misaki Japanese G2P 0.8.0 + UniDic Lite to avoid the pyopenjtalk CMake build failure in deeply nested portable paths. Confirmed isolated install and real English/Japanese speech on the affected local Windows portable. This patch is **not included in the previously published v0.10.2 ZIP**. [Thai repair guide](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md).
+**v0.10.3 — Windows Kokoro Runtime fix:** the isolated Kokoro provider recipe now uses Misaki Japanese G2P 0.8.0 + UniDic Lite to avoid the pyopenjtalk CMake build failure in deeply nested portable paths. Confirmed isolated install and real English/Japanese speech on the affected local Windows portable. This patch is **included in the v0.10.3 ZIP**, not the earlier v0.10.2 ZIP. [Thai repair guide](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md).
 
 **Release v0.10.2:** M2M100 CPU/Portable reliability, opt-in third-party provider setup and clear noncommercial/redistribution warnings. [Release notes](docs/RELEASE_NOTES_v0.10.2.md).
 

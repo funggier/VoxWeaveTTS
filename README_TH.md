@@ -1,6 +1,6 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
-**แก้ปัญหา Kokoro Runtime บน Windows (Source หลัง v0.10.2):** เปลี่ยน Recipe ของ Kokoro เป็น Misaki Japanese G2P 0.8.0 เพื่อตัดการคอมไพล์ pyopenjtalk ที่ล้มเหลวใน Portable โฟลเดอร์ลึก โดยยังคงเสียงญี่ปุ่นได้ [วิธีแก้และผลทดสอบ](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md) · **ยังไม่รวมอยู่ใน ZIP v0.10.2 ที่เผยแพร่แล้ว**
+**v0.10.3 — แก้ปัญหา Kokoro Runtime บน Windows:** เปลี่ยน Recipe ของ Kokoro เป็น Misaki Japanese G2P 0.8.0 เพื่อตัดการคอมไพล์ pyopenjtalk ที่ล้มเหลวใน Portable โฟลเดอร์ลึก โดยยังคงเสียงญี่ปุ่นได้ [วิธีแก้และผลทดสอบ](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md) · **รวมแล้วใน ZIP v0.10.3**
 
 **Release v0.10.2:** ปรับความเสถียรของ M2M100 และ Portable, เพิ่มระบบยินยอมก่อนติดตั้ง Runtime เสริมและคำเตือนสิทธิ์อย่างชัดเจน [รายละเอียด Release](docs/RELEASE_NOTES_v0.10.2.md)
 
