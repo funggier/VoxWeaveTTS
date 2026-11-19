@@ -1,5 +1,7 @@
 # Universal v3 — v0.11.0 (ปัจจุบัน)
 
+**สถานะสำคัญ:** v0.11.0 ยังมีโมเดลไม่ครบรุ่น v2 (Kokoro, Vachana, Wayu NC) อย่าพยายามเปลี่ยนชื่อไฟล์เก่ามาติดตั้ง ต้องสร้าง Wheel ออฟไลน์ที่ผ่านการตรวจสิทธิ์และทดสอบการสร้างเสียงจริงก่อน ดู [รายการงานค้าง](../docs/V3_FULL_MODEL_RELEASE_GAP_TH.md)
+
 **ดาวน์โหลด:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0 · [รายละเอียด Release](../docs/RELEASE_NOTES_v0.11.0.md) · [วิธีติดตั้ง](../docs/UNIVERSAL_VWMODEL_V3_TH.md)
 
 แพ็กเกจ Universal v3 เป็นไฟล์เดียว **ติดตั้งโมเดลและ Dependencies ออฟไลน์** รวมสิทธิ์และ SHA-256 ไว้ด้วย รุ่นนี้ไม่รองรับไฟล์ `.vwmodel v1/v2` และไม่มีการติดตั้งหรือซ่อม Runtime แบบแยกใน UI

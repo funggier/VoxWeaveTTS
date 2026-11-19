@@ -1,5 +1,7 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**หมายเหตุความครบถ้วนของโมเดล:** v0.11.0 มีโมเดล v3 ให้ติดตั้ง 5 ชุด แต่ **ยังขาด Kokoro, Vachana และ Wayu NC** จากรุ่นก่อน ระบบจะไม่เปิดแพ็กเกจ v2 อัตโนมัติและยังไม่มีไฟล์ v3 ของทั้งสามตัวให้ดาวน์โหลด รายละเอียด [เกณฑ์ก่อน Release รุ่นโมเดลครบ](docs/V3_FULL_MODEL_RELEASE_GAP_TH.md)
+
 **v0.11.0 — Universal .vwmodel v3 (Windows Portable):** รุ่นใหม่ใช้แพ็กเกจโมเดลไฟล์เดียวที่ติดตั้งโมเดลและ Dependencies แบบออฟไลน์โดยสมบูรณ์ มีหน้าต่างยอมรับสิทธิ์ แยก Runtime และย้ายโฟลเดอร์ได้ รองรับเฉพาะ `.vwmodel v3` (v1/v2 ไม่สามารถติดตั้งในรุ่นนี้) ดาวน์โหลด [Release v0.11.0](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0) และอ่าน [คู่มือ v3](docs/UNIVERSAL_VWMODEL_V3_TH.md) / [Release Notes](docs/RELEASE_NOTES_v0.11.0.md) ส่วนด้านล่างเป็นประวัติ Release เก่า
 
 

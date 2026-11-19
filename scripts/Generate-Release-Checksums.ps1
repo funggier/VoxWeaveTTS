@@ -3,6 +3,16 @@ param([string]$Version = '0.11.0', [switch]$SkipOptionalPackages)
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $dist = Join-Path $root 'dist'
+# v0.11.0 is a historical incomplete-model release. Future v3 versions
+# MUST pass the complete eight-model gate before checksums can be generated.
+if ($Version -ne '0.11.0') {
+    if ($SkipOptionalPackages) {throw 'Complete v3 releases cannot omit optional model packages'}
+    $python = Join-Path $root '.venv\Scripts\python.exe'
+    if (!(Test-Path -LiteralPath $python)) {$python = Join-Path $root 'runtime\python\python.exe'}
+    if (!(Test-Path -LiteralPath $python)) {throw 'Python for full v3 release gate not found'}
+    & $python -X utf8 (Join-Path $root 'scripts\verify_complete_v3_release.py')
+    if ($LASTEXITCODE -ne 0) {throw 'Full v3 model catalog is incomplete or blocked; refusing release checksums'}
+}
 $names = @(
     ("VoxWeaveTTS-v{0}-portable.zip" -f $Version),
     'VoxWeaveTTS-TikTok-Extension-v0.2.5.zip'

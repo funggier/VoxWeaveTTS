@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Model catalog status:** v0.11.0 ships five v3 packages; **Kokoro, Vachana and Wayu NC are not yet available as v3 archives**. The older v2 files cannot be used with v3. See the [full-catalog release gate and blockers](docs/V3_FULL_MODEL_RELEASE_GAP_TH.md). No complete-catalog release is claimed yet.
+
 **v0.11.0 — Universal .vwmodel v3 (Windows Portable):** Fully offline, single-file model and dependency installation, per-file license consent, relocatable isolated runtimes, and no v1/v2 package fallback. [Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0) · [v3 guide](docs/UNIVERSAL_VWMODEL_V3_TH.md) · [v0.11.0 notes](docs/RELEASE_NOTES_v0.11.0.md). Older sections below are historical release records.
 
 
