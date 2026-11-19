@@ -22,6 +22,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class EngineProviderTests(unittest.TestCase):
+    def test_kokoro_recipe_avoids_windows_native_pyopenjtalk_build(self):
+        # A fresh Windows Portable must not compile pyopenjtalk from sdist in
+        # a deep, relative installation folder. The supported Japanese G2P
+        # path uses Misaki 0.8.0 with fugashi and unidic-lite instead.
+        recipe = (ROOT / "scripts" / "engine-dependencies" / "kokoro.txt")
+        entries = [line.strip() for line in recipe.read_text(encoding="utf-8").splitlines()
+                   if line.strip() and not line.lstrip().startswith("#")]
+        self.assertIn("misaki[ja]==0.8.0", entries)
+        self.assertIn("unidic-lite==1.0.8", entries)
+        self.assertFalse(any("pyopenjtalk" in line.lower() for line in entries))
+
     def test_every_legacy_family_has_a_separate_installer_recipe(self):
         expected = {
             "fastthaig2p-kokoro-v1": "pythaitts",

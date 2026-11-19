@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Unreleased post-v0.10.2 Windows Kokoro Runtime fix:** the isolated Kokoro provider recipe now uses Misaki Japanese G2P 0.8.0 + UniDic Lite to avoid the pyopenjtalk CMake build failure in deeply nested portable paths. Confirmed isolated install and real English/Japanese speech on the affected local Windows portable. This patch is **not included in the previously published v0.10.2 ZIP**. [Thai repair guide](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md).
+
 **Release v0.10.2:** M2M100 CPU/Portable reliability, opt-in third-party provider setup and clear noncommercial/redistribution warnings. [Release notes](docs/RELEASE_NOTES_v0.10.2.md).
 
 **v0.10.2 — Portable Doctor (Phase E):** Read-only diagnostics for packaged Python/uv, installed native-v2 models and managed runtimes, relocation and verified offline wheelhouse SHA-256 checks. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Check-Portable.ps1` in the v0.10.2 Portable folder; the earlier v0.10.1 ZIP did not include this script. [Thai guide](docs/PORTABLE_DIAGNOSTICS_TH.md). M2M100 now has a two-thread isolated CPU inference policy with real en↔th smoke verification; the reference host's initial worker request completes in ~3.6s after previously timing out at 165s. Translation quality still varies, and the earlier v0.10.1 release did not include this fix. [M2M guide](docs/M2M100_CPU_RUNTIME_VALIDATION_TH.md).

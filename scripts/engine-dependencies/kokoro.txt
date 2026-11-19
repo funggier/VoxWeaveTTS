@@ -1,7 +1,10 @@
-# Multilingual Kokoro ONNX, incl Japanese G2P.
+# Multilingual Kokoro ONNX, including Japanese G2P using Misaki Cutlet/MeCab.
+# Misaki 0.9.4's ja extra requires pyopenjtalk 0.4.1 (no published Windows
+# cp311 wheel), forcing a source/CMake build that fails in deep portable paths.
+# The already supported Misaki 0.8.0 Japanese frontend uses unidic-lite and
+# prebuilt fugashi wheels instead; do NOT reintroduce pyopenjtalk here.
 kokoro-onnx==0.6.0
 onnxruntime==1.31.1
 numpy==2.2.6
-misaki[ja]==0.9.4
+misaki[ja]==0.8.0
 unidic-lite==1.0.8
-pyopenjtalk==0.4.1

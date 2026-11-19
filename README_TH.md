@@ -1,5 +1,7 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**แก้ปัญหา Kokoro Runtime บน Windows (Source หลัง v0.10.2):** เปลี่ยน Recipe ของ Kokoro เป็น Misaki Japanese G2P 0.8.0 เพื่อตัดการคอมไพล์ pyopenjtalk ที่ล้มเหลวใน Portable โฟลเดอร์ลึก โดยยังคงเสียงญี่ปุ่นได้ [วิธีแก้และผลทดสอบ](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md) · **ยังไม่รวมอยู่ใน ZIP v0.10.2 ที่เผยแพร่แล้ว**
+
 **Release v0.10.2:** ปรับความเสถียรของ M2M100 และ Portable, เพิ่มระบบยินยอมก่อนติดตั้ง Runtime เสริมและคำเตือนสิทธิ์อย่างชัดเจน [รายละเอียด Release](docs/RELEASE_NOTES_v0.10.2.md)
 
 **v0.10.2 — Portable Doctor และ M2M100 CPU (Phase E):** เพิ่มเครื่องมือตรวจโมเดล Native v2/Runtime/สถานะ Wheelhouse และการย้ายโฟลเดอร์แบบอ่านอย่างเดียว พร้อมทางเลือกตรวจ SHA-256, JSON และการซ่อมที่ใช้ `uv.exe` ภายใน Portable โดยไม่ต้องมี `uv` ใน Windows PATH ฟังก์ชันนี้รวมใน **v0.10.2** (ไม่อยู่ใน v0.10.1) [คู่มือ Portable Doctor](docs/PORTABLE_DIAGNOSTICS_TH.md) · **M2M100:** ปรับ Worker ให้จำกัด CPU Threads และคง 4 Beam Search ทดสอบแปลภาษาอังกฤษ↔ไทยจริงผ่านแล้วด้วยเวลา ~3.6 วินาทีสำหรับคำขอแรกบนเครื่องพัฒนา ทั้งนี้คุณภาพภาษาไทยยังต้องปรับเพิ่มเติม [รายละเอียดและคำสั่งทดสอบ](docs/M2M100_CPU_RUNTIME_VALIDATION_TH.md)
