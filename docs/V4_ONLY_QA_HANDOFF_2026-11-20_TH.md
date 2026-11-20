@@ -31,6 +31,8 @@
 - Deep v4 Package QA Audit: ครบ 8, SHA-256 ทุกไฟล์ตรงกัน, ไม่มี Missing/Issues
 - Deep v4 Portable Doctor: Ready, Default MakHam v4, `v3_package_support=false`
 - ตรวจ ZIP: CRC ผ่าน, ไม่มี v3 ในรายการไฟล์, ไม่มีข้อมูลผู้ใช้/Log, แตกลงโฟลเดอร์ใหม่และสร้าง WAV จริงได้
+- **Relocatable แบบย้ายทั้งโฟลเดอร์ผ่านจริง**: ติดตั้ง FastThaiG2P v4 ออฟไลน์ สร้างเสียงไทยก่อนย้ายและหลังย้าย (24,000 Hz, 68,160 frames ทั้งสองครั้ง) โดยไม่ติดตั้ง Runtime ซ้ำ; ถอน FastThaiG2P หลังย้ายสำเร็จและคง Runtime ร่วมที่ MakHam ยังใช้งานอยู่
+- เพิ่ม Regression Tests ตรวจว่า Worker Python และ Native Worker ในแพ็กเกจ v4 ใช้ตำแหน่งใหม่หลังย้าย ไม่มีการผูกพาธไว้กับตำแหน่งเดิม
 
 ## ไฟล์ QA ที่สร้างในเครื่อง
 
