@@ -72,3 +72,4 @@ Wayu Paxa Edge ยังคงเป็น **CC BY-NC 4.0 — ไม่อนุ
 - [ระบบแปลภาษา](docs/AI_PROCESSING_TRANSLATION_TH.md)
 - [การจัดคิวเสียง](docs/LIVE_MESSAGE_QUEUE_TH.md)
 - [นโยบายสิทธิ์](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
+- [สำเนาเอกสารสิทธิ์จากผู้เผยแพร่ต้นทาง v4 และ SHA-256](docs/V4_UPSTREAM_LICENSE_EVIDENCE_TH.md)

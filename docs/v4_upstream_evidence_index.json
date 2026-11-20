@@ -1,0 +1,813 @@
+{
+  "schema": "voxweavetts.v4-upstream-rights-evidence",
+  "version": 1,
+  "retrieved_at_utc": "2026-11-20T10:02:27.858984+00:00",
+  "source_repositories": [
+    {
+      "kind": "github",
+      "repo": "PyThaiNLP/PyThaiTTS",
+      "revision": "217bd8dcb8c7dc445c62e6b4d76a10832824e0d3",
+      "models": [
+        "makham-paradee",
+        "fastthaig2p-thai-som",
+        "vachana-thai-four-voices"
+      ],
+      "publisher_declared_license": "Apache-2.0",
+      "publisher_metadata_endpoint": "https://api.github.com/repos/PyThaiNLP/PyThaiTTS",
+      "metadata_sha256": "e1380c3a1319e4e487e2e44dbdcaa8f9fb2b5f49904ff88f09ce835f1cb0560b",
+      "requested_document_paths": [
+        "LICENSE",
+        "README.md",
+        "setup.py"
+      ],
+      "downloaded_document_count": 3,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "github",
+      "repo": "VYNCX/VachanaTTS",
+      "revision": "753cd0222e216b51d4026a8d880caf2ab2d59ea2",
+      "models": [
+        "vachana-thai-four-voices"
+      ],
+      "publisher_declared_license": null,
+      "publisher_metadata_endpoint": "https://api.github.com/repos/VYNCX/VachanaTTS",
+      "metadata_sha256": "66f32c5a2a7c351fec36dc238b0ca046f15f2424f9925535461d89f2f4d89d5c",
+      "requested_document_paths": [
+        "README.md"
+      ],
+      "downloaded_document_count": 1,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "github",
+      "repo": "awslabs/FastThaiG2P",
+      "revision": "4e82a291b4cf2876326744c6580121e9986ad354",
+      "models": [
+        "fastthaig2p-thai-som",
+        "makham-paradee"
+      ],
+      "publisher_declared_license": "Apache-2.0",
+      "publisher_metadata_endpoint": "https://api.github.com/repos/awslabs/FastThaiG2P",
+      "metadata_sha256": "3e0157aa995980ed79811147d2320cf3fc3c7e5c05b4a298a3728b8792a3c33f",
+      "requested_document_paths": [
+        "LICENSE",
+        "NOTICE",
+        "README.md",
+        "pyproject.toml"
+      ],
+      "downloaded_document_count": 4,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "github",
+      "repo": "k2-fsa/sherpa-onnx",
+      "revision": "b05fb0c214d70233f1d9decb5d519bb3188074c0",
+      "models": [
+        "melo-chinese-onnx",
+        "supertonic3-multilingual-int8"
+      ],
+      "publisher_declared_license": "Apache-2.0",
+      "publisher_metadata_endpoint": "https://api.github.com/repos/k2-fsa/sherpa-onnx",
+      "metadata_sha256": "237be727d92f57cdcf750fe061feef3e750496232d13d0dcb636f156626f7ccd",
+      "requested_document_paths": [
+        "LICENSE",
+        "README.md",
+        "setup.py"
+      ],
+      "downloaded_document_count": 3,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "github",
+      "repo": "sahilmahendrakar/paradee",
+      "revision": "2de547e45da92840a636c499eb0782e988be1e47",
+      "models": [
+        "makham-paradee"
+      ],
+      "publisher_declared_license": "Apache-2.0",
+      "publisher_metadata_endpoint": "https://api.github.com/repos/sahilmahendrakar/paradee",
+      "metadata_sha256": "57e67406c87f886c5c2315a90cbabbb12f5b30142dd047d86d03b34a664bf701",
+      "requested_document_paths": [
+        "LICENSE",
+        "README.md",
+        "pyproject.toml"
+      ],
+      "downloaded_document_count": 3,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "github",
+      "repo": "wayu-research/wayu-tts-inference",
+      "revision": "07ab898d516649313926f0b843b809a962f993ad",
+      "models": [
+        "wayu-paxa-edge-nc"
+      ],
+      "publisher_declared_license": "Apache-2.0",
+      "publisher_metadata_endpoint": "https://api.github.com/repos/wayu-research/wayu-tts-inference",
+      "metadata_sha256": "63706797f802de98a344a36c46d1f455bb86140f53d7c8f90fdffe26c2dad699",
+      "requested_document_paths": [
+        "LICENSE",
+        "README.md",
+        "pyproject.toml"
+      ],
+      "downloaded_document_count": 3,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-dataset",
+      "repo": "pythainlp/MakHamTTS-dataset",
+      "revision": "0fe6492125420b6075687f0aded24410d2f16b11",
+      "models": [
+        "makham-paradee"
+      ],
+      "publisher_declared_license": "cc-by-4.0",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/datasets/pythainlp/MakHamTTS-dataset",
+      "metadata_sha256": "219a1f0aa926568fd2cfe38bfc0069fc33989e7999b92b49b0946f78ff33c21f",
+      "requested_document_paths": [
+        "README.md"
+      ],
+      "downloaded_document_count": 1,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-dataset",
+      "repo": "pythainlp/som_tts_dataset",
+      "revision": "2520cc3481adff79a96502bad4937607f72058a6",
+      "models": [
+        "fastthaig2p-thai-som"
+      ],
+      "publisher_declared_license": "cc-by-4.0",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/datasets/pythainlp/som_tts_dataset",
+      "metadata_sha256": "4e1c1ec5e1acb212c6940d7a44e71118b635996f65e708c3306fc879fbc43dd8",
+      "requested_document_paths": [
+        "README.md"
+      ],
+      "downloaded_document_count": 1,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-model",
+      "repo": "Supertone/supertonic-3",
+      "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
+      "models": [
+        "supertonic3-multilingual-int8"
+      ],
+      "publisher_declared_license": "openrail",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/models/Supertone/supertonic-3",
+      "metadata_sha256": "9d6cdac9899d106dbbe0b0ae200fb2318cac32b8768945ed4804df01166f458d",
+      "requested_document_paths": [
+        "LICENSE",
+        "README.md"
+      ],
+      "downloaded_document_count": 2,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-model",
+      "repo": "VIZINTZOR/VachanaTTS",
+      "revision": "6fa5f03a26f8ec0c0e0582e9e6812efa84d38688",
+      "models": [
+        "vachana-thai-four-voices"
+      ],
+      "publisher_declared_license": "mit",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/models/VIZINTZOR/VachanaTTS",
+      "metadata_sha256": "6a83d7b1a3edb8a12153fcf74ef0abe89ce320cba4db0b0c73184e5adf0d83d0",
+      "requested_document_paths": [
+        "README.md"
+      ],
+      "downloaded_document_count": 1,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-model",
+      "repo": "facebook/m2m100_418M",
+      "revision": "55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636",
+      "models": [
+        "m2m100-418m"
+      ],
+      "publisher_declared_license": "mit",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/models/facebook/m2m100_418M",
+      "metadata_sha256": "15cd22337ec9c3b2021e17247a2a239323b83eb1755c74fab53886c33913068b",
+      "requested_document_paths": [
+        "README.md"
+      ],
+      "downloaded_document_count": 1,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-model",
+      "repo": "hexgrad/Kokoro-82M",
+      "revision": "f3ff3571791e39611d31c381e3a41a3af07b4987",
+      "models": [
+        "kokoro-multilingual-int8"
+      ],
+      "publisher_declared_license": "apache-2.0",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/models/hexgrad/Kokoro-82M",
+      "metadata_sha256": "12562586192b005970a1700bc77bf8669c4636410763706b6498834f60921be0",
+      "requested_document_paths": [
+        "README.md"
+      ],
+      "downloaded_document_count": 1,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-model",
+      "repo": "myshell-ai/MeloTTS-Chinese",
+      "revision": "af5d207a364ea4208c6f589c89f57f88414bdd16",
+      "models": [
+        "melo-chinese-onnx"
+      ],
+      "publisher_declared_license": "mit",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/models/myshell-ai/MeloTTS-Chinese",
+      "metadata_sha256": "ad979658ce153b4cfba7dc6a6029b8ba2c96fdb415370b3c5ef38c367d0304b3",
+      "requested_document_paths": [
+        "README.md"
+      ],
+      "downloaded_document_count": 1,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-model",
+      "repo": "pythainlp/MakHamTTS",
+      "revision": "cd812941e8848bffe0dcc9182720ba7cc8ddd13e",
+      "models": [
+        "makham-paradee",
+        "fastthaig2p-thai-som"
+      ],
+      "publisher_declared_license": "apache-2.0",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/models/pythainlp/MakHamTTS",
+      "metadata_sha256": "20425e325b71b8b9a48178c6eaa51da03a9ef71e312ca107fdb4d0a3e915b959",
+      "requested_document_paths": [
+        "README.md",
+        "fastthaig2p_single_model/README.md",
+        "paradee_thai/README.md"
+      ],
+      "downloaded_document_count": 3,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    },
+    {
+      "kind": "hf-model",
+      "repo": "wayu-ai/wayu-paxa-tts-edge",
+      "revision": "8196688df56a8d08ccfa186505343adff412ab6b",
+      "models": [
+        "wayu-paxa-edge-nc"
+      ],
+      "publisher_declared_license": "cc-by-nc-4.0",
+      "publisher_metadata_endpoint": "https://huggingface.co/api/models/wayu-ai/wayu-paxa-tts-edge",
+      "metadata_sha256": "cb46cb06dab8dd3ff26711b30afaeffd5b21f56568831923ff30a935c46ba22a",
+      "requested_document_paths": [
+        "README.md"
+      ],
+      "downloaded_document_count": 1,
+      "failed_document_count": 0,
+      "note": "Publisher license claim is evidence only; not a cleared license for each model weight and bundled dependency."
+    }
+  ],
+  "upstream_documents": [
+    {
+      "source_kind": "github",
+      "repository": "PyThaiNLP/PyThaiTTS",
+      "revision": "217bd8dcb8c7dc445c62e6b4d76a10832824e0d3",
+      "source_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/PyThaiNLP/PyThaiTTS/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/LICENSE",
+      "view_url": "https://github.com/PyThaiNLP/PyThaiTTS/blob/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "size_bytes": 11357,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/PyThaiNLP/PyThaiTTS/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/LICENSE",
+      "related_v4_models": [
+        "makham-paradee",
+        "fastthaig2p-thai-som",
+        "vachana-thai-four-voices"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "PyThaiNLP/PyThaiTTS",
+      "revision": "217bd8dcb8c7dc445c62e6b4d76a10832824e0d3",
+      "source_path": "README.md",
+      "url": "https://raw.githubusercontent.com/PyThaiNLP/PyThaiTTS/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/README.md",
+      "view_url": "https://github.com/PyThaiNLP/PyThaiTTS/blob/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/README.md",
+      "sha256": "9486f151cc3bbbe76b2f06b0726239940c934020877b0f9f5ff2ae1dec5a0f78",
+      "size_bytes": 7983,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/PyThaiNLP/PyThaiTTS/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/README.md",
+      "related_v4_models": [
+        "makham-paradee",
+        "fastthaig2p-thai-som",
+        "vachana-thai-four-voices"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "PyThaiNLP/PyThaiTTS",
+      "revision": "217bd8dcb8c7dc445c62e6b4d76a10832824e0d3",
+      "source_path": "setup.py",
+      "url": "https://raw.githubusercontent.com/PyThaiNLP/PyThaiTTS/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/setup.py",
+      "view_url": "https://github.com/PyThaiNLP/PyThaiTTS/blob/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/setup.py",
+      "sha256": "9dcc899b816b8a6f6c62ddc10f51504a06945fb84ca0347fcd6bd9e2c54b5d68",
+      "size_bytes": 1937,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/PyThaiNLP/PyThaiTTS/217bd8dcb8c7dc445c62e6b4d76a10832824e0d3/setup.py",
+      "related_v4_models": [
+        "makham-paradee",
+        "fastthaig2p-thai-som",
+        "vachana-thai-four-voices"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "Supertone/supertonic-3",
+      "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
+      "source_path": "LICENSE",
+      "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/LICENSE",
+      "view_url": "https://huggingface.co/Supertone/supertonic-3/blob/3cadd1ee6394adea1bd021217a0e650ede09a323/LICENSE",
+      "sha256": "0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f",
+      "size_bytes": 15007,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/Supertone/supertonic-3/3cadd1ee6394adea1bd021217a0e650ede09a323/LICENSE",
+      "related_v4_models": [
+        "supertonic3-multilingual-int8"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "Supertone/supertonic-3",
+      "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/README.md",
+      "view_url": "https://huggingface.co/Supertone/supertonic-3/blob/3cadd1ee6394adea1bd021217a0e650ede09a323/README.md",
+      "sha256": "d414e4b085fb9989ebfd2b64f868ff861694022b4bdb805b09e702386dbdc7d5",
+      "size_bytes": 9189,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/Supertone/supertonic-3/3cadd1ee6394adea1bd021217a0e650ede09a323/README.md",
+      "related_v4_models": [
+        "supertonic3-multilingual-int8"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "VIZINTZOR/VachanaTTS",
+      "revision": "6fa5f03a26f8ec0c0e0582e9e6812efa84d38688",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/VIZINTZOR/VachanaTTS/resolve/6fa5f03a26f8ec0c0e0582e9e6812efa84d38688/README.md",
+      "view_url": "https://huggingface.co/VIZINTZOR/VachanaTTS/blob/6fa5f03a26f8ec0c0e0582e9e6812efa84d38688/README.md",
+      "sha256": "2ad79d2d014e5b71d88b297ed5c7aa9b447a591a736c61601e0c3c1eb219fb24",
+      "size_bytes": 1084,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/VIZINTZOR/VachanaTTS/6fa5f03a26f8ec0c0e0582e9e6812efa84d38688/README.md",
+      "related_v4_models": [
+        "vachana-thai-four-voices"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "VYNCX/VachanaTTS",
+      "revision": "753cd0222e216b51d4026a8d880caf2ab2d59ea2",
+      "source_path": "README.md",
+      "url": "https://raw.githubusercontent.com/VYNCX/VachanaTTS/753cd0222e216b51d4026a8d880caf2ab2d59ea2/README.md",
+      "view_url": "https://github.com/VYNCX/VachanaTTS/blob/753cd0222e216b51d4026a8d880caf2ab2d59ea2/README.md",
+      "sha256": "298f777334b7f7901692d1cba19330de2343fc2f99ac54a4e3c6240781bba602",
+      "size_bytes": 6286,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/VYNCX/VachanaTTS/753cd0222e216b51d4026a8d880caf2ab2d59ea2/README.md",
+      "related_v4_models": [
+        "vachana-thai-four-voices"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "awslabs/FastThaiG2P",
+      "revision": "4e82a291b4cf2876326744c6580121e9986ad354",
+      "source_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/awslabs/FastThaiG2P/4e82a291b4cf2876326744c6580121e9986ad354/LICENSE",
+      "view_url": "https://github.com/awslabs/FastThaiG2P/blob/4e82a291b4cf2876326744c6580121e9986ad354/LICENSE",
+      "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b",
+      "size_bytes": 10142,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/awslabs/FastThaiG2P/4e82a291b4cf2876326744c6580121e9986ad354/LICENSE",
+      "related_v4_models": [
+        "fastthaig2p-thai-som",
+        "makham-paradee"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "awslabs/FastThaiG2P",
+      "revision": "4e82a291b4cf2876326744c6580121e9986ad354",
+      "source_path": "NOTICE",
+      "url": "https://raw.githubusercontent.com/awslabs/FastThaiG2P/4e82a291b4cf2876326744c6580121e9986ad354/NOTICE",
+      "view_url": "https://github.com/awslabs/FastThaiG2P/blob/4e82a291b4cf2876326744c6580121e9986ad354/NOTICE",
+      "sha256": "d4290ed64c2edd0fce1d84e3f9dfb2881240fe534def76b8cd29ed6af683e287",
+      "size_bytes": 67,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/awslabs/FastThaiG2P/4e82a291b4cf2876326744c6580121e9986ad354/NOTICE",
+      "related_v4_models": [
+        "fastthaig2p-thai-som",
+        "makham-paradee"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "awslabs/FastThaiG2P",
+      "revision": "4e82a291b4cf2876326744c6580121e9986ad354",
+      "source_path": "README.md",
+      "url": "https://raw.githubusercontent.com/awslabs/FastThaiG2P/4e82a291b4cf2876326744c6580121e9986ad354/README.md",
+      "view_url": "https://github.com/awslabs/FastThaiG2P/blob/4e82a291b4cf2876326744c6580121e9986ad354/README.md",
+      "sha256": "23a62bd3e07842d2ec755488407d78b060a97ae4b43093eb17b1c99e580d7ff8",
+      "size_bytes": 10445,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/awslabs/FastThaiG2P/4e82a291b4cf2876326744c6580121e9986ad354/README.md",
+      "related_v4_models": [
+        "fastthaig2p-thai-som",
+        "makham-paradee"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "awslabs/FastThaiG2P",
+      "revision": "4e82a291b4cf2876326744c6580121e9986ad354",
+      "source_path": "pyproject.toml",
+      "url": "https://raw.githubusercontent.com/awslabs/FastThaiG2P/4e82a291b4cf2876326744c6580121e9986ad354/pyproject.toml",
+      "view_url": "https://github.com/awslabs/FastThaiG2P/blob/4e82a291b4cf2876326744c6580121e9986ad354/pyproject.toml",
+      "sha256": "77dc974c34346c3b1209efd1696732ccd73b53d85c07dbd90334f110fb1a312b",
+      "size_bytes": 902,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/awslabs/FastThaiG2P/4e82a291b4cf2876326744c6580121e9986ad354/pyproject.toml",
+      "related_v4_models": [
+        "fastthaig2p-thai-som",
+        "makham-paradee"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "publisher-legal-webpage",
+      "repository": "creativecommons",
+      "revision": null,
+      "source_path": "cc-by-nc-4.0-legalcode.html",
+      "url": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
+      "view_url": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
+      "sha256": "ed33220ec867f0bbb66f7b4c909393c4b83cba3c1dba848c54174c64d424e137",
+      "size_bytes": 50835,
+      "local_copy": "cache/v4-rights-evidence/upstream/publisher-webpages/creativecommons/cc-by-nc-4.0-legalcode.html",
+      "related_v4_models": [
+        "wayu-paxa-edge-nc"
+      ],
+      "source_type": "official-publisher-terms-snapshot",
+      "captured_at_utc": "2026-11-20T10:02:27.858984+00:00",
+      "immutable_revision": false,
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "facebook/m2m100_418M",
+      "revision": "55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/facebook/m2m100_418M/resolve/55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636/README.md",
+      "view_url": "https://huggingface.co/facebook/m2m100_418M/blob/55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636/README.md",
+      "sha256": "1fd660f130aedc5ecf1796b47ab47d43d3c4b36541f5387b7adb3df75cb5dfdb",
+      "size_bytes": 4603,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/facebook/m2m100_418M/55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636/README.md",
+      "related_v4_models": [
+        "m2m100-418m"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "hexgrad/Kokoro-82M",
+      "revision": "f3ff3571791e39611d31c381e3a41a3af07b4987",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/README.md",
+      "view_url": "https://huggingface.co/hexgrad/Kokoro-82M/blob/f3ff3571791e39611d31c381e3a41a3af07b4987/README.md",
+      "sha256": "91dcabced89db6f109b8786642f50402d3ee87450e8189589b6f85520e7f4d78",
+      "size_bytes": 6348,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/hexgrad/Kokoro-82M/f3ff3571791e39611d31c381e3a41a3af07b4987/README.md",
+      "related_v4_models": [
+        "kokoro-multilingual-int8"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "k2-fsa/sherpa-onnx",
+      "revision": "b05fb0c214d70233f1d9decb5d519bb3188074c0",
+      "source_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/b05fb0c214d70233f1d9decb5d519bb3188074c0/LICENSE",
+      "view_url": "https://github.com/k2-fsa/sherpa-onnx/blob/b05fb0c214d70233f1d9decb5d519bb3188074c0/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size_bytes": 11358,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/k2-fsa/sherpa-onnx/b05fb0c214d70233f1d9decb5d519bb3188074c0/LICENSE",
+      "related_v4_models": [
+        "melo-chinese-onnx",
+        "supertonic3-multilingual-int8"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "k2-fsa/sherpa-onnx",
+      "revision": "b05fb0c214d70233f1d9decb5d519bb3188074c0",
+      "source_path": "README.md",
+      "url": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/b05fb0c214d70233f1d9decb5d519bb3188074c0/README.md",
+      "view_url": "https://github.com/k2-fsa/sherpa-onnx/blob/b05fb0c214d70233f1d9decb5d519bb3188074c0/README.md",
+      "sha256": "89fdf7544ff52ea79b63aefaf3dd06ac064083fccd3eacf44c2ff4082f5b3834",
+      "size_bytes": 62035,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/k2-fsa/sherpa-onnx/b05fb0c214d70233f1d9decb5d519bb3188074c0/README.md",
+      "related_v4_models": [
+        "melo-chinese-onnx",
+        "supertonic3-multilingual-int8"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "k2-fsa/sherpa-onnx",
+      "revision": "b05fb0c214d70233f1d9decb5d519bb3188074c0",
+      "source_path": "setup.py",
+      "url": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/b05fb0c214d70233f1d9decb5d519bb3188074c0/setup.py",
+      "view_url": "https://github.com/k2-fsa/sherpa-onnx/blob/b05fb0c214d70233f1d9decb5d519bb3188074c0/setup.py",
+      "sha256": "e01ab89f6c97986541eb8a32273a90545dd84850be97de336b22fe28ea33b856",
+      "size_bytes": 3273,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/k2-fsa/sherpa-onnx/b05fb0c214d70233f1d9decb5d519bb3188074c0/setup.py",
+      "related_v4_models": [
+        "melo-chinese-onnx",
+        "supertonic3-multilingual-int8"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "myshell-ai/MeloTTS-Chinese",
+      "revision": "af5d207a364ea4208c6f589c89f57f88414bdd16",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/myshell-ai/MeloTTS-Chinese/resolve/af5d207a364ea4208c6f589c89f57f88414bdd16/README.md",
+      "view_url": "https://huggingface.co/myshell-ai/MeloTTS-Chinese/blob/af5d207a364ea4208c6f589c89f57f88414bdd16/README.md",
+      "sha256": "40b5b860bacbb3947cbef838719e660d2fe4961eba5b484290b4bedc0253e208",
+      "size_bytes": 4445,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/myshell-ai/MeloTTS-Chinese/af5d207a364ea4208c6f589c89f57f88414bdd16/README.md",
+      "related_v4_models": [
+        "melo-chinese-onnx"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "pythainlp/MakHamTTS",
+      "revision": "cd812941e8848bffe0dcc9182720ba7cc8ddd13e",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/pythainlp/MakHamTTS/resolve/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/README.md",
+      "view_url": "https://huggingface.co/pythainlp/MakHamTTS/blob/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/README.md",
+      "sha256": "c91118886412eae460979f89673af7259fefc2df7f2323cba0ae159263268f1e",
+      "size_bytes": 5539,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/pythainlp/MakHamTTS/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/README.md",
+      "related_v4_models": [
+        "makham-paradee",
+        "fastthaig2p-thai-som"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "pythainlp/MakHamTTS",
+      "revision": "cd812941e8848bffe0dcc9182720ba7cc8ddd13e",
+      "source_path": "fastthaig2p_single_model/README.md",
+      "url": "https://huggingface.co/pythainlp/MakHamTTS/resolve/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/fastthaig2p_single_model/README.md",
+      "view_url": "https://huggingface.co/pythainlp/MakHamTTS/blob/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/fastthaig2p_single_model/README.md",
+      "sha256": "fbf1ba717549ba7505baadc615faf564ebc72222c9e514aa10be0f505c7d28c5",
+      "size_bytes": 894,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/pythainlp/MakHamTTS/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/fastthaig2p_single_model/README.md",
+      "related_v4_models": [
+        "makham-paradee",
+        "fastthaig2p-thai-som"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "pythainlp/MakHamTTS",
+      "revision": "cd812941e8848bffe0dcc9182720ba7cc8ddd13e",
+      "source_path": "paradee_thai/README.md",
+      "url": "https://huggingface.co/pythainlp/MakHamTTS/resolve/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/paradee_thai/README.md",
+      "view_url": "https://huggingface.co/pythainlp/MakHamTTS/blob/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/paradee_thai/README.md",
+      "sha256": "4d20f911b7ef99b3264cb0d679f3c710a44934524c7b8dd2de1255d42a81061c",
+      "size_bytes": 2337,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/pythainlp/MakHamTTS/cd812941e8848bffe0dcc9182720ba7cc8ddd13e/paradee_thai/README.md",
+      "related_v4_models": [
+        "makham-paradee",
+        "fastthaig2p-thai-som"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-dataset",
+      "repository": "pythainlp/MakHamTTS-dataset",
+      "revision": "0fe6492125420b6075687f0aded24410d2f16b11",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/datasets/pythainlp/MakHamTTS-dataset/resolve/0fe6492125420b6075687f0aded24410d2f16b11/README.md",
+      "view_url": "https://huggingface.co/datasets/pythainlp/MakHamTTS-dataset/blob/0fe6492125420b6075687f0aded24410d2f16b11/README.md",
+      "sha256": "0347bf54ac77eb152c829dbc3db10369291ec2537babf1eb4aef91a890ef97ea",
+      "size_bytes": 693,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-dataset/pythainlp/MakHamTTS-dataset/0fe6492125420b6075687f0aded24410d2f16b11/README.md",
+      "related_v4_models": [
+        "makham-paradee"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-dataset",
+      "repository": "pythainlp/som_tts_dataset",
+      "revision": "2520cc3481adff79a96502bad4937607f72058a6",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/datasets/pythainlp/som_tts_dataset/resolve/2520cc3481adff79a96502bad4937607f72058a6/README.md",
+      "view_url": "https://huggingface.co/datasets/pythainlp/som_tts_dataset/blob/2520cc3481adff79a96502bad4937607f72058a6/README.md",
+      "sha256": "f6273797886bd0051959624e1d68a67e8c025a0031cdb99b749231734203a972",
+      "size_bytes": 921,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-dataset/pythainlp/som_tts_dataset/2520cc3481adff79a96502bad4937607f72058a6/README.md",
+      "related_v4_models": [
+        "fastthaig2p-thai-som"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "sahilmahendrakar/paradee",
+      "revision": "2de547e45da92840a636c499eb0782e988be1e47",
+      "source_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/sahilmahendrakar/paradee/2de547e45da92840a636c499eb0782e988be1e47/LICENSE",
+      "view_url": "https://github.com/sahilmahendrakar/paradee/blob/2de547e45da92840a636c499eb0782e988be1e47/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size_bytes": 11358,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/sahilmahendrakar/paradee/2de547e45da92840a636c499eb0782e988be1e47/LICENSE",
+      "related_v4_models": [
+        "makham-paradee"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "sahilmahendrakar/paradee",
+      "revision": "2de547e45da92840a636c499eb0782e988be1e47",
+      "source_path": "README.md",
+      "url": "https://raw.githubusercontent.com/sahilmahendrakar/paradee/2de547e45da92840a636c499eb0782e988be1e47/README.md",
+      "view_url": "https://github.com/sahilmahendrakar/paradee/blob/2de547e45da92840a636c499eb0782e988be1e47/README.md",
+      "sha256": "46bde0789550af1bccdb9fa615bc921829d8c19de2c749f8f3f8f77d1999eb45",
+      "size_bytes": 14119,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/sahilmahendrakar/paradee/2de547e45da92840a636c499eb0782e988be1e47/README.md",
+      "related_v4_models": [
+        "makham-paradee"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "sahilmahendrakar/paradee",
+      "revision": "2de547e45da92840a636c499eb0782e988be1e47",
+      "source_path": "pyproject.toml",
+      "url": "https://raw.githubusercontent.com/sahilmahendrakar/paradee/2de547e45da92840a636c499eb0782e988be1e47/pyproject.toml",
+      "view_url": "https://github.com/sahilmahendrakar/paradee/blob/2de547e45da92840a636c499eb0782e988be1e47/pyproject.toml",
+      "sha256": "da446781f69e50181c886007dd4a63a8ae0057c4f6fed5b675727c098097c6e4",
+      "size_bytes": 982,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/sahilmahendrakar/paradee/2de547e45da92840a636c499eb0782e988be1e47/pyproject.toml",
+      "related_v4_models": [
+        "makham-paradee"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "hf-model",
+      "repository": "wayu-ai/wayu-paxa-tts-edge",
+      "revision": "8196688df56a8d08ccfa186505343adff412ab6b",
+      "source_path": "README.md",
+      "url": "https://huggingface.co/wayu-ai/wayu-paxa-tts-edge/resolve/8196688df56a8d08ccfa186505343adff412ab6b/README.md",
+      "view_url": "https://huggingface.co/wayu-ai/wayu-paxa-tts-edge/blob/8196688df56a8d08ccfa186505343adff412ab6b/README.md",
+      "sha256": "9d0be0c27b1fc0ab002341f646125794381676f06ee1ad1c4f65b5112cd8ef19",
+      "size_bytes": 7381,
+      "local_copy": "cache/v4-rights-evidence/upstream/hf-model/wayu-ai/wayu-paxa-tts-edge/8196688df56a8d08ccfa186505343adff412ab6b/README.md",
+      "related_v4_models": [
+        "wayu-paxa-edge-nc"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "publisher-legal-webpage",
+      "repository": "wayu-research",
+      "revision": null,
+      "source_path": "terms.html",
+      "url": "https://www.wayuresearch.org/terms",
+      "view_url": "https://www.wayuresearch.org/terms",
+      "sha256": "c3e9b6f74e56061b77f8ab059e70d52b9231446e60e7b734f268a8cb7e6b9e4d",
+      "size_bytes": 48413,
+      "local_copy": "cache/v4-rights-evidence/upstream/publisher-webpages/wayu-research/terms.html",
+      "related_v4_models": [
+        "wayu-paxa-edge-nc"
+      ],
+      "source_type": "official-publisher-terms-snapshot",
+      "captured_at_utc": "2026-11-20T10:02:27.858984+00:00",
+      "immutable_revision": false,
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "wayu-research/wayu-tts-inference",
+      "revision": "07ab898d516649313926f0b843b809a962f993ad",
+      "source_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/wayu-research/wayu-tts-inference/07ab898d516649313926f0b843b809a962f993ad/LICENSE",
+      "view_url": "https://github.com/wayu-research/wayu-tts-inference/blob/07ab898d516649313926f0b843b809a962f993ad/LICENSE",
+      "sha256": "0439ff162a67a9db689f3c5f0117b6fdcbdd3c1460965e03da01d15bb3c90ed8",
+      "size_bytes": 11347,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/wayu-research/wayu-tts-inference/07ab898d516649313926f0b843b809a962f993ad/LICENSE",
+      "related_v4_models": [
+        "wayu-paxa-edge-nc"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "wayu-research/wayu-tts-inference",
+      "revision": "07ab898d516649313926f0b843b809a962f993ad",
+      "source_path": "README.md",
+      "url": "https://raw.githubusercontent.com/wayu-research/wayu-tts-inference/07ab898d516649313926f0b843b809a962f993ad/README.md",
+      "view_url": "https://github.com/wayu-research/wayu-tts-inference/blob/07ab898d516649313926f0b843b809a962f993ad/README.md",
+      "sha256": "3b17cf9b48c88da159605cd79da204670e7d352c623b30f0c441eed142881d57",
+      "size_bytes": 7769,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/wayu-research/wayu-tts-inference/07ab898d516649313926f0b843b809a962f993ad/README.md",
+      "related_v4_models": [
+        "wayu-paxa-edge-nc"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    },
+    {
+      "source_kind": "github",
+      "repository": "wayu-research/wayu-tts-inference",
+      "revision": "07ab898d516649313926f0b843b809a962f993ad",
+      "source_path": "pyproject.toml",
+      "url": "https://raw.githubusercontent.com/wayu-research/wayu-tts-inference/07ab898d516649313926f0b843b809a962f993ad/pyproject.toml",
+      "view_url": "https://github.com/wayu-research/wayu-tts-inference/blob/07ab898d516649313926f0b843b809a962f993ad/pyproject.toml",
+      "sha256": "7188db239a6f9210c3d4f3860bf343e7cf9d86816d6d42cd57a589e34f973050",
+      "size_bytes": 1399,
+      "local_copy": "cache/v4-rights-evidence/upstream/github/wayu-research/wayu-tts-inference/07ab898d516649313926f0b843b809a962f993ad/pyproject.toml",
+      "related_v4_models": [
+        "wayu-paxa-edge-nc"
+      ],
+      "source_type": "publisher-document",
+      "redistribution_clearance": false
+    }
+  ],
+  "source_errors": [],
+  "all_models_public_redistribution_cleared": false,
+  "model_rights_and_runtime_rights_separate": true,
+  "raw_documents_local_only": true,
+  "raw_documents_repository_tracked": false,
+  "local_evidence_root": "cache/v4-rights-evidence",
+  "notes": [
+    "Copies are publisher-authored bytes from exact Git/HF revisions.",
+    "Original copyright and license notices are not modified.",
+    "User installing v4 is not a grant to publicly redistribute model binaries.",
+    "No package was installed, published or executed during evidence gathering."
+  ],
+  "wheel_documents_copied": 314,
+  "unique_wheels_with_local_evidence": 137
+}

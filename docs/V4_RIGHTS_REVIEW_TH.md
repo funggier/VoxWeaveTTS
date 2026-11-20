@@ -1,5 +1,7 @@
 # VoxWeaveTTS — การตรวจสิทธิ์แพ็กเกจ Universal v4 (รอบเริ่มต้น)
 
+**หลักฐานต้นฉบับสำหรับใช้อ้างอิง:** [สำเนาเอกสารต้นทางและ Metadata/License ของ Wheel พร้อม Commit SHA และ SHA-256](V4_UPSTREAM_LICENSE_EVIDENCE_TH.md) · [ดัชนีหลักฐานต้นฉบับ](v4_upstream_evidence_index.json) — เก็บเอกสารเต็มไว้ภายใน QA โดยยังไม่อนุมัติการแจกจ่าย
+
 วันที่ตรวจ: 20 พฤศจิกายน 2026
 สถานะ: **QA ONLY / ยังไม่อนุมัติ Public Redistribution ทั้ง 8 แพ็กเกจ**
 
