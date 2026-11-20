@@ -73,9 +73,15 @@ def _path(name: str) -> str:
                or any(ord(c) < 33 or c in '<>"|?*' for c in p)
                for p in parts)):
         raise V4PackageError("unsafe package path")
-    # Permit this single upstream GPL source tarball as a legal document.
-    # This does not enable other compressed/executable payload extensions.
-    source_archive = name == "assets/legal/source/espeak-ng-1.52.0-source.tar.gz"
+    # Fixed, audited GPL/LGPL source tarballs are legal evidence only.
+    # Other compressed or executable plugin payloads remain forbidden.
+    source_archive = name in {
+        "assets/legal/source/espeak-ng-1.52.0-source.tar.gz",
+        "assets/legal/source/phonemizer-3.6.0-source.tar.gz",
+        "assets/legal/source/phonemizer-fork-3.3.2-source.tar.gz",
+        "assets/legal/source/gensim-4.4.0-source.tar.gz",
+        "assets/legal/source/num2words-0.5.6-source.tar.gz",
+    }
     if not source_archive and PurePosixPath(name).suffix.lower() not in _ALLOWED_SUFFIXES:
         raise V4PackageError("unsupported package file extension")
     return name

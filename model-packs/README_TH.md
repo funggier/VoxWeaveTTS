@@ -8,20 +8,20 @@
 
 ระบบภายในแยก Runtime ของแพ็กเกจ, ตรวจ SHA-256 และ Wheel, เรียก Worker ผ่าน Protocol v1 สำหรับ TTS หรือ Translation และรองรับการย้ายโฟลเดอร์ Portable
 
-โมเดล v4 ที่ผ่าน QA ทั้ง 8 รายการ:
+โมเดล v4 ที่ผ่าน QA ทั้ง 8 รายการ โดย **เผยแพร่สาธารณะ 7 ตัว** และเก็บ Vachana ไว้ในเครื่องพัฒนา:
 
 | โมเดล | ประเภท | สถานะการทดสอบ | การแจกจ่าย |
 | --- | --- | --- | --- |
-| MakHam Paradee | TTS | เสียงไทยผ่าน | ตรวจสิทธิ์เพิ่ม |
-| FastThaiG2P Thai Som | TTS | เสียงไทยผ่าน | ตรวจสิทธิ์เพิ่ม |
-| Melo Chinese ONNX | TTS | เสียงจีนผ่าน | ตรวจสิทธิ์เพิ่ม |
-| Supertonic 3 | TTS | เสียงอังกฤษผ่าน | OpenRAIL-M / ตรวจเงื่อนไข |
-| Kokoro 82M | TTS | อังกฤษและญี่ปุ่นผ่าน | HOLD: GPL/Native Notices |
-| Vachana Thai 4 Voices | TTS | เสียงไทยผ่าน | HOLD: vachanatts Wheel |
-| Wayu Paxa Edge NC | TTS | เสียงไทยผ่าน | HOLD / CC BY-NC 4.0 |
-| M2M100 418M | Translation | EN→TH และ TH→EN ผ่าน | ตรวจสิทธิ์เพิ่ม |
+| MakHam Paradee | TTS | เสียงไทยผ่าน | Public V4 · Apache-2.0 |
+| FastThaiG2P Thai Som | TTS | เสียงไทยผ่าน | Public V4 · Apache-2.0 |
+| Melo Chinese ONNX | TTS | เสียงจีนผ่าน | Public V4 · MIT |
+| Supertonic 3 | TTS | เสียงอังกฤษผ่าน | Public V4 · OpenRAIL-M ตามเงื่อนไข |
+| Kokoro 82M | TTS | อังกฤษและญี่ปุ่นผ่าน | Public V4 · Apache-2.0 น้ำหนัก / GPL Source Runtime |
+| Vachana Thai 4 Voices | TTS | เสียงไทยผ่าน | เฉพาะในเครื่อง · ไม่เผยแพร่โค้ด vachanatts |
+| Wayu Paxa Edge NC | TTS | เสียงไทยผ่าน | Public V4 · CC BY-NC 4.0 (NonCommercial เท่านั้น) |
+| M2M100 418M | Translation | EN→TH และ TH→EN ผ่าน | Public V4 · MIT |
 
-ไฟล์ QA อยู่ใน `dist/ModelPackagesV4-QA` ของเครื่องพัฒนา ไม่อยู่ใน GitHub Release เนื่องจากยังไม่ได้ตรวจสิทธิ์ Redistribute ครบ
+ไฟล์ QA ทั้ง 8 ยังคงอยู่ใน `dist/ModelPackagesV4-QA` ของเครื่องพัฒนาแยกจากไฟล์เผยแพร่ โดยไฟล์ Public V4 ทั้ง 7 (ไม่รวม Vachana) เตรียมไว้ใน `dist/ModelPackagesV4-PublicSeven` และแจกจ่ายผ่าน [Release V4 Model Packs (7 Models)](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) พร้อม [รายละเอียด License และเอกสารต้นทาง](../docs/RELEASE_NOTES_MODEL_PACKS_V4_SEVEN_TH.md)
 
 สร้างตัวอย่างแพ็กเกจใหม่ด้วย `scripts/build_vwmodel_v4.py` และใช้ [ตัวอย่างสำหรับนักพัฒนา v4](../examples/README_TH.md) ดู [คู่มือ v4](../docs/UNIVERSAL_VWMODEL_V4_TH.md) และ [บันทึก QA ทั้ง 8 ตัว](../docs/V4_ALL_MODEL_QA_TH.md)
 

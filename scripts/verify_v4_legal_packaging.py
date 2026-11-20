@@ -41,7 +41,13 @@ def assess(original: dict, enriched: dict) -> dict:
     extra = sorted(set(current) - set(prior))
     if not extra or not all(
         (x.startswith("assets/legal/") and x.endswith((".txt",".md",".json")))
-        or x == "assets/legal/source/espeak-ng-1.52.0-source.tar.gz"
+        or x in {
+            "assets/legal/source/espeak-ng-1.52.0-source.tar.gz",
+            "assets/legal/source/phonemizer-3.6.0-source.tar.gz",
+            "assets/legal/source/phonemizer-fork-3.3.2-source.tar.gz",
+            "assets/legal/source/gensim-4.4.0-source.tar.gz",
+            "assets/legal/source/num2words-0.5.6-source.tar.gz",
+        }
         for x in extra
     ):
         raise ValueError("unexpected new executable or model asset")
@@ -63,7 +69,8 @@ def check(original_folder: Path, updated_folder: Path, *,
           models: list[str] | None = None,
           require_native_notices: bool = False,
           require_espeak_source: bool = False,
-          require_onnxruntime_131: bool = False) -> dict:
+          require_onnxruntime_131: bool = False,
+          require_copyleft_sources: bool = False) -> dict:
     from voxweavetts.provider_rights import KNOWN_V4_MODELS
     results_by_model = {}
     chosen = models if models is not None else list(KNOWN_V4_MODELS)
@@ -210,6 +217,45 @@ def check(original_folder: Path, updated_folder: Path, *,
                     if hashlib.sha256(content).hexdigest() != details["sha256"]:
                         raise ValueError("original eSpeak loader document changed")
                 results["espeak_upstream_source_and_build_docs_verified"] = True
+            if require_copyleft_sources:
+                source_index = (
+                    "assets/legal/copyleft-upstream-sources-index.json"
+                )
+                expected = {
+                    "phonemizer": "3.6.0",
+                    "phonemizer-fork": "3.3.2",
+                    "gensim": "4.4.0",
+                    "num2words": "0.5.6",
+                }
+                packages_needed = {}
+                for pkg, version in expected.items():
+                    for wheel in m1["files"]:
+                        if wheel["path"].startswith(
+                            f"runtime/wheels/{pkg.replace('-', '_')}-{version}-"
+                        ):
+                            packages_needed[pkg] = wheel
+                if packages_needed:
+                    report = json.loads(zipfile_reader.read(source_index))
+                    if set(report["packages"]) != set(packages_needed):
+                        raise ValueError("GPL/LGPL sources missing/unexpected")
+                    if report["upstream_terms_still_apply"] is not True:
+                        raise ValueError("upstream copyleft rights removed")
+                    for pkg, wheel in packages_needed.items():
+                        item = report["packages"][pkg]
+                        source = zipfile_reader.read(item["source_path"])
+                        if (item["wheel_sha256"] != wheel["sha256"]
+                            or hashlib.sha256(source).hexdigest()
+                            != item["source_sha256"]):
+                            raise ValueError("GPL/LGPL source does not match Wheel")
+                        import io
+                        import tarfile
+                        with tarfile.open(fileobj=io.BytesIO(source),
+                                          mode="r:gz") as tf:
+                            if not tf.getmembers():
+                                raise ValueError("empty GPL/LGPL source archive")
+                    results["copyleft_sources_verified"] = len(packages_needed)
+                elif source_index in {f["path"] for f in m2["files"]}:
+                    raise ValueError("unneeded GPL/LGPL source index")
             if package_id == "wayu-paxa-edge-nc":
                 assert results["original_model_license"] == "CC-BY-NC-4.0"
         results_by_model[package_id] = results
@@ -225,6 +271,7 @@ def check(original_folder: Path, updated_folder: Path, *,
         "native_notices_required": require_native_notices,
         "espeak_source_required": require_espeak_source,
         "onnxruntime_131_required": require_onnxruntime_131,
+        "copyleft_sources_required": require_copyleft_sources,
         "public_release_authorized": False,
         "models": results_by_model,
     }
@@ -238,11 +285,13 @@ def main() -> int:
     parser.add_argument("--require-native-notices", action="store_true")
     parser.add_argument("--require-espeak-source", action="store_true")
     parser.add_argument("--require-onnxruntime-131", action="store_true")
+    parser.add_argument("--require-copyleft-sources", action="store_true")
     args = parser.parse_args()
     result = check(args.original, args.repacked, models=args.models,
                    require_native_notices=args.require_native_notices,
                    require_espeak_source=args.require_espeak_source,
-                   require_onnxruntime_131=args.require_onnxruntime_131)
+                   require_onnxruntime_131=args.require_onnxruntime_131,
+                   require_copyleft_sources=args.require_copyleft_sources)
     dest = args.repacked / "CATALOG-LegalQA-v4.json"
     dest.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     print(json.dumps({k:v for k,v in result.items() if k != "models"},

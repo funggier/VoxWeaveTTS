@@ -28,7 +28,9 @@ def hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def build(source: Path, output: Path) -> dict:
+def build(source: Path, output: Path, *, compress_level: int = 6) -> dict:
+    if compress_level not in (1, 6):
+        raise ValueError("unsupported QA compression level")
     from voxweavetts.universal_model_v4 import inspect_archive
     original = inspect_archive(source)
     if "UNRELEASED-QA" not in source.name:
@@ -275,6 +277,101 @@ def build(source: Path, output: Path) -> dict:
         additional["assets/legal/onnxruntime-1.31.1-provenance.json"] = (
             json.dumps(original_ort, indent=2) + "\n"
         ).encode("utf-8")
+    # Offline redistribution of GPL/LGPL Python packages and native extensions
+    # must carry their original Corresponding Source. Keep exact PyPI sdists,
+    # verified against published SHA-256, with an audit index tying each
+    # sdist to the immutable wheel bundled in *this* model package.
+    copyleft_index = (EVIDENCE / "runtime-sources" /
+                      "copyleft-wheel-sdists" / "INDEX.json")
+    needs_source = {
+        "phonemizer": "3.6.0",
+        "phonemizer-fork": "3.3.2",
+        "gensim": "4.4.0",
+        "num2words": "0.5.6",
+    }
+    bundled_sources = {}
+    for project, version in needs_source.items():
+        project_wheel = project.replace("-", "_")
+        match = next(
+            (f for f in wheel_files if Path(f["path"]).name.lower().startswith(
+                project_wheel + "-" + version + "-"
+            )), None
+        )
+        if match is None:
+            continue
+        if not copyleft_index.exists():
+            raise ValueError("missing GPL/LGPL source inventory")
+        source_index = json.loads(copyleft_index.read_text("utf-8"))
+        upstream = source_index["packages"][project]
+        origin = upstream["original_wheels"].get(pkg_name)
+        if (upstream["version"] != version or not origin
+            or origin["wheel_sha256"] != match["sha256"]):
+            raise ValueError("GPL/LGPL source archive has no matching Wheel")
+        src_file = (ROOT / upstream["local_copy"]).resolve()
+        if not src_file.is_relative_to(EVIDENCE.resolve()):
+            raise ValueError("GPL/LGPL original source outside evidence cache")
+        original_source = src_file.read_bytes()
+        if (hash_bytes(original_source) != upstream["source_sha256"]
+            or len(original_source) != upstream["source_bytes"]):
+            raise ValueError("corresponding GPL/LGPL source SHA mismatch")
+        source_member = (
+            f"assets/legal/source/{project}-{version}-source.tar.gz"
+        )
+        additional[source_member] = original_source
+        bundled_sources[project] = {
+            "package_version": version,
+            "wheel_sha256": match["sha256"],
+            "license_id": upstream["primary_license"],
+            "source_url": upstream["source_url"],
+            "source_sha256": upstream["source_sha256"],
+            "source_path": source_member,
+            "reproducible_build_verified": False,
+        }
+    if bundled_sources:
+        additional["assets/legal/copyleft-upstream-sources-index.json"] = (
+            json.dumps({
+                "schema": "voxweavetts.v4-copyleft-sources",
+                "packages": bundled_sources,
+                "upstream_terms_still_apply": True,
+                "public_release_authorized": False,
+            }, indent=2) + "\n"
+        ).encode("utf-8")
+    # tokenizers embeds compiled Rust extensions but its Wheel omits the
+    # upstream Apache-2.0 LICENSE text. Include the exact original license
+    # extracted from its SHA-verified versioned PyPI source distribution.
+    tokenizers_wheel = next(
+        (f for f in wheel_files if Path(f["path"]).name.lower().startswith(
+            "tokenizers-0.22.2-"
+        )), None
+    )
+    if tokenizers_wheel is not None:
+        license_index_path = (
+            EVIDENCE / "runtime-sources" / "tokenizers-0.22.2" / "INDEX.json"
+        )
+        provenance = json.loads(license_index_path.read_text("utf-8"))
+        if (provenance["package_version"] != "0.22.2"
+            or provenance["license"] != "Apache-2.0"):
+            raise ValueError("wrong original tokenizers License version")
+        src = (ROOT / provenance["original_license_copy"]).resolve()
+        if not src.is_relative_to(EVIDENCE.resolve()):
+            raise ValueError("tokenizers LICENSE outside evidence cache")
+        original_license = src.read_bytes()
+        if (len(original_license) != provenance["license_bytes"]
+            or hash_bytes(original_license) != provenance["license_sha256"]):
+            raise ValueError("original tokenizers LICENSE SHA mismatch")
+        additional["assets/legal/tokenizers-0.22.2-source-license.txt"] = original_license
+        additional["assets/legal/tokenizers-0.22.2-license-provenance.json"] = (
+            json.dumps({
+                "component": "Hugging Face tokenizers",
+                "version": "0.22.2",
+                "wheel_sha256": tokenizers_wheel["sha256"],
+                "license": "Apache-2.0",
+                "source_url": provenance["original_source_url"],
+                "source_sha256": provenance["original_source_sha256"],
+                "license_sha256": provenance["license_sha256"],
+                "public_release_authorized": False,
+            }, indent=2) + "\n"
+        ).encode("utf-8")
     notice = {
         "format": "voxweavetts.v4-original-license-evidence",
         "package_id": pkg_name,
@@ -310,7 +407,7 @@ def build(source: Path, output: Path) -> dict:
     try:
         with zipfile.ZipFile(source) as inp, zipfile.ZipFile(
             output, "w", compression=zipfile.ZIP_DEFLATED,
-            compresslevel=6, allowZip64=True) as dest:
+            compresslevel=compress_level, allowZip64=True) as dest:
             dest.writestr("manifest.json",
                           json.dumps(manifest, ensure_ascii=False,
                                      separators=(",", ":")).encode("utf-8"))
@@ -352,6 +449,8 @@ def main() -> None:
     parser.add_argument("--models", nargs="+", required=True)
     parser.add_argument("--output-dir", type=Path, default=OUT,
                         help="separate QA-only destination (no overwrite)")
+    parser.add_argument("--compress-level", type=int, choices=(1, 6), default=6,
+                        help="ZIP deflate level; 1 is faster for large models")
     args = parser.parse_args()
     for name in args.models:
         paths = list(DATA.glob(f"VoxWeaveTTS-{name}-*-UNRELEASED-QA-format-v4.vwmodel"))
@@ -359,7 +458,9 @@ def main() -> None:
             raise ValueError("expected exactly one original v4 QA package: "+name)
         dest = args.output_dir / paths[0].name.replace(
             "-UNRELEASED-QA-format-v4", "-LEGAL-QA-format-v4")
-        print("LEGAL_QA",json.dumps(build(paths[0],dest),ensure_ascii=False),flush=True)
+        print("LEGAL_QA",json.dumps(build(paths[0],dest,
+                                          compress_level=args.compress_level),
+                                    ensure_ascii=False),flush=True)
 
 
 if __name__ == "__main__":
