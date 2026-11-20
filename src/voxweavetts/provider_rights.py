@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_GUIDE = "docs/V4_RIGHTS_REVIEW_TH.md"
+_GUIDE = "docs/V4_PRIMARY_LICENSE_COMPATIBILITY_2026-11-20_TH.md"
 _PACKAGE_ID = re.compile(r"[a-z][a-z0-9-]{2,63}\Z")
 
 # These are app-curated REVIEW notes, not legal opinions or package permissions.
@@ -55,7 +55,7 @@ KNOWN_V4_MODELS: dict[str, dict[str, Any]] = {
     "kokoro-multilingual-int8": {
         "kind": "tts", "model_license": "Apache-2.0",
         "upstream": "https://huggingface.co/hexgrad/Kokoro-82M",
-        "state": "hold", "commercial": "review-required",
+        "state": "review-required", "commercial": "review-required",
         "reasons": ("phonemizer-gpl-3-or-later-compliance-review",
                     "espeakng-loader-native-binary-source-and-notices-review",
                     "multilingual-g2p-derivative-license-review"),
@@ -66,12 +66,13 @@ KNOWN_V4_MODELS: dict[str, dict[str, Any]] = {
         "state": "hold", "commercial": "review-required",
         "reasons": ("vachanatts-0.0.7-wheel-no-license-declaration",
                     "vachanatts-wheel-missing-license-text",
+                    "vachanatts1-nine-python-files-not-in-original-pypi-sdist",
                     "model-training-data-and-third-party-notices-review"),
     },
     "wayu-paxa-edge-nc": {
         "kind": "tts", "model_license": "CC-BY-NC-4.0",
         "upstream": "https://huggingface.co/wayu-ai/wayu-paxa-tts-edge",
-        "state": "hold", "commercial": "noncommercial-only",
+        "state": "review-required", "commercial": "noncommercial-only",
         "reasons": ("weights-cc-by-nc-4.0-prohibit-commercial-use",
                     "wayu-research-acceptable-use-conditions",
                     "106-wheel-and-native-binary-compliance-review"),
@@ -101,6 +102,9 @@ def review(package_id: str) -> dict[str, Any]:
             "package_kind": "unknown", "upstream_model_license": "unverified",
             "upstream": None, "publication_state": "review-required",
             "commercial_status": "review-required",
+            "primary_license_comparison": "unknown",
+            "core_license": "MIT",
+            "wheel_metadata_gap_is_automatic_conflict": False,
             "reasons": ["unknown-third-party-package-requires-independent-review"],
             "public_release_allowed": False, "legal_clearance": False,
             "user_installs_offline_without_license_server": True,
@@ -118,6 +122,13 @@ def review(package_id: str) -> dict[str, Any]:
         "upstream": note["upstream"],
         "publication_state": note["state"],
         "commercial_status": note["commercial"],
+        "primary_license_comparison": (
+            "source-code-license-not-established"
+            if package_id == "vachana-thai-four-voices"
+            else "no-automatic-conflict-separate-original-terms"
+        ),
+        "core_license": "MIT",
+        "wheel_metadata_gap_is_automatic_conflict": False,
         "reasons": list(note["reasons"]),
         "public_release_allowed": False, "legal_clearance": False,
         "user_installs_offline_without_license_server": True,

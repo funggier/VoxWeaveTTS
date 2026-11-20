@@ -67,6 +67,10 @@ ZIP ของซอร์สต้นทางใช้รูปแบบ `tar.g
 
 **ยังค้าง:** การระบุ tag ใน Workflow ไม่เท่ากับการพิสูจน์ว่า DLL ที่ถูกแจกนั้นสร้างจากซอร์สเดียวกันแบบตรงไบนารี ต้องตรวจ Complete Corresponding Source, build configuration และส่วนประกอบอื่นของ GPL พร้อมเงื่อนไขของ `phonemizer`, Wayu wheels จำนวนมาก และ Wayu Acceptable Use ด้วย *Wayu CC BY-NC ไม่ใช่เหตุให้ห้ามแจกแบบไม่ใช่เชิงพาณิชย์โดยตัวมันเอง*
 
+## ONNX Runtime 1.31.1 / Vachana PyPI Source QA รอบต่อเนื่อง
+
+ดู [V4_RUNTIME_SOURCE_PROVENANCE_2026-11-20_TH.md](V4_RUNTIME_SOURCE_PROVENANCE_2026-11-20_TH.md) สำหรับเอกสาร ONNX Runtime 1.31.1 ที่ตรงกับ DLL ใน MakHam/FastThaiG2P/Kokoro/Vachana และการตรวจ Source Distribution ของ `vachanatts 0.0.7` รวมถึงโค้ด namespace เพิ่ม 9 ไฟล์ที่ยังขาดการยืนยันสิทธิ์
+
 ## สถานะและขั้นตอนที่ต้องเหลือ
 
 | ชุด QA | สถานะเทคนิค | การเผยแพร่ |

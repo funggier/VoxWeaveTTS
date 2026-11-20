@@ -1,5 +1,7 @@
 # VoxWeaveTTS — การตรวจสิทธิ์แพ็กเกจ Universal v4 (รอบเริ่มต้น)
 
+**อัปเดตเกณฑ์ล่าสุด:** ดู [การเทียบ License หลักของ V4](V4_PRIMARY_LICENSE_COMPATIBILITY_2026-11-20_TH.md) ซึ่งแยกสถานะ `primary_license_comparison` จาก `publication_state`; GPL/CC BY-NC/OpenRAIL ไม่ใช่ข้อห้ามอัตโนมัติหากคงข้อกำหนดเดิมและแยกองค์ประกอบอย่างถูกต้อง ตาราง HOLD ด้านล่างคือ **บันทึกการตรวจช่วงเริ่มต้น** ไม่ใช่ผลตรวจ Compatibility ล่าสุด
+
 **หลักฐานต้นฉบับสำหรับใช้อ้างอิง:** [สำเนาเอกสารต้นทางและ Metadata/License ของ Wheel พร้อม Commit SHA และ SHA-256](V4_UPSTREAM_LICENSE_EVIDENCE_TH.md) · [ดัชนีหลักฐานต้นฉบับ](v4_upstream_evidence_index.json) — เก็บเอกสารเต็มไว้ภายใน QA โดยยังไม่อนุมัติการแจกจ่าย
 
 วันที่ตรวจ: 20 พฤศจิกายน 2026

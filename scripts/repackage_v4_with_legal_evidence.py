@@ -230,6 +230,51 @@ def build(source: Path, output: Path) -> dict:
         }
         additional["assets/legal/espeak-ng-1.52.0-provenance.json"] = (
             json.dumps(provenance, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    if any(Path(f["path"]).name.startswith("onnxruntime-1.31.1-")
+           for f in wheel_files):
+        ort_index_path = (EVIDENCE / "runtime-sources" /
+                          "onnxruntime-1.31.1" / "INDEX.json")
+        if not ort_index_path.is_file():
+            raise ValueError("missing original ONNX Runtime 1.31.1 notice index")
+        ort = json.loads(ort_index_path.read_text("utf-8"))
+        if ort.get("component_version") != "1.31.1":
+            raise ValueError("unexpected ONNX Runtime notice version")
+        wheel = next(f for f in wheel_files
+                     if Path(f["path"]).name.startswith("onnxruntime-1.31.1-"))
+        native = ort["bundled_packages"].get(pkg_name)
+        if not native or native["wheel_sha256"] != wheel["sha256"]:
+            raise ValueError("ONNX Runtime notice belongs to another wheel")
+        extra_docs = {}
+        for name, record in ort["upstream_documents"].items():
+            path = (ROOT / record["local_copy"]).resolve()
+            if not path.is_relative_to(EVIDENCE.resolve()):
+                raise ValueError("original ORT notice path outside evidence cache")
+            data = path.read_bytes()
+            if hash_bytes(data) != record["sha256"] or len(data) != record["bytes"]:
+                raise ValueError("upstream ORT 1.31.1 notice bytes changed")
+            destination = "assets/legal/onnxruntime-1.31.1-" + (
+                "VERSION_NUMBER.txt" if name == "VERSION_NUMBER"
+                else "LICENSE.txt" if name == "LICENSE" else name
+            )
+            additional[destination] = data
+            extra_docs[name] = {
+                "url": record["source_url"],
+                "sha256": record["sha256"],
+                "path": destination,
+            }
+        original_ort = {
+            "component": "Microsoft ONNX Runtime",
+            "component_version": "1.31.1",
+            "wheel_sha256": wheel["sha256"],
+            "dll_sha256": native["dll_sha256"],
+            "native_binaries": native["native_binaries"],
+            "upstream_documents": extra_docs,
+            "source_ref_is_pinned_commit": False,
+            "public_release_authorized": False,
+        }
+        additional["assets/legal/onnxruntime-1.31.1-provenance.json"] = (
+            json.dumps(original_ort, indent=2) + "\n"
+        ).encode("utf-8")
     notice = {
         "format": "voxweavetts.v4-original-license-evidence",
         "package_id": pkg_name,

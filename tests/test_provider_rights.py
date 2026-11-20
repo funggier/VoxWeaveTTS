@@ -30,7 +30,7 @@ class RightsReviewV4Tests(unittest.TestCase):
 
     def test_wayu_weights_remain_explicitly_noncommercial(self):
         info=review("wayu-paxa-edge-nc")
-        self.assertEqual(info["publication_state"],"hold")
+        self.assertEqual(info["publication_state"],"review-required")
         self.assertEqual(info["upstream_model_license"],"CC-BY-NC-4.0")
         self.assertEqual(info["commercial_status"],"noncommercial-only")
         self.assertIn("weights-cc-by-nc-4.0-prohibit-commercial-use",info["reasons"])
@@ -38,13 +38,29 @@ class RightsReviewV4Tests(unittest.TestCase):
     def test_kokoro_and_vachana_have_separate_wheel_legal_blockers(self):
         kokoro=review("kokoro-multilingual-int8")
         vachana=review("vachana-thai-four-voices")
-        self.assertEqual(kokoro["publication_state"],"hold")
+        self.assertEqual(kokoro["publication_state"],"review-required")
         self.assertEqual(vachana["publication_state"],"hold")
         self.assertIn("phonemizer-gpl-3-or-later-compliance-review",kokoro["reasons"])
         self.assertIn("espeakng-loader-native-binary-source-and-notices-review",
                       kokoro["reasons"])
         self.assertIn("vachanatts-0.0.7-wheel-no-license-declaration",
                       vachana["reasons"])
+        self.assertIn("vachanatts1-nine-python-files-not-in-original-pypi-sdist",
+                      vachana["reasons"])
+
+    def test_primary_licenses_are_independent_of_core_mit_and_wheel_metadata(self):
+        for package_id in KNOWN_V4_MODELS:
+            with self.subTest(package_id=package_id):
+                record = review(package_id)
+                self.assertEqual(record["core_license"], "MIT")
+                self.assertFalse(record["wheel_metadata_gap_is_automatic_conflict"])
+                if package_id == "vachana-thai-four-voices":
+                    self.assertEqual(record["primary_license_comparison"],
+                                     "source-code-license-not-established")
+                else:
+                    self.assertEqual(record["primary_license_comparison"],
+                                     "no-automatic-conflict-separate-original-terms")
+                self.assertFalse(record["public_release_allowed"])
 
     def test_model_license_does_not_clear_offline_runtime_rights(self):
         for model in ("makham-paradee","m2m100-418m","melo-chinese-onnx",
@@ -58,6 +74,7 @@ class RightsReviewV4Tests(unittest.TestCase):
         record=review("future-model-from-user")
         self.assertEqual(record["publication_state"],"review-required")
         self.assertEqual(record["upstream_model_license"],"unverified")
+        self.assertEqual(record["primary_license_comparison"],"unknown")
         self.assertTrue(record["user_installs_offline_without_license_server"])
         with self.assertRaises(ValueError):
             require_first_party_publication("future-model-from-user")

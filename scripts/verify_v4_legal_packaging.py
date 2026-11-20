@@ -62,7 +62,8 @@ def assess(original: dict, enriched: dict) -> dict:
 def check(original_folder: Path, updated_folder: Path, *,
           models: list[str] | None = None,
           require_native_notices: bool = False,
-          require_espeak_source: bool = False) -> dict:
+          require_espeak_source: bool = False,
+          require_onnxruntime_131: bool = False) -> dict:
     from voxweavetts.provider_rights import KNOWN_V4_MODELS
     results_by_model = {}
     chosen = models if models is not None else list(KNOWN_V4_MODELS)
@@ -126,6 +127,45 @@ def check(original_folder: Path, updated_folder: Path, *,
                     if hashlib.sha256(notice).hexdigest() != details["sha256"]:
                         raise ValueError("ONNX upstream notice bytes changed")
                 results["onnxruntime_upstream_notices_verified"] = True
+            if require_onnxruntime_131:
+                if package_id not in (
+                    "makham-paradee", "fastthaig2p-thai-som",
+                    "kokoro-multilingual-int8", "vachana-thai-four-voices",
+                ):
+                    raise ValueError("no ONNX Runtime 1.31.1 wheel for this model")
+                origin = json.loads(zipfile_reader.read(
+                    "assets/legal/onnxruntime-1.31.1-provenance.json"))
+                if (origin["component_version"] != "1.31.1"
+                    or origin["public_release_authorized"] is not False):
+                    raise ValueError("unexpected original ORT source reference")
+                wheel = next(
+                    r for r in m1["files"]
+                    if r["path"].startswith("runtime/wheels/onnxruntime-1.31.1-")
+                )
+                if wheel["sha256"] != origin["wheel_sha256"]:
+                    raise ValueError("original ORT notice does not belong to this wheel")
+                import io
+                with zipfile.ZipFile(io.BytesIO(
+                    zipfile_reader.read(wheel["path"]))) as nested:
+                    native = nested.read("onnxruntime/capi/onnxruntime.dll")
+                    for record in origin["native_binaries"]:
+                        payload = nested.read(record["path"])
+                        if (hashlib.sha256(payload).hexdigest() != record["sha256"]
+                            or len(payload) != record["size"]):
+                            raise ValueError("modified ORT native component")
+                if hashlib.sha256(native).hexdigest() != origin["dll_sha256"]:
+                    raise ValueError("original ORT DLL SHA-256 differs")
+                if set(origin["upstream_documents"]) != {
+                    "LICENSE", "ThirdPartyNotices.txt", "VERSION_NUMBER"
+                }:
+                    raise ValueError("incomplete ORT upstream documents")
+                for name, doc in origin["upstream_documents"].items():
+                    content = zipfile_reader.read(doc["path"])
+                    if hashlib.sha256(content).hexdigest() != doc["sha256"]:
+                        raise ValueError("modified original ORT source notice")
+                    if name == "VERSION_NUMBER" and content.strip() != b"1.31.1":
+                        raise ValueError("incorrect ONNX Runtime source version")
+                results["onnxruntime_131_notices_verified"] = True
             if require_espeak_source:
                 if package_id not in (
                     "kokoro-multilingual-int8", "wayu-paxa-edge-nc"
@@ -184,6 +224,7 @@ def check(original_folder: Path, updated_folder: Path, *,
         "technical_legal_evidence_complete": True,
         "native_notices_required": require_native_notices,
         "espeak_source_required": require_espeak_source,
+        "onnxruntime_131_required": require_onnxruntime_131,
         "public_release_authorized": False,
         "models": results_by_model,
     }
@@ -196,10 +237,12 @@ def main() -> int:
     parser.add_argument("--models", nargs="+", default=None)
     parser.add_argument("--require-native-notices", action="store_true")
     parser.add_argument("--require-espeak-source", action="store_true")
+    parser.add_argument("--require-onnxruntime-131", action="store_true")
     args = parser.parse_args()
     result = check(args.original, args.repacked, models=args.models,
                    require_native_notices=args.require_native_notices,
-                   require_espeak_source=args.require_espeak_source)
+                   require_espeak_source=args.require_espeak_source,
+                   require_onnxruntime_131=args.require_onnxruntime_131)
     dest = args.repacked / "CATALOG-LegalQA-v4.json"
     dest.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     print(json.dumps({k:v for k,v in result.items() if k != "models"},
