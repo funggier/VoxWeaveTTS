@@ -78,6 +78,23 @@ class KokoroOnnxEngine:
         from .speech import EngineUnavailable, SpeechFailure
         if self._japanese_g2p is None:
             try:
+                # misaki[ja] 0.9+ installs the small 'unidic' Python wrapper,
+                # but it does not ship the full dictionary. When it is
+                # installed alongside unidic-lite, fugashi selects unidic
+                # first and fails offline on the missing dicdir/mecabrc.
+                # Use the real bundled unidic-lite dictionary instead.
+                # This only changes the current isolated worker process;
+                # no download, writes, or model-provided code execution.
+                try:
+                    import unidic
+                    import unidic_lite
+                except ImportError:
+                    pass
+                else:
+                    full = Path(unidic.DICDIR) / "mecabrc"
+                    lite = Path(unidic_lite.DICDIR) / "mecabrc"
+                    if not full.is_file() and lite.is_file():
+                        unidic.DICDIR = str(Path(unidic_lite.DICDIR))
                 from misaki import ja
                 self._japanese_g2p = ja.JAG2P()
             except (ImportError, OSError, RuntimeError) as exc:

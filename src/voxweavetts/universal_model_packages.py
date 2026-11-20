@@ -292,7 +292,7 @@ def _validate_assets(folder: Path, manifest: dict) -> None:
         lock = _small_json(folder, lock_path)
         if (set(lock) != {"requirements", "wheels"}
             or not isinstance(lock["requirements"], list) or not isinstance(lock["wheels"], list)
-            or len(lock["requirements"]) > 100 or len(lock["wheels"]) > MAX_FILES):
+            or len(lock["requirements"]) > MAX_FILES or len(lock["wheels"]) > MAX_FILES):
             raise UniversalPackageError("invalid v3 runtime lock")
         requirements = set()
         for item in lock["requirements"]:
