@@ -48,7 +48,7 @@ def verify(public_index: Path = PUBLIC_INDEX, root: Path = ROOT,
             or checksum(path) != record["sha256"]):
             raise ValueError("source document has changed or is missing: "
                              +record["local_copy"])
-        checked.append(path)
+        checked.append((path, relative.as_posix()))
     wheel_docs = 0
     wheel_records = 0
     if wheels:
@@ -71,7 +71,7 @@ def verify(public_index: Path = PUBLIC_INDEX, root: Path = ROOT,
                     raise ValueError("wheel license/metadata changed or missing: "
                                      +record["local_copy"])
                 wheel_docs += 1
-                checked.append(file)
+                checked.append((file, relative.as_posix()))
     return {
         "format": "voxweavetts.v4-rights-evidence-verified",
         "publisher_source_count": len(data["source_repositories"]),
@@ -88,18 +88,22 @@ def bundle(report: dict, *, root: Path = ROOT) -> dict:
     output = base / "VoxWeaveTTS-v4-upstream-rights-evidence.zip"
     if output.is_file():
         raise ValueError("original rights archive already exists; refusing overwrite")
+    # Use archive paths validated against the evidence INDEX, never derive
+    # relative names from Windows tempfile paths: GitHub Windows runners may
+    # expose the same folder via RUNNER~1 and runneradmin (8.3 aliases).
     inputs = [
-        root / "docs" / "v4_upstream_evidence_index.json",
-        base / "INDEX.json",
-        base / "wheel-index.json",
+        (root / "docs" / "v4_upstream_evidence_index.json",
+         "docs/v4_upstream_evidence_index.json"),
+        (base / "INDEX.json", "cache/v4-rights-evidence/INDEX.json"),
+        (base / "wheel-index.json", "cache/v4-rights-evidence/wheel-index.json"),
     ] + report["files"]
     if len(set(inputs)) != len(inputs):
         raise ValueError("duplicate copyright evidence in archive")
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED,
                          compresslevel=6, allowZip64=True) as z:
-        for path in sorted(inputs):
-            # ZIP path refers to project-relative evidence layout.
-            z.write(path, arcname=path.relative_to(root).as_posix())
+        for path, name in sorted(inputs, key=lambda row: row[1]):
+            # Relative ZIP names come from the SHA-verified source index.
+            z.write(path, arcname=name)
     with zipfile.ZipFile(output) as z:
         bad = z.testzip()
         if bad:
