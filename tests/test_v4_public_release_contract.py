@@ -36,6 +36,9 @@ class PublicV4ReleaseContractTests(unittest.TestCase):
         self.assertIn("not speech",spec["package"]["title"].lower())
 
     def test_upstream_uv_license_copies_have_pinned_provenance(self):
+        attrs=(ROOT/".gitattributes").read_text("utf-8")
+        self.assertIn("third_party_licenses/uv/LICENSE-MIT -text",attrs)
+        self.assertIn("third_party_licenses/uv/LICENSE-APACHE -text",attrs)
         folder=ROOT/"third_party_licenses/uv"
         provenance=json.loads((folder/"SOURCE.json").read_text("utf-8"))
         self.assertEqual(provenance["version"],"0.12.9")

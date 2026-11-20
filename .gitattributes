@@ -1,0 +1,4 @@
+# Preserve verbatim upstream license bytes and SHA-256 across Windows Git checkouts.
+# Do not let core.autocrlf rewrite these third-party legal documents.
+third_party_licenses/uv/LICENSE-MIT -text
+third_party_licenses/uv/LICENSE-APACHE -text
