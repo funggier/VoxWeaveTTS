@@ -37,6 +37,13 @@ MODEL_TERMS = {
     "m2m100-418m": "MIT",
 }
 PRIVATE_MODEL = "vachana-thai-four-voices"
+# Core v0.12.1 rejected GPL/LGPL legal-source .tar.gz files; v0.12.2 fixes it.
+CORE_MINIMUM = {
+    model: ("v0.12.2" if model in {
+        "kokoro-multilingual-int8", "wayu-paxa-edge-nc"
+    } else "v0.12.1")
+    for model in MODEL_TERMS
+}
 ORT131 = {
     "makham-paradee", "fastthaig2p-thai-som", "kokoro-multilingual-int8",
 }
@@ -130,7 +137,12 @@ def stage(output_dir: Path = OUT) -> dict:
     catalog = {
         "schema": "voxweavetts.v4-first-party-seven-model-release",
         "tag": TAG,
-        "compatible_portable_core": "v0.12.1",
+        "compatible_portable_core": "v0.12.2",
+        "minimum_portable_core_by_model": dict(CORE_MINIMUM),
+        "compatibility_note": (
+            "Kokoro and Wayu require Core v0.12.2 for original GPL/LGPL "
+            "source .tar.gz files. All five other models accept v0.12.1."
+        ),
         "model_count": len(MODEL_TERMS),
         "private_model_excluded": PRIVATE_MODEL,
         "models": {},
@@ -176,6 +188,7 @@ def stage(output_dir: Path = OUT) -> dict:
                 "sha256": expected_sha,
                 "bytes": target.stat().st_size,
                 "license": MODEL_TERMS[model],
+                "minimum_portable_core": CORE_MINIMUM[model],
                 "original_worker_weights_and_wheels_unchanged": True,
                 "wheel_count": audit["total_original_wheels_preserved"],
                 "embedded_legal_evidence_files":

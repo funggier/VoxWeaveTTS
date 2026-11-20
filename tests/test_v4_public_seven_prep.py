@@ -26,6 +26,14 @@ class SevenV4ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not in seven"):
             prep.discover("future-private-package")
 
+    def test_kokoro_wayu_require_fixed_portable_core(self):
+        self.assertEqual(set(prep.CORE_MINIMUM), set(prep.MODEL_TERMS))
+        for model, minimum in prep.CORE_MINIMUM.items():
+            expected = ("v0.12.2" if model in {
+                "kokoro-multilingual-int8", "wayu-paxa-edge-nc"
+            } else "v0.12.1")
+            self.assertEqual(minimum, expected, model)
+
     def test_every_copyleft_and_gpl_source_name_is_a_fixed_allowed_path(self):
         versions = (
             "espeak-ng-1.52.0",
