@@ -28,7 +28,7 @@
 - dist/ModelPackagesV4-QA/ — แพ็กเกจ v4 ทั้ง 8 ตัว (ไฟล์ UNRELEASED-QA)
 - dist/ModelPackagesV4-QA/CATALOG-v4-QA.json — Catalog สำหรับ QA, Hash, สิทธิ์, จำนวนเสียง/Dependencies
 - examples/ — มีเฉพาะตัวอย่าง v4 5 ประเภทสำหรับผู้สร้างแพ็กเกจในอนาคต
-- scripts/convert_all_models_to_v4.py — สร้างแพ็กเกจ v4 จากไฟล์ต้นฉบับที่มีอยู่ ตรวจ SHA-256 ทุกไฟล์
+- scripts/build_vwmodel_v4.py — สร้างแพ็กเกจใหม่จาก Source + Manifest Spec; scripts/qa_add_v4_voice_language_maps.py — QA Metadata เสียง/ภาษาโดยตรวจ SHA-256 ทุก Asset
 - scripts/verify_v4_model_inventory.py — ตรวจว่าครบ 8 ตัวและตรวจชุด Model Catalog; --deep ตรวจ SHA ทุกไฟล์ซ้ำ
 - scripts/verify_all_v4_model_packages.py — ทดสอบแพ็กเกจ v4 ติดตั้ง→ใช้งานจริง→ถอน บน QA Portable โดยระบุ Stage เอง
 
@@ -50,6 +50,6 @@
 
 Wayu NC ยังจำกัดการใช้ตาม CC BY-NC 4.0 และต้องปฏิบัติตามข้อกำหนด NonCommercial; Kokoro และ Vachana ยังมีเอกสารสิทธิ์ Dependencies ที่ต้องสะสาง
 
-Release สาธารณะล่าสุด v0.11.0 ยังคงมีแพ็กเกจ v3 ตามเดิม; อย่าแทนที่ Release Assets เดิมด้วยไฟล์ QA ที่ยังไม่อนุมัติ
+GitHub Releases เก่ายังคงเปิดให้ดูเป็นประวัติ แต่โปรแกรม Core/Portable รุ่นใหม่เป็น v4-only และจะไม่เปิดแพ็กเกจรุ่นเก่า; อย่าเผยแพร่ QA Assets ที่สิทธิ์ยังไม่ผ่าน
 
 VoxWeaveTTS v4 Core รองรับการติดตั้งโดยผู้ใช้เลือกไฟล์ครั้งเดียว และโปรแกรมตรวจ Hash/ZIP/Wheel ก่อนสร้าง Process ของ Plugin ตัวติดตั้งไม่ติดต่ออินเทอร์เน็ต โค้ด Plugin ถูกเลือกเชื่อถือโดยผู้ใช้และทำงานด้วยสิทธิ์ของผู้ใช้ Windows ไม่ได้เป็น Sandbox ที่รับประกันความปลอดภัย

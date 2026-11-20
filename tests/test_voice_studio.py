@@ -32,18 +32,19 @@ class FakeEngine:
 
 
 class VoiceStudioTests(unittest.TestCase):
-    def test_builtin_engine_descriptors_never_claim_voice_cloning(self):
+    def test_v4_engine_descriptors_never_claim_voice_cloning_by_default(self):
         info = list_engine_info()
-        self.assertEqual([x.id for x in info][:3], [ENGINE_ID, PARADEE_ENGINE_ID, "vachana-cpu"])
-        self.assertEqual(info[0].voice_id, "thai_som")
-        self.assertEqual(info[1].voice_id, "paradee_thai")
-        self.assertTrue(all(not item.capabilities["voice_cloning"] for item in info))
-        self.assertFalse(info[1].capabilities["seed_control"])
+        self.assertGreaterEqual(len(info),1)
+        self.assertEqual(info[0].id,ENGINE_ID)
+        self.assertEqual(info[0].voice_id,"paradee_thai")
+        self.assertTrue(all(not item.capabilities.get("voice_cloning",False)
+                            for item in info))
+        self.assertFalse(info[0].capabilities.get("seed_control",False))
 
     def test_paradee_voice_id_and_wav_metadata(self):
         plan = process_text("สวัสดี")
         with self.assertRaises(InputError):
-            render_wav(plan, voice_id="thai_som", engine_id=PARADEE_ENGINE_ID,
+            render_wav(plan, voice_id="unknown_voice", engine_id=PARADEE_ENGINE_ID,
                        engine=FakeEngine())
         wav, meta = render_wav(plan, voice_id="paradee_thai",
                                engine_id=PARADEE_ENGINE_ID, engine=FakeEngine())
@@ -147,16 +148,17 @@ class VoiceStudioServerTests(unittest.TestCase):
         cls.server.server_close()
         cls.thread.join(timeout=3)
 
-    def test_engine_schema_and_multivoice_registry(self):
+    def test_engine_schema_and_v4_registry(self):
         with urlopen(self.base+"/v1/engines",timeout=3) as response:
             data=json.load(response)
-        self.assertGreaterEqual(len(data["engines"]), 3)
+        self.assertGreaterEqual(len(data["engines"]),1)
+        self.assertEqual(data["engines"][0]["id"],ENGINE_ID)
         self.assertIn("pitch_semitones",data["control_schema"]["post"])
+        self.assertTrue(all(x["id"] != "vachana-cpu" for x in data["engines"]))
         with urlopen(self.base+"/v1/voices",timeout=3) as response:
             voices=json.load(response)["voices"]
-        self.assertEqual([x["id"] for x in voices][:2], ["thai_som","paradee_thai"])
-        self.assertTrue(all(x in [v["id"] for v in voices] for x in
-                            ["th_f_1", "th_f_2", "th_m_1", "th_m_2"]))
+        self.assertIn("paradee_thai",[x["id"] for x in voices])
+        self.assertNotIn("thai_som",[x["id"] for x in voices])
 
     def test_presets_round_trip_and_header_protection(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(

@@ -132,60 +132,18 @@ class M2MStructuredTranslationTests(unittest.TestCase):
         self.assertEqual(result["text"],"สวัสดี")
         self.assertEqual(calls,[])
 
-    def test_real_adapter_refuses_tokenizer_truncation_and_forces_target_id(self):
+    def test_v4_adapter_routes_plain_text_to_isolated_translation_worker(self):
         from voxweavetts.ai_engine_registry import M2M100Adapter
-        class FakeTokenizer:
-            def __init__(self, length):
-                self.length=length
-                self.src_lang=None
-                self.truncation=None
-            def __call__(self, text, **kwargs):
-                self.truncation=kwargs.get("truncation")
-                return {"input_ids":SimpleNamespace(shape=(1,self.length))}
-            def get_lang_id(self, language):
-                self.language=language
-                return 42
-            def batch_decode(self, tokens, **kwargs):
-                return ["คุณชื่ออะไร?"]
-        class FakeModel:
-            def __init__(self):
-                self.options=None
-            def generate(self, **kwargs):
-                self.options=kwargs
-                return [[123]]
         with (patch("voxweavetts.ai_engine_registry.m2m_info",
                     return_value=SimpleNamespace(
-                        assets_ready=True,runtime_ready=True)),
-              patch("voxweavetts.universal_model_packages.native_translation_packages",
-                    return_value=[({"package_id":"v2-native-test","version":"1.0.0"},
-                                   Path("unused-model-folder"))]),
-              # The actual Portable runtime routes to an isolated worker if
-              # optional Torch/Transformers imports are absent. This test
-              # deliberately exercises the trusted inline adapter using a
-              # mocked tokenizer/model rather than the worker lifecycle.
-              patch("voxweavetts.ai_engine_registry.find_spec",
-                    return_value=SimpleNamespace()),
-              patch("voxweavetts.ai_engine_registry._loaded_m2m") as load):
-            for length in (512,513):
-                with self.subTest(tokens=length):
-                    tok=FakeTokenizer(length)
-                    model=FakeModel()
-                    load.return_value=(tok,model)
-                    if length>512:
-                        with self.assertRaisesRegex(ValueError, "512 source tokens"):
-                            M2M100Adapter().process("What is your name?",settings(),[],inline_worker=True)
-                        self.assertIsNone(model.options)
-                    else:
-                        output=M2M100Adapter().process("What is your name?",settings(),[],inline_worker=True)
-                        self.assertEqual(output,"คุณชื่ออะไร?")
-                        self.assertEqual(model.options["forced_bos_token_id"],42)
-                        self.assertEqual(model.options["num_beams"],4)
-                        self.assertFalse(model.options["early_stopping"])
-                        self.assertFalse(model.options["do_sample"])
-                        self.assertEqual(model.options["max_new_tokens"],192)
-                        self.assertEqual(tok.language,"th")
-                    self.assertEqual(tok.truncation,False)
-                    self.assertEqual(tok.src_lang,"en")
+                        assets_ready=True, runtime_ready=True)),
+              patch("voxweavetts.m2m_runtime.translate",
+                    return_value="สวัสดี") as translate):
+            self.assertEqual(
+                M2M100Adapter().process("Hello", settings(), []), "สวัสดี")
+            translate.assert_called_once()
+            self.assertEqual(translate.call_args.args[0], "Hello")
+            self.assertEqual(translate.call_args.args[1]["target_language"], "th")
 
     def test_unsupported_context_only_data_is_not_sent_to_m2m(self):
         calls=[]

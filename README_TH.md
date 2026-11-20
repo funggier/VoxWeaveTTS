@@ -1,334 +1,74 @@
-# VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
+# VoxWeaveTTS
 
-**ความคืบหน้า v4 — โมเดลครบ 8 ตัวใน QA:** ย้าย TTS ทั้ง 7 ตัว (MakHam, FastThaiG2P, Melo, Supertonic 3, Kokoro, Vachana, Wayu NC) และ M2M100 Translation มาเป็นแพ็กเกจ Universal v4 ที่มี Worker และ Dependencies ของตัวเองแล้ว ทดสอบติดตั้งออฟไลน์และสร้างเสียง/แปลภาษาจริงผ่านทั้ง 8 ตัว **ยังไม่ใช่ Public Release เนื่องจากสิทธิ์ Dependencies บางตัวอยู่ระหว่างตรวจสอบ** ดู [ผลทดสอบทั้งหมด](docs/V4_ALL_MODEL_QA_TH.md) · [ตัวอย่างสร้างแพ็กเกจ เฉพาะ v4](examples/README_TH.md)
+**Windows Portable TTS Studio — Universal .vwmodel v4 เท่านั้น**
 
-**กำลังพัฒนา v0.12.0.dev0 — Universal .vwmodel v4:** เปิดให้ติดตั้ง TTS Engine Plugin จากไฟล์เดียวแบบออฟไลน์โดยไม่ต้องเพิ่ม Adapter ใน Core; รองรับ Python 3.11 + Wheel แยก และ Native EXE Worker พร้อมกดติดตั้งครั้งเดียวโดยไม่ถามสิทธิ์ซ้ำ โมเดล v3 ที่ติดตั้งแล้วทำงานต่อได้ ดู [คู่มือ Universal v4](docs/UNIVERSAL_VWMODEL_V4_TH.md) · v0.11.0 ยังเป็น Public Release ล่าสุด
+VoxWeaveTTS เป็นโปรแกรมอ่านข้อความภาษาไทยและหลายภาษาแบบออฟไลน์ มีระบบจัดคิวเสียง ควบคุมเสียง กรองข้อความ แปลภาษา และแสดง Subtitle/Overlay สำหรับ Live ได้ โดยระบบโมเดลแยกจากตัวโปรแกรมหลักอย่างอิสระ
 
+## Universal v4
 
-**หมายเหตุความครบถ้วนของโมเดล:** v0.11.0 มีโมเดล v3 ให้ติดตั้ง 5 ชุด แต่ **ยังขาด Kokoro, Vachana และ Wayu NC** จากรุ่นก่อน ระบบจะไม่เปิดแพ็กเกจ v2 อัตโนมัติและยังไม่มีไฟล์ v3 ของทั้งสามตัวให้ดาวน์โหลด รายละเอียด [เกณฑ์ก่อน Release รุ่นโมเดลครบ](docs/V3_FULL_MODEL_RELEASE_GAP_TH.md)
+ผู้ใช้เพียง **กดติดตั้ง → เลือกไฟล์ .vwmodel → ติดตั้งสำเร็จ** ไม่มีหน้าต่างยืนยันสิทธิ์ซ้ำ และไม่มีการดาวน์โหลด Dependencies ระหว่างติดตั้ง การกดติดตั้งถือเป็นการยอมรับเงื่อนไขของแพ็กเกจและเลือกเชื่อถือ Worker ภายนอกนั้น
 
-**v0.11.0 — Universal .vwmodel v3 (Windows Portable):** รุ่นใหม่ใช้แพ็กเกจโมเดลไฟล์เดียวที่ติดตั้งโมเดลและ Dependencies แบบออฟไลน์โดยสมบูรณ์ มีหน้าต่างยอมรับสิทธิ์ แยก Runtime และย้ายโฟลเดอร์ได้ รองรับเฉพาะ `.vwmodel v3` (v1/v2 ไม่สามารถติดตั้งในรุ่นนี้) ดาวน์โหลด [Release v0.11.0](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0) และอ่าน [คู่มือ v3](docs/UNIVERSAL_VWMODEL_V3_TH.md) / [Release Notes](docs/RELEASE_NOTES_v0.11.0.md) ส่วนด้านล่างเป็นประวัติ Release เก่า
+- **รองรับเฉพาะ .vwmodel format v4:** ไม่มีตัวอ่าน/ติดตั้ง v1, v2, v3 และไม่มีการเรียก Model Adapter รุ่นเก่าจาก Core
+- แพ็กเกจมี Model Weights, Worker Plugin, Configurations, Dependencies และ Metadata สิทธิ์ของตัวเองในไฟล์เดียว
+- Python 3.11 Worker พร้อม Wheel ออฟไลน์ หรือ Native Worker แบบโปรแกรม .exe ที่มีสภาพแวดล้อมของตัวเอง
+- Engine TTS และ Translation ใช้ Worker Protocol ผ่าน JSON Lines โดย Core จัด Queue, Voice Controls, API และ Subtitle Timeline
+- ติดตั้ง/ถอนติดตั้งได้ ไม่ต้องเลือก Python หรือรัน Installer ภายนอก
+- เก็บ Settings, Models, Cache และ Runtime ในโฟลเดอร์ Portable โดยรองรับการย้ายตำแหน่งโฟลเดอร์
+- ตรวจ ZIP, SHA-256, Safe Paths, Size Limits และ Wheel Startup Hooks อัตโนมัติก่อนติดตั้ง
 
+**ข้อจำกัดความปลอดภัย:** การติดตั้งเป็นการเลือกเชื่อถือโค้ด Engine ซึ่งอาจทำงานด้วยสิทธิ์ Windows ของผู้ใช้ การตรวจ SHA-256 ไม่ใช่การรับประกันความปลอดภัยหรือยืนยันผู้เผยแพร่ และการยอมรับของผู้ใช้ไม่ทดแทนสิทธิ์ที่ผู้แจกจ่ายต้องมีใน Model/Dependencies
 
-**v0.10.3 — แก้ปัญหา Kokoro Runtime บน Windows:** เปลี่ยน Recipe ของ Kokoro เป็น Misaki Japanese G2P 0.8.0 เพื่อตัดการคอมไพล์ pyopenjtalk ที่ล้มเหลวใน Portable โฟลเดอร์ลึก โดยยังคงเสียงญี่ปุ่นได้ [วิธีแก้และผลทดสอบ](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md) · **รวมแล้วใน ZIP v0.10.3**
+## รูปแบบการใช้งาน
 
-**Release v0.10.2:** ปรับความเสถียรของ M2M100 และ Portable, เพิ่มระบบยินยอมก่อนติดตั้ง Runtime เสริมและคำเตือนสิทธิ์อย่างชัดเจน [รายละเอียด Release](docs/RELEASE_NOTES_v0.10.2.md)
+- **Document / Narration** — อ่านข้อความและเอกสาร, ปรับความเร็ว/ระดับเสียง, พจนานุกรมการอ่าน และ Preset
+- **Discord / YouTube LIVE / TikTok LIVE** — รับข้อความและอ่านตามคิว แยกการตั้งค่าของแต่ละโหมด
+- **Translation** — กรองข้อความและแปลข้อความต่างภาษา ก่อนเลือก TTS Model ตามภาษาที่อ่าน
+- **Queue / Overlay / API** — คิวเสียงและการอ่านพร้อมข้อมูลเหตุการณ์สำหรับ Subtitle/OBS
+- **Global Settings** — กฎการอ่าน, การแทนคำ, Emoji, และการจัดการโมเดล/ส่วนเสริม
 
-**v0.10.2 — Portable Doctor และ M2M100 CPU (Phase E):** เพิ่มเครื่องมือตรวจโมเดล Native v2/Runtime/สถานะ Wheelhouse และการย้ายโฟลเดอร์แบบอ่านอย่างเดียว พร้อมทางเลือกตรวจ SHA-256, JSON และการซ่อมที่ใช้ `uv.exe` ภายใน Portable โดยไม่ต้องมี `uv` ใน Windows PATH ฟังก์ชันนี้รวมใน **v0.10.2** (ไม่อยู่ใน v0.10.1) [คู่มือ Portable Doctor](docs/PORTABLE_DIAGNOSTICS_TH.md) · **M2M100:** ปรับ Worker ให้จำกัด CPU Threads และคง 4 Beam Search ทดสอบแปลภาษาอังกฤษ↔ไทยจริงผ่านแล้วด้วยเวลา ~3.6 วินาทีสำหรับคำขอแรกบนเครื่องพัฒนา ทั้งนี้คุณภาพภาษาไทยยังต้องปรับเพิ่มเติม [รายละเอียดและคำสั่งทดสอบ](docs/M2M100_CPU_RUNTIME_VALIDATION_TH.md)
+โมเดลที่ไม่ได้ติดตั้งจะไม่ถูกเปิดใช้งาน Engine เริ่มต้นใน Portable ที่สร้างใหม่คือ MakHam v4 ซึ่งติดตั้งจากไฟล์ .vwmodel v4 ไม่ใช่ Built-in Adapter แบบเดิม
 
-**v0.10.2 — ผู้ติดตั้งเลือกยอมรับเงื่อนไขได้:** หน้า Engine Providers เพิ่มช่องยินยอมก่อนติดตั้ง Wayu NC / Vachana / Kokoro พร้อมยืนยันอีกครั้ง โดย Wayu NC ต้องรับทราบข้อจำกัด NonCommercial เพิ่มเฉพาะโมเดลอย่างชัดเจน การติดตั้งในเครื่องไม่ถือว่าได้รับสิทธิ์แจกจ่ายหรือยกเว้น License และยังไม่เผยแพร่ Wheelhouse ที่ยังติด HOLD [คำอธิบายและวิธีติดตั้ง](docs/PROVIDER_RIGHTS_READINESS_TH.md)
+## สำหรับนักพัฒนาแพ็กเกจ
 
-**v0.10.2 — ตรวจสิทธิ์ Runtime:** เพิ่มการแสดงสถานะ HOLD สำหรับ Wayu NC / Vachana / Kokoro ใน Runtime Registry และ Portable Doctor; แยกสิทธิ์ของโมเดลกับโค้ดและ Dependencies พร้อมป้องกันการเผยแพร่ Trusted Wheelhouse ใหม่โดยไม่ได้ผ่านการตรวจสิทธิ์ [คู่มือ Rights Readiness](docs/PROVIDER_RIGHTS_READINESS_TH.md)
+ดู [ตัวอย่างการสร้างแพ็กเกจ v4](examples/README_TH.md) มีตัวอย่าง Python Worker, Offline Wheel, Native EXE, Model TTS และ Translation Worker ซึ่งเป็นตัวอย่างของ v4 เท่านั้น
 
-**v0.10.1 — Native `.vwmodel v2`, Wayu NC และ Trusted Provider SDK:** รองรับลายเซ็น Ed25519 ของ External TTS Provider โดยต้องตรึง Public Key และอนุมัติให้รันโค้ดแยกกัน, ถอนกุญแจ/แก้ไฟล์แล้วปฏิเสธ Provider, เพิ่ม Worker Protocol v1 SDK ที่จำกัดขนาดข้อความและ PCM16 พร้อม Portable ที่ใช้โมเดล MakHam Native v2 เท่านั้น [คู่มือ Phase D](docs/TRUSTED_PROVIDER_SDK_TH.md) · [Release Notes](docs/RELEASE_NOTES_v0.10.1.md) · [คู่มือ Wayu NC v2](docs/WAYU_NC_NATIVE_V2_TH.md)
+ใช้ `scripts/build_vwmodel_v4.py` สร้างไฟล์ .vwmodel v4 จาก Source Folder + Spec:
 
-**Offline Verified Wheelhouse (Phase C — รวมใน Source v0.10.0):** เพิ่มการติดตั้ง/ซ่อม Runtime แบบ Offline จาก Trusted Lock + SHA-256 ของไฟล์ Wheel ทุกตัว พร้อมตรวจ ABI/OS/Recipe และ Rollback หากตรวจสอบไม่ผ่าน เตรียม Trusted Wheelhouse จริงให้ Sherpa, PyThaiTTS, M2M100 รวม 54 ไฟล์แล้วและทดลองติดตั้ง Offline ผ่าน; Vachana/Kokoro มี Draft และติดตั้งทดลองผ่าน แต่ยังไม่อนุมัติแจกจ่ายเพราะต้องตรวจ License เพิ่ม โดยไม่เปลี่ยน Runtime เดิม [คู่มือ Phase C](docs/VERIFIED_WHEELHOUSE_TH.md) · [ตรวจสิทธิ์ Wheel](docs/WHEELHOUSE_LICENSE_REVIEW_TH.md)
+```powershell
+.\.venv\Scripts\python.exe -X utf8 scripts\build_vwmodel_v4.py --source examples\v4-demo-tone --spec examples\v4-demo-tone\spec.json --output cache\demo-tone-v4.vwmodel
+```
 
-**Managed Runtime Pool (Phase B — รวมใน v0.10.0):** ตรวจ Python ABI, Recipe Hash และพาธเมื่อติดตั้ง/ย้ายโฟลเดอร์; แจ้งสถานะ Runtime เดิมที่ยังไม่มีพาธบันทึกไว้ และเพิ่มปุ่ม **ซ่อม Runtime (Offline)** ที่สร้างใน Staging ตรวจสอบก่อนสลับ พร้อม Rollback หากผิดพลาด ใช้เฉพาะ Dependencies Cache ภายในเครื่องโดยผู้ใช้ต้องยืนยันก่อน [คู่มือ Phase B](docs/MANAGED_RUNTIME_POOL_TH.md)
+ดู [คู่มือ Protocol v4](docs/UNIVERSAL_VWMODEL_V4_TH.md) และ [ผลตรวจโมเดลครบ 8 ตัว](docs/V4_ALL_MODEL_QA_TH.md)
 
-**Native Universal .vwmodel v2 (เริ่มใช้ใน v0.10.0):** เปลี่ยนเป็นระบบแพ็กเกจรุ่นใหม่ แยกเก็บ models/universal/v2/ มี Manifest/Capabilities/Runtime Metadata ของตัวเอง ไม่รองรับการติดตั้ง .vwmodel v1 ผ่าน Model Package Manager แล้ว และไม่มีการลบโมเดล/Presets/Settings ของผู้ใช้อัตโนมัติ อ่าน [คู่มือ Universal v2](docs/UNIVERSAL_VWMODEL_V2_TH.md)
+## การสร้างและทดสอบ Portable (เครื่องนักพัฒนา)
 
-**เพิ่มใน Source ที่ยังไม่ Release:** ตัวเลือกต่อโหมด **อ่านต่อเมื่อสร้างมีเสียงผิดพลาด** สำหรับการสร้างเสียงสำเร็จบางช่วงหรือไม่สำเร็จทุกช่วง พร้อมบันทึกค่าและแสดงสถานะราย Chunk ในประวัติหลังแปล โดยค่าเริ่มต้นปิดเพื่อรักษาพฤติกรรมเดิม ดู [เงื่อนไขคิวและการข้ามช่วงผิดพลาด](docs/LIVE_MESSAGE_QUEUE_TH.md)
+ใช้ PowerShell บน Windows และ Python Environment ของโปรเจกต์:
 
-**กำลังพัฒนา (หลัง Release v0.9.5):** เพิ่มความยาวข้อความสูงสุดของ Live Chat / Discord / TikTok เป็น **8,000 ตัวอักษร** (ค่าเริ่มต้น 240), ปุ่มบันทึกค่าคิวแต่ละโหมด และช่องติดตามข้อความที่กำลังแปลงเป็นเสียง/ข้อผิดพลาดกับข้อความที่อ่านแล้ว โดยไม่เปลี่ยนรายการข้อความเดิม [คู่มือ](docs/LIVE_MESSAGE_QUEUE_TH.md) — ยังไม่รวมใน Release v0.9.5
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.0-dev0 -SkipZip -StageDirectory dist\VoxWeaveTTS-v4-validation
+.\dist\VoxWeaveTTS-v4-validation\runtime\python\python.exe -X utf8 scripts\verify_v4_portable_stage.py --stage dist\VoxWeaveTTS-v4-validation
+```
 
+ตัว Build ต้องมีแพ็กเกจ MakHam v4 อยู่ใน `dist/ModelPackagesV4-QA` สำหรับติดตั้งเสียงเริ่มต้นแบบออฟไลน์
 
-**Windows Portable v0.9.5 — Runtime Registry + MakHam แบบติดตั้ง/ถอนติดตั้งได้:** จัดการ Runtime และจำนวนโมเดลที่ใช้ร่วมกัน โดยไม่ลบ Runtime ที่ยังมีโมเดลอ้างอิงอยู่ MakHam ติดมาใน Portable เป็น `.vwmodel` ที่สามารถถอนได้เองและติดตั้งกลับได้ โดยคง Engine ID, Voice Preset และ Language Routes เดิม เพิ่มตัวติดตั้ง M2M100 Runtime แบบแยก Environment (ติดตั้ง Dependencies เพิ่มภายหลัง) [Release v0.9.5](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.5) · [บันทึก Release](docs/RELEASE_NOTES_v0.9.5.md) · [Model Package Runtime v2](docs/MODEL_PACKAGE_V2_ARCHITECTURE_TH.md) · [M2M100 Setup](docs/M2M100_SETUP_TH.md)
+ชุดโมเดล QA v4 ทั้งหมดเก็บไว้ในเครื่องที่ `dist/ModelPackagesV4-QA` ไม่ Commit ไฟล์ Weights/Runtime ขึ้น GitHub
 
+## สถานะการเผยแพร่และสิทธิ์
 
-**Windows Portable v0.9.4 + โมเดล Wayu Paxa Edge NC:** สามารถดาวน์โหลด **Wayu ภาษาไทย/อังกฤษ 12 เสียง** เป็น `.vwmodel` **แยกต่างหาก** และติดตั้งผ่าน Model Package Manager ได้โดยตรง พร้อมข้อมูลผู้สร้างและข้อกำหนดสิทธิ์ **CC BY-NC 4.0 ห้ามใช้เชิงพาณิชย์** น้ำหนักโมเดลเดิมไม่ได้ถูกแก้ไข และยัง **ไม่รวม NC ใน ZIP หลัก/Git Source** [Release v0.9.4 (ครบชุด)](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.4.md)
+โครงสร้าง Core และแพ็กเกจทั้ง **8 ตัว (TTS 7 + Translation 1)** ผ่านการติดตั้ง/Inference จริงในสภาพแวดล้อม QA แล้ว แต่ **ยังไม่ได้เผยแพร่ v4 เป็น Public Release** เพราะต้องตรวจสิทธิ์ Redistribution ของน้ำหนักโมเดลและ Dependencies เพิ่ม
 
+Wayu Paxa Edge ยังคงเป็น **CC BY-NC 4.0 — ไม่อนุญาตการใช้เชิงพาณิชย์** และ Kokoro / Vachana มีข้อกำหนดสิทธิ์ Dependencies ที่ต้องตรวจเพิ่ม ไม่ตีความว่าการทำงานได้เท่ากับได้รับสิทธิ์แจกจ่ายแล้ว
 
-**Windows Portable v0.9.3 (Release ครบชุด):** เพิ่ม TTS Engine Worker Gateway แยกสภาพแวดล้อม, รักษาโมเดลที่โหลดแล้ว, ปิด VoxWeaveTTS และ Worker ที่ค้างด้วย Stop โดยไม่ปิด Ollama, ปรับการเลือกเสียงภาษาอังกฤษให้ใช้ได้กับทุกโมเดลที่พร้อม และเพิ่มไฟล์สูตรติดตั้ง Runtime ลง Portable ครบ พร้อม Model Packages / M2M100 / TikTok Extension / SHA-256 แยกดาวน์โหลดตามสิทธิ์ [ดาวน์โหลด Release v0.9.3](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.3) · [รายละเอียดการเปลี่ยนแปลง](docs/RELEASE_NOTES_v0.9.3.md)
+รุ่นที่เคยเผยแพร่ไว้ก่อนหน้าสามารถดูใน [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และ Git History แต่ **Source/Portable ที่พัฒนาใหม่รองรับเฉพาะ v4**
 
+โปรเจกต์หลัก: [funggier/VoxWeaveTTS](https://github.com/funggier/VoxWeaveTTS)
 
-**แก้ไขการเลือกโมเดลเสียงตามภาษา (Source หลัง v0.9.2):** FastThaiG2P / ThaiSom, Vachana และ Melo Chinese เพิ่มตัวเลือก English (en) แล้วเช่นเดียวกับ MakHam/Wayu; Kokoro/Supertonic ยังคงเลือกเสียงภาษาอังกฤษเฉพาะทางโดยไม่เปลี่ยนพฤติกรรมดั้งเดิม ดู [ภาษาที่แต่ละโมเดลอ่านได้](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md)
+## เอกสารที่เกี่ยวข้อง
 
-**แก้ไขการเลือกโมเดลเสียงตามภาษา (เวอร์ชันก่อนหน้า):** **[NC / NonCommercial] Wayu Paxa Edge** สามารถกำหนดให้อ่านทั้งไทย (`th`) และอังกฤษ (`en`) ได้แล้วสำหรับเสียงทั้ง 12 เสียง ตั้งค่าเสียงและ Preset แยกตามภาษาได้โดยใช้ Engine/Voice เดียวกัน ส่วน Kokoro/Supertonic ยังคงเลือก Voice ที่ตรงภาษา ดู [รายการภาษาที่ Engine รองรับ](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md)
-
-**หยุดโปรแกรมและคืนทรัพยากรทั้งหมด (Source หลัง v0.9.2):** ดับเบิลคลิก `Stop-VoxWeaveTTS.cmd` ในโฟลเดอร์โปรแกรม หรือ `Stop-Dev.cmd` เมื่อใช้งาน Source เพื่อบังคับหยุดเฉพาะ VoxWeaveTTS และ TTS Worker/Process ลูกที่เหลืออยู่ รวมถึงกรณีหน้าต่างหลักปิดแล้วแต่ Python ค้าง ระบบยืนยันเจ้าของ Process ตามโฟลเดอร์และเวลาเริ่ม ไม่สั่งหยุด Ollama, Unity, Firefox หรือ Python โปรเจกต์อื่น พร้อมโหมด `-DryRun` ให้ตรวจรายการที่จะหยุดได้ก่อน อ่าน [คู่มือหยุดโปรแกรม](docs/STOP_VOXWEAVETTS_TH.md)
-
-**TTS Engine Provider / Worker Gateway (Source หลัง v0.9.2):** โมเดลเดิมทั้ง FastThaiG2P, MakHam, Vachana, Kokoro, Melo Chinese, Supertonic 3 และ Wayu [NC] ใช้ Python Environment แยกตามกลุ่มผ่านระบบกลาง รับส่ง PCM16/UTF-8 โดยไม่เปลี่ยน Engine ID, Preset หรือการตั้งค่าเดิม การติดตั้ง `.vwmodel` จะเตรียม Runtime ที่รองรับได้อัตโนมัติ; อนาคตเพิ่ม Engine สถาปัตยกรรมใหม่ผ่าน External Provider ที่ต้องอนุมัติโค้ดแยกต่างหากโดยไม่แก้ Core ดู [คู่มือ Worker Gateway และการติดตั้ง](docs/ENGINE_WORKER_GATEWAY_TH.md)
-
-**เสียงอ่านสำหรับใช้งานส่วนตัว [NC / NonCommercial] (เพิ่มใน Source หลัง v0.9.2):** เพิ่ม Engine ทางเลือก Wayu Paxa Edge สำหรับภาษาไทย/อังกฤษ 12 เสียง โดยชื่อ Engine แสดง `[NC / NonCommercial]` ชัดเจนและแยกสิทธิ์น้ำหนักโมเดล CC BY-NC 4.0 จากโค้ด Apache-2.0 ไม่รวมไฟล์โมเดล NC ใน Portable/GitHub และไม่ถือว่ารับรองเชิงพาณิชย์ ดู [คู่มือการติดตั้งและสิทธิ์](docs/PERSONAL_NONCOMMERCIAL_VOICES_TH.md)
-
-**Windows Portable v0.9.2 (Release ครบชุด):** เพิ่มตัวเลือก **แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)** ในทุกโหมด โดยค่าเริ่มต้นปิด สามารถอ่าน `ผมอยากทำComputer ผม ให้มันลื่นกว่านี้ lol` ด้วยโมเดล th → en → th → en ตามลำดับ ทั้งกรณีปิดการแปลและคำแปลที่หลงเหลือภาษาอื่นไว้ แล้วต่อเสียงเป็น WAV เดียว มีการปรับอัตราสุ่มเสียงระหว่างโมเดลอัตโนมัติ [คู่มือฟีเจอร์](docs/MIXED_LANGUAGE_TTS_TH.md) · [ดาวน์โหลด Release v0.9.2](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2) · [Release Notes](docs/RELEASE_NOTES_v0.9.2.md)
-
-**Windows Portable v0.9.1 (ครบชุด):** แก้ Kokoro ญี่ปุ่นด้วย Misaki G2P, เพิ่มเสียงจีน MeloTTS และเกาหลี/ภาษาอื่นจาก Supertonic 3, แก้การแปลเป็นจีนที่มี `555` แล้วงานเสียงล้มเหลว, กำหนดเสียงแยกภาษาโดยไม่สับสน และคงความสามารถคิว LIVE/AI จาก v0.9.0 ดาวน์โหลด Portable, โมเดล TTS 5 ชุด, M2M100, TikTok Extension และ SHA-256 ได้ในหน้าเดียว [Release v0.9.1](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.1) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.1.md)
-
-**Windows Portable v0.9.0 (Release ครบชุด):** แก้ Firefox Auto-play ให้เก็บคิว, ให้ YouTube LIVE (Browser) **เลือก Top chat/Live chat เอง**, ถอดเพดานคิวรอ 12/40 ที่เคยทำให้ข้ามข้อความ, เพิ่ม **สุ่มลดคิวเมื่อสะสมมากเกินกำหนด** (ค่าเริ่มต้นปิด; เกิน 20 สุ่มเก็บ 5), เพิ่ม **รีเซ็ตคิวข้อความ** โดยไม่ขัดจังหวะเสียงที่กำลังทำงาน, ปรับ AI Translation/Custom Prompt และ M2M100 เป็นโครงสร้าง รวมทั้ง Ollama Speech Adapter ทดลอง. **ดาวน์โหลด Portable + แพ็กโมเดล 4 ชุด + TikTok Extension + SHA256 ได้ใน Release เดียว** [ดาวน์โหลด v0.9.0](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.0) · [รายละเอียด](docs/RELEASE_NOTES_v0.9.0.md) · [คู่มือคิว](docs/LIVE_QUEUE_POLICY_TH.md)
-
-**Windows Portable v0.8.0 — Multilingual TTS และการกำหนดเสียงตามภาษา:** เพิ่ม Kokoro-82M INT8 CPU แบบ `.vwmodel` พร้อมเสียงเลือกได้ 18 แบบใน 7 ภาษา (EN/ES/FR/HI/IT/JA/PT); กำหนด Engine/Voice ตามภาษาได้, ขยายภาษาของ AI Translation และเพิ่มการติดตั้ง/ถอน AI Package และ M2M100 รุ่นเดิมจาก UI โดยไม่ลบโมเดลเดิมอัตโนมัติ [รายละเอียดและข้อจำกัด](docs/MULTILINGUAL_TTS_TH.md)
-
-โปรเจกต์โอเพนซอร์สสำหรับระบบ TTS แบบพกพาบน Windows มี Web UI, API, ระบบแก้คำอ่าน, ฟิลเตอร์และแทนคำ, ระบบอ่านแชทสด และ Subtitle ที่ซิงก์กับเสียง
-
-**รุ่นสำหรับใช้งาน Windows Portable v0.9.2** — ภายใน ZIP มี Python Runtime, ONNX CPU, โมเดลเสียงภาษาไทย MakHam Paradee, Windows EXE Launcher และ Web UI ในตัว แตก ZIP แล้วเปิดได้โดยไม่ต้องติดตั้ง Python รองรับอ่านข้อความ/เอกสาร การตั้งค่าคำอ่าน คิวเสียงหลายแหล่ง การอ่านข้อความ Discord Client ตามสิทธิ์, TikTok LIVE ผ่าน TikFinity Desktop และ OBS Overlay ข้อจำกัด: **ยังไม่มี Voice Cloning, การฝึกโมเดล, Native Emotion/Formant, Subtitle รายคำอัตโนมัติ และการยืนยัน YouTube Live/Discord Bot กับบัญชีจริง** โมเดล FastThaiG2P ขนาดใหญ่ไม่รวมใน ZIP
-
-## ปรับปรุงการแปลภาษาสำหรับ LLM ขนาดเล็ก (รวมใน v0.9.0)
-
-โหมด AI Translation ผ่าน Ollama เปลี่ยนมาใช้ JSON Schema ขนาดเล็ก `{"translation":"..."}` โดยแยกข้อความที่ต้องแปลออกจากคำสั่งอย่างชัดเจน เพื่อลดกรณีโมเดลตอบคำถามแทนการแปล และเพิ่มตัวเลือก **ข้ามการตรวจสอบความถูกต้องของคำแปล (ความหมาย/ภาษา)** ซึ่งปิดเป็นค่าเริ่มต้น หากเลือกเปิด โปรแกรมจะยอมรับคำแปลแม้รูปประโยคหรือภาษาผิด แต่ยังตรวจโครงสร้าง JSON และข้อจำกัดความยาวก่อน TTS ดูรายละเอียดใน [คู่มือ AI Processing](docs/AI_PROCESSING_TRANSLATION_TH.md)
-
-## Structured Custom Prompt และ Dropdown รูปแบบงาน (รวมใน v0.9.0)
-
-เพิ่ม Dropdown **รูปแบบการประมวลผลในโหมดทำตามพรอมต์** ที่มี 4 ตัวเลือก: **ไม่ระบุ** (ค่าเริ่มต้น; Priority Instructions / Custom Prompt กำหนดงานเอง), **แปลอย่างเดียว**, **ตอบคำถามแทนการแปล**, **แปลคำถามและตอบต่อท้าย** โดยเก็บการตั้งค่าเป็นโครงสร้าง `custom_task` แยกจากข้อความ Live ซึ่งเป็นข้อมูลสำหรับวิเคราะห์ ไม่ใช่คำสั่งควบคุม AI และเปิดใช้ **ภาษาเป้าหมายของผลลัพธ์** ในโหมดนี้ด้วย ผลลัพธ์ Ollama ต้องอยู่ใน JSON `{"result":"..."}` เพื่อดึงเฉพาะข้อความไปอ่านเสียง ไม่ส่ง metadata ไป TTS พฤติกรรมจริงยังขึ้นกับคุณภาพของโมเดล ดู [คู่มือ AI Processing](docs/AI_PROCESSING_TRANSLATION_TH.md)
-
-## รองรับ Ollama Speech และปรับ M2M100 (รวมใน v0.9.0)
-
-เพิ่ม `ollama-speech` เป็น Voice Engine Adapter แบบ **ปิดไว้ก่อน** ใน Engine Registry เชื่อม WAV/PCM16 24kHz กับคิวเสียงและ Subtitle เดิม มีการตรวจโมเดล `speech` ผ่าน Metadata ของ Ollama แต่ **ไม่ดาวน์โหลดโมเดลและยังไม่มี UI สำหรับตั้งค่าโดยตรง** เหมาะกับการเตรียมโครงสร้างรองรับ Speech Server ผ่าน Loopback/Private LAN ที่รองรับจริง โดยยังไม่ใช่การรับรอง Ollama Speech บน Windows อ่าน [คู่มือ Ollama Speech](docs/OLLAMA_SPEECH_ADAPTER_TH.md)
-
-ปรับ **M2M100** ให้ใช้ Structured Pipeline ฝั่งโปรแกรมเพื่อกำหนดภาษาต้นทาง แบ่งข้อความโดยไม่ตัดหาย ตรวจผลแปล และรองรับ Bypass ความหมาย/ภาษา การทดสอบด้วยน้ำหนักจริงยังผิดความหมาย 2/3 ตัวอย่างตามเดิม จึงไม่ควรคาดหวังว่าความแม่นยำดีขึ้นเพียงเพราะเพิ่มโครงสร้าง อ่าน [คู่มือ M2M100](docs/M2M100_SETUP_TH.md)
-
-## แก้ `555` ทำให้งานเสียงจีนล้มเหลว (รวมใน v0.9.1)
-
-กรณีแปลไทยเป็นจีนแล้วมีตัวเลขหัวเราะ `555` ในคำแปล กฎหลังแปลเดิมอาจแทนด้วย `ฮ่า ฮ่า ฮ่า` ทำให้ MeloTTS Chinese ไม่สามารถสร้างเสียงได้ ตอนนี้ระบบเลือกคำอ่านหัวเราะตามภาษาที่ใช้สังเคราะห์เสียง เช่น จีน `哈哈哈`, ญี่ปุ่น `ははは`, เกาหลี `하하하`, ไทยยังคง `ฮ่า ฮ่า ฮ่า` และสามารถระบุ `spoken_by_language` ใน JSON Rules ได้ ตรวจด้วยโมเดลจีนจริงและ Seed 100 แล้ว โดยไม่แก้ค่าตั้งเสียงของคุณ ดู [คู่มือโมเดลหลายภาษา](docs/MULTILINGUAL_31_LANG_TH.md)
-
-## เพิ่มจีน เกาหลี และโมเดลรองรับรวม 31 ภาษา (รวมใน v0.9.1)
-
-เพิ่ม MeloTTS Chinese ONNX สำหรับจีนกลาง และ Supertonic 3 ONNX สำหรับเกาหลีและอีก 30 ภาษา ผ่าน Engine Registry/`.vwmodel` ที่แยกติดตั้งได้ โดยมี Runtime `sherpa-onnx==2.0.1` ใช้ CPU ได้ เพิ่มการเลือก Voice/Language รายภาษาและการทดสอบ WAV จริงใน `scripts/verify_portable_multilingual.py` สำหรับภาษาอื่น ๆ ที่ใช้ตัวอักษรละตินหรือซีริลลิกเดียวกัน ต้องกำหนดภาษาเอง ไม่สามารถเดาจากตัวอักษรได้แน่นอน ดู [การติดตั้งและข้อจำกัดของโมเดลใหม่](docs/MULTILINGUAL_31_LANG_TH.md)
-
-**สิทธิ์:** MeloTTS Chinese model card ระบุ MIT; Supertonic 3 ใช้ OpenRAIL-M (มีข้อห้ามการใช้บางประเภท) จึงเป็นโมเดลเสริมที่ต้องตรวจเงื่อนไขก่อนเผยแพร่และใช้งานเชิงพาณิชย์ ไม่มีการใช้ Korean Piper KSS ซึ่งข้อมูลฝึกมี CC BY-NC-SA
-
-## แก้ Kokoro อ่านญี่ปุ่นเป็นชื่ออักษร (รวมใน v0.9.1)
-
-พบว่าการเลือกเสียงญี่ปุ่น `j*` ถูกต้องอย่างเดียวไม่พอ เพราะ `kokoro-onnx` ส่งข้อความคันจิผ่าน eSpeak ทำให้ได้เสียง “Chinese letter / Japanese letter” ซ้ำ ๆ แก้เส้นทางญี่ปุ่นใน Source ให้ใช้ Misaki G2P และ `is_phonemes=True` โดยไม่เปลี่ยนพฤติกรรมเสียงอังกฤษ; ต้องมี `misaki[ja]==0.8.0` และ `unidic-lite==1.0.8` ใน Runtime ด้วย **v0.9.1 รวมการแก้ไขนี้และติดตั้ง Japanese G2P ไว้ใน Runtime แล้ว** ดู [คู่มือภาษาและการติดตั้ง](docs/MULTILINGUAL_TTS_TH.md)
-
-## โมเดลเสียงหลายภาษาและค่าปรับเสียงแยกภาษา — Release v0.8.0
-
-เพิ่มแท็บ **โมเดลเสียงตามภาษา** เลือก Engine และ Voice ของแต่ละภาษาได้หนึ่งที่; ภาษาที่เพิ่มแล้วไม่ปรากฏในเมนูเพิ่มใหม่จนกว่าจะลบ และแต่ละภาษามีแผง **ปรับเสียง** พร้อม Speed / Gain / Pitch / Bass / Treble / Formant / Seed และบันทึกหรือใช้ Voice Presets จากโฟลเดอร์ `presets/` ร่วมกับโหมดอื่น แต่ละโหมดมีสวิตช์ **ใช้การเลือกโมเดลตามภาษา** ของตนเอง และช่อง **Default Engine / Model** สำหรับกรณีไม่มีโมเดลตามภาษา โมเดล Kokoro-82M INT8 7 ภาษา/18 เสียงเป็น `.vwmodel` แยกที่มี Runtime CPU อยู่ใน Portable แล้ว (ไม่บันเดิลน้ำหนัก Kokoro ลง ZIP หลัก) ต้องติดตั้งแพ็กเกจก่อนใช้งาน อ่าน [คู่มือหลายภาษา](docs/MULTILINGUAL_TTS_TH.md)
-
-**ไฟล์ Release v0.8.0:** Portable ZIP + `.vwmodel` 4 ตัว (FastThaiG2P, Vachana, Kokoro, M2M100 ทดลอง) + TikTok Extension ZIP + SHA-256 checksum. M2M100 ไม่รวม Torch/Transformers ใน Portable หลัก และการแปลภาษายังมีข้อจำกัดเรื่องความแม่นยำ โปรดดูหมายเหตุ Release
-
-## หน้าโปรแกรมหลักเมื่ออยู่เบื้องหลัง — เพิ่มใน Release v0.7.2
-
-ปรับเส้นทางรับข้อความในเว็บหลัก `http://127.0.0.1:8765` จาก Timer เป็น **Server-Sent Events (SSE) แบบเส้นเดียวสำหรับหลายโหมด** ที่ Python แจ้งข้อความใหม่ให้หน้าเว็บ โดยยังตรวจสิทธิ์ Mode Token ใน POST Drain และคง Polling สำรองเมื่อ SSE ไม่พร้อม; เปลี่ยนขั้นตอนรอ WAV ของ Live, Studio, Document และคิวเสียงเป็น **Server-side Wait** ไม่พึ่ง Timer ของแท็บที่ซ่อน; เพิ่มการส่ง Subtitle จาก Media `timeupdate` เมื่อเล่นเสียงจริง หน้าเว็บยังต้องไม่ถูก Browser/OS Suspend ทั้งหมดเพื่อให้มีเสียงอ่านต่อได้ ดู [คู่มือการอ่านต่อเมื่ออยู่เบื้องหลัง](docs/MAIN_BROWSER_BACKGROUND_TH.md)
-
-## YouTube LIVE (Browser) — Live chat และ Background Fix (รวมใน v0.7.1)
-
-ใน Release v0.7.1 ระบบเคยพยายามเลือก **Live chat** อัตโนมัติแทน **Top chat** ที่ YouTube อาจกรองข้อความ; **Source รุ่นใหม่ถอดขั้นตอนนี้ออกแล้ว ให้ผู้ใช้เลือกเอง**; เพิ่มการลด Background Throttling เมื่อหน้าต่างถูกบัง/ไม่อยู่ในโฟกัส และแสดงสถานะประเภทแชทกับความมองเห็นของหน้าใน UI ผ่าน Source Status โดยไม่แย่งโฟกัสหน้าต่างผู้ใช้ ไม่อ่านประวัติเดิม และยังป้องกันข้อความซ้ำ เหตุการณ์ที่ YouTube หยุดส่งข้อมูลหรือ Chrome ถูกพักจริงอาจยังเกิดขึ้นได้ โปรดตรวจโดยทดลองกับไลฟ์จริง ดู [คู่มือ YouTube Browser](docs/YOUTUBE_BROWSER_READER_TH.md)
-
-## AI Tool Calling และ Web Search Providers (รวมใน Release v0.7.0)
-
-เพิ่มสิทธิ์ Tool Calling แบบ **ปิดเป็นค่าเริ่มต้น** สำหรับ Ollama + โหมด Custom Prompt มี **Web Search Provider Dropdown**: Wikipedia (ฟรี/ไม่ใช้ Key), SearXNG (เซิร์ฟเวอร์ตัวเอง), Ollama Web Search และ Tavily (ใช้ API Key/โควตา) พร้อมการเก็บ Key แยกแบบ Windows DPAPI และการนำเข้า/ส่งออกโปรไฟล์ JSON ที่ไม่รวม Key สามารถอนุญาต Wikipedia และอ่านไฟล์อ้างอิงแยกได้ โดยจำกัด 1–3 ครั้งต่อข้อความ ค้นเว็บทั่วไปได้จาก Provider ที่เลือก แต่ไม่เปิดลิงก์ผลค้นเอง ไม่รัน Shell ไม่เขียนไฟล์ และไม่รับสิทธิ์จากข้อความผู้ชม โมเดล qwen3.5:4b เรียก Wikipedia และอ่านไฟล์ตัวอย่างจาก Allowlist ได้จริงในการทดสอบครั้งล่าสุด แต่ยังต้องตรวจสอบความแม่นยำและความเสถียรระยะยาว ดู [คู่มือ AI Tool Calling](docs/AI_TOOL_CALLING_TH.md)
-
-## AI Processing / Translation (เพิ่มใน Release v0.6.0 — Tool Calling ยังไม่รวม)
-
-เพิ่มระบบ AI Processing ที่ **Settings กลาง** ใช้กับทุกโหมด โดยค่าเริ่มต้นปิดเพื่อคงพฤติกรรมเดิม; กฎเฉพาะโหมดทำก่อนกฎกลางก่อน AI → AI แปล/ตอบตาม Prompt → กฎกลางหลัง AI → TTS โดยคำนำหน้า ตัวเลือก @ ชื่อผู้ส่ง และคำเชื่อมจะไม่ถูกส่งเข้า AI และไม่ผ่านกฎกลาง
-
-ตัวเลือก AI มี **ไม่แปล / ไม่เรียก AI**, แปลภาษา หรือประมวลผลตาม Custom Prompt; มี **Priority Instructions** แยกจาก Custom Prompt; เลือก **ภาษาปลายทาง** (ไทย/อังกฤษ/ญี่ปุ่น/จีน/เกาหลี) อย่างชัดเจนได้ หรือเลือก **ไม่ระบุภาษา**: Ollama จะใช้ภาษาใน Priority Instructions / Custom Prompt (หากไม่ได้ใส่คำสั่งจะแจ้งเตือน), ส่วน **M2M100 จะข้ามการแปล** ไม่เรียกโมเดล แต่ยังทำกฎก่อน/หลัง AI ตามเดิม โมเดล AI แยก Engine Registry จาก TTS รองรับ Ollama และ M2M100 418M (โมเดลแปลโดยตรง ไม่รองรับ Prompt)
-
-**การใช้ Ollama:** พิมพ์ชื่อโมเดลที่ติดตั้งในเครื่องแล้ว เช่น `qwen3.5:4b` ได้เอง หรือเลือกจากรายชื่อที่ Ollama แสดง สามารถตั้งค่าที่อยู่ Ollama (`http://127.0.0.1:11434` โดยค่าเริ่มต้น หรือ `http://192.168.x.x:PORT` บน LAN ส่วนตัว) และบันทึก Settings ก่อนตรวจหรือโหลดโมเดล กด **ตรวจสอบโมเดล** และ **โหลดโมเดลเข้าหน่วยความจำ** พร้อมระบุ Keep Alive 1–360 นาที (ค่าเริ่มต้น 360 นาที) ใช้กับการสร้างเสียงอ่าน/ข้อความใหม่ด้วย ไม่มีปุ่มดาวน์โหลดโมเดล Ollama โดยอัตโนมัติเมื่อพิมพ์ชื่อ; ส่วนโมเดล M2M100 สามารถติดตั้งไฟล์ `.vwmodel` จากหน้า AI Model Packages และถอนการติดตั้งผ่านหน้าโปรแกรมได้ แต่ต้องเตรียม Torch/Transformers Runtime แยกเพิ่มเติม
-
-**ไฟล์อ้างอิง AI:** เลือกอนุญาตเอง แล้วใส่พาธหลายไฟล์คั่นด้วย `,` หรือขึ้นบรรทัดใหม่ได้ สูงสุด 5 ไฟล์ ขนาดไม่เกิน 16 KiB ต่อไฟล์ (`.txt`, `.md`, `.json`) โดยไฟล์ถูกใช้เป็นข้อมูลประกอบ ไม่ใช่คำสั่งจากผู้ชม
-
-**การทดสอบจริง:** ทดสอบโมเดล Ollama `qwen3.5:4b` ในเครื่องกับข้อความสั้น อังกฤษ→ไทย, ไทย→อังกฤษ, ไทย/อังกฤษผสม→ไทย, อังกฤษ→ญี่ปุ่น/จีน/เกาหลี ผ่านทั้ง 6 ตัวอย่าง (Smoke Test ความหมาย/อักษร ไม่ได้ยืนยันความแม่นยำกับข้อความทุกรูปแบบ) `tests/verify_live_translation.py` เป็นการทดสอบด้วยโมเดลจริง ไม่ใช่ Unit Mock
-
-**การเตรียม AI แบบไม่บล็อกคิวเสียง:** เมื่อเปิด AI และเลือกการประมวลผลที่ต้องเรียกโมเดล `POST /v1/jobs` จะสร้าง Job ID ทันทีด้วยสถานะ `preparing` ก่อน worker แยกเตรียมข้อความ จากนั้นเปลี่ยนเป็น `queued` → `rendering` → `ready`; สามารถยกเลิกระหว่างเตรียมได้โดยผล AI ที่กลับมาภายหลังจะถูกทิ้ง กรณีปิด AI, ไม่แปล, หรือ M2M100 + ไม่ระบุภาษา ยังคงเส้นทางเดิม
-
-**สถานะ v0.6.0:** การแปลจริงด้วย Ollama ผ่านตัวอย่างหลายภาษา, มีคิว AI แบบไม่บล็อก การยกเลิก และสถานะ `skipped` เพื่อข้ามข้อความที่ถูกกรองโดยไม่หยุด Live; ผ่านการทดสอบจำลองโหลด 250 ข้อความและทุกแหล่งข้อความ (ไม่ใช่การทดสอบพร้อมกันกับบัญชี Live จริง). **M2M100 เป็น Engine ทดลอง**: โหลดน้ำหนักโมเดลจริงที่มี SHA256 ตรงและสร้างคำแปลได้ แต่ความหมายผิด 2 จาก 3 ตัวอย่างทดสอบเชิงความหมาย (เช่น en→th, en→ja) จึงไม่แนะนำให้ใช้ Live อัตโนมัติ; ไม่มีโมเดล/Runtime เสริมบันเดิลใน ZIP. ดู [วิธีเตรียม M2M100](docs/M2M100_SETUP_TH.md). **หมายเหตุ:** AI Tool Calling และเครื่องมือค้นเว็บแบบจำกัดสิทธิ์เพิ่มใน v0.7.0; ส่วนการสั่งงาน Shell/เขียนไฟล์หรือค้นเว็บแบบเปิด URL อิสระยังไม่รองรับ. [อ่านข้อกำหนดและขอบเขตการพัฒนา](docs/AI_PROCESSING_TRANSLATION_TH.md)
-
-## เพิ่มกฎอ่านและกรองคำอย่างรวดเร็ว (เริ่มใน v0.5.2)
-
-หน้า **Rules — กฎการอ่านและกรองคำ (JSON Array)** มีตัวช่วยเพิ่มกฎอย่างละเอียด รองรับข้อความตรงตัวหรือเลข 5 ต่อเนื่อง, **แทนคำ / ข้ามคำ / หยุดเสียง**, คำอ่าน, Subtitle, ระยะเวลาเงียบ และแหล่งข้อความที่ต้องการใช้ พร้อมตัวอย่าง JSON และเลือก Source เพื่อทดสอบกฎก่อนกดบันทึกในโปรแกรม ดู [คู่มือการเพิ่มกฎแบบละเอียด](docs/RULES_QUICK_ADD_TH.md) (รวมแล้วใน Release v0.5.2)
-
-## การอ่านอีโมจิแบบตั้งคำเอง (ทุกโหมด Live)
-
-โหมด **YouTube LIVE (API)**, **YouTube LIVE (Browser)**, **TikTok LIVE (TikFinity)**, **TikTok LIVE (Extension)**, **Discord** และ **Discord Client** มีตัวเลือก **อ่านอีโมจิด้วยคำที่กำหนดเอง** ในหัวข้อ **กำหนดการอ่านข้อความและข้อมูลพิเศษ** พร้อมพจนานุกรมแยกแต่ละโหมด เช่น `😂 = หัวเราะ`, `❤️ = หัวใจ`, `:party_parrot: = นกเต้น` รองรับอีโมจิ Unicode และรหัสอีโมจิ Discord แบบกำหนดเอง เริ่มต้นปิดเพื่อไม่เปลี่ยนการอ่านเดิม และบันทึกพร้อมการตั้งค่าโหมดใน `data/settings/mode-voices.json` [คู่มือการตั้งค่าอีโมจิ](docs/EMOJI_PRONUNCIATION_TH.md)
-
-## โหมด LIVE รุ่น v0.5.0 และข้อจำกัด
-
-ใน Source Project แยกแท็บ YouTube เป็น **YouTube LIVE (Browser)** และ **YouTube LIVE (API)** โดย Tab API เดิมใช้รหัส `live` และค่าเดิมไม่เปลี่ยน ส่วน Tab Browser เป็นต้นแบบเปิดหน้าต่าง Chrome/Edge เฉพาะ Live Chat ผ่าน CDP แล้วส่งข้อความใหม่จาก DOM เข้า TTS/OBS Subtitle เดิมโดยไม่ใช้ YouTube Data API Key หรือ Quota ของ Data API **ยังไม่ยืนยันกับ YouTube LIVE จริงและไม่ใช่วิธีทางการของ YouTube** การเข้าถึงอัตโนมัติมีข้อจำกัดในเงื่อนไขของ YouTube โปรดตรวจสอบสิทธิ์ก่อนใช้ [คู่มือ YouTube Browser (ภาษาไทย)](docs/YOUTUBE_BROWSER_READER_TH.md)
-
-**TikTok LIVE (Extension) v0.2.5 (รวมใน v0.5.2)** รับเฉพาะคอมเมนต์จากแท็บ Chrome ที่ผู้ใช้เลือกและจับคู่กับโปรแกรมผ่าน 127.0.0.1 ผู้ใช้ยืนยันการรับคอมเมนต์ LIVE จริงแล้ว ส่วน **TikTok LIVE (TikFinity)** รับแชทผ่าน WebSocket ในเครื่องเช่นเดิม ทั้งสองโหมด **ไม่รองรับการอ่าน Gift, Follow, Share, Join หรือ Like** อีกต่อไป ตัวเลือกการอ่านย้ายอยู่ในหัวข้อเดียวกันและมีการกำหนดคำนำหน้าชื่อผู้ส่ง คำเชื่อม และการอ่าน `@` ของชื่อ YouTube แยกจาก `@` ในข้อความ ดู [คู่มือ TikTok Extension](docs/TIKTOK_EXTENSION_READER_TH.md) และ [รายละเอียด Release v0.5.0](docs/RELEASE_NOTES_v0.5.0.md)
-
-## ดาวน์โหลดและเปิดใช้งาน — Windows 10/11 64-bit
-
-1. ไปที่ [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และดาวน์โหลด `VoxWeaveTTS-v0.9.1-portable.zip`
-2. แตก ZIP **ทั้งโฟลเดอร์** ไปยังที่เขียนไฟล์ได้ เช่น `T:\\Apps\\VoxWeaveTTS` อย่าเปิด EXE จากใน ZIP
-3. เปิด `VoxWeaveTTS.exe` จะมีหน้าต่างควบคุมและเปิด Browser เริ่มต้น (Firefox/Chrome) ไปที่ `http://127.0.0.1:8765/` อัตโนมัติ
-4. เลือก Engine **MakHam Paradee** แล้วทดลองพิมพ์ข้อความไทยและสร้าง WAV ได้โดยไม่ต้องโหลดโมเดลเพิ่มเติม
-5. หากอ่าน Discord Client ให้ติดตั้ง Discord Desktop และใช้ Application/Channel ID ที่ได้รับสิทธิ์เหมือนเดิม การ Import ไฟล์ตั้งค่าจะกรอกให้แต่ไม่เชื่อมต่อเอง
-6. เมื่อเลิกใช้ กด **Stop & Exit** ที่หน้าต่าง Launcher เพื่อหยุดเซิร์ฟเวอร์ หากเปิด EXE ไม่ได้ ให้ลอง `Start-Console.cmd`
-
-ไม่ต้องลง Python, Node, GitHub CLI หรือโปรแกรมติดตั้งเพิ่มสำหรับฟังก์ชันสร้างเสียงพื้นฐาน ผู้ใช้ย้ายโฟลเดอร์ทั้งชุดไปไดรฟ์อื่นได้ และไฟล์โมเดล แคช ค่ากลางอยู่ภายในโฟลเดอร์โปรแกรม [คู่มือ Windows Portable](docs/PORTABLE.md) · [ไลเซนส์ส่วนประกอบ](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
-
-## YouTube LIVE โควตาและ gRPC streamList (v0.4.4)
-
-- เพิ่มรับข้อความผ่าน YouTube `liveChatMessages.streamList` (gRPC แบบรับข้อความต่อเนื่อง) เพื่อลด REST Polling ที่เปลือง Quota และกลับไปใช้ REST อย่างน้อยทุก 30 วินาทีเมื่อ gRPC ไม่พร้อมหรือ Server ไม่รองรับ
-- อ่าน Google API Error `reason` ที่ปลอดภัยเพื่อแยก `quotaExceeded`, `dailyLimitExceeded`, `rateLimitExceeded` โดย **หยุด API อัตโนมัติเมื่อโควตารายวันหมด** ไม่เปิดเผย API Key และไม่ Retry ซ้ำจนกว่าผู้ใช้จะ Connect เอง
-- `streamList` มีค่าใช้โควตาในการเปิดการเชื่อมต่อและยังต้องมีสิทธิ์เข้าถึง Live Chat การทดสอบส่วนนี้เป็นการจำลอง API เท่านั้น ยังไม่ทดสอบกับบัญชีจริงที่โควตาคงเหลือน้อย
-
-**รุ่นก่อนหน้า:** [GitHub Release v0.4.4](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.4) รวม Windows Portable ที่มี gRPC Runtime, MakHam และ Model Packages เสริม Vachana/FastThaiG2P ให้เลือกโหลดแยก
-
-## แก้ Connect และดาวน์โหลด Model Packages พร้อมโปรแกรม (v0.4.3)
-
-รุ่นนี้แก้ปัญหาการเชื่อมต่อที่แจ้ง `source monitor requires the active mode owner token` โดยเมื่อกด Connect จะขอ owner token ใหม่เฉพาะช่องทาง YouTube LIVE หรือ Discord ที่กำลังเลือก ส่วน HTTP 400/401/403/404 จะมีคำอธิบายแยกประเภทเพื่อช่วยตรวจ API Key, สิทธิ์ และช่อง Live/Discord ทั้งนี้ API Key ที่ไม่ถูกต้องหรือหมดโควตายังต้องแก้ที่ผู้ให้บริการ
-
-**หน้า [GitHub Release v0.4.3](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.3) รวมไฟล์ดาวน์โหลด** Windows Portable (บันเดิล MakHam) พร้อมไฟล์ `.vwmodel` เสริมที่เลือกได้สองชุด ได้แก่ Vachana Thai 4 Voices และ FastThaiG2P Thai Som รวมทั้ง SHA256SUMS.txt สำหรับตรวจความถูกต้องแต่ละไฟล์ ทั้งสองโมเดลเสริมมี License/Attribution ภายในแพ็กเกจ ผู้ใช้ต้องปฏิบัติตามสิทธิ์ที่ผู้เผยแพร่ต้นทางระบุ
-
-## Model Packages และหลายเสียง (v0.4.3)
-
-ระบบแพ็กเกจโมเดลแยกไฟล์ .vwmodel ออกจากตัวโปรแกรมหลัก ผู้ใช้สามารถติดตั้งหลายแพ็กเกจ/หลายเวอร์ชันพร้อมกันได้ และเลือกหลายเสียงภายใต้ Engine เดียว โดยไม่ทับโมเดลเดิม ใน Voice Studio มีตัวจัดการติดตั้ง/ถอนการติดตั้งและรายการไลเซนส์ SHA-256 กับ Dependencies รองรับ Firefox/Chrome ผ่านหน้าต่างเลือกไฟล์ของ Windows
-
-**โมเดลทดลองที่เลือกดาวน์โหลดได้:** Vachana Thai VITS 4 เสียง และ FastThaiG2P Kokoro Thai Som 1 เสียง — ไฟล์ `.vwmodel` มีแหล่งที่มา SHA-256 และเอกสารลิขสิทธิ์แยกแต่ละชุด ดู [ดาวน์โหลด Model Packages](https://github.com/funggier/VoxWeaveTTS/releases/tag/modelpacks-v0.4.2) และ [รายละเอียดสิทธิ์จริงแยกตามโมเดล](model-packs/README_TH.md)
-
-**ข้อจำกัด:** ZIP Portable หลักบันเดิลเฉพาะ MakHam; Vachana และ FastThaiG2P เป็นแพ็กเกจเสริมให้ผู้ใช้ติดตั้งเอง ผู้เผยแพร่ต้นทางระบุ Vachana เป็น MIT, FastThaiG2P เป็น Apache-2.0 และชุดข้อมูล Som TTS เป็น CC BY 4.0 แต่เรา **ไม่รับรองสิทธิ์ในข้อมูลฝึกหรือเสียงทุกส่วนโดยอิสระ และไม่ได้รับรองเชิงพาณิชย์** ผู้ใช้ต้องศึกษาสิทธิ์และให้เครดิตตามต้นทางด้วย [คู่มือ Model Packages](docs/MODEL_PACKAGES_TH.md)
-
-## ฟีเจอร์ใหม่ในรุ่น 0.4.2
-
-- แต่ละช่องทาง YouTube LIVE, TikTok LIVE, Discord และ Discord Client มี Checkbox **อ่านชื่อผู้ส่งก่อนอ่านข้อความ** แยกกัน โดยปิดเป็นค่าเริ่มต้นเพื่อไม่เปลี่ยนพฤติกรรมเดิม เมื่อเปิดจะอ่านชื่อผู้ส่งก่อนเนื้อหาข้อความที่ได้รับจากช่องทางนั้น ชื่อผู้ส่งยังแสดงในประวัติไม่ว่าจะเปิดอ่านชื่อหรือไม่ และตัวเลือกจะบันทึกลง `data/settings/mode-voices.json` พร้อมรองรับ Export/Import โปรไฟล์ช่องทาง `.json` แบบเดิม (ไฟล์เก่าที่ไม่มีตัวเลือกนี้ยังนำเข้าได้)
-
-
-- เปลี่ยนเมนู **ตั้งค่ากลาง** เป็น **ตั้งค่า** โดยแสดงเฉพาะส่วนจัดการ Model Packages; ไม่แสดงปุ่มตั้งค่าซ้ำบนแถบด้านบน
-- ปรับ Engine, Voice, Speed, Gain, Pitch, Bass, Treble, Seed และ Voice Preset แยกภายในแต่ละโหมด ด้วย Slider และตัวเลขละเอียด 0.01; ความเร็วสูงสุด x5 โดยอัตราเสียงที่ได้จริงขึ้นกับโมเดล
-- Voice Preset บันทึกเป็น `.json` แยกแต่ละรายการใน `presets/` ของโปรแกรม คัดลอกไฟล์มาใส่แล้วกดรีเฟรชให้เข้า Dropdown ได้ แม้ยังไม่ได้ติดตั้งโมเดลของ Preset นั้น (จะแจ้งชื่อโมเดลที่ต้องติดตั้งก่อนเลือกใช้) และยังอ่าน Preset เดิมได้
-- ยกเลิกการเปลี่ยน `อ่านข้อความใหม่อัตโนมัติ` เป็น false เองเมื่อเสียง/Auto-play ผิดพลาดหรือกด Stop ใช้การพักคิวชั่วคราวและปุ่ม **อ่านอัตโนมัติต่อ** แทน การ Import โปรไฟล์ที่ระบุ false และการปิด Checkbox เองยังทำงานตามปกติ
-- Windows Portable บันเดิลเฉพาะ MakHam Paradee; Vachana และ FastThaiG2P ดาวน์โหลดเป็น `.vwmodel` แยกได้ใน Model Packages Release พร้อมเครดิตและ License ต้นทาง โดยไม่รับรองสิทธิ์ข้อมูลฝึก/เสียงเชิงพาณิชย์อย่างเป็นทางการ
-
-## ฐานระบบกลางที่พัฒนาเพิ่มแล้ว
-
-เพิ่ม **Engine Registry v1** และ **Speech Coordinator** ที่ไม่ผูกกับโมเดล: มีคิวเรียงลำดับ, ID, การป้องกันข้อความซ้ำ, การยกเลิกงาน, เหตุการณ์แบบเวอร์ชัน, WAV ที่ดาวน์โหลดหลังเตรียมเสียงสำเร็จ และหน้าเว็บทดลองคิว โมเดลใหม่ที่ฝึกเองสามารถสร้าง Adapter มาลงทะเบียนด้วย Interface เดียวกัน ไม่ต้องเปลี่ยน Text Processor หรือ API หลัก
-
-ระบบมี Browser Playback Clock, OBS Subtitle แบบระดับ Segment และตัวรับข้อความ Discord/YouTube แบบ Official API ที่ยังไม่ได้ทดสอบบัญชีจริงแล้ว แต่ยัง **ไม่มี Hardware Playback Clock, Forced Alignment รายคำ หรือ Training Engine** และยังไม่มีการรับรอง License ของโมเดลทุกตัวว่าใช้เชิงพาณิชย์ได้แล้ว
-
-อ่าน [โครง Engine-Neutral Core (ภาษาไทย)](docs/ENGINE_NEUTRAL_CORE_TH.md)
-
-## ตัวแก้กฎคำอ่าน JSON ที่ปรับปรุงแล้ว
-
-ช่อง **Rules** และ **Pronunciations** ที่มีอยู่เดิมมีปุ่ม **จัดรูปแบบ / ตรวจ JSON / บันทึกไฟล์ / นำเข้าไฟล์ / บันทึกในโปรแกรม / โหลดค่าที่บันทึก** และช่อง **เพิ่มรายการเร็ว** เพื่อเพิ่มข้อความที่มีเครื่องหมายคำพูด แบ็กสแลช อักขระไทยหรือ Emoji โดยไม่ต้อง Escape เอง การทดลองอ่านจะใช้กฎเดียวกับ API; เพิ่มการบันทึกถาวรลงโฟลเดอร์ data/filters และ data/dictionaries การโหลดค่าที่เคยบันทึก การนำเข้าไฟล์ JSON และการป้องกันเขียนทับจากอีกแท็บ ส่วนปุ่มบันทึกไฟล์ยังเป็นการดาวน์โหลดแยกกัน อ่าน [คู่มือการตั้งค่าคำอ่าน JSON](docs/PRONUNCIATION_JSON_TH.md)
-
-## Subtitle ตามเวลาที่เสียงเล่นจริงใน Browser + OBS
-
-เพิ่ม Browser Playback Clock ที่ใช้ audio.currentTime ของเสียงซึ่งกำลังเล่นจาก Document Reader หรือ Speech Queue และหน้า http://127.0.0.1:8765/overlay สำหรับ OBS Browser Source แบบพื้นหลังโปร่งใส ใช้ร่วมกับทุก Engine และไม่เริ่มแสดง Subtitle เพียงเพราะสร้าง WAV เสร็จ เมื่อ Pause/Stop/Ended หรือ Browser หยุดรายงานเวลานาน ระบบจะซ่อน Subtitle
-
-**ยังไม่มีการจับเวลาเสียงระดับ Hardware หรือ Subtitle รายคำ/พยางค์**; Overlay ไม่ได้ส่งเสียงให้ OBS โดยตรง อ่าน [คู่มือ Playback และ OBS Overlay](docs/PLAYBACK_OVERLAY_TH.md)
-
-## TikTok LIVE Reader — ผ่าน TikFinity Desktop (v0.4.2)
-
-เพิ่มแท็บ **TikTok LIVE** เพื่อรับเฉพาะคอมเมนต์สดผ่าน `ws://localhost:21213/` ซึ่งเป็น Local Event API ของ [TikFinity Desktop](https://tikfinity.zerody.one/) โดย **TikFinity ต้องเปิดอยู่บนคอมพิวเตอร์เดียวกัน** และเชื่อมกับบัญชีไลฟ์ที่ได้รับอนุญาต ผู้ใช้ไม่ต้องกรอกรหัสผ่านหรือคุกกี้ TikTok ใน VoxWeaveTTS
-
-คอมเมนต์ใช้เสียง เครื่องมือคำอ่าน คิว FIFO และ OBS Subtitle ร่วมกับทุกโหมด มีการกรองสแปม/URL/ข้อความซ้ำ และเก็บประวัติที่อ่านแล้ว 0–100 รายการตามที่ตั้ง ไม่อ่าน Event ของขวัญและไลก์โดยอัตโนมัติ สามารถ Export/Import โปรไฟล์ TikTok เป็น JSON และเลือกตำแหน่ง Save As ได้ผ่าน Firefox/Chrome (Import ไม่เชื่อมต่อเอง)
-
-**ข้อจำกัด:** TikTok ไม่มี Public LIVE Chat API สำหรับแอปทั่วไปในเอกสารปัจจุบัน จึงใช้ Local Event API ของบุคคลที่สาม ไม่ได้บันเดิล TikFinity และยังไม่ทดสอบคอมเมนต์ไลฟ์จริงจากบัญชีของผู้ใช้ในรุ่นนี้ [คู่มือตั้งค่า TikTok LIVE](docs/TIKTOK_LIVE_TH.md)
-
-## Discord Client Reader — เลือกห้องที่ต้องการอ่านโดยไม่เชิญ Bot
-
-เพิ่มแท็บ **Discord Client** แยกจาก Discord Bot สามารถระบุ Channel ID ของห้องที่ต้องการอ่านโดยเฉพาะได้ และรับเฉพาะข้อความใหม่จากห้องนั้นผ่าน Official Discord Desktop Local RPC (เมื่อได้รับสิทธิ์จาก Discord) พร้อมตัวกรองและตัวเลือกอ่านข้อความอัตโนมัติที่เปิดไว้เป็นค่าเริ่มต้น (ยังต้องกดเชื่อมต่อเอง)
-
-ต้องมี Discord Desktop และ Discord Developer Application ที่ได้รับสิทธิ์ RPC หรืออยู่ในรายชื่อผู้ทดสอบ รวมถึงผู้ใช้ยินยอมให้แอปใช้สิทธิ์ rpc + messages.read โดยตรง ไม่มีการใช้ User Token แบบ Self-bot; ผู้ใช้ยืนยันว่า Discord Desktop RPC ใช้งานกับบัญชีจริงได้ใน dev17 เมื่อเปลี่ยนห้อง/โหมดจะหยุดรับและล้างคิวเสียง แต่คงการเลือก Auto-read ไว้; หากการเชื่อมต่อหลุดต้องใส่ Client Secret อีกครั้งแล้วกดเชื่อมใหม่ การเปิด OAuth2 URL Generator ด้วยตนเองไม่เริ่มการสมัครรับข้อความ RPC ต้องกดเชื่อมต่อใน VoxWeaveTTS หาก Discord แสดง Redirect URI ต้องใช้ URL เดียวกันในช่องของโปรแกรม (เช่น `http://127.0.0.1:8765` ไม่ใช่ `/callback` เมื่อหน้าต่างแสดง URI ไม่มี path) แก้คำขอ Token ที่อาจถูก Discord บล็อกเป็น HTTP 403 เพราะ Python ไม่ส่ง User-Agent ของแอป โดยทดสอบจากเครื่องจริงด้วยข้อมูล OAuth ปลอมแล้วได้ HTTP 400 `invalid_client` ตามที่ควรเป็น (การทดสอบ HTTP นี้แยกจากการเชื่อมบัญชีจริงที่ผู้ใช้ยืนยันภายหลัง) เวอร์ชันนี้จะแสดงรหัส OAuth อย่างปลอดภัย (เช่น `invalid_scope` ตอน RPC AUTHORIZE หรือ `invalid_grant` ตอนแลก Token) พร้อมขั้นตอนที่ล้มเหลวแทนข้อความกว้าง ๆ โดยไม่แสดง Code หรือ Token คู่มือ: [Discord Client Reader](docs/DISCORD_CLIENT_READER_TH.md)
-
-## เชื่อมอ่านข้อความจาก YouTube Live และ Discord (ทดลอง)
-
-โหมด **อ่านไลฟ์สด** และ **Discord** รองรับการรับข้อความใหม่จาก **Official API แบบอ่านอย่างเดียว** แล้ว โดยใช้ YouTube Data API v3 API Key หรือ Discord Bot Token ที่ผู้ใช้เป็นเจ้าของและได้รับอนุญาต กดเชื่อมต่อในโหมดนั้นจึงเริ่มทำงาน คีย์/โทเค็นของการเชื่อมต่อจะอยู่ในหน่วยความจำชั่วคราว แต่หากผู้ใช้กด Export โปรไฟล์เอง โปรแกรมจะบันทึกข้อมูลลับใน JSON ที่ไม่เข้ารหัสลงตำแหน่งที่ผู้ใช้เลือก (ไม่บันทึกลง Git โดยอัตโนมัติ)
-
-เลือกข้อความเพื่อสร้างเสียงด้วยตนเอง หรือเลือก **อ่านข้อความใหม่อัตโนมัติ** ซึ่ง **เปิดไว้เป็นค่าเริ่มต้น** แต่ต้องกดเชื่อมต่อแหล่งข้อความเองก่อน ระบบอ่านเสียงทีละข้อความ คิวรอสูงสุด 12 ข้อความและไม่ลบข้อความเก่าที่ยังรออ่าน ประวัติที่อ่านจบเก็บค่าเริ่มต้น 20 รายการ ปรับได้ 0–100 รายการต่อช่องทาง โดยจะลบเก่าสุดเมื่อเกินจำนวน และทำงานต่อแม้สลับไปดูแท็บอื่น (ควบคุมเสียงได้จากตัวเลือกคิวกลาง) สามารถ Export/Import JSON รายช่องทางเพื่อกรอกค่ากลับทุกช่องได้ โดย Export จะเปิด Save As ให้เลือกชื่อและโฟลเดอร์เองทั้ง Firefox และ Chrome (Firefox ใช้หน้าต่าง Windows จากเซิร์ฟเวอร์ในเครื่อง) รวมถึง API Key, Bot Token, Client Secret และค่าที่เว้นว่าง โดย Import ไม่เชื่อมต่ออัตโนมัติ **ไฟล์ JSON มีข้อมูลลับแบบไม่เข้ารหัส ห้ามนำขึ้น GitHub หรือส่งต่อ**
-
-**หมายเหตุ:** Discord Client RPC ได้รับการยืนยันการรับข้อความจริงโดยผู้ใช้แล้ว ส่วน YouTube Live และ Discord Bot มีโค้ดและชุดทดสอบจำลองแต่ยังไม่ได้ยืนยันกับบัญชีจริง และเป็น REST Polling ไม่ใช่ Push แบบ Latency ต่ำ คู่มือ: [Live/Discord Inputs](docs/LIVE_INPUT_ADAPTERS_TH.md)
-
-## โหมดอิสระ + ค่ากลาง TTS/คำอ่าน (v0.4.2)
-
-หน้าตาโปรแกรมแบ่งเป็น **สร้างเสียง, อ่านเอกสาร, YouTube LIVE, TikTok LIVE, Discord, Discord Client, คิว/Subtitle, คำอ่านและกฎ, ตั้งค่ากลาง** โดยแต่ละโหมดมีข้อความและตัวเล่นของตัวเอง การสลับแท็บไม่หยุดการอ่านหรือเสียงของโหมดอื่น สามารถรับ Live หลายช่องทางพร้อมกัน และเลือกได้ว่าจะเล่นเสียงทีละรายการหรือยอมให้เสียงซ้อนกัน
-
-**Engine/Model, Voice, Speed และ DSP เลือกแยกได้ในแต่ละโหมด** โดยใช้ค่ากลางเป็นค่าเริ่มต้น ส่วน Seed, Preset และ Rules/Pronunciations ยังใช้ร่วมกันได้ สามารถบันทึก Engine/Voice/Speed/DSP ได้ในแต่ละโหมดโดยตรง เพื่อโหลดกลับมาเมื่อเปิดโปรแกรมรอบต่อไป ส่วน JSON คำอ่านและ Seed ใช้การบันทึกกลางเดิม
-
-**โหมด Live และ Discord ยังคงให้ทดลองพิมพ์ข้อความจำลองได้** และสามารถเชื่อม Official API แบบอ่านอย่างเดียวเมื่อผู้ใช้ตั้งค่า Credentials เอง (ยังไม่ได้ทดสอบกับบัญชีจริง) ดู [คู่มือโหมดและค่ากลาง](docs/WORKSPACE_MODES_TH.md)
-
-## ปรับปรุงการตัด Subtitle และช่วงอ่านภาษาไทย
-
-แก้อาการที่สระนำ เช่น เ แ โ ใ ไ หรือตัวสะกดถูกตัดไปอยู่คนละ Subtitle: **Estimated Mode** จะเลือกแบ่งเฉพาะช่องว่าง/เครื่องหมายคั่นที่เห็นได้ชัด หากประโยคไทยยาวโดยไม่มีจุดแบ่ง จะใช้ข้อความทั้ง Segment เดิมแทนการเดาคำ; Overlay ใช้การขึ้นบรรทัดตามภาษาใน Browser ไม่บังคับตัดกลางคำด้วย CSS
-
-Document Reader ก็ให้ความสำคัญกับจุดคั่นตามธรรมชาติมากขึ้น หากจำเป็นต้องตัดข้อความไทยติดกันให้สั้นตามขนาด Chunk จะมีคำเตือนว่าตำแหน่งนั้นเป็นเพียงการแบ่งแบบประมาณ ไม่รับรองว่าเป็นขอบเขตคำจริง
-
-**หมายเหตุ:** เปลี่ยนอัลกอริทึมแบ่ง Chunk จึงปรับ Version ของ Document ID เพื่อป้องกันการอ่านต่อผิดตำแหน่ง Bookmark ของเอกสารเก่าจะต้องเลือกตำแหน่งและบันทึกใหม่อีกครั้ง (ข้อมูลเดิมไม่ถูกลบ) ดู [คู่มือ Document Reader](docs/DOCUMENT_READER_TH.md) และ [Subtitle Overlay](docs/PLAYBACK_OVERLAY_TH.md)
-
-## Waveform Editor — มองเห็นคลื่นเสียงและกำหนดช่วงเวลาได้ละเอียดขึ้น
-
-เพิ่ม Waveform จาก PCM16 WAV จริงที่ Speech Queue สร้างแล้วในแผง Manual Alignment รองรับซูม 1–32 เท่า เลื่อนดูช่วงอื่น คลิกเลื่อน Audio Player ลากคลื่นเพื่อกำหนดเวลาเริ่ม–จบ และกดลูกศรขยับเวลา 25ms (Shift = 5ms). Canvas ปรับตามขนาดหน้าจอ/HiDPI ไม่ใช้โมเดลหรือไลบรารีภายนอก และยังบันทึก Cue ตามขั้นตอนเดิมเท่านั้น
-
-Waveform เป็นเครื่องมือช่วย **ตรวจฟังและ Mark เวลาเอง** ไม่ใช่ระบบรู้จำคำจากเสียงโดย AI ดู [คู่มือ Waveform Editor](docs/WAVEFORM_EDITOR_TH.md)
-
-## Manual Alignment — จับเวลา Subtitle รายคำ/วลีจากเสียงที่ฟังเอง
-
-เพิ่มส่วน Manual Alignment ใต้ Speech Queue: เลือกข้อความจาก Segment, จับจุดเริ่ม–จบจากเวลาเล่น WAV จริง, แก้ JSON, บันทึก Cue แบบชั่วคราวใน Speech Job, นำเข้า/ส่งออกไฟล์ JSON และประเมินความคลาดเคลื่อนเทียบ Reference Timecodes ได้ จากนั้นเปิด http://127.0.0.1:8765/overlay?mode=manual ใน OBS
-
-ระบบนี้ใช้ข้อมูลจากเสียงที่คุณฟังและตรวจแก้ **ไม่ได้ตรวจจับคำอัตโนมัติ** ไม่มีโมเดล/ชุดข้อมูลภายนอกหรือสิทธิ์เชิงพาณิชย์เพิ่มเติม และไม่เก็บ Cue ถาวรลง Server โดยอัตโนมัติ ดู [คู่มือ Manual Alignment](docs/MANUAL_ALIGNMENT_TH.md)
-
-## Audio Activity — Subtitle จากช่วงเสียงจริง (ทดลอง)
-
-เพิ่มโมดูลวิเคราะห์พลังงานสัญญาณ PCM จาก WAV ที่สร้างแล้ว โดยไม่ต้องมีโมเดลภายนอกหรือ Dependencies ใหม่ ใช้กับ TTS Engine ได้ทุกตัว และแยกออกจากตัว Engine ผ่าน AudioAlignmentProvider
-
-เปิด <http://127.0.0.1:8765/overlay?mode=activity> เพื่อทดลอง Subtitle ที่ซ่อนในช่วงเงียบซึ่งตรวจพบจาก Waveform จริง **นี่ไม่ใช่ Forced Alignment ระดับคำหรือพยางค์** การระบุว่าคำไหนกำลังออกเสียงยังต้องอาศัยโมเดลหรือ Aligner เพิ่มในอนาคต ซึ่งจะต้องตรวจสิทธิ์เชิงพาณิชย์ก่อน ดู [คู่มือ Audio Alignment](docs/AUDIO_ALIGNMENT_TH.md)
-
-## OBS Subtitle แบบ SSE และช่วงข้อความที่ประมาณเวลา (ทดลอง)
-
-เพิ่ม **Server-Sent Events (SSE)** ส่งสถานะเสียงที่เปลี่ยนไปยัง Overlay ทันทีที่ Browser รายงาน โดยไม่ต้องรอรอบ HTTP Polling 250 ms แบบเดิม เมื่อ SSE ใช้ไม่ได้ Overlay จะกลับไปใช้ HTTP Polling ทุก 1 วินาทีอัตโนมัติ
-
-- `http://127.0.0.1:8765/overlay` — แสดง Subtitle ตามขอบเขต Segment ที่สร้าง WAV จริง (ค่าเริ่มต้น)
-- `http://127.0.0.1:8765/overlay?mode=estimated` — แบ่งข้อความเป็นช่วงย่อยที่ไม่ตัดวรรณยุกต์ไทย/Emoji แต่ **เวลาเป็นค่าประมาณตามจำนวนกลุ่มอักขระ ไม่ใช่การจับเสียงรายคำจริง** แนะนำให้ทดลองก่อนใช้งานจริง
-
-ทั้งสองรูปแบบใช้ได้กับทุก Engine และยังไม่ต้องติดตั้งโมเดลเพิ่ม ดู [คู่มือ Subtitle/OBS](docs/PLAYBACK_OVERLAY_TH.md)
-
-## บันทึกตำแหน่งอ่านค้างและอ่านทีละช่วง
-
-ในแผง **นำเข้าเอกสาร TXT/Markdown** สามารถกด **จดตำแหน่งช่วงนี้**, **ไปยังตำแหน่งที่อ่านค้าง**, **ล้างตำแหน่งที่จำ** และ **สร้างเสียงและอ่านช่วงที่เลือก** ได้แล้ว มีปุ่มพัก/เล่นต่อ หยุด และตัวเลือกอ่านช่วงถัดไปอัตโนมัติ โดยจะสร้างเสียงทีละช่วง ไม่สร้างทั้งเล่มล่วงหน้า
-
-ตำแหน่งอ่านบันทึกใน `data/reading/positions.json` ภายในโปรเจกต์ (Git Ignore) เก็บเพียง Hash ของเนื้อหาและหมายเลขช่วง ไม่บันทึกข้อความนิยาย; เมื่อเล่นเสียงใน Browser จบหนึ่งช่วงจึงค่อยบันทึกว่าช่วงถัดไปเป็นจุดอ่านต่อ หาก Browser ไม่อนุญาต Auto-play ให้กด Play ในแถบเสียงเอง **ยังไม่มี Audio Playback Clock ที่ต่อ OBS, ข้อความ Subtitle แบบ Live หรือ Playback ข้ามอุปกรณ์**
-
-## ระบบนำเข้า TXT / Markdown ที่เพิ่มแล้ว
-
-เพิ่ม **Document Reader** สำหรับเลือกไฟล์ .txt/.md จากเครื่อง แบ่งบท/ตอน และช่วงข้อความผ่าน Core เดียวกันได้ โดยไม่ต้องมี TTS Engine ในขั้นจัดเอกสาร รองรับ UTF-8 หรือ Thai Windows-874 มีปุ่มส่งช่วงที่เลือกเข้าคิวเตรียมเสียงพร้อมกฎการอ่านเดิม **ยังไม่อ่านทั้งเล่มต่อเนื่องหรือบันทึก Resume Position ข้าม Session** ดู [รายละเอียด Document Reader](docs/DOCUMENT_READER_TH.md)
-
-## ข้อกำหนดที่ต้องรักษา
-1. ปรับเสียงได้: ความเร็ว, ระดับเสียง, Formant, ความกังวาน, อารมณ์, เว้นจังหวะ (ขึ้นกับความสามารถของ TTS รุ่นนั้น)
-2. เลือกเสียงอ้างอิงของผู้ใช้ หรือเพิ่ม Voice Profile ได้โดยไม่เผยแพร่ไฟล์ส่วนตัว
-3. พจนานุกรมการออกเสียงภาษาไทย แยกคำอ่านออกจากคำสะกดบน Subtitle เช่น อมตะ → อะ มะ ตะ
-4. กรองและแทนคำแบบตั้งค่าได้: ไม่อ่าน, เงียบตามเวลา, แทนคำพูด, หรือแทนเฉพาะ Subtitle
-5. รองรับนิยาย, ไฟล์ .txt/.md, Discord และ YouTube Live/Comments ผ่าน Input Adapters
-6. Audio Playback Coordinator ส่ง speech.queued/started/segment/completed/cancelled พร้อมตำแหน่งเวลาและ ID
-7. Subtitle สำหรับ OBS Browser Source และ Consumer อื่น ผ่าน Event API ที่ไม่จำเป็นต้องผูกกับ OBS
-8. API แบบ Local-first: ค่าเริ่มต้นฟังเฉพาะ 127.0.0.1, หากจะเปิดให้เครื่องอื่นเข้าถึงต้องเพิ่ม authentication
-9. Portable: ย้ายโฟลเดอร์ได้ทั้งชุด; เก็บ Model/Cache/Config ภายในโฟลเดอร์หลัก
-10. โมดูลต่างๆ ต้องทดสอบแยกกันได้และเปลี่ยน TTS Engine ได้
-
-## ทดลองเสียงภาษาไทยบนเครื่องจริง
-
-1. รัน `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` เพื่อสร้าง `.venv` และติดตั้งโมเดลไทยไว้ในโฟลเดอร์โปรเจกต์ (ต้องมี `uv`, `gh` และอินเทอร์เน็ตในครั้งแรก)
-2. ดับเบิลคลิก `Start-Dev.cmd` และเปิด http://127.0.0.1:8765
-3. เลือก **Engine** ระหว่าง FastThaiG2P และ MakHam Paradee, ปรับ Speed/Gain/Pitch/Bass/Treble ด้วย Slider หรือช่องตัวเลข (มีการตรวจค่าตามช่วงที่กำหนด) กด **สร้างเสียง WAV** และฟังผลจริง; เมื่ออ่าน `55555` เพี้ยน ให้ทดลองเปรียบเทียบ Engine และปรับกฎ `Rules/Pronunciations` ด้วยตนเอง (แผงเลือกคำอ่านเสียงหัวเราะเฉพาะกิจถูกถอดออกแล้ว) ไม่ใช่เปลี่ยน Seed
-4. สามารถตั้งชื่อและบันทึก **Voice Preset** แล้วโหลดกลับมาใช้งานได้ เก็บแต่ละรายการเป็น `.json` ในโฟลเดอร์ `presets/` ของโปรแกรม (ไฟล์รูปแบบเก่ายังอ่านได้)
-5. ใช้ `scripts/Generate-ThaiSample.ps1` เพื่อสร้าง WAV จาก API หรือใช้ `scripts/Smoke-VoiceStudio.ps1` เพื่อทดสอบ Engine ทั้งสอง
-6. ใช้ `Test-Dev.cmd` ทดสอบ
-7. ทดลอง **นำเข้าเอกสาร TXT / Markdown** เลือก Encoding, Chapter และ Chunk แล้วนำช่วงไปแก้ไขในช่องข้อความหรือส่งเข้าคิวเสียงได้
-8. ลองส่วน **คิวเตรียมเสียง (Engine-independent)** บนหน้าเว็บ เพื่อเข้าคิว, ดูสถานะ, ยกเลิก และดาวน์โหลด WAV เมื่อ Ready โดยไม่ผูกกับ Engine ตัวใดตัวหนึ่ง
-
-กฎตัวอย่าง `match_mode: "five_run"` รองรับเลข 5 ตั้งแต่ 3 ตัวขึ้นไปในแชท เช่น `555`, `55555`, `55555555` โดยอ่านเป็น `ฮ่า ฮ่า ฮ่า` แต่แสดงเลขเดิมบน Subtitle และไม่นำรูปแบบตัวเลขอย่าง `5,55555` หรือ `55555.50` มาอ่านเป็นเสียงหัวเราะ
-
-มี Portable EXE สำหรับ Windows แล้ว แต่ยังไม่รองรับการฝึก/โคลนเสียงของเจ้าของโปรเจกต์ ค่าปรับ Pitch/Bass/Treble ต้องมี FFmpeg ที่รองรับ Rubber Band ส่วนการเปลี่ยน Formant โดยอิสระและ Emotion ยังไม่รองรับ
-
-## ที่มาและแผนพัฒนา
-
-- [ที่มา ปัญหาที่ต้องการแก้ และเหตุผลของการออกแบบ](docs/PROJECT_VISION_TH.md)
-- [แผนพัฒนาแบบละเอียดพร้อมขั้นตอน ทดสอบ และเกณฑ์ยอมรับ](docs/DEVELOPMENT_PLAN_TH.md)
-- [ตารางข้อกำหนดและสถานะของฟีเจอร์](docs/REQUIREMENTS_TH.md)
-
-## เอกสารเทคนิค
-
-- [Architecture](docs/ARCHITECTURE.md) · [API](docs/API.md) · [Portable](docs/PORTABLE.md)
-- [Roadmap (checklist)](docs/ROADMAP.md) · [Security](docs/SECURITY.md)
-- [M1 — การเชื่อม TTS Engine ไทยและผลทดลองเสียงจริง](docs/M1_AUDIO_TH.md)
-- [Voice Studio — การเลือก Engine และค่าปรับเสียงละเอียด](docs/VOICE_STUDIO_TH.md)
-- [โครงระบบ Engine-Neutral Core, Registry, Queue และ Adapter v1](docs/ENGINE_NEUTRAL_CORE_TH.md)
-- [Document Reader — นำเข้า TXT/Markdown แบ่งบท/ช่วงแบบไม่ผูก Engine](docs/DOCUMENT_READER_TH.md)
-- [แผนการสร้างเสียงส่วนตัวและ Fine-tuning](docs/VOICE_TRAINING_TH.md)
-
-## Commercial-First License Policy
-
-**กำหนดให้โปรเจกต์คัดเลือก Engine โดยเน้นการใช้เชิงพาณิชย์ก่อน** และไม่รับรองว่า Model/Voicepack ใดพร้อมนำไปแพ็กแจกหรือขายจนกว่าจะตรวจสิทธิ์ของไฟล์และ Dependency ที่ใช้จริงครบถ้วน โดยเฉพาะเสียงและข้อมูลฝึก
-
-- [นโยบายการใช้เชิงพาณิชย์และรายการ Engine ที่อนุมัติ/พักไว้](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
-- สำหรับการฝึกเสียงเองให้ใช้ไฟล์เสียงที่มีสิทธิ์/ได้รับอนุญาตเท่านั้น
-- โมเดลที่มี NC หรือ License ไม่ชัดจะไม่ถูกนำไปใส่ในชุด Commercial/Portable Distribution หลัก
-- SiangTTS (CC BY-SA) **ใช้เชิงพาณิชย์ได้ตามเงื่อนไข** แต่พักไว้เพื่อลดภาระ ShareAlike/การปฏิบัติตาม License
-- VoxCPM2 (Apache 2.0 สำหรับ code+weights) เป็นตัวเลือกหลักที่จะประเมินสำหรับ Voice Cloning; ไม่ถือว่าผ่านครบทุก Dependency โดยอัตโนมัติ
-
-## License
-MIT สำหรับซอร์สโค้ด VoxWeaveTTS เท่านั้น เสียงต้นฉบับ โมเดลที่ดาวน์โหลด และโค้ดจากบุคคลที่สามต้องตรวจสิทธิ์ของแต่ละรายการก่อนแจกจ่าย
+- [เอกสาร API](docs/API.md)
+- [Worker / Model v4](docs/UNIVERSAL_VWMODEL_V4_TH.md)
+- [ผลตรวจรับ Core v4-only และ Portable ZIP (20 พฤศจิกายน 2026)](docs/V4_ONLY_QA_HANDOFF_2026-11-20_TH.md)
+- [ผลการทดสอบ 8 โมเดล](docs/V4_ALL_MODEL_QA_TH.md)
+- [ระบบแปลภาษา](docs/AI_PROCESSING_TRANSLATION_TH.md)
+- [การจัดคิวเสียง](docs/LIVE_MESSAGE_QUEUE_TH.md)
+- [นโยบายสิทธิ์](docs/COMMERCIAL_LICENSE_POLICY_TH.md)

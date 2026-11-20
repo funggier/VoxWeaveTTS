@@ -889,7 +889,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p class="small">ติดตั้งโมเดลและเสียงเพิ่มเติม ดูแหล่งที่มาและลิขสิทธิ์ และถอนการติดตั้งแพ็กเกจที่ไม่ต้องการได้ที่นี่</p>
 <details style="width:100%;margin:12px 0;border:1px solid #32425b;border-radius:10px;padding:12px">
 <summary>จัดการ Model Packages (ติดตั้งหลายโมเดล / หลายเสียง)</summary>
-<p class="small">เลือกไฟล์ .vwmodel แล้วติดตั้งได้ทันทีแบบออฟไลน์ · v4 รองรับ Engine ภายนอกและ Dependencies ที่มากับแพ็กเกจโดยไม่อัปเดตตัวโปรแกรม · v3 ที่ติดตั้งไว้ยังใช้งานได้</p>
+<p class="small">เลือกไฟล์ .vwmodel แล้วติดตั้งได้ทันทีแบบออฟไลน์ · v4 รองรับ Engine ภายนอกและ Dependencies ที่มากับแพ็กเกจโดยไม่อัปเดตตัวโปรแกรม · รองรับเฉพาะแพ็กเกจ v4</p>
 <p class="small">การเลือกไฟล์และกดติดตั้งถือว่ายอมรับสิทธิ์และเลือกเชื่อถือโค้ด Engine ภายนอกในแพ็กเกจ v4 ซึ่งทำงานด้วยสิทธิ์ผู้ใช้ Windows · SHA-256 ตรวจความครบถ้วนของไฟล์ ไม่ได้ยืนยันความปลอดภัยหรือรับรองสิทธิ์เชิงพาณิชย์</p>
 <button type="button" id="modelPackageInstall">ติดตั้ง Model Package (.vwmodel)</button>
 <button type="button" id="modelPackageRefresh">รีเฟรชรายการโมเดล</button>
@@ -1394,7 +1394,7 @@ async function loadModelPackages(){
     const li=document.createElement("li");
     const title=document.createElement("strong");
     title.textContent=item.title+" v"+item.version+
-      (item.format_version===3||item.format_version===4?" · Universal v"+item.format_version+" · "+item.model_kind:"");
+      (item.format_version===4?" · Universal v4 · "+item.model_kind:"");
     const details=document.createElement("small");
     details.style.display="block";
     const names=(item.voices||[]).map(v=>v.label).join(", ");
@@ -1403,7 +1403,7 @@ async function loadModelPackages(){
       " · ตรวจสิทธิ์: "+item.license.review_status+
       " · Dependencies: "+(item.dependencies||[]).length+" รายการ"+
       (item.format_version===4?" · Engine Plugin v4: ผู้ใช้เลือกติดตั้งแล้ว":"");
-    if(item.format_version===3||item.format_version===4){
+    if(item.format_version===4){
       const runtimeLabels={
         ready:"พร้อมใช้งาน",
         "adapter-not-approved":"ไม่มี Engine Adapter ที่อนุมัติ",
@@ -1460,7 +1460,7 @@ el("modelPackageRefresh").addEventListener("click",()=>{
 el("modelPackageInstall").addEventListener("click",async()=>{
   const button=el("modelPackageInstall");
   button.disabled=true;
-  el("modelPackageStatus").textContent="เลือก Universal .vwmodel v4/v3 (ไฟล์เดียว ติดตั้งออฟไลน์)";
+  el("modelPackageStatus").textContent="เลือก Universal .vwmodel v4 (ไฟล์เดียว ติดตั้งออฟไลน์)";
   try{
     const previewResponse=await fetch("/v1/model-packages/inspect-local",{
       method:"POST",

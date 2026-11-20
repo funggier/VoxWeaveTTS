@@ -1,6 +1,6 @@
-"""Offline-only M2M100 v3 translation worker.
+"""Offline-only M2M100 translation worker via Universal .vwmodel v4.
 
-The model and dependencies install solely through Universal .vwmodel v3.
+The model and dependencies install solely through Universal .vwmodel v4.
 No separate installer, repair mechanism or online dependencies.
 """
 from __future__ import annotations
@@ -35,18 +35,11 @@ class M2MRuntimeError(RuntimeError):
 
 
 def ready(root: Path = ROOT) -> bool:
-    """M2M100 is ready only with an installed offline v4 (or existing v3) runtime."""
-    from .universal_model_v4 import installed_packages as v4_installed, ready as v4_ready
-    if any(m["package"]["kind"] == "translation"
-           and m["package"]["id"] == "m2m100-418m"
-           and v4_ready(root, m) for m, _ in v4_installed(root)):
-        return True
-    from .universal_model_packages import installed_packages
-    from .portable_runtime_v3 import ready as runtime_ready
+    """M2M100 is ready only with an installed offline v4 translation runtime."""
+    from .universal_model_v4 import installed_packages, ready as v4_ready
     return any(m["package"]["kind"] == "translation"
-               and m["adapter"]["id"] == "m2m100-transformers-v1"
-               and runtime_ready(root, m)
-               for m, _folder in installed_packages(root))
+               and m["package"]["id"] == "m2m100-418m"
+               and v4_ready(root, m) for m, _ in installed_packages(root))
 
 
 class TranslationWorkerSession:
@@ -102,7 +95,7 @@ class TranslationWorkerSession:
                 "file; Ollama and other processes were not stopped.")
         logs = self.root / "logs" / "ai-runtime"
         logs.mkdir(parents=True, exist_ok=True)
-        # Do not open a Windows-locked log until the v3 model and command are verified.
+        # Do not open a Windows-locked log until the v4 worker has been verified.
         env = os.environ.copy()
         env.update({
             "PYTHONPATH": str(self.root / "src"),
@@ -126,19 +119,9 @@ class TranslationWorkerSession:
                          if m["package"]["kind"] == "translation"
                          and m["package"]["id"] == "m2m100-418m"
                          and v4_ready(self.root, m)), None)
-        if v4_model is not None:
-            # The executable worker and all libraries are packaged with v4.
-            # No M2M100 source code or model-specific adapter is loaded in Core.
-            command = v4_command(self.root, v4_model)
-        else:
-            from .universal_model_packages import installed_packages
-            from .portable_runtime_v3 import run_command, ready as runtime_ready
-            manifest = next((m for m, _folder in installed_packages(self.root)
-                             if m["adapter"]["id"] == "m2m100-transformers-v1"
-                             and runtime_ready(self.root, m)), None)
-            if manifest is None:
-                raise M2MRuntimeError("verified offline M2M100 v4/v3 package is missing")
-            command = run_command(self.root, manifest, "voxweavetts.m2m_worker")
+        if v4_model is None:
+            raise M2MRuntimeError("verified offline M2M100 v4 package is missing")
+        command = v4_command(self.root, v4_model)
         self._log = (logs / "m2m100-worker.log").open("a", encoding="utf-8")
         try:
             proc = subprocess.Popen(

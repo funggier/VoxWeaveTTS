@@ -132,7 +132,7 @@ class ModeVoiceSettingsTests(unittest.TestCase):
             self.assertEqual(doc["policy"],"serial")
             def voice(speed):
                 return {
-                    "engine_id":"makham-paradee-cpu","voice_id":"paradee_thai",
+                    "engine_id":"model-makham-paradee-1_0_0","voice_id":"paradee_thai",
                     "speed":speed,"voice_controls":{
                         "pitch_semitones":0,"gain_db":0,"bass_db":0,
                         "treble_db":0,"formant_preserve":True,

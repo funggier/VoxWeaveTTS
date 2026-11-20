@@ -1,126 +1,88 @@
-"""Release-gate: verify ZIP contents, extract independently and test Thai WAV via HTTP."""
+"""V4-only Portable ZIP gate: inspect, extract and synthesize Thai speech.
+
+This verifier runs only for a locally built v4 ZIP. It never downloads models
+or assumes any v3 package/runtime. No fixed service ports are opened.
+"""
 from __future__ import annotations
 
 import hashlib
-import json
 import os
-import shutil
-import socket
 import subprocess
 import sys
 import tempfile
-import time
-import urllib.error
-import urllib.request
 import zipfile
 from pathlib import Path
 
-repo = Path(__file__).resolve().parents[1]
-version = os.environ.get("VOXWEAVE_PORTABLE_VERSION", "0.11.0")
-archive = repo / "dist" / f"VoxWeaveTTS-v{version}-portable.zip"
-assert archive.is_file(), "no release ZIP"
-with archive.open("rb") as file:
-    sha = hashlib.file_digest(file, "sha256").hexdigest().upper()
-print("ZIP_SHA256", sha, flush=True)
-print("ZIP_MB", round(archive.stat().st_size / 1024**2, 1), flush=True)
-with zipfile.ZipFile(archive) as z:
-    assert z.testzip() is None, "corrupted entry"
-    files = [name.replace("\\", "/") for name in z.namelist()]
-    assert all(n.startswith("VoxWeaveTTS/") and ".." not in n.split("/") for n in files)
-    assert "VoxWeaveTTS/VoxWeaveTTS.exe" in files
-    assert "VoxWeaveTTS/runtime/python/python.exe" in files
-    assert "VoxWeaveTTS/LICENSE" in files
-    assert "VoxWeaveTTS/THIRD_PARTY_NOTICES.txt" in files
-    makham="VoxWeaveTTS/models/universal/v3/tts/makham-paradee/1.0.0/"
-    assert makham+"paradee_thai_int8.onnx" in files
-    assert makham+"config.json" in files
-    assert makham+"manifest.json" in files
-    assert "VoxWeaveTTS/models/recovery-packages/VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0-format-v3.vwmodel" in files
-    assert "VoxWeaveTTS/runtime/tools/uv.exe" in files
-    assert "VoxWeaveTTS/src/voxweavetts/portable_runtime_v3.py" in files
-    assert "VoxWeaveTTS/src/voxweavetts/package_install_v3.py" in files
-    assert not any("/models/universal/v2/" in name for name in files)
-    assert not any("/runtime/ai-envs/" in name for name in files)
-    assert "VoxWeaveTTS/models/makham-paradee/paradee_thai_int8.onnx" not in files
-    user_directories = ("data/", "voices/", "cache/", "output/", "logs/", "presets/")
-    assert not any(
-        name.startswith("VoxWeaveTTS/" + directory) and not name.endswith("/")
-        for directory in user_directories for name in files
-    ), "private user directory contents included"
-    assert not any(
-        name.startswith("VoxWeaveTTS/models/fastthaig2p/") and not name.endswith("/")
-        for name in files
-    ), "unreviewed Fast model included"
-    voice_models = [name for name in files if name.endswith((".onnx", ".npy", ".wav", ".mp3", ".safetensors"))]
-    assert voice_models == [makham+"paradee_thai_int8.onnx"], voice_models
-    assert not any(name.startswith("VoxWeaveTTS/models/universal/v3/") and not name.startswith(makham)
-                   and not name.endswith("/") for name in files), "optional/private v3 packages included"
-    print("ZIP_CONTENTS_PASS", len(files), "entries; only approved model", flush=True)
+ROOT=Path(__file__).resolve().parents[1]
+VERSION=os.getenv("VOXWEAVE_PORTABLE_VERSION","0.12.0-dev0")
+ZIP=ROOT/"dist"/f"VoxWeaveTTS-v{VERSION}-portable.zip"
+if not ZIP.is_file():
+    raise SystemExit("Expected v4-only release candidate ZIP not found: "+str(ZIP))
+with ZIP.open("rb") as file:
+    digest=hashlib.file_digest(file,"sha256").hexdigest()
+print("V4_ZIP_SHA256",digest,flush=True)
+with zipfile.ZipFile(ZIP) as archive:
+    bad=archive.testzip()
+    if bad is not None:
+        raise AssertionError("CRC validation failed: "+bad)
+    names=archive.namelist()
+    items=set(names)
+    required={
+        "VoxWeaveTTS/VoxWeaveTTS.exe",
+        "VoxWeaveTTS/runtime/python/python.exe",
+        "VoxWeaveTTS/runtime/tools/uv.exe",
+        "VoxWeaveTTS/src/voxweavetts/universal_model_v4.py",
+        "VoxWeaveTTS/src/voxweavetts/package_install_v4.py",
+        "VoxWeaveTTS/models/universal/v4/tts/makham-paradee/1.0.0/manifest.json",
+        "VoxWeaveTTS/models/recovery-packages/VoxWeaveTTS-MakHam-v4.vwmodel",
+        "VoxWeaveTTS/examples/v4-model-plugin/plugin/worker.py",
+        "VoxWeaveTTS/THIRD_PARTY_NOTICES.txt",
+    }
+    if not required <= items:
+        raise AssertionError("v4 ZIP missing required files: "+repr(sorted(required-items)))
+    if any(".." in Path(x).parts or not x.startswith("VoxWeaveTTS/")
+           for x in names):
+        raise AssertionError("unsafe release ZIP member")
+    if any(("/models/universal/v3/" in x
+            or x.endswith(("/portable_runtime_v3.py",
+                           "/package_install_v3.py",
+                           "/universal_model_packages.py",
+                           "/engine_worker_legacy.py"))
+            for x in names)):
+        raise AssertionError("v3 source or model accidentally shipped")
+    if any(x.startswith("VoxWeaveTTS/examples/") and not x.endswith("/")
+           and not x.startswith(("VoxWeaveTTS/examples/v4-",
+                                 "VoxWeaveTTS/examples/README_TH.md"))
+           for x in names):
+        raise AssertionError("non-v4 example in Portable")
+    for prefix in ("VoxWeaveTTS/cache/", "VoxWeaveTTS/logs/",
+                   "VoxWeaveTTS/data/settings/","VoxWeaveTTS/output/"):
+        if any(n.startswith(prefix) and not n.endswith("/") for n in names):
+            raise AssertionError("private user data in ZIP: "+prefix)
+    print("V4_ZIP_CONTENTS_PASS",len(names),flush=True)
 
-    with tempfile.TemporaryDirectory(dir=archive.parent, prefix="vox-portable-extract-") as temp:
-        z.extractall(temp)
-        root = Path(temp) / "VoxWeaveTTS"
-        python = root / "runtime" / "python" / "python.exe"
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(root / "src")
-        env["PYTHONNOUSERSITE"] = "1"
-        env["PYTHONDONTWRITEBYTECODE"] = "1"
-        env["HF_HOME"] = str(root / "cache" / "huggingface")
-        env["TORCH_HOME"] = str(root / "cache" / "torch")
-        env["XDG_CACHE_HOME"] = str(root / "cache")
-        env["TEMP"] = str(root / "cache" / "temp")
-        env["TMP"] = str(root / "cache" / "temp")
-        (root / "cache" / "temp").mkdir(parents=True, exist_ok=True)
-        result = subprocess.run(
-            [str(python), str(repo / "tests" / "smoke_portable_release.py")],
-            cwd=root, env=env, capture_output=True, text=True, timeout=45,
-            encoding="utf-8", errors="replace",
-        )
-        print(result.stdout, flush=True)
-        assert result.returncode == 0, result.stderr
-
-        with socket.socket() as s:
-            s.bind(("127.0.0.1", 0))
-            port = s.getsockname()[1]
-        proc = subprocess.Popen(
-            [str(python), "-m", "voxweavetts", "--port", str(port)],
-            cwd=root, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-        )
-        try:
-            base = f"http://127.0.0.1:{port}"
-            ready = False
-            for attempt in range(55):
-                if proc.poll() is not None:
-                    raise AssertionError("portable server stopped unexpectedly")
-                try:
-                    with urllib.request.urlopen(base + "/v1/status", timeout=1) as response:
-                        state = json.load(response)
-                    if state["version"] == version:
-                        ready = True
-                        break
-                except (OSError, ValueError):
-                    time.sleep(.2)
-            assert ready, "packaged API did not become ready"
-            body = json.dumps({
-                "text": "สวัสดีค่ะ ทดสอบเสียง",
-                "engine_id": "makham-paradee-cpu",
-                "voice_id": "paradee_thai",
-            }, ensure_ascii=False).encode("utf-8")
-            request = urllib.request.Request(
-                base + "/v1/speech", data=body,
-                headers={"Content-Type": "application/json"}, method="POST",
-            )
-            with urllib.request.urlopen(request, timeout=35) as response:
-                wav = response.read()
-            assert wav.startswith(b"RIFF") and len(wav) > 10000, len(wav)
-            print("PORTABLE_HTTP_THAI_SPEECH_PASS", len(wav), "WAV bytes", flush=True)
-        finally:
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait(timeout=5)
-
-print("PORTABLE_ARCHIVE_VERIFIED", flush=True)
+    with tempfile.TemporaryDirectory(dir=ZIP.parent,prefix="v4-extract-smoke-") as tmp:
+        archive.extractall(tmp)
+        stage=Path(tmp)/"VoxWeaveTTS"
+        python=stage/"runtime/python/python.exe"
+        env=os.environ.copy()
+        env.update({
+            "PYTHONPATH":str(stage/"src"),
+            "PYTHONNOUSERSITE":"1",
+            "PYTHONDONTWRITEBYTECODE":"1",
+            "HF_HOME":str(stage/"cache/huggingface"),
+            "TORCH_HOME":str(stage/"cache/torch"),
+            "XDG_CACHE_HOME":str(stage/"cache"),
+            "TEMP":str(stage/"cache/temp"),"TMP":str(stage/"cache/temp"),
+        })
+        (stage/"cache/temp").mkdir(parents=True,exist_ok=True)
+        result=subprocess.run([
+            str(python),"-X","utf8",
+            str(ROOT/"scripts/verify_v4_portable_stage.py"),
+            "--stage",str(stage),
+        ],cwd=stage,env=env,text=True,capture_output=True,
+           encoding="utf-8",errors="replace",timeout=90)
+        print(result.stdout,flush=True)
+        if result.returncode!=0:
+            raise AssertionError(result.stderr[-1500:])
+print("V4_PORTABLE_ARCHIVE_VERIFIED",flush=True)

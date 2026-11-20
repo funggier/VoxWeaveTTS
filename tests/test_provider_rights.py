@@ -103,47 +103,5 @@ class RightsReviewTests(unittest.TestCase):
         self.assertEqual(review("m2m100")["publication_state"], "review-required")
 
 
-class ReviewedPublicationGateTests(unittest.TestCase):
-    def test_even_publish_reviewed_flag_cannot_publish_a_held_runtime(self):
-        script = script_module("prepare_verified_wheelhouse.py")
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            candidate = root / "candidate"
-            candidate.mkdir()
-            fake = {
-                "runtime_id": "vachana",
-                "wheels": [{"filename": "vachanatts-0.0.7-py3-none-any.whl",
-                            "sha256": "a"*64, "size": 1024}],
-            }
-            with (patch.object(script, "ROOT", root),
-                  patch.object(script, "draft_lock", return_value=fake),
-                  patch.object(sys, "argv", [
-                      "prepare_verified_wheelhouse.py", "--runtime-id",
-                      "vachana", "--source", str(candidate),
-                      "--publish-reviewed",
-                  ]), redirect_stdout(io.StringIO())):
-                with self.assertRaisesRegex(ValueError, "HOLD"):
-                    script.main()
-            self.assertTrue((root/"cache"/"wheelhouse-drafts"/"vachana.json").is_file())
-            self.assertFalse((root/"scripts"/"wheelhouse-locks"/"vachana.json").exists())
-            self.assertFalse((root/"runtime"/"wheelhouse"/"vachana").exists())
-
-    def test_read_only_rights_audit_does_not_promote_held_wheels(self):
-        script = script_module("audit_wheelhouse_rights.py")
-        with tempfile.TemporaryDirectory() as temp:
-            directory = Path(temp)
-            file = directory / "vachanatts-0.0.7-py3-none-any.whl"
-            with zipfile.ZipFile(file, "w") as z:
-                z.writestr("vachanatts-0.0.7.dist-info/METADATA",
-                           "Metadata-Version: 2.1\nName: vachanatts\n"
-                           "Version: 0.0.7\n")
-                z.writestr("vachanatts-0.0.7.dist-info/WHEEL",
-                           "Wheel-Version: 1.0\n")
-            audit = script.audit_wheels(directory)
-            self.assertEqual(len(audit),1)
-            self.assertIn("license-not-declared", audit[0]["flags"])
-            self.assertIn("license-text-not-in-wheel", audit[0]["flags"])
-
-
 if __name__ == "__main__":
     unittest.main()

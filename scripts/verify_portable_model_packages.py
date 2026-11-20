@@ -1,88 +1,69 @@
-"""Read-only verification of an extracted VoxWeaveTTS Universal v3 Portable.
+"""Read-only v4-only Windows Portable model / runtime verification.
 
-Run on Windows from the project directory, for example:
-
-  $stage = "$PWD\\dist\\VoxWeaveTTS-v3-validation-20261119"
-  & "$stage\\runtime\\python\\python.exe" -X utf8 scripts\\verify_portable_model_packages.py --stage "$stage" --deep
-
-The script verifies the native bundled MakHam package, embedded recovery
-archive, runtime tools, and (optionally) every installed model SHA-256.
-It does NOT install packages, modify settings, start a server, or download data.
+Never executes, installs, repairs or deletes model files. The legacy v3 layout
+is not supported, and no v3 reader is imported. A v4 default MakHam package
+must be present and its runtime must be ready.
 """
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-import sys
+
+from voxweavetts.portable_doctor import report
 
 
 def verify(stage: Path, *, deep: bool = False) -> dict:
     stage = Path(stage).resolve()
-    python = stage / "runtime" / "python" / "python.exe"
-    if not python.is_file():
-        raise ValueError("stage lacks the bundled Python interpreter")
-    if Path(sys.executable).resolve() != python.resolve():
-        raise ValueError("run verification with the Python bundled inside this stage")
-    if not (stage / "runtime" / "tools" / "uv.exe").is_file():
-        raise ValueError("offline v3 installer uv.exe is missing")
-    if not (stage / "scripts" / "wheelhouse-locks").is_dir():
-        raise ValueError("application-approved offline wheel locks are missing")
-    if not (stage / "Start-Console.cmd").is_file() or not (stage / "VoxWeaveTTS.exe").is_file():
-        raise ValueError("portable launchers are missing")
-    stage_src = (stage / "src").resolve()
-    if not stage_src.is_dir():
-        raise ValueError("portable source is missing")
-    sys.path.insert(0, str(stage_src))
-    from voxweavetts.portable_doctor import report
-    from voxweavetts.universal_model_packages import (
-        inspect_archive, installed_packages, native_tts_packages,
-    )
-    status = report(stage, verify_wheelhouse=deep)
-    if status["overall_state"] != "ready":
-        raise ValueError("v3 portable doctor rejected stage: " + status["overall_state"])
-    installed = installed_packages(stage)
-    core = [(m, folder) for m, folder in installed
-            if m["package"]["id"] == "makham-paradee"
-            and m["package"]["kind"] == "tts"
-            and m["package"]["version"] == "1.0.0"]
-    if len(core) != 1 or len(native_tts_packages(stage)) != 1 or len(installed) != 1:
-        raise ValueError("expected exactly one ready Universal v3 bundled MakHam model")
-    bundled_manifest = core[0][0]
-    if bundled_manifest["runtime"]["source"] != "core-bundled":
-        raise ValueError("built-in MakHam is not using the v3 core runtime")
-    archives = sorted((stage / "models" / "recovery-packages").glob("*.vwmodel"))
-    if len(archives) != 1:
-        raise ValueError("expected one offline v3 MakHam recovery archive")
-    restored_manifest = inspect_archive(archives[0])
-    if restored_manifest != bundled_manifest:
-        raise ValueError("recovery archive and bundled model metadata differ")
+    data = report(stage)
+    if data["overall_state"] != "ready":
+        raise ValueError("v4-only Portable is not ready: " + data["overall_state"])
+    if data["legacy_directory_present"]:
+        raise ValueError("v3 directory is not permitted in new v4 Portable")
+    models = data["packages"]
+    if len(models) != 1 or models[0]["package_id"] != "makham-paradee":
+        raise ValueError("expected only the default MakHam v4 model in Portable")
+    if models[0]["format_version"] != 4 or not models[0]["runtime_ready"]:
+        raise ValueError("v4 MakHam runtime is not ready")
+    forbidden = {
+        "universal_model_packages.py", "portable_runtime_v3.py",
+        "package_install_v3.py", "makham_package.py",
+        "engine_worker_host.py", "engine_worker_legacy.py",
+        "engine_worker_wayu.py",
+    }
+    source = stage / "src/voxweavetts"
+    if any((source / name).exists() for name in forbidden):
+        raise ValueError("v3-specific source module found inside v4 Portable")
+    if deep:
+        from voxweavetts.universal_model_v4 import installed_packages, _sha
+        for manifest, folder in installed_packages(stage):
+            for item in manifest["files"]:
+                if item["path"].startswith("runtime/wheels/"):
+                    continue
+                path = folder / item["path"]
+                if _sha(path) != item["sha256"]:
+                    raise ValueError("changed v4 model asset: " + item["path"])
     return {
-        "format": "voxweavetts.portable-v3-verification",
-        "verified": True,
-        "stage": str(stage),
-        "model": bundled_manifest["package"]["id"],
-        "recovery_archive": archives[0].name,
-        "deep_hash_verified": bool(deep),
-        "verified_models": status["summary"]["native_models"],
-        "offline_installer_bundled": True,
-        "read_only": True,
+        "format": "voxweavetts.portable-v4-verification",
+        "ready": True,
+        "deep": deep,
+        "model": models[0]["package_id"],
+        "format_version": 4,
+        "v3_package_support": False,
     }
 
 
-def main(argv: list[str] | None = None) -> int:
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stage", type=Path, required=True,
-                        help="Extracted Universal v3 Portable directory")
-    parser.add_argument("--deep", action="store_true",
-                        help="Hash all installed model assets (read-only)")
-    args = parser.parse_args(argv)
+    parser.add_argument("--stage", type=Path, required=True)
+    parser.add_argument("--deep", action="store_true")
+    args = parser.parse_args()
     try:
-        result = verify(args.stage, deep=args.deep)
-    except (OSError, ValueError, ImportError) as exc:
-        parser.exit(2, "Portable v3 validation failed: " + str(exc) + "\n")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
-    return 0
+        print(json.dumps(verify(args.stage, deep=args.deep),
+                         ensure_ascii=False, indent=2))
+        return 0
+    except (OSError, ValueError) as error:
+        parser.exit(2, "Portable v4-only check failed: " + str(error) + "\n")
 
 
 if __name__ == "__main__":

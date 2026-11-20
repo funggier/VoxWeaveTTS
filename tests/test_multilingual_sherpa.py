@@ -1,88 +1,52 @@
-"""Regression tests: independent CPU voice/language for Chinese and Korean."""
+"""v4 multidialect voice routing uses advertised metadata, never Core Sherpa code."""
 from __future__ import annotations
 
-import hashlib
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
-from voxweavetts.sherpa_voice_engine import (
-    SherpaVoiceEngine, SUPER_FILES, SUPER_VOICES, SUPER_LANGUAGES,
-)
 from voxweavetts.engine_contract import EngineInfo
+from voxweavetts.language_routes import voice_languages, save_routes
+from voxweavetts.processing import InputError
 
 
-class FakeAudio:
-    sample_rate = 44100
-    samples = [0.0] * 1024
+class V4MultilingualVoiceTests(unittest.TestCase):
+    def test_supertonic_voice_language_map_must_follow_each_voice(self):
+        voice_map={"ko_s0":"ko","ko_s1":"ko","en_s0":"en","ja_s1":"ja"}
+        info=EngineInfo(
+            id="model-supertonic3-multilingual-int8-1_0_0",
+            label="Supertonic v4", language="multi", sample_rate=44100,
+            voice_id="ko_s0",
+            voice_options=tuple((v,v) for v in voice_map),
+            voice_language_map=voice_map,
+            assets_ready=True,runtime_ready=True,capabilities={"speech":True})
+        with patch("voxweavetts.speech.get_engine_info",return_value=info):
+            for voice,lang in voice_map.items():
+                self.assertEqual(voice_languages(info.id,voice),{lang})
+            with tempfile.TemporaryDirectory() as tmp:
+                dest=Path(tmp)/"routes.json"
+                profile={"engine_id":info.id,"voice_id":"ja_s1"}
+                result=save_routes({"expected_revision":0,
+                                    "routes":{"ja":profile}},dest)
+                self.assertEqual(result["routes"]["ja"],profile)
+                with self.assertRaises(InputError):
+                    save_routes({"expected_revision":1,
+                                 "routes":{"zh":profile}},dest)
+
+    def test_chinese_onnx_uses_only_declared_languages(self):
+        info=EngineInfo(
+            id="model-melo-chinese-onnx-1_0_0",
+            label="Melo v4",language="zh",
+            voice_id="zh_melo",sample_rate=44100,
+            assets_ready=True,runtime_ready=True,
+            supported_languages=("zh","en"),
+            capabilities={"speech":True})
+        with patch("voxweavetts.speech.get_engine_info",return_value=info):
+            self.assertEqual(voice_languages(info.id,"zh_melo"),{"zh","en"})
+            with self.assertRaises(InputError):
+                voice_languages(info.id,"no-voice")
 
 
-class FakeSynth:
-    def __init__(self):
-        self.calls = []
-
-    def generate(self, text, *args):
-        self.calls.append((text, args))
-        return FakeAudio()
-
-
-class SherpaRoutingTests(unittest.TestCase):
-    def test_supertonic_lang_is_derived_from_each_selected_voice(self):
-        engine = SherpaVoiceEngine(
-            model_dir=Path("not-used"), engine_id="test-sherpa",
-            adapter="sherpa-supertonic-v1", voices=SUPER_VOICES,
-            sample_rate=44100)
-        fake = FakeSynth()
-        engine._native = fake
-        with (patch.dict("sys.modules", {"sherpa_onnx": SimpleNamespace(
-                GenerationConfig=lambda: SimpleNamespace(extra={}))}),
-              patch("voxweavetts.speech._float32_to_pcm", return_value=b"\x00\x00")):
-            for voice, text, lang in (
-                ("ko_s0", "안녕하세요", "ko"),
-                ("en_s1", "Hello", "en"),
-                ("ja_s0", "こんにちは", "ja"),
-                ("ko_s1", "반갑습니다", "ko")):
-                engine.select_voice(voice)
-                self.assertEqual(engine.generate(text, 1.0), b"\x00\x00")
-                gen = fake.calls[-1][1][0]
-                self.assertEqual(gen.extra["lang"], lang)
-                self.assertEqual(gen.sid, int(voice[-1]))
-        with self.assertRaises(Exception):
-            engine.select_voice("zh_s0")
-        with self.assertRaises(Exception):
-            engine.select_voice("ko_s9")
-
-    def test_chinese_melo_keeps_zh_voice_separate(self):
-        engine = SherpaVoiceEngine(
-            model_dir=Path("not-used"), engine_id="test-melo",
-            adapter="sherpa-melo-zh-v1",
-            voices=(("zh_melo", "Mandarin"),), sample_rate=44100)
-        fake = FakeSynth()
-        engine._native = fake
-        with (patch.dict("sys.modules", {"sherpa_onnx": SimpleNamespace()}),
-              patch("voxweavetts.speech._float32_to_pcm", return_value=b"\x00\x00")):
-            engine.select_voice("zh_melo")
-            self.assertEqual(engine.generate("你好", 1.2), b"\x00\x00")
-            self.assertEqual(fake.calls[0], ("你好", (0, 1.2)))
-        with self.assertRaises(Exception):
-            engine.select_voice("ko_s0")
-
-    def test_supertonic_has_31_languages_and_62_mapped_voices(self):
-        self.assertEqual(len(SUPER_LANGUAGES), 31)
-        self.assertEqual(len(SUPER_VOICES), 62)
-        self.assertIn("ko", SUPER_LANGUAGES)
-        self.assertNotIn("zh", SUPER_LANGUAGES)
-        info = EngineInfo(
-            id="test", label="Test", language="multi", voice_id="ko_s0",
-            sample_rate=44100, assets_ready=True, runtime_ready=True,
-            capabilities={}, voice_options=SUPER_VOICES,
-            voice_language_map={v: v[:2] for v, _ in SUPER_VOICES})
-        self.assertEqual(info.as_dict()["voice_language_map"]["ko_s0"], "ko")
-        self.assertEqual(info.as_dict()["voice_language_map"]["en_s1"], "en")
-
-
-# Universal v3 model schema and voice validation are tested independently.
-if __name__ == "__main__":
+if __name__=="__main__":
     unittest.main()

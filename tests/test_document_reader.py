@@ -174,8 +174,8 @@ class DocumentReaderTests(unittest.TestCase):
         coordinator = SpeechCoordinator(synth)
         try:
             job = coordinator.submit(
-                prepared, engine_id="fastthaig2p-cpu", voice_id="thai_som",
-                render_args={"engine_id":"fastthaig2p-cpu","voice_id":"thai_som"},
+                prepared, engine_id="model-makham-paradee-1_0_0", voice_id="paradee_thai",
+                render_args={"engine_id":"model-makham-paradee-1_0_0","voice_id":"paradee_thai"},
             )
             complete = coordinator.wait(job["speech_id"], timeout=3)
             self.assertEqual(complete["state"], "ready")

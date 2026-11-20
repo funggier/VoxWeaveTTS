@@ -77,7 +77,7 @@ class SpeechTests(unittest.TestCase):
         from voxweavetts.speech import DEFAULT_SEED, validate_seed
         plan = process_text("ฮ่า ฮ่า ฮ่า")
         _wav, details = render_wav(plan, engine=ConstantEngine(), seed=17)
-        self.assertEqual(details["seed"], 17)
+        self.assertIsNone(details["seed"])  # v4 MakHam does not advertise seed control
         self.assertEqual(validate_seed(DEFAULT_SEED), DEFAULT_SEED)
         for value in (-1, 2147483648, 2.3, True, "100", None):
             with self.assertRaises(InputError):
@@ -102,6 +102,6 @@ class SpeechTests(unittest.TestCase):
     def test_engine_id_and_capabilities(self):
         info = engine_info()
         self.assertEqual(info.id, ENGINE_ID)
-        self.assertEqual(info.voice_id, "thai_som")
+        self.assertEqual(info.voice_id, "paradee_thai")
         self.assertFalse(info.capabilities["voice_cloning"])
         self.assertFalse(info.capabilities["pitch"])

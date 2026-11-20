@@ -1,4 +1,4 @@
-"""Thin IPC VoiceEngine-compatible proxy for legacy and new installed engines."""
+"""VoiceEngine-compatible IPC proxy for installed Universal v4 TTS engines."""
 from __future__ import annotations
 
 from .engine_provider_catalog import Provider

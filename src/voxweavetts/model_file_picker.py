@@ -1,4 +1,4 @@
-"""Native local-only v3 model file picker. No browser-supplied paths."""
+"""Native local-only v4 model file picker. No browser-supplied paths."""
 from __future__ import annotations
 
 
@@ -19,8 +19,8 @@ def pick_model_file() -> str | None:
         root.update()
         return filedialog.askopenfilename(
             parent=root,
-            title="VoxWeaveTTS - Install Offline v3 Model Package",
-            filetypes=[("VoxWeaveTTS v3 Model Packages", "*.vwmodel")],
+            title="VoxWeaveTTS - Install Offline v4 Model Package",
+            filetypes=[("VoxWeaveTTS v4 Model Packages", "*.vwmodel")],
         ) or None
     except (OSError, RuntimeError, tk.TclError) as exc:
         raise ModelPackageDialogUnavailable("Windows native model picker unavailable") from exc

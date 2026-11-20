@@ -17,17 +17,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      # Universal v3's offline wheel installation regression runs uv against
+      # Universal v4's offline wheel installation regression runs uv against
       # a synthetic local wheelhouse. CI must provide uv explicitly rather
       # than assume a particular Windows hosted-runner image includes it.
       - uses: astral-sh/setup-uv@v7
-      # Test-only dependencies: wheel dependency closure and Ed25519 signing
-      # tests are security-critical, not stdlib-only. Install on both Python ABIs.
+      # Test-only dependencies support offline-wheel metadata and rights audits.
+      # Install on both Python ABIs.
       - name: Install test-only audit and signature dependencies
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check "packaging>=24,<27" "cryptography>=46,<48"
-      - name: Unit tests with audit/signature dependencies
+      - name: Universal v4-only Python regression tests
         shell: pwsh
         run: |
           $env:PYTHONPATH = Join-Path (Get-Location) 'src'

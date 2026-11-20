@@ -5,8 +5,7 @@ authorizes its Python worker code. The archive is not intrinsically trusted;
 hashes prove integrity against its own manifest, NOT publisher identity.
 External workers run out-of-process with the current user's OS permissions.
 
-v3 remains readable/operational for already-installed models, but v4 is the
-new extension path. No v4 adapter, runtime hash or engine ID is built into Core.
+v4 is the only model-package format accepted by the Core. No v4 adapter, runtime hash or engine ID is built into Core.
 """
 from __future__ import annotations
 
@@ -23,7 +22,17 @@ import threading
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from .portable_runtime_v3 import core_python
+def core_python(root: Path) -> Path:
+    """Locate the embedded Python 3.11 runtime without any legacy v3 module."""
+    root = Path(root)
+    portable = root / "runtime" / "python" / "python.exe"
+    if portable.is_file():
+        return portable
+    development = root / ".venv" / "Scripts" / "python.exe"
+    if development.is_file():
+        return development
+    raise V4PackageError("portable Python 3.11 runtime is missing")
+
 
 ROOT = Path(__file__).resolve().parents[2]
 FORMAT = "voxweavetts.model-package"
@@ -119,7 +128,8 @@ def validate_manifest(m: object) -> dict:
         or engine.get("entrypoint") not in ("plugin/worker.py", "plugin/worker.exe")):
         raise V4PackageError("invalid v4 worker protocol / entrypoint")
     if pkg["kind"] == "tts":
-        if (set(engine) != {"protocol", "entrypoint", "language", "sample_rate", "voices"}
+        required_tts = {"protocol", "entrypoint", "language", "sample_rate", "voices"}
+        if (set(engine) not in (required_tts, required_tts | {"voice_language_map"})
             or not isinstance(engine["language"], str)
             or not (engine["language"] == "multi" or _LANG.fullmatch(engine["language"]))
             or type(engine["sample_rate"]) is not int
@@ -135,6 +145,13 @@ def validate_manifest(m: object) -> dict:
                 or not 1 <= len(voice["label"]) <= 110):
                 raise V4PackageError("invalid v4 voice")
             voice_ids.add(voice["id"])
+        by_voice = engine.get("voice_language_map", {})
+        if (not isinstance(by_voice, dict)
+            or not set(by_voice) <= voice_ids
+            or any(not isinstance(lang, str) or lang not in pkg["languages"]
+                   for lang in by_voice.values())
+            or (engine["language"] == "multi" and set(by_voice) != voice_ids)):
+            raise V4PackageError("multilingual v4 voices must declare exact language mapping")
     elif (set(engine) != {"protocol", "entrypoint", "operation", "languages"}
           or engine["operation"] != "translate"
           or not isinstance(engine["languages"], list)
@@ -303,7 +320,7 @@ def ready(root: Path, m: dict) -> bool:
 
 
 def _verify_wheel(file: Path) -> None:
-    """Retain the v3 ZIP traversal, .pth and executable installer protections."""
+    """Reject ZIP traversal, startup hooks and executable wheel installers."""
     with zipfile.ZipFile(file) as z:
         names = set()
         for entry in z.infolist():

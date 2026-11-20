@@ -1,5 +1,0 @@
-# Shared provider environment for builtin FastThaiG2P and MakHam / FastThai .vwmodel.
-pythaitts==1.0.0
-onnxruntime==1.31.1
-numpy==2.2.6
-pythainlp==5.4.0

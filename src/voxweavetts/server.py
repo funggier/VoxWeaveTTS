@@ -50,20 +50,14 @@ from .tiktok_extension import extension_id_from_origin, ExtensionBridgeError
 from .profile_export import (save_source_profile_dialog, SaveDialogBusy,
                              SaveDialogUnavailable)
 from .model_file_picker import ModelPackageDialogUnavailable
-from .universal_model_packages import (
-    installed_packages as installed_universal_packages,
-    package_status as universal_package_status,
-    remove_model_package as remove_universal_package,
-    UniversalPackageError,
-)
 from .universal_model_v4 import (
+    V4PackageError as UniversalPackageError,
     installed_packages as installed_v4_packages,
     status as v4_package_status,
     remove as remove_v4_package,
     backend_id as v4_backend_id,
 )
 from .manual_alignment import timing_metrics
-from .engine_provider_catalog import provider_for_adapter
 from .engine_worker_gateway import gateway
 from .engine_contract import ADAPTER_API_VERSION
 from .voice_controls import validate_controls
@@ -707,12 +701,8 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/v1/settings/synthesis":
                 self.send_json(200, {"seed": _read_seed()})
             elif route == "/v1/model-packages":
-                # v3 installed packages coexist with new v4 plugin engines.
                 self.send_json(200, {
                     "packages": [
-                        universal_package_status(m, folder=folder)
-                        for m, folder in installed_universal_packages()
-                    ] + [
                         v4_package_status(m, folder)
                         for m, folder in installed_v4_packages()
                     ],
@@ -757,20 +747,6 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(400, {"error": "invalid model name"})
             elif route == "/v1/ai/packages":
                 packages = []
-                for manifest, folder in installed_universal_packages():
-                    if manifest["package"]["kind"] != "translation":
-                        continue
-                    detail = universal_package_status(manifest, folder=folder)
-                    packages.append({
-                        "key": detail["package_id"] + "@" + detail["version"],
-                        "package_id": detail["package_id"],
-                        "version": detail["version"],
-                        "title": detail["title"],
-                        "adapter": detail["engine_adapter"],
-                        "license": detail["license"],
-                        "runtime_state": detail["runtime_state"],
-                        "runtime_ready": detail["runtime_ready"],
-                    })
                 for manifest, folder in installed_v4_packages():
                     if manifest["package"]["kind"] != "translation":
                         continue
@@ -928,7 +904,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route in ("/v1/ai/packages/install-local",
                      "/v1/ai/packages/remove-legacy"):
-            self.send_json(410, {"error": "use the single offline v3 Model Package Manager"})
+            self.send_json(410, {"error": "use the single offline v4 Model Package Manager"})
             return
         if route == "/v1/ai/packages/remove":
             self.send_json(410, {"error": "use /v1/model-packages/remove"})
@@ -959,7 +935,7 @@ class Handler(BaseHTTPRequestHandler):
                 if route.endswith("/inspect-local"):
                     if payload != {}:
                         raise UniversalPackageError("package preview has no user parameters")
-                    from .package_install_v3 import preview
+                    from .package_install_v4 import preview
                     self.send_json(200, preview())
                 elif route.endswith("/install-confirmed"):
                     if (not isinstance(payload, dict)
@@ -968,7 +944,7 @@ class Handler(BaseHTTPRequestHandler):
                         or payload["accepted_rights"] is not True
                         or type(payload["acknowledged_noncommercial"]) is not bool):
                         raise UniversalPackageError("explicit offline package consent required")
-                    from .package_install_v3 import commit
+                    from .package_install_v4 import commit
                     installed = commit(
                         payload["token"],
                         accepted_rights=payload["accepted_rights"],
@@ -977,7 +953,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(200, {"installed": True, **installed})
                 else:
                     if not isinstance(payload, dict) or set(payload) != {"package_id", "version"}:
-                        raise UniversalPackageError("invalid v3 package removal request")
+                        raise UniversalPackageError("invalid v4 package removal request")
                     v4_match = next((
                         m for m, _ in installed_v4_packages()
                         if m["package"]["id"] == payload["package_id"]
@@ -994,41 +970,13 @@ class Handler(BaseHTTPRequestHandler):
                             refresh_engine_registry()
                         self.send_json(200, {"removed": removed})
                         return
-                    match = next((
-                        manifest for manifest, _ in installed_universal_packages()
-                        if manifest["package"]["id"] == payload["package_id"]
-                        and manifest["package"]["version"] == payload["version"]
-                    ), None)
-                    if match is None:
-                        self.send_json(200, {"removed": False})
-                        return
-                    if match["package"]["kind"] == "tts":
-                        provider = provider_for_adapter(match["adapter"]["id"])
-                        if provider is not None:
-                            gateway().reset(provider.backend)
-                    elif match["package"]["kind"] == "translation":
-                        from .m2m_runtime import reset as reset_m2m
-                        from .ai_engine_registry import _M2M_INFERENCE_LOCK, _loaded_m2m
-                        with _M2M_INFERENCE_LOCK:
-                            reset_m2m()
-                            _loaded_m2m.cache_clear()
-                    removed = remove_universal_package(payload["package_id"], payload["version"])
-                    if removed:
-                        refresh_engine_registry()
-                    self.send_json(200, {"removed": removed})
             except ModelPackageDialogUnavailable:
                 self.send_json(503, {"error": "native file chooser is unavailable"})
             except (UniversalPackageError, ValueError, KeyError, InputError,
                     UnicodeDecodeError, json.JSONDecodeError, TypeError):
-                self.send_json(400, {"error": "offline v3/v4 package, rights, runtime, or checksum invalid"})
+                self.send_json(400, {"error": "offline v4 package, rights, runtime, or checksum invalid"})
             except (OSError, zipfile.BadZipFile):
-                self.send_json(400, {"error": "local v3/v4 package is missing or invalid"})
-            except Exception as exc:
-                from .portable_runtime_v3 import OfflineRuntimeError
-                if isinstance(exc, OfflineRuntimeError):
-                    self.send_json(409, {"error": str(exc)[:800]})
-                else:
-                    raise
+                self.send_json(400, {"error": "local v4 package is missing or invalid"})
             return
         if route == "/v1/sources/save-profile":
             # JSON may contain a Bot Token or Client Secret. Browsers cannot

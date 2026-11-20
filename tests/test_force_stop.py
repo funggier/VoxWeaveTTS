@@ -25,10 +25,10 @@ class StopCommandTests(unittest.TestCase):
         self.assertTrue((ROOT / "scripts" / "Stop-VoxWeaveTTS.ps1").is_file())
         primary = (ROOT / "scripts" / "Build-Portable.ps1").read_text(encoding="utf-8")
         self.assertIn("Build-Portable-V4.ps1", primary)
-        portable_script = (ROOT / "scripts" / "Build-Portable-V3.ps1").read_text(encoding="utf-8")
+        portable_script = (ROOT / "scripts" / "Build-Portable-V4.ps1").read_text(encoding="utf-8")
         self.assertIn("Stop-Console.cmd", portable_script)
         self.assertIn("Stop-VoxWeaveTTS.cmd", portable_script)
-        self.assertIn("wheelhouse-locks", portable_script)
+        self.assertIn("bootstrap_v4_portable.py", portable_script)
         self.assertNotIn("Install-EngineProvider.ps1", portable_script)
         self.assertNotIn("Install-WayuWorker.ps1", portable_script)
 

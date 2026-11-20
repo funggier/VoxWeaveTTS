@@ -1,20 +1,16 @@
 """Independent AI Engine Registry, with trusted, opt-in translation adapters.
 
-Like the Voice Engine Registry, model files are data, never executable plugins.
-The two built-in adapters may be unavailable until their separate runtime/assets
-are present. More adapters can be registered by trusted application code.
+M2M100 executes only inside its v4 package Worker; Ollama is a separate
+user-configured local service, not a .vwmodel package.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from importlib.util import find_spec
 from pathlib import Path
 from threading import RLock
 from typing import Any, Callable, Protocol, runtime_checkable
 
 ADAPTER_API_VERSION = 1
-MODEL_DIR = Path(__file__).resolve().parents[2] / "models" / "ai" / "m2m100_418m"
-_M2M_FILES = ("config.json", "vocab.json", "sentencepiece.bpe.model", "model.safetensors")
 
 
 @dataclass(frozen=True)
@@ -109,93 +105,18 @@ class OllamaAdapter:
         return _ollama_chat(text, settings, context)
 
 
-_M2M_INFERENCE_LOCK = RLock()
-
-
-from functools import lru_cache
-
-
-@lru_cache(maxsize=2)
-def _loaded_m2m(folder: str):
-    # Only isolated M2M workers call this function; never import PyTorch into
-    # the Portable Core. Default high CPU thread counts plus beam search can
-    # exceed the Live queue deadline, even for a tiny sentence.
-    import os
-    import torch
-    from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
-
-    torch.set_num_threads(min(2, max(1, os.cpu_count() or 2)))
-    try:
-        torch.set_num_interop_threads(1)
-    except RuntimeError:
-        # PyTorch permits only one inter-op configuration per interpreter.
-        pass
-    torch.set_grad_enabled(False)
-    tokenizer = M2M100Tokenizer.from_pretrained(folder, local_files_only=True)
-    model = M2M100ForConditionalGeneration.from_pretrained(
-        folder, local_files_only=True, use_safetensors=True
-    ).eval()
-    return tokenizer, model
-
-
 class M2M100Adapter:
-    """Translate with a trusted isolated worker; model weights are data only."""
+    """Only the installed v4 model's own Worker can run translation."""
 
     def process(self, text: str, settings: dict[str, Any],
-                context: list[dict[str, str]], *, inline_worker: bool = False) -> str:
+                context: list[dict[str, str]]) -> str:
         if settings["operation"] != "translate":
             raise RuntimeError("M2M100 translates text only")
-        from .universal_model_packages import native_translation_packages
         info = m2m_info()
         if not info.assets_ready or not info.runtime_ready:
-            raise RuntimeError("M2M100 model/runtime not installed")
-        # Never load a 418M-parameter model into the portable Core merely
-        # because Torch happened to be installed there. Only the trusted
-        # subprocess may execute the heavy inline inference path.
-        if not inline_worker:
-            from .m2m_runtime import translate
-            return translate(text, settings)
-        packages = native_translation_packages()
-        folder = next((path for m, path in packages
-                       if settings["model"] == m["package_id"] + "@" + m["version"]), None) if settings["model"] else None
-        if folder is None and not settings["model"] and len(packages) == 1:
-            folder = packages[0][1]
-        if folder is None:
-            raise RuntimeError("choose an installed M2M100 model in AI Settings")
-        source = settings["source_language"]
-        target = settings["target_language"]
-        if source == "auto":
-            raise RuntimeError("M2M100 requires an explicit source language")
-        if source == target:
-            return text
-        # Import only in this optional adapter. Keep core and portable runtime
-        # dependency-free. The trusted local folder must use safetensors, not
-        # untrusted model Python/pickle from a ZIP package.
-        # Cache each trusted local model once and serialize tokenizer source
-        # changes. Recreating 418M parameters for every live chat is not viable.
-        with _M2M_INFERENCE_LOCK:
-            # Loading and using the checkpoint share a lock with model removal.
-            # Never delete legacy weights while another job opens them.
-            tokenizer, model = _loaded_m2m(str(folder))
-            tokenizer.src_lang = source
-            # Never silently drop part of a Live message. The structured
-            # M2M100 pipeline splits input before the tokenizer; if subword
-            # token count still exceeds the checkpoint limit, use fallback.
-            tokens = tokenizer(text, return_tensors="pt", truncation=False)
-            if tokens["input_ids"].shape[-1] > 512:
-                raise ValueError("M2M100 segment exceeds 512 source tokens; split or shorten text")
-            # Preserve the original four-beam translation quality; the
-            # dedicated worker uses only two CPU threads and no autograd.
-            # On the tested Windows host four beams then completed faster
-            # than a second instead of timing out with default thread count.
-            # Keep the standard non-early beam stopping: early_stopping=True
-            # produced shorter/incomplete Thai translations in a real test.
-            output = model.generate(**tokens,
-                                    forced_bos_token_id=tokenizer.get_lang_id(target),
-                                    max_new_tokens=192, num_beams=4,
-                                    early_stopping=False, do_sample=False)
-            decoded = tokenizer.batch_decode(output, skip_special_tokens=True)
-        return decoded[0] if decoded else ""
+            raise RuntimeError("M2M100 v4 translation package is not installed")
+        from .m2m_runtime import translate
+        return translate(text, settings)
 
 
 def ollama_info() -> AIEngineInfo:
@@ -218,18 +139,16 @@ def ollama_info() -> AIEngineInfo:
 
 
 def m2m_info() -> AIEngineInfo:
-    from .universal_model_packages import native_translation_packages
-    from .universal_model_v4 import installed_packages as v4_installed
-    v4_models = any(m["package"]["kind"] == "translation"
-                    and m["package"]["id"] == "m2m100-418m"
-                    for m, _ in v4_installed())
-    ready_files = bool(native_translation_packages()) or v4_models
+    from .universal_model_v4 import installed_packages
+    ready_files = any(m["package"]["kind"] == "translation"
+                      and m["package"]["id"] == "m2m100-418m"
+                      for m, _ in installed_packages())
     from .m2m_runtime import ready as isolated_runtime_ready
     deps = isolated_runtime_ready()
     return AIEngineInfo(
         "m2m100", "M2M100 418M (ทดลอง / accuracy varies)", "translation", False, False,
         ready_files, deps,
-        "Universal .vwmodel v4 (v3 migration fallback): offline model/runtime; "
+        "Universal .vwmodel v4 only: offline model/runtime; "
         "requires the optional isolated M2M100 Python runtime (torch, transformers, "
         "sentencepiece, safetensors) installed automatically from one verified file; "
         "experimental translation quality - verify meaning before live use",

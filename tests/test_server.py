@@ -51,14 +51,14 @@ class ServerTests(unittest.TestCase):
     def test_engine_listing(self):
         with urlopen(self.base+"/v1/engines",timeout=3) as r:
             info=json.load(r)
-        self.assertEqual(info["engines"][0]["id"], "fastthaig2p-cpu")
+        self.assertEqual(info["engines"][0]["id"], "model-makham-paradee-1_0_0")
         self.assertEqual(info["engines"][0]["language"], "th")
         self.assertFalse(info["engines"][0]["capabilities"]["voice_cloning"])
         self.assertEqual(info["engines"][0]["commercial_status"], "review_required")
         self.assertEqual(info["engines"][0]["adapter_api_version"], 1)
         with urlopen(self.base+"/v1/voices",timeout=3) as r:
             voices=json.load(r)
-        self.assertEqual(voices["voices"][0]["id"], "thai_som")
+        self.assertEqual(voices["voices"][0]["id"], "paradee_thai")
 
     def test_speech_api_with_fake_synthesizer(self):
         from unittest.mock import patch
@@ -71,8 +71,8 @@ class ServerTests(unittest.TestCase):
         req=Request(self.base+"/v1/speech",data=payload,headers={"Content-Type":"application/json"},method="POST")
         from dataclasses import replace
         from voxweavetts.speech import get_engine_info
-        ready = replace(get_engine_info("fastthaig2p-cpu"), assets_ready=True, runtime_ready=True)
-        with patch("voxweavetts.server.get_engine_info", return_value=ready), patch("voxweavetts.server.render_wav",return_value=(sample,{"engine_id":"fastthaig2p-cpu","duration_ms":meta["duration_ms"],"seed":100})):
+        ready = replace(get_engine_info("model-makham-paradee-1_0_0"), assets_ready=True, runtime_ready=True)
+        with patch("voxweavetts.server.get_engine_info", return_value=ready), patch("voxweavetts.server.render_wav",return_value=(sample,{"engine_id":"model-makham-paradee-1_0_0","duration_ms":meta["duration_ms"],"seed":100})):
             with urlopen(req,timeout=3) as response:
                 self.assertEqual(response.status,200)
                 self.assertEqual(response.headers["Content-Type"],"audio/wav")
@@ -126,7 +126,7 @@ class ServerTests(unittest.TestCase):
             seen = {}
             def mock_audio(*args, **kwargs):
                 seen["seed"] = kwargs.get("seed")
-                return wav, {"engine_id": "fastthaig2p-cpu",
+                return wav, {"engine_id": "model-makham-paradee-1_0_0",
                              "duration_ms": details["duration_ms"], "seed":kwargs["seed"]}
             speech_request = Request(
                 self.base + "/v1/speech",
@@ -135,7 +135,7 @@ class ServerTests(unittest.TestCase):
             )
             from dataclasses import replace
             from voxweavetts.speech import get_engine_info
-            ready = replace(get_engine_info("fastthaig2p-cpu"), assets_ready=True, runtime_ready=True)
+            ready = replace(get_engine_info("model-makham-paradee-1_0_0"), assets_ready=True, runtime_ready=True)
             with patch("voxweavetts.server.get_engine_info", return_value=ready), patch("voxweavetts.server.render_wav", side_effect=mock_audio):
                 with urlopen(speech_request, timeout=3) as response:
                     self.assertEqual(response.headers["X-VoxWeaveTTS-Seed"], "123")

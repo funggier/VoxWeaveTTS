@@ -1,61 +1,13 @@
-# M2M100 418M — วิธีติดตั้งและแก้ปัญหา
+# M2M100 Translation — Universal v4
 
-## อัปเดต Native v2 และการแปลจริง (หลัง v0.10.1)
+M2M100 418M เป็นแพ็กเกจ **Translation .vwmodel v4** แยกจาก TTS Engine ทั้งหมด มาพร้อมโมเดล Safetensors, Tokenizer, Python Worker และ Offline Dependencies ที่จำเป็น
 
-**สำหรับรุ่นใหม่:** ตั้งแต่ v0.10.0 ระบบ Model Package Manager ใช้ Native `.vwmodel v2` แทน AI Package v1 แบบเดิม โดยใช้ `VoxWeaveTTS-M2M100-418M-v1.0.0-format-v2.vwmodel` (ไฟล์โมเดล) และ `VoxWeaveTTS-m2m100-win_amd64-py311-wheelhouse.zip` (Dependencies สำหรับ Windows x64 / Python 3.11) ซึ่งดาวน์โหลดแยกจาก Portable หลัก
+ผู้ใช้เลือกไฟล์ .vwmodel v4 จากหน้าจัดการ Model Packages แล้วกดติดตั้งครั้งเดียว โปรแกรมจัดการ Python 3.11 และ Runtime แยกให้เอง ไม่ต้องเชื่อมต่อ PyPI, Ollama หรือ Hugging Face เพื่อโหลดข้อมูลเพิ่มขณะใช้งาน
 
-หลังติดตั้งโมเดลผ่าน **ตั้งค่า → Model Packages** ให้เตรียม Wheelhouse แล้วเลือกติดตั้ง Runtime แบบ Offline จาก Runtime Registry เมื่อย้ายโฟลเดอร์ ให้ใช้ **Portable Doctor** และคำสั่งซ่อมจาก Verified Wheelhouse โดยต้องยืนยันก่อนทำงาน
+Worker รับข้อความและภาษาต้นทาง/ปลายทางผ่าน JSON Lines และส่งข้อความแปลกลับ Core ตามระบบแปลภาษาเดิม ข้อความภายนอกเป็นข้อมูลเท่านั้น ไม่ใช่คำสั่งให้ AI
 
-**Source ที่พัฒนาหลัง v0.10.1:** แก้ปัญหา M2M100 Worker ทำงานช้า/หมดเวลาโดยจำกัด CPU Threads เฉพาะ Worker และทดสอบแปลอังกฤษ↔ไทยจริงแล้ว [รายละเอียดและคำสั่งทดสอบ](M2M100_CPU_RUNTIME_VALIDATION_TH.md) / [Portable Doctor](PORTABLE_DIAGNOSTICS_TH.md) แพ็กเกจ Release v0.10.1 ยังไม่มีการแก้ประสิทธิภาพนี้
+**QA:** แปล EN→TH และ TH→EN สำเร็จ แต่คุณภาพบางประโยคยังไม่เป็นธรรมชาติ และต้องมี Windows RAM/Commit เพียงพอสำหรับ PyTorch
 
-**เนื้อหาด้านล่างเป็นคู่มือเก่าของ v0.9.5** โดยกล่าวถึง Manifest ของ AI Package v1 และ Path เก่า; ไม่ควรนำขั้นตอนนั้นไปใช้ติดตั้งไฟล์ Native v2 รุ่นปัจจุบัน
+ไฟล์โมเดล QA v4 ยังไม่ผ่านการตรวจสิทธิ์ Redistribute ครบ จึงไม่ได้เผยแพร่เป็น Public Release
 
----
-
-**สถานะ:** โมเดลทดลอง (Experimental) ไม่รับรองความแม่นยำการแปลหรือความเหมาะสมสำหรับ Live ทุกกรณี
-
-## ถ้าติดตั้ง .vwmodel ไม่สำเร็จ
-
-M2M100 เป็น **AI/Translation Model Package** แม้จะใช้นามสกุล `.vwmodel` เหมือน TTS แต่ Manifest คนละประเภท (`voxweavetts.ai-model-package` กับ `voxweavetts.model-package`)
-
-Source ที่แก้ไขหลัง v0.9.4 รองรับการเลือก M2M100 ผ่าน **Model Package Manager หลักหรือ AI/Translation Model Packages** โดยอ่านชนิด Manifest ก่อนส่งเข้าตัวติดตั้งที่ถูกต้อง; รุ่น v0.9.4 ที่เผยแพร่ก่อนการแก้ไขนี้ต้องใช้เมนู **ตั้งค่า → AI / Translation → AI/Translation Model Packages → ติดตั้ง AI Model Package** เท่านั้น
-
-- ไฟล์แพ็กเกจ: `VoxWeaveTTS-M2M100-418M-v1.0.0.vwmodel` ดาวน์โหลดแยกจาก Release
-- หลังเลือกไฟล์ การตรวจ SHA-256 และแตกข้อมูลน้ำหนักจริง **1,935,681,888 ไบต์** อาจใช้เวลานาน เพราะต้องตรวจไฟล์เต็มและเขียนลงดิสก์แบบปลอดภัย ให้รอจนหน้าโปรแกรมแจ้งผล
-- ตัวติดตั้งจะวางใน `models/ai/packages/m2m100-418m/1.0.0/` โดยไม่ลบโมเดลรุ่นเก่า `models/ai/m2m100_418m/` หรือ Settings/Presets เดิม
-- ถ้าเห็น **already installed** แปลว่ามีแพ็กเกจรุ่นเดียวกันติดตั้งแล้ว ให้กดรีเฟรชรายการ ไม่จำเป็นต้องติดตั้งซ้ำ
-- ต้องมีพื้นที่ว่างเพิ่มเติมอย่างน้อยประมาณ 2 GB สำหรับไฟล์ที่แตกออกมา (มากกว่านี้สำหรับ Runtime/Cache)
-
-## ติดตั้ง PyTorch/Transformers Runtime แบบแยก Environment
-
-**การติดตั้งน้ำหนักโมเดลสำเร็จ ไม่ได้หมายความว่า Runtime พร้อมแปลภาษาแล้ว** รุ่น Portable ไม่รวม Torch/Transformers ใน ZIP หลัก เพื่อไม่ให้ไปรบกวน NumPy/ONNX Runtime ของโมเดล TTS
-
-ใน Source ที่แก้ไขหลัง v0.9.4:
-
-1. เปิด **ตั้งค่า → AI / Translation**
-2. กด **ติดตั้ง / ซ่อม Runtime M2M100 (แยก Environment · uv)** แล้วดูสถานะผ่านปุ่ม **ตรวจสถานะ Runtime M2M100**
-3. ต้องมี `uv` ใน PATH และอินเทอร์เน็ตครั้งแรกสำหรับติดตั้ง Dependencies ที่กำหนดไว้ใน `scripts/ai-dependencies/m2m100.txt`
-4. Runtime จะอยู่ที่ `runtime/ai-envs/m2m100/`, Log ที่ `logs/ai-runtime/install-m2m100.log` และ Cache ภายใน `cache/` ของโปรแกรม ไม่แตะ Ollama หรือ Python Environment ของโมเดลเสียง
-5. เมื่อ Runtime พร้อม เลือก **Engine: M2M100**, เลือกแพ็กเกจ `m2m100-418m@1.0.0` และกำหนดภาษาต้นทาง/ปลายทางให้ชัดเจน กดบันทึก Settings แล้วทดสอบข้อความก่อนใช้งานจริง
-
-หากต้องการติดตั้งแบบคำสั่ง ให้รันในโฟลเดอร์ VoxWeaveTTS:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-M2M100Runtime.ps1
-```
-
-Python 3.11 ของ Portable สามารถเรียก M2M100 ผ่าน Worker IPC แบบ Offline ที่ใช้ Process แยก โมเดลที่โหลดแล้วถูกเก็บไว้ใน Worker เพื่อไม่ต้องโหลดใหม่ทุกข้อความ และ Stop ของ VoxWeaveTTS จะจัดการ Process ที่เป็นเจ้าของเองอย่างปลอดภัย
-
-หากย้ายทั้งโฟลเดอร์ Portable หลังติดตั้ง Runtime ไปคนละ Drive ให้ใช้ Install/Repair Runtime อีกครั้ง เนื่องจาก Windows virtual environment อาจจดจำที่อยู่เดิม
-
-## ข้อจำกัดการแปลและสิทธิ์
-
-- Upstream: [facebook/m2m100_418M](https://huggingface.co/facebook/m2m100_418M) ที่ Revision `1fa802356610a66e78d152c9f4a16206f88315e5`
-- Official safetensors SHA-256: `c061a21eec15453944783ceb4a13a216477dd4765c98fac10811818adf994968`
-- การใช้โมเดล M2M100 ส่งเฉพาะข้อมูลการแปล (ข้อความ, รหัสภาษาต้นทาง/ปลายทาง และ Model ID ที่ตรวจสอบแล้ว) ไม่ส่ง Prompt, คำสั่งจากแชท, API Keys หรือข้อมูลส่วนตัวไปให้โมเดลหรือคำสั่งติดตั้ง
-- M2M100 ไม่ใช่ LLM ไม่เข้าใจ Priority/Custom Prompt และการแปลออกมาเป็นภาษาเป้าหมาย **ไม่ใช่หลักฐานว่าความหมายถูกต้อง**
-- ทดลองจริงพบว่าแปลอังกฤษ→ไทยข้อความสั้น `Good morning.` ออกมาเป็น `ดีเช้า` ซึ่งฟังไม่เป็นธรรมชาติ จึงควรทดสอบและตรวจคุณภาพก่อนเปิดอ่านแชท Live
-- ยังคง Pipeline กฎเฉพาะโหมด → กฎส่วนกลางก่อน AI → แปล → กฎส่วนกลางหลัง AI → TTS และการแยกข้อความตามภาษาหลังแปลได้ตาม Settings
-- หากเลือกภาษาเป้าหมาย **ไม่ระบุ** M2M100 จะข้ามการแปลตามที่กำหนด
-
-**การเผยแพร่:** แพ็กเกจน้ำหนัก M2M100 เป็น Asset แยกใน Release ไม่รวมใน Portable ZIP หลัก; การดาวน์โหลดโมเดลไม่ได้ให้สิทธิ์รันโค้ดใด ๆ จากภายใน .vwmodel
+[คู่มือ v4](UNIVERSAL_VWMODEL_V4_TH.md) · [ผล QA](V4_ALL_MODEL_QA_TH.md)

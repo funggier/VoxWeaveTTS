@@ -1,43 +1,31 @@
-# VoxWeaveTTS v3 release checksum list. Only the audited v3 assets.
-param([string]$Version = '0.11.0', [switch]$SkipOptionalPackages)
-$ErrorActionPreference = 'Stop'
-$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$dist = Join-Path $root 'dist'
-# v0.11.0 is a historical incomplete-model release. Future v3 versions
-# MUST pass the complete eight-model gate before checksums can be generated.
-if ($Version -ne '0.11.0') {
-    if ($SkipOptionalPackages) {throw 'Complete v3 releases cannot omit optional model packages'}
-    $python = Join-Path $root '.venv\Scripts\python.exe'
-    if (!(Test-Path -LiteralPath $python)) {$python = Join-Path $root 'runtime\python\python.exe'}
-    if (!(Test-Path -LiteralPath $python)) {throw 'Python for full v3 release gate not found'}
-    & $python -X utf8 (Join-Path $root 'scripts\verify_complete_v3_release.py')
-    if ($LASTEXITCODE -ne 0) {throw 'Full v3 model catalog is incomplete or blocked; refusing release checksums'}
-}
-$names = @(
-    ("VoxWeaveTTS-v{0}-portable.zip" -f $Version),
-    'VoxWeaveTTS-TikTok-Extension-v0.2.5.zip'
+# Universal v4-only QA checksum generator. Public distribution remains rights-gated.
+param(
+  [string]$Version='0.12.0-dev0',
+  [switch]$QA
 )
-if (!$SkipOptionalPackages) {
-    $names += @(
-      'ModelPackagesV3/VoxWeaveTTS-MakHam-Paradee-Thai-English-v1.0.0-format-v3.vwmodel',
-      'ModelPackagesV3/VoxWeaveTTS-fastthaig2p-thai-som-0.3.0-format-v3.vwmodel',
-      'ModelPackagesV3/VoxWeaveTTS-m2m100-418m-1.0.0-format-v3.vwmodel',
-      'ModelPackagesV3/VoxWeaveTTS-melo-chinese-onnx-1.0.0-format-v3.vwmodel',
-      'ModelPackagesV3/VoxWeaveTTS-supertonic3-multilingual-int8-1.0.0-format-v3.vwmodel',
-      'ModelPackagesV3/CATALOG-v3.json'
-    )
+$ErrorActionPreference='Stop'
+$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$python=Join-Path $root '.venv\Scripts\python.exe'
+if (!(Test-Path $python)) {throw 'Development Python is not available'}
+$packages=Join-Path $root 'dist\ModelPackagesV4-QA'
+if (!$QA) {
+  & $python -X utf8 (Join-Path $root 'scripts\verify_v4_model_inventory.py') --packages $packages --require-cleared
+  throw 'Public Release BLOCKED: v4 model/Dependency rights review is pending. Use -QA for private checksums only.'
 }
-$lines = New-Object System.Collections.Generic.List[string]
-foreach($name in $names) {
-    $file = Join-Path $dist ($name.Replace('/', '\'))
-    if(!(Test-Path -LiteralPath $file -PathType Leaf)) {
-        throw "Missing v3 release asset: $name"
-    }
-    $sha = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
-    $filename = [IO.Path]::GetFileName($file)
-    $lines.Add("$sha  $filename")
-    Write-Output ("RELEASE_ASSET=$filename SHA256=$sha SIZE_BYTES="+(Get-Item $file).Length)
+& $python -X utf8 (Join-Path $root 'scripts\verify_v4_model_inventory.py') --packages $packages --deep
+if ($LASTEXITCODE -ne 0) {throw 'v4 QA model integrity gate failed'}
+$files=@(Get-ChildItem -LiteralPath $packages -File -Filter '*UNRELEASED-QA-format-v4.vwmodel' | Sort-Object Name)
+if ($files.Count -ne 8) {throw ('Expected eight v4 QA archives, found '+$files.Count)}
+$lines=@(
+  '# UNRELEASED QA ONLY - NOT FOR PUBLIC DISTRIBUTION',
+  '# v4 model weights and runtime wheel licensing not yet cleared'
+)
+foreach($file in $files) {
+  $hash=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+  $lines+=("$hash *"+$file.Name)
 }
-$out = Join-Path $dist ("SHA256SUMS-v{0}.txt" -f $Version)
-[IO.File]::WriteAllLines($out, $lines.ToArray(), (New-Object System.Text.UTF8Encoding($false)))
-Write-Output ("RELEASE_CHECKSUMS=$out")
+$output=Join-Path $packages 'SHA256SUMS-v4-QA.txt'
+$lines | Set-Content -LiteralPath $output -Encoding UTF8
+Write-Output ('V4_QA_CHECKSUMS='+$output)
+Write-Output 'PUBLIC_RELEASE_ALLOWED=False'
+$global:LASTEXITCODE=0

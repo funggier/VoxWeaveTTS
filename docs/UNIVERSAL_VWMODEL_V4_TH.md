@@ -132,13 +132,13 @@ Core ตรวจ request_id, protocol version, sample rate, PCM size และ 
 1. เลือกไฟล์จาก Native File Picker โดยผู้ใช้เองเท่านั้น HTTP API ไม่รับ Arbitrary Path จากข้อความภายนอก
 2. ตรวจ ZIP, SHA-256, ซ้ำชื่อไฟล์, การ Traversal, Symlink, Size, Compression Ratio ก่อนติดตั้ง
 3. ตรวจ Wheel Startup Hooks และ .pth ก่อนใช้ ตัวติดตั้ง uv ใช้ --offline --no-index ไม่มี Online Installer
-4. ไม่ใช้ Developer Hash Whitelist กับ Plugin v4 อีกต่อไป เพราะการกดติดตั้งถือเป็นการอนุญาตจากผู้ใช้ ต่างจาก v3 ที่มีเฉพาะ Adapter ฝัง Core
+4. ไม่ใช้ Developer Hash Whitelist สำหรับ Plugin ที่ผู้ใช้เลือกติดตั้งเอง แต่ยังตรวจ SHA-256 และตรวจ Wheel Runtime โดยอัตโนมัติ
 5. มีเฉพาะการติดตั้งและถอนติดตั้ง ไม่ซ่อม Runtime ถ้าไฟล์มีการเปลี่ยนแปลงเองจะไม่ลบโดยพลการ
 6. ผู้สร้างแพ็กเกจยังต้องมีสิทธิ์แจกโมเดล, Native Libraries และ Wheel เอง การยอมรับของผู้ใช้ไม่เปลี่ยน License เช่น NC หรือ GPL
 
 ## สถานะ
 
 - Core รองรับ TTS Worker แบบ Python 3.11 + Offline Wheels หรือ Native EXE จากแพ็กเกจ v4
-- v3 ที่ติดตั้งอยู่แล้วสามารถทำงานต่อได้ ไม่แปลงไฟล์ v3 เป็น v4 อัตโนมัติ
+- Core และ Portable ใหม่รองรับเฉพาะ .vwmodel v4 เท่านั้น แพ็กเกจรุ่นเก่าจะถูกปฏิเสธ ไม่เปิดใช้โค้ดหรือ Runtime ของรุ่นเก่า
 - Translation Worker Protocol v1 รองรับการเชื่อม M2M100 v4 แบบออฟไลน์; STT และ LLM Plugin Protocol ยังเป็นงานขยายในอนาคต
 - การพัฒนา v4 ไม่เท่ากับการออก Public Release ใหม่ หรือเป็นการยืนยันสิทธิ์แจกจ่าย Kokoro, Vachana และ Wayu NC

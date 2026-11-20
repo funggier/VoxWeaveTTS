@@ -10,6 +10,6 @@
 
 โค้ดสำหรับสร้าง Wheel/Manifest อยู่ใน scripts/qa_build_v4_wheel_example.py โดยใช้ Worker ต้นฉบับที่ examples/v4-demo-tone/plugin/worker.py และแทรกการนำเข้า Library ชื่อ v4fixture ซึ่งสร้างขึ้นในเครื่อง
 
-ผลลัพธ์อยู่ที่ cache/v3-unreleased-candidates/demo-wheel-plugin-format-v4.vwmodel (ตัวอย่าง QA ไม่ใช่ Release) การทดสอบสร้าง PCM16 เสียงโทน ไม่ใช่ TTS พูดได้
+ผลลัพธ์อยู่ที่ cache/v4-qa-candidates/demo-wheel-plugin-format-v4.vwmodel (ตัวอย่าง QA ไม่ใช่ Release) การทดสอบสร้าง PCM16 เสียงโทน ไม่ใช่ TTS พูดได้
 
 สำหรับผลิตภัณฑ์จริงให้บรรจุ Wheel ที่ตรวจสอบสิทธิ์และใช้งานได้จริงทั้งหมดเอง ไม่ใช้ตัวติดตั้งออนไลน์

@@ -1,289 +1,45 @@
 # VoxWeaveTTS
 
-**v4 model migration — full eight-package private QA:** All seven TTS engines (MakHam, FastThaiG2P, Melo, Supertonic 3, Kokoro, Vachana and non-commercial Wayu) plus M2M100 translation have been repackaged as standalone v4 workers with offline dependencies. Actual offline install, inference and uninstall passed in isolated testing. **These are not cleared for public redistribution.** See the [eight-model QA report](docs/V4_ALL_MODEL_QA_TH.md) and [v4-only examples](examples/README_TH.md).
+**Windows Portable TTS Studio — Universal .vwmodel v4 only**
 
-**Development v0.12.0.dev0 — Universal .vwmodel v4:** one-click local offline TTS engine plugins, with bundled Python 3.11 wheels or self-contained native workers. New engine architectures no longer need Core adapter edits. Previously installed v3 models continue working. See the [v4 plugin guide](docs/UNIVERSAL_VWMODEL_V4_TH.md). Latest published stable remains v0.11.0.
+VoxWeaveTTS is a local-first, Thai-focused TTS application with narration, live chat, per-mode voice settings, translation, speech queues, APIs, and subtitle/OBS synchronization. Its model engines and offline dependencies live in separate, self-contained packages.
 
+## Model packages
 
-**Model catalog status:** v0.11.0 ships five v3 packages; **Kokoro, Vachana and Wayu NC are not yet available as v3 archives**. The older v2 files cannot be used with v3. See the [full-catalog release gate and blockers](docs/V3_FULL_MODEL_RELEASE_GAP_TH.md). No complete-catalog release is claimed yet.
+**Install → Choose a .vwmodel file → Ready.** Choosing and installing the file is the user's acceptance of its declared terms and executable plugin code. No additional license modal, online license server, or network dependency resolver is required.
 
-**v0.11.0 — Universal .vwmodel v3 (Windows Portable):** Fully offline, single-file model and dependency installation, per-file license consent, relocatable isolated runtimes, and no v1/v2 package fallback. [Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0) · [v3 guide](docs/UNIVERSAL_VWMODEL_V3_TH.md) · [v0.11.0 notes](docs/RELEASE_NOTES_v0.11.0.md). Older sections below are historical release records.
+- **Only Universal .vwmodel v4 is accepted.** There are no legacy v1/v2/v3 installers or built-in model-specific adapters in the current Core.
+- Each package contains its own Worker Protocol implementation, model data, configuration, declared rights, and (if required) all offline Python wheels.
+- Python 3.11 plugins run with isolated dependencies; native EXE plugins bring their own runtime.
+- Models and environments are relocatable, with local settings/cache/voice presets.
+- The Core verifies archive paths and file hashes and rejects unsafe Wheel startup hooks. It does not certify the author or sandbox third-party code.
+- TTS and translation packages communicate using a stable, versioned JSON Lines protocol; Core manages playback queues and voice/subtitle events.
 
+**Security:** A v4 plugin runs executable code with the user's Windows permissions. Installing it is a trust decision, not a guarantee of safety or permission to redistribute it.
 
-**v0.10.3 — Windows Kokoro Runtime fix:** the isolated Kokoro provider recipe now uses Misaki Japanese G2P 0.8.0 + UniDic Lite to avoid the pyopenjtalk CMake build failure in deeply nested portable paths. Confirmed isolated install and real English/Japanese speech on the affected local Windows portable. This patch is **included in the v0.10.3 ZIP**, not the earlier v0.10.2 ZIP. [Thai repair guide](docs/KOKORO_WINDOWS_RUNTIME_FIX_TH.md).
+## Studio features
 
-**Release v0.10.2:** M2M100 CPU/Portable reliability, opt-in third-party provider setup and clear noncommercial/redistribution warnings. [Release notes](docs/RELEASE_NOTES_v0.10.2.md).
+Narration/document reading; Discord, YouTube LIVE and TikTok LIVE chat integrations; configurable pronunciation and filtering rules; per-language model routing; translation; voice controls; shared speech queue; subtitle/OBS overlay; local API.
 
-**v0.10.2 — Portable Doctor (Phase E):** Read-only diagnostics for packaged Python/uv, installed native-v2 models and managed runtimes, relocation and verified offline wheelhouse SHA-256 checks. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Check-Portable.ps1` in the v0.10.2 Portable folder; the earlier v0.10.1 ZIP did not include this script. [Thai guide](docs/PORTABLE_DIAGNOSTICS_TH.md). M2M100 now has a two-thread isolated CPU inference policy with real en↔th smoke verification; the reference host's initial worker request completes in ~3.6s after previously timing out at 165s. Translation quality still varies, and the earlier v0.10.1 release did not include this fix. [M2M guide](docs/M2M100_CPU_RUNTIME_VALIDATION_TH.md).
+A fresh Portable build installs the default MakHam **v4** package offline. Additional engines are installed through the same package manager.
 
-**v0.10.2 — per-provider local install consent:** Engine Providers UI now permits opt-in installation of Wayu NC, Vachana, and Kokoro from trusted source-pinned recipes after explicit per-provider license warnings and confirmation. Wayu NC additionally requires separate noncommercial-only acknowledgment; CLI commands require explicit flags. This does not grant commercial use or release third-party wheelhouses under review. [Consent and rights guide](docs/PROVIDER_RIGHTS_READINESS_TH.md).
+## Build and package examples
 
-**v0.10.2 — dependency rights gate:** Runtime Registry and Portable Doctor now flag Wayu NC weights as noncommercial-only and Vachana/Kokoro wheelhouse publication as HOLD pending provenance/license review. Offline curation rejects publishing these three first-party wheelhouses despite an explicit review flag; existing installed runtimes remain usable. [Rights readiness guide](docs/PROVIDER_RIGHTS_READINESS_TH.md).
-
-**v0.10.1 — Native v2, Wayu NC and Trusted TTS Provider SDK:** Adds Ed25519 publisher-key pinning, separately approved signed worker code, key revocation, strict JSONL PCM16 TTS SDK and self-contained native-v2 portable release. Signatures protect provenance/integrity but do not establish safety or commercial model rights. [Phase D guide](docs/TRUSTED_PROVIDER_SDK_TH.md) · [v0.10.1 notes](docs/RELEASE_NOTES_v0.10.1.md) · [Wayu NC v2](docs/WAYU_NC_NATIVE_V2_TH.md).
-
-**Offline Verified Wheelhouse Phase C — included in v0.10.0:** A trusted per-runtime wheel lock pins SHA-256, recipe hash, Python ABI and platform. Explicit installation verifies and snapshots all local wheels before offline/no-index/hash-required uv installation, with post-activation checks and rollback. Trusted wheelhouses for Sherpa (3 wheels), PyThaiTTS (26) and M2M100 (25) are prepared locally and real offline installs passed in isolated temporary projects. Vachana (14) and Kokoro (31) also passed isolated offline install tests from draft locks, but remain unpublished pending separate license/redistribution review. [Phase C Thai guide](docs/VERIFIED_WHEELHOUSE_TH.md) · [License screening](docs/WHEELHOUSE_LICENSE_REVIEW_TH.md).
-
-**Managed Runtime Pool Phase B — included in v0.10.0:** Detect moved environments, Python ABI mismatch, missing base interpreters, and trusted recipe drift. The Runtime Registry offers explicit **offline-only repair** with staging/verification, rollback and no deletion of model assets. Existing unpinned runtimes remain usable without forced migration. [Thai Phase B guide](docs/MANAGED_RUNTIME_POOL_TH.md).
-
-**Native Universal .vwmodel v2 — v0.10.0:** New package schema, native capabilities, isolated v2 model storage and trusted built-in adapter resolution, without embedding v1 manifests. The Model Package Manager only accepts v2. Prior user weights and settings are not automatically deleted. [Native v2 guide (Thai)](docs/UNIVERSAL_VWMODEL_V2_TH.md).
-
-**Unreleased development after v0.9.5:** Source chat length can be configured up to **8,000 characters**, with explicit per-mode queue settings save and separate speech-error/current-text/completed-read views. The legacy chat list is unchanged. See [Live queue documentation](docs/LIVE_MESSAGE_QUEUE_TH.md).
-
-
-**Windows Portable v0.9.5 — unified runtime inventory and removable built-in MakHam:** MakHam Paradee is now pre-installed as a verified, uninstallable `.vwmodel` while keeping its `makham-paradee-cpu` Engine ID. A reference-aware Runtime Environment Registry protects shared TTS/translation runtimes from accidental removal. M2M100 has an optional isolated translation runtime and clearer installer diagnostics. Model binaries with separate license terms remain separate assets; no model is automatically approved for commercial use. [v0.9.5 Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.5) · [Release notes](docs/RELEASE_NOTES_v0.9.5.md) · [model/runtime architecture](docs/MODEL_PACKAGE_V2_ARCHITECTURE_TH.md).
-
-
-**Windows Portable v0.9.4 + optional Wayu Paxa Edge NC model package:** The separately downloadable `VoxWeaveTTS-Wayu-Paxa-Edge-Thai-English-12Voices-NC-v1.0.0.vwmodel` adds all 12 Thai/English voices to the Model Package Manager. **Weights are CC BY-NC 4.0 (noncommercial only)**, unchanged from pinned upstream. The .vwmodel includes the original README, attribution and license/use-policy notices. **NC weights are not in the Portable ZIP or Git repository.** [Complete v0.9.4 Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4) · [Release notes](docs/RELEASE_NOTES_v0.9.4.md).
-
-
-**Windows Portable v0.9.3 (complete release):** Isolated TTS Worker Gateway, reusable successful voice workers, safe owner-verified Stop commands (never stop Ollama), English language routing for all installed TTS models, portable worker dependency recipes, optional model/translation packages, TikTok extension and SHA-256 checksums. **Wayu NonCommercial model weights are not distributed.** [Release v0.9.3](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.3) · [Release notes](docs/RELEASE_NOTES_v0.9.3.md).
-
-
-**English language routing on all installed TTS models (source after v0.9.2):** FastThaiG2P/ThaiSom, Vachana and Melo Chinese also accept English (`en`) language routes, alongside MakHam and Wayu. Kokoro/Supertonic retain their dedicated English voices. Existing language assignments are not modified. [Language capability guide (TH)](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md).
-
-**Per-language TTS model routing fix (earlier source change):** The **[NC / NonCommercial] Wayu Paxa Edge** voice family now explicitly supports both **Thai (th) and English (en)** for all 12 voices, including independent per-language presets and controls. Existing fixed-language engines and per-voice Kokoro/Supertonic routes remain supported; future approved providers can declare shared/per-voice language capabilities. [Model language capability guide (TH)](docs/MODEL_LANGUAGE_CAPABILITIES_TH.md).
-
-**Full-stop recovery utility (source after v0.9.2):** Run `Stop-VoxWeaveTTS.cmd` (or `Stop-Dev.cmd` for the development checkout) to force-stop **only this installation** and any owned TTS workers, including orphaned Python processes after an unclean shutdown. Process identity and creation timestamps are verified to prevent terminating unrelated applications. The new portable build also includes `Stop-Console.cmd`. **Ollama and its model server are deliberately not stopped.** See [Thai stop/recovery guide](docs/STOP_VOXWEAVETTS_TH.md).
-
-**Windows Portable v0.9.2 (complete release):** Opt-in, per-workspace mixed-language speech synthesis segments Thai/English/Chinese/Japanese/Korean scripts after translation, selects the saved voice for each segment, and concatenates resampled PCM into one WAV. Existing one-voice behavior remains the default. [Thai documentation](docs/MIXED_LANGUAGE_TTS_TH.md). [Download full v0.9.2 release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2) · [Release notes](docs/RELEASE_NOTES_v0.9.2.md).
-
-**Windows Portable v0.9.1 (complete multilingual release):** Chinese MeloTTS, Korean + 30 additional languages with Supertonic 3, Japanese Kokoro Misaki phonemizer repair, correct language-specific TTS routing, and a fix for translated Chinese speech failing on Thai `555` laughter. Full Windows x64 Portable + **5 TTS model packs** + experimental M2M100 translation + TikTok extension + SHA-256 checksums. [Download v0.9.1](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.1) · [Release notes](docs/RELEASE_NOTES_v0.9.1.md).
-
-**Windows Portable v0.9.0 (complete Release):** Includes FIFO Live chat queues without the previous 12/40-item overflow, optional random backlog reduction (off by default, >20 randomly retain 5), manual Top/Live chat selection on YouTube Browser, Firefox autoplay recovery, non-disruptive queue reset, structured Ollama translation/custom prompts, safer M2M100 segmentation and an experimental optional Ollama Speech adapter. **All four optional model packs, TikTok Extension and SHA-256 manifest are provided separately on the same Release page.** [Download v0.9.0](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.0) · [Full release notes](docs/RELEASE_NOTES_v0.9.0.md).
-
-**Windows Portable v0.8.0 — Multilingual CPU TTS and per-language voice settings:** CPU-tested multilingual Kokoro-82M INT8 `.vwmodel` with 18 selectable voices across English, Spanish, French, Hindi, Italian, Japanese and Portuguese. New language-to-engine/voice routing, expanded AI translation targets, and UI installation/uninstallation for AI `.vwmodel` packages and the legacy M2M100 directory. [Thai implementation notes](docs/MULTILINGUAL_TTS_TH.md).
-
-**Portable Thai-first speech studio** — Windows x64 desktop application with a local Web UI, Thai ONNX speech, source queues, OBS captions and independent workspaces.
-
-> **Windows portable release v0.9.2:** the Windows portable ZIP includes a self-contained Python runtime, dependencies, the MakHam Paradee Thai CPU ONNX model, a Windows launcher executable, Web UI and local data directories. Thai WAV generation was tested from the extracted runtime without a separate Python installation. The FastThaiG2P 325MB model is optional and **not bundled**. Voice cloning, model training, guaranteed commercial rights for added third-party voicepacks, real-time low-latency Discord Gateway support, hardware Playback Clock and automatic word-level subtitle alignment are **not yet implemented**. Discord Desktop RPC message reading was confirmed by a user; official YouTube Live/Discord Bot integrations are not yet verified with authorized live accounts.
-
-## Structured-only translation for smaller Ollama models (v0.9.0)
-
-Ollama Translation now uses a simple JSON Schema with a single `translation` field and keeps the untrusted original text as an isolated data field. For models that produce poor grammar or the wrong language, the optional **Bypass translation accuracy checks (meaning/language)** setting (`translation_bypass_validation`, disabled by default) allows users to keep those results. Even with bypass enabled, response JSON shape, text length and control-character limits remain mandatory. This does not affect Custom AI Prompt mode; M2M100 supports the same opt-in language/meaning bypass for its plain-text output. See [AI Processing guide](docs/AI_PROCESSING_TRANSLATION_TH.md).
-
-## Structured Custom Prompt and workflow dropdown (v0.9.0)
-
-Ollama Custom Prompt now uses a structured `{"result":"..."}` response, validates that output, and only sends the `result` string to TTS. The selected output language applies to Custom Prompt as well as Translation. A new `custom_task` setting exposes four workflows: **Unspecified** (default, preserving existing saved Priority Instructions then Custom Prompt), **Translate only**, **Answer questions instead of translating**, and **Translate the question and append an answer**. External live chat is untrusted `text` data that can be analyzed by the trusted saved workflow but cannot authorize tool calls or change settings. A workflow choice is a structured application instruction; it improves small-model clarity but cannot guarantee accuracy. See [AI Processing guide](docs/AI_PROCESSING_TRANSLATION_TH.md).
-
-## Optional Ollama Speech scaffold and structured M2M100 pipeline (v0.9.0)
-
-Registered `ollama-speech` as an **opt-in, disabled-by-default** VoiceEngine. The adapter probes installed speech model metadata from a trusted loopback/private-LAN Ollama endpoint and can decode 24kHz mono WAV into the existing PCM/Subtitle pipeline. No models are downloaded; the adapter does not claim Windows-native Ollama Speech support. Configuration is manual and experimental; see [Ollama Speech guide](docs/OLLAMA_SPEECH_ADAPTER_TH.md).
-
-M2M100's **non-prompt structured pipeline** now bounds and reassembles text segments without truncation, preserves application-side source/target language metadata, refuses ambiguous Han-only source guesses and validates output with an optional language/meaning bypass. It sends natural-language text only, never control JSON, to the tokenizer. Real model evaluation still fails 2 out of 3 semantic cases; this is an integrity and control improvement, not a proven accuracy improvement. See [M2M100 guide](docs/M2M100_SETUP_TH.md).
-
-## Multilingual per-language engine, voice tuning and package manager (v0.8.0)
-
-The shared language routing tab supports one engine and voice per language, with independent speed/gain/pitch/bass/treble/formant/seed adjustments and the existing folder-backed Voice Presets. Each workspace has its own **Use language-model routing** checkbox and **Default Engine / Model** fallback. The optional Kokoro-82M INT8 CPU package adds 18 voices across seven languages; the core ZIP includes Kokoro CPU/eSpeak runtime but only the built-in MakHam Thai model weights. Four optional model packages (FastThaiG2P, Vachana, Kokoro, experimental M2M100) and the TikTok Extension are downloadable separately in the same Release. [Guide](docs/MULTILINGUAL_TTS_TH.md)
-
-## Main web tab background reliability (v0.7.2)
-
-The Python source manager can receive chats while the application page is unfocused, but hidden-tab timer throttling previously delayed the page's 1.2-second message-drain interval, TTS job polls and OBS progress reports. A single multiplexed source Server-Sent Events connection (avoiding per-origin connection exhaustion), server-side job waits for Live/Document/Studio/Queue, and HTMLMediaElement `timeupdate` reporting reduce dependence on timers. The source POST drain remains token-authorized; SSE contains only counts and states, not chat or keys. This is **included in v0.7.2** but cannot guarantee continued playback if the browser freezes/discards the entire page. [Thai troubleshooting guide](docs/MAIN_BROWSER_BACKGROUND_TH.md).
-
-## YouTube Browser: Live chat by default and background resilience (v0.7.1)
-
-In v0.7.1 the isolated YouTube Chrome/Edge chat popout attempted to switch **Top chat** to **Live chat** automatically; this has now been **removed in current source** so the user controls the mode. Added background-throttling mitigation for the app-owned window, CDP focus/lifecycle adjustments, and visible mode/visibility diagnostics. It preserves message deduplication and does not replay the initial chat history. Tested using an isolated real Chrome/CDP fixture, **not** a prolonged minimized authorized YouTube LIVE session; YouTube page/network behavior may still prevent guaranteed capture. [Thai guide](docs/YOUTUBE_BROWSER_READER_TH.md).
-
-## AI Tool Calling and selectable search providers (v0.7.0)
-
-In v0.7.0, an **opt-in, default-disabled** Tool Calling framework is included for Ollama Custom Prompt mode. It offers provider-selectable read-only web search (**Wikipedia, self-hosted SearXNG, Ollama Web Search, Tavily**), indexed read access to explicitly approved reference files, and a per-message call budget (1–3). Users can store search API keys encrypted per Windows account with DPAPI and import/export non-secret JSON search profiles. It does **not** follow arbitrary result URLs or grant Shell, file writes, or external account actions. A real qwen3.5:4b test called the Wikipedia tool and answered successfully, but reliability across models and live traffic is not yet established. See [Thai Tool Calling guide](docs/AI_TOOL_CALLING_TH.md). This functionality **is included in v0.7.0**, but is not present in the historical v0.6.0 binaries.
-
-## AI Processing and Translation (v0.6.0)
-
-Shared Settings supports Ollama local/LAN models with explicit or prompt-selected output language, Priority Instructions, Custom Prompt, optional read-only reference files, Pre/Post-AI Rules, sender-name isolation, model preloading and Keep Alive. An asynchronous bounded AI preparation queue isolates inference from TTS synthesis. Failed/suppressed messages can be marked skipped without stopping auto-read. M2M100 418M is an **optional experimental** adapter: real safetensors inference was verified, but semantic sample tests exposed inaccurate output; its 1.94 GB weights and Torch dependencies are not bundled. **Web research and AI Tool Calling are intentionally postponed until after this release.** See [Thai AI specification](docs/AI_PROCESSING_TRANSLATION_TH.md) and [release notes](docs/RELEASE_NOTES_v0.6.0.md).
-
-## Rich Rules quick-add editor (v0.5.2)
-
-The Rules panel now offers a schema-accurate, guided quick-add form for literal or five-run matching, replace/skip/silence actions, optional spoken/display overrides, silence duration and per-source restrictions. A JSON preview shows the pending rule; the source-aware tester checks it against the local processing API. Adding only updates the editor, while **Save in app** persists after validation. [Thai guide](docs/RULES_QUICK_ADD_TH.md). Available in the v0.5.2 portable release.
-
-## Configurable emoji pronunciation (all LIVE modes)
-
-YouTube LIVE (API/Browser), TikTok LIVE (TikFinity/Extension), and Discord (Bot/Client) have independent, opt-in emoji-to-speech dictionaries inside the source speech settings. Enter one Unicode or Discord custom emoji per line, e.g. `😂 = หัวเราะ` or `:party_parrot: = นกเต้น`; the mapping applies only to the synthesized text and not the original chat record. Disabled by default for existing users. YouTube Browser and TikTok Extension chat readers include emoji-image `alt` text when available so it can be mapped. TikTok remains comments-only (no Gift speech). [Thai setup guide](docs/EMOJI_PRONUNCIATION_TH.md).
-
-## LIVE integrations in v0.5.0
-
-The source tree now has separate tabs **YouTube LIVE (Browser)** and **YouTube LIVE (API)**. The original API workspace keeps its `live` identifier and saved settings. The experimental Browser workspace starts an isolated Chrome/Edge chat-only window, reads new DOM text messages over local CDP, and routes them into the existing TTS/OBS queue without a YouTube Data API key or Data API quota. It has been tested against a local chat DOM fixture only, **not against authorized real YouTube LIVE chat**. Browser-based automated access is not officially supported and may violate YouTube's terms without prior permission. [Thai browser mode guide](docs/YOUTUBE_BROWSER_READER_TH.md).
-
-**TikTok LIVE (Extension) v0.2.4** reads new text comments only from the user's manually selected and paired Chrome LIVE tab. The extension is included under `extensions/tiktok-live-connector` inside the v0.5.0 portable ZIP, and is available as a separate archive. **TikTok LIVE (TikFinity)** continues to support chat messages via its local WebSocket. Gift/follow/like/share/join reading is not supported, and older extension gift events are silently discarded. Source-specific TTS settings include sender prefix, sender name and connector phrase, with a YouTube-only option to keep or omit leading `@` in the sender name (never altering `@` inside comments). [Thai Extension guide](docs/TIKTOK_EXTENSION_READER_TH.md) · [v0.5.0 release notes](docs/RELEASE_NOTES_v0.5.0.md).
-
-## Model packages (v0.4.2)
-
-VoxWeaveTTS now has a data-only .vwmodel format for optional fixed-voice model packs. One pack specifies its compatible trusted engine adapter, version, multiple selectable voices, SHA-256 checksums, upstream model source, license claim and dependency metadata. The Windows local manager can install multiple packs/versions side by side and remove them independently; no model-supplied Python code runs.
-
-Optional **Vachana Thai (4 voices)** and **FastThaiG2P Kokoro Thai Som (1 voice)** `.vwmodel` archives are available as [separate GitHub Release assets](https://github.com/funggier/VoxWeaveTTS/releases/tag/modelpacks-v0.4.2). Weight files were verified against upstream SHA-256 and each archive embeds original license notices and attribution. The Vachana publisher declares MIT; FastThaiG2P declares Apache-2.0 and its Som TTS training dataset is CC BY 4.0. These are upstream declarations, not an independent audit of all voice/training rights or a commercial-use certification. The v0.4.2 portable ZIP still bundles **MakHam only**; download optional packs separately. [License-by-model catalog (Thai)](model-packs/README_TH.md) · [Package checksums](model-packs/catalog.json).
-
-## Concurrent workspaces and independent voices (v0.4.2)
-
-YouTube LIVE (renamed from the earlier generic Live Reader), TikTok LIVE, Discord Bot and Discord Client are independent source sessions. Switching to Studio, Document Reader or another workspace no longer stops connected readers. Every speech workspace has its own Engine/Model, Voice, Speed and DSP controls with portable per-mode settings. The shared scheduler offers **serial** speech (no overlapping audio, default) or **overlap** (simultaneous playback). New settings apply to the next TTS job; an already rendered WAV is not re-synthesized. The OBS API reports active source subtitles individually, although the default overlay still shows one primary caption.
-
-These concurrent-workspace features are included in the v0.4.2 ZIP. Simultaneous authorized real-account testing across all providers is still pending; offline source and scheduler tests pass. See [Thai mode guide](docs/WORKSPACE_MODES_TH.md).
-
-## Release v0.4.4: YouTube gRPC Live Chat streaming and quota guard
-
-YouTube LIVE now prefers the official `liveChatMessages.streamList` **gRPC** server stream with one connection and continuation tokens. The Windows Portable build must bundle `grpcio` and `protobuf`; ordinary Python installs can enable the optional `youtube-stream` extra. If gRPC is unavailable/unsupported, the adapter uses quota-conscious REST `liveChatMessages.list` polling with at least 30 seconds between calls. Known Google `quotaExceeded` / `dailyLimitExceeded` errors stop automatic retries, `rateLimitExceeded` triggers backoff, and raw error details/credentials are never exposed. The stream itself also costs quota when started. This is included in the published v0.4.4 Windows Portable ZIP. Local gRPC tests pass and the streaming code was user-tested; source-specific quotas, permissions, and real-account behavior remain dependent on Google. [Download v0.4.4 with optional model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.4).
-
-## v0.4.3 hotfix: Source reconnect and model package assets
-
-An explicit YouTube LIVE / Discord Bot / Discord Client Connect now reclaims the owner token for that workspace, fixing a stale-token rejection after a backend restart or another browser tab takes control. HTTP 400/401/403/404 errors expose their category without exposing credentials. Provider-side invalid API keys, account access, and quotas still require separate fixes.
-
-[**Release v0.4.3**](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.4.3) offers the Windows Portable ZIP with bundled MakHam alongside **two separately selectable `.vwmodel` assets** (Vachana Thai Four Voices and FastThaiG2P Thai Som) and a SHA-256 checksum file. Both model packs retain upstream license notices, attribution and pinned source hashes. The upstream license declarations do not independently certify every training or voice right.
-
-## New in release v0.4.2
-
-All four live source workspaces (YouTube LIVE, TikTok LIVE, Discord Bot and Discord Client) now have independent, portable **Read sender name before message** preferences, off by default. When enabled, new TTS jobs include the sender before the text; message history remains unchanged. Saved source profiles include the optional Boolean `read_sender_name`, while legacy files are still accepted. See [concurrent workspace guide](docs/WORKSPACE_MODES_TH.md).
-
-
-The Settings workspace is now dedicated to Model Package management; the top Settings shortcut has been removed. Each speech workspace offers 0.01-step sliders, numerical voice tuning, speed up to x5, seed and independent presets. Folder-based `.json` voice presets live at `presets/` and are re-discovered from the dropdown refresh control; legacy presets remain readable. Automatic reading preferences are no longer silently unchecked on audio errors or Stop; speech pauses with a retry action instead. Only MakHam Paradee weights are bundled into Windows Portable; optional Vachana and FastThaiG2P `.vwmodel` files are published separately under their upstream declared licenses, with full notices and an explicit unverified-training-rights warning.
-
-## Goals
-
-- Thai pronunciation overrides (e.g. `อมตะ`), with original subtitle spelling retained.
-- User-defined spoken-word replacement, subtitle masking, skipped words, and inserted silence.
-- Selectable voice profiles, expressive controls, model adapters and A/B audition.
-- Live Discord / YouTube chat input with queueing and content filtering.
-- Playback-clock-driven subtitle events for OBS Browser Source and external apps.
-- Windows portable ZIP: all settings, voice references and model caches under a movable root, without forced writes to the system drive.
-
-## Install and run — Windows 10/11 x64 portable
-
-1. Download `VoxWeaveTTS-v0.4.4-portable.zip` from GitHub Releases.
-2. Extract the **entire** ZIP to a writable folder, for example `T:\\Apps\\VoxWeaveTTS`. Do not run the EXE directly from inside the ZIP.
-3. Double-click `VoxWeaveTTS.exe`. It starts the local server and opens your default browser (Firefox or Chrome) at `http://127.0.0.1:8765/`.
-4. Select the available **MakHam Paradee** engine, enter Thai text and generate speech. Other modes include document reader, Discord Client, official chat inputs, pronunciation rules, source profile import/export and OBS subtitles.
-5. Close the desktop launcher window using **Stop & Exit** to terminate its private server. Keep it open while using the app.
-
-No separate Python, Node, GitHub CLI, service, admin install or cloud login is required for local speech. Windows .NET Framework 4.x is used by the tiny desktop launcher; if the EXE is blocked, try `Start-Console.cmd`. Models/user settings/caches stay within the extracted folder. For troubleshooting and legal notices, see [Windows Portable Guide](docs/PORTABLE.md).
-
-## Development setup (source checkout)
-
-1. Install `uv` and GitHub CLI (`gh`) for development setup. Run `powershell -ExecutionPolicy Bypass -File scripts/Install-ThaiEngine.ps1` in the project directory. The optional CPU engine and ~326 MB voice model are stored under the project root.
-2. Run `Start-Dev.cmd` (picks the local `.venv` Python first).
-3. Open <http://127.0.0.1:8765/> and click **สร้างเสียง WAV** to synthesize and audition Thai speech; no voice cloning in this engine. Select one of two locally installed Thai Engines, use paired Slider/Numeric controls for Speed, Gain, Pitch, Bass and Treble, edit pronunciation/replacement rules directly, and save/load Voice Presets. **Seed** remains an advanced reproducibility option, not voice timbre. FFmpeg with Rubber Band is an optional developer dependency for Pitch/EQ; volume and speed work independently. A fresh ONNX session still reproduces audio for fixed text/speed/seed on the tested runtime.
-4. Use `scripts/Generate-ThaiSample.ps1` while the local server is running to save `output/api_demo.wav`.
-5. Run `Test-Dev.cmd` for unit tests.
-
-The Python `.venv` remains a developer environment; end users should use the portable ZIP and its bundled interpreter/model. Optional developer engines require separate license checks.
-
-## Engine-neutral foundation (implemented preview)
-
-The text pipeline, engine registry, queue, event statuses and result delivery are separate from model implementations. The core runs on **Python standard library only**; actual inference still requires the selected engine's optional dependencies and model files. An independently trained Thai voice engine can be registered through the **Adapter API v1** without changing the HTTP server, processing rules or job queue.
-
-- Job states: `queued → rendering → ready`, or `cancelled/failed` (ready means generated, not played).
-- FIFO + source message dedup + explicit cancellation + bounded in-memory audio / job limits.
-- Versioned preparation events; browser media-clock reports now drive a local OBS segment-level subtitle overlay (not sample-accurate OBS sync).
-- All engines retain `commercial_status: review_required` unless their complete artifact and dependencies pass an audit.
-
-See [Engine-Neutral Core architecture (Thai)](docs/ENGINE_NEUTRAL_CORE_TH.md).
-
-## Readable Rules / Pronunciations JSON editor
-
-The existing **Rules JSON array** and **Pronunciations JSON object** now provide format, syntax/type check, download and quick-entry actions. Quick entry uses JSON.stringify to escape quotation marks, backslashes and Unicode safely. Formatting preserves the rule array's order. **Save in Program** now persists validated config under ignored local `data/filters/rules.json` and `data/dictionaries/pronunciations.json`; saved rules reload on app start and are shared by all Engines. The editor also supports importing previously exported JSON files. Concurrency is protected by section-specific SHA-256 revisions (HTTP 409 on conflict), and file downloads remain separate from server persistence. See [Thai JSON pronunciation guide](docs/PRONUNCIATION_JSON_TH.md).
-
-## Browser media-clock subtitle overlay (implemented preview)
-
-When a generated WAV actually plays in the document reader or job queue player, a shared browser media-clock adapter reports currentTime, seek, pause, resume, end and stop to the local Playback API. A read-only transparent OBS overlay can open http://127.0.0.1:8765/overlay. The overlay follows Browser-reported time, hides silenced segments, and automatically hides stale captions. It does NOT play audio itself; capture audio from the original player separately in OBS. This is SEGMENT-level timing, not word/phoneme alignment or hardware-output-accurate synchronization. See [Playback and OBS guide (Thai)](docs/PLAYBACK_OVERLAY_TH.md).
-
-## Discord Desktop Client Reader — select a single channel
-
-A dedicated Discord Client workspace can subscribe to new MESSAGE_CREATE events for one explicitly selected text-channel ID via the official Discord Desktop Local RPC. It uses an authorized Discord developer application, explicit user approval and rpc + messages.read scopes; no user-token self-bot or scraping. Channel IDs are checked for every incoming event and switching channels/modes stops the previous feed. Global Engine/Voice/Rules and the shared OBS Overlay remain unchanged.
-
-Discord restricts RPC access to approved apps or testers. The room selector and RPC protocol have offline tests, now use documented RPC AUTHORIZE arguments (client_id and scopes only), preserve the registered redirect URI for the token exchange, and expose safe OAuth error identifiers and failure-stage diagnostics; a live user-account connection has not yet been verified with approved real credentials. Switching rooms stops the old feed and speech queue but preserves the user-selected auto-read checkbox; if the RPC pipe closes or authorization fails, enter your app secret again and reconnect explicitly rather than relying on a stale session. The OAuth token HTTP request now sends an identifiable application User-Agent; without it, the default Python urllib User-Agent was observed to receive HTTP 403 on this machine. A local fake-credential request now reaches OAuth validation and receives HTTP 400 invalid_client; this is not proof of a successful authorized account connection. A separately opened OAuth2 URL Generator does not subscribe the desktop RPC session. Match the registered redirect URI with the exact URI displayed in Discord (for example `http://127.0.0.1:8765` versus `/callback`). [Discord Client Reader Guide (Thai)](docs/DISCORD_CLIENT_READER_TH.md).
-
-## TikTok LIVE comments — local TikFinity Desktop bridge (v0.4.1)
-
-TikTok does not document a general public LIVE chat API. The new independent **TikTok LIVE** workspace reads chat comments via TikFinity Desktop's local Event WebSocket (`ws://localhost:21213/`) from the same PC and reuses the global Thai TTS Engine, sequential speech queue, per-source filters, completed-message history, OBS captions and separate JSON settings profiles. TikFinity Desktop must be installed and connected to your own live stream; no TikTok username/password/cookie is handled by VoxWeaveTTS. Non-chat events such as gifts and likes are deliberately ignored. The connection uses TikFinity's local API but is not an official TikTok integration, and was tested offline only; see [Thai setup and known limitations](docs/TIKTOK_LIVE_TH.md).
-
-## Official YouTube Live / Discord message inputs (opt-in preview)
-
-Live and Discord workspaces now include read-only official message source adapters using user-provided YouTube Data API Key/liveChatId or Discord Bot Token/Channel ID. Messages are deduplicated and moderated before entering a bounded in-memory queue (40 backend pending, 12 browser waiting items). The three source modes share a serial TTS queue implementation; browser-completed history is configurable from 0 to 100 (20 default) and only finished messages are removed. Each live mode can export/import an independent settings JSON including its sensitive credentials and blank fields; Export opens a Save As location/file-name picker in Chrome (File System Access) and Firefox (native Windows dialog via the local server). Import fills the form without auto-connecting. **These JSON profiles store API Keys, Bot Tokens and Client Secrets in plaintext. Keep them private and out of Git.** The first page is only a baseline, not automatically spoken; the user can manually select messages or use sequential TTS auto-reading (ON by default after the user explicitly connects the source; can be unchecked). Only the active workspace can read messages and publish to the one OBS Overlay. Credentials are never committed or persisted by the app.
-
-The adapters are tested against mocked Official API responses but **not yet verified with a user's live authorized YouTube/Discord account**. YouTube uses list-polling with provider intervals, Discord uses REST polling with rate-limit backoff; neither is a low-latency gateway. See [Live Input Adapters Guide (Thai)](docs/LIVE_INPUT_ADAPTERS_TH.md).
-
-## Independent workspaces and global Engine/Voice settings (preview)
-
-The UI now separates Studio, Document Reader, Live text simulation, Discord text simulation, Speech Queue/Subtitle/Manual Alignment, shared Pronunciation Rules, and shared Engine/Voice settings. Each mode keeps its own editable text/player; all modes share the global model, voice, speed, DSP, Seed, presets and dictionary/rules. The global voice defaults can be saved atomically to a gitignored local JSON file and reloaded next session.
-
-Switching modes synchronously stops other audio/reader autoplay, revokes the previous playback ownership token and clears the **single OBS Overlay**; a bounded SSE channel, BroadcastChannel and polling notify other tabs. Studio WAVs now use the job/clock API so they also support OBS captions. **Live/Discord retain local simulation and can optionally connect to Official APIs** using the user's own credentials; live account testing is still pending. See [Workspace modes guide (Thai)](docs/WORKSPACE_MODES_TH.md).
-
-## Safer Thai caption boundaries (fixed in v0.3.0.dev9)
-
-Estimated captions now break only at explicit whitespace or punctuation. Arbitrary grapheme-count cuts could previously strand Thai preposed vowels or final consonants across caption windows. If a continuous Thai text run has no reliable separator, the whole generated speech segment remains one caption rather than inventing Thai word boundaries. The OBS overlay also no longer forces arbitrary CSS word wrapping.
-
-The engine-neutral Document Reader prefers punctuation/whitespace and marks any hard-limit Thai fallback in the returned chunk metadata and the UI. Chunker revision is part of the document ID hash to avoid resuming old ordinal bookmarks at the wrong text after changed boundaries; reopen your document, select the correct chunk and save the bookmark again. This is **not** a Thai dictionary tokenizer or word-level forced aligner. See [Document Reader](docs/DOCUMENT_READER_TH.md).
-
-## Browser Waveform Editor (implemented preview)
-
-The Manual Alignment panel can now display the **actual WAV PCM16 peak envelope** with high-DPI canvas, Speech/Silence regions and manual Cue spans. Zoom 1–32×, pan, click to seek, drag to mark Start/End, or nudge the audio cursor by arrow keys (25ms or Shift+arrow 5ms). The Browser loads only already-rendered local WAV from the Speech Job and never uploads audio to external services. Waveform analysis is sample-energy visualization, **not** automatic speech/word alignment. PCM16 mono/stereo WAV is supported; if unsupported, the numeric editor still works. See [Waveform Editor (Thai)](docs/WAVEFORM_EDITOR_TH.md).
-
-## User-reviewed manual word/phrase subtitle timecodes (experimental)
-
-A model-independent Manual Alignment editor in the Speech Queue lets the user select a span of filtered display text, mark WAV playback start/end positions and apply explicit subtitle cues to a ready Job. Open /overlay?mode=manual to display only those user-marked text spans; unannotated regions remain blank. Timecodes are memory-only and exportable/importable as JSON; another tab cannot silently overwrite revisions. A reference timing evaluation API provides exact-span MAE and coverage metrics. This is **not automatic forced alignment**. See [Manual Alignment Guide (Thai)](docs/MANUAL_ALIGNMENT_TH.md).
-
-## Audio-signal subtitle activity mode (experimental)
-
-The shared Speech Coordinator now runs a lightweight **stdlib-only PCM16 audio energy analyzer** after every WAV render, extracting speech-like activity and silent gaps within generated speech segments. It uses a pluggable AudioAlignmentProvider contract and publishes only bounded interval metadata. Use `http://127.0.0.1:8765/overlay?mode=activity` to hide captions in detected silent gaps. This is **audio activity detection, not word/syllable forced alignment or ASR**; unrecognized WAV formats fall back explicitly to generated-segment timing. No third-party model or training data was added. See [Audio Alignment Guide (Thai)](docs/AUDIO_ALIGNMENT_TH.md).
-
-## Low-latency subtitle stream and estimated caption windows (experimental)
-
-The local read-only OBS Overlay now uses **Server-Sent Events** (`GET /v1/playback/stream`) to receive changed playback snapshots; it falls back to `GET /v1/playback/state` when the stream disconnects. An opt-in URL, `http://127.0.0.1:8765/overlay?mode=estimated`, shows shorter Unicode-safe text windows within each WAV speech segment. Their timing is **estimated from grapheme counts**, not a forced aligner or true word/phoneme timing, and may not follow Thai speech precisely. Default `/overlay` retains the real generated-segment boundaries. See [Playback and OBS guide](docs/PLAYBACK_OVERLAY_TH.md).
-
-## Resume reading and one-chunk-at-a-time playback (implemented preview)
-
-TXT/Markdown documents now have **local private reading bookmarks** stored under `data/reading/positions.json`, keyed by normalized document SHA-256, without storing file content, filenames or paths. Reopen the original file to retrieve a matching bookmark; changed chunk size invalidates that index. You can manually save/clear position, play/pause/stop one chunk, and opt in to advancing to the next chunk after the browser media element emits its `ended` event. Playback advances a bookmark **only on completed audio**, never when a WAV is merely generated. A single outstanding synthesis per document reader prevents full-book preload. Browser autoplay policies may require manual Play. **This is not an OBS-synchronized audio playback clock or live subtitle event stream.**
-
-See [Document Reader guide (Thai)](docs/DOCUMENT_READER_TH.md).
-
-## Text/Novel import (implemented preview)
-
-The web UI can open a **local UTF-8 or Thai Windows-874 .txt/.md file**, normalize Markdown narration, identify chapters and page through short chunks **without loading any speech model**. A chosen chunk can be copied into the existing text editor or sent to the engine-neutral speech queue with the current voice/rule settings. This is manual chunk preparation, **not full-book autoplay or persistent reading position**. Documents are retained only in the browser page session, not stored by the server.
-
-See [Engine-neutral Document Reader (Thai)](docs/DOCUMENT_READER_TH.md).
-
-## API
-
-- `GET /v1/status` — build status and explicit capability flags.
-- `GET /v1/rules` — locally stored replacement rules, if configured.
-- `GET /v1/pronunciations` — locally stored pronunciation overrides, if configured.
-- `POST /v1/documents/preview` — TXT/Markdown normalization, chapter detection, deterministic chunk pagination and metadata (no model required).
-- `POST /v1/text/process` — deterministic filter, replacement, silence and pronunciation processing; optional `match_mode: five_run` safely maps repeated chat 5s to speech while retaining the original subtitle.
-- `GET /v1/engines` and `GET /v1/voices` — two Thai CPU engine adapters, their readiness, voice IDs and detailed DSP control schema.
-- `POST /v1/jobs`, `GET /v1/jobs` and `GET /v1/jobs/{id}` — engine-neutral asynchronous audio preparation queue; `GET /v1/jobs/{id}/events`, `GET /v1/jobs/{id}/audio` and `POST /v1/jobs/{id}/cancel`.
-- `POST /v1/speech` — generate Thai PCM16/WAV through the optional FastThaiG2P CPU backend (500 spoken characters max per request), with optional reproducible `seed`.
-- `GET/POST /v1/settings/synthesis` — view/store a preferred seed in local portable settings (POST requires an explicit intent header).
-- `GET/POST /v1/presets` — list/save local private Voice Studio Presets (POST requires explicit intent header).
-- `GET /` — local text and WAV preview.
-
-Example (PowerShell):
+The [v4 examples](examples/README_TH.md) cover Python plugin workers (with or without new offline wheels), native EXE workers, TTS model workers and translation workers. No legacy package examples remain in the examples directory.
 
 ```powershell
-$body = @{
-  text = "ชายหนุ่มพบคำต้องห้ามและบรรลุขั้นอมตะ"
-  rules = @(@{ match="คำต้องห้าม"; mode="silence"; display="***"; silence_ms=400 })
-  pronunciations = @{ "อมตะ" = "อะ มะ ตะ" }
-} | ConvertTo-Json -Depth 8
-Invoke-RestMethod http://127.0.0.1:8765/v1/text/process -Method Post -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body))
+.\.venv\Scripts\python.exe -X utf8 scripts\build_vwmodel_v4.py --source examples\v4-demo-tone --spec examples\v4-demo-tone\spec.json --output cache\demo-tone-v4.vwmodel
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.0-dev0 -SkipZip -StageDirectory dist\VoxWeaveTTS-v4-validation
 ```
 
-The response includes separate **display_text** and **speech segments**. Silence segments are explicit timeline instructions; a future audio playback coordinator will synthesize the actual silence.
+The Portable builder needs the internal offline MakHam v4 QA archive in `dist/ModelPackagesV4-QA`. Its output is deliberately a private QA build, **not a public release**.
 
-## Repository and privacy
+## Eight-model v4 QA and redistribution rights
 
-The MIT license applies to **our code only**. Models, voice samples, dictionaries, proprietary services, and third-party dependencies keep their own terms. Never commit reference recordings, tokens, credentials, generated audio, downloaded model weights or local settings. The repository explicitly excludes those directories.
+All **seven TTS engines** (MakHam, FastThaiG2P, Melo Chinese, Supertonic 3, Kokoro, Vachana, Wayu NC) plus **M2M100 translation** have passed local offline installation and real audio or translation tests as v4 packages.
 
-## Documentation
+The eight archives under `dist/ModelPackagesV4-QA` are **not approved for public distribution**. Third-party model/Dependency rights remain under review. Wayu weights remain noncommercial (CC BY-NC 4.0); other models have their own distinct conditions. A user's installation click does not grant a developer redistribution rights.
 
-- [ภาษาไทย / รายละเอียดโปรเจกต์](README_TH.md)
-- [Project background and design rationale (Thai)](docs/PROJECT_VISION_TH.md)
-- [Detailed development plan and acceptance criteria (Thai)](docs/DEVELOPMENT_PLAN_TH.md)
-- [Requirement traceability (Thai)](docs/REQUIREMENTS_TH.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [API Contract](docs/API.md)
-- [Portable distribution plan](docs/PORTABLE.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Licensing and privacy](docs/SECURITY.md)
-- [M1 real Thai audio setup and verification (Thai)](docs/M1_AUDIO_TH.md)
-- [Voice Studio engines and control ranges (Thai)](docs/VOICE_STUDIO_TH.md)
-- [Voice cloning and fine-tuning plan (Thai)](docs/VOICE_TRAINING_TH.md)
-- [Commercial-first license policy and model audit (Thai)](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
-- [Engine-neutral Core, Registry and Queue (Thai)](docs/ENGINE_NEUTRAL_CORE_TH.md)
-- [TXT/Markdown Document Reader (Thai)](docs/DOCUMENT_READER_TH.md)
+Prior public releases remain in [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) and Git history; this development branch and its new Portable build accept **only v4**.
+
+Documentation: [v4-only QA handoff](docs/V4_ONLY_QA_HANDOFF_2026-11-20_TH.md) · [v4 protocol](docs/UNIVERSAL_VWMODEL_V4_TH.md) · [model QA report](docs/V4_ALL_MODEL_QA_TH.md) · [API](docs/API.md) · [translation](docs/AI_PROCESSING_TRANSLATION_TH.md) · [rights policy](docs/COMMERCIAL_LICENSE_POLICY_TH.md).

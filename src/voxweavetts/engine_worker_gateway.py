@@ -1,8 +1,8 @@
-"""Versioned local IPC gateway for TTS engines with independent Python runtimes.
+"""Universal v4 plugin broker for isolated JSONL TTS workers.
 
-Only application-owned, explicitly registered worker definitions can execute.
-Each worker is a persistent child process; no model package can supply executable
-code or override the executable path. Stdout carries line-delimited JSON only.
+Every installed v4 package carries its own executable Worker.
+Each worker is a persistent child process with a fixed JSONL protocol.
+Core does not accept arbitrary shell commands or model-defined launch paths.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .engine_provider_catalog import PROVIDERS, provider_for_backend
+from .engine_provider_catalog import provider_for_backend
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL_VERSION = 1
@@ -49,9 +49,7 @@ class WorkerSpec:
         return folder / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-# Provider recipes are curated by the application, never by a .vwmodel archive.
-WORKERS = {p.backend: WorkerSpec(p.backend, p.runtime_dir, p.sample_rate)
-           for p in PROVIDERS.values()}
+WORKERS: dict[str, WorkerSpec] = {}  # all production TTS engines originate in v4 packages
 
 
 class WorkerSession:
@@ -117,31 +115,19 @@ class WorkerSession:
         if self._process is not None and self._process.poll() is None:
             return
         self._stop()
-        if self.runtime_manifest is not None and self.runtime_manifest.get("format_version") == 4:
+        if self.runtime_manifest is not None:
             from .universal_model_v4 import worker_command
             try:
                 command = worker_command(self.root, self.runtime_manifest)
             except Exception as exc:
-                raise WorkerError("installed v4 external worker is unavailable") from exc
-            python = Path(command[0])
-        elif self.runtime_manifest is not None:
-            from .portable_runtime_v3 import run_command
-            try:
-                command = run_command(
-                    self.root, self.runtime_manifest,
-                    "voxweavetts.engine_worker_host",
-                    ["--backend", self.spec.backend])
-            except Exception as exc:
-                raise WorkerError("verified v3 runtime is unavailable") from exc
-            python = Path(command[0])
+                raise WorkerError("installed v4 worker is unavailable") from exc
         else:
             python = self.spec.python_path(root=self.root)
             if not python.is_file():
                 raise WorkerError(f"isolated runtime missing: {self.spec.python_dir}")
-            command = ([str(python), "-u", str(self.spec.worker_script)]
-                       if self.spec.worker_script else
-                       [str(python), "-u", "-m", "voxweavetts.engine_worker_host",
-                        "--backend", self.spec.backend])
+            if not self.spec.worker_script:
+                raise WorkerError("v4 requires a packaged external worker")
+            command = [str(python), "-u", str(self.spec.worker_script)]
         log_dir = self.root / "logs" / "engine-workers"
         log_dir.mkdir(parents=True, exist_ok=True)
         self._log = (log_dir / (self.spec.backend + ".log")).open("a", encoding="utf-8")
@@ -298,12 +284,9 @@ class EngineWorkerGateway:
         if profile is None:
             return (self._allow_custom_specs
                     and spec.python_path(root=self.root).is_file())
-        if profile.id.startswith("v4-"):
-            from .universal_model_v4 import for_backend, ready
-            item = for_backend(backend, root=self.root)
-            return bool(item and ready(self.root, item[0]))
-        from .universal_model_packages import runtime_for_provider
-        return runtime_for_provider(profile.id, root=self.root) is not None
+        from .universal_model_v4 import for_backend, ready
+        item = for_backend(backend, root=self.root)
+        return bool(item and ready(self.root, item[0]))
 
     def _reclaim_idle_for_memory(self, exclude_backend: str) -> int:
         """Keep loaded models cached unless Windows reports low memory.
@@ -338,20 +321,12 @@ class EngineWorkerGateway:
         profile = provider_for_backend(backend, root=self.root)
         manifest = None
         key = backend
-        if profile is not None and profile.id.startswith("v4-"):
+        if profile is not None:
             from .universal_model_v4 import for_backend, fingerprint, ready
             pair = for_backend(backend, root=self.root)
             if pair is None or not ready(self.root, pair[0]):
                 raise WorkerError("selected v4 plugin runtime is unavailable")
             manifest = pair[0]
-            key = backend + "|" + fingerprint(manifest)
-        elif profile is not None:
-            from .universal_model_packages import runtime_for_provider
-            from .portable_runtime_v3 import fingerprint
-            manifest = runtime_for_provider(profile.id, root=self.root,
-                                            engine_id=engine_id)
-            if manifest is None:
-                raise WorkerError("selected v3 model runtime is unavailable")
             key = backend + "|" + fingerprint(manifest)
         with self._lock:
             if key not in self._sessions:

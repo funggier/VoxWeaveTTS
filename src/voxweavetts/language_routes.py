@@ -97,9 +97,9 @@ def voice_languages(engine_id: str, voice_id: str) -> set[str]:
     if info.supported_languages:
         return set(info.supported_languages)
     if info.language == "multi":
-        from .kokoro_engine import LANGUAGE_CODES
-        language = LANGUAGE_CODES.get(voice_id[0], "")
-        return {language} if language else set()
+        # v4 packages advertise languages through the protocol, not by a
+        # model-specific code table baked into VoxWeave Core.
+        return set(info.supported_languages)
     return {info.language}
 
 

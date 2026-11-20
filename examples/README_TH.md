@@ -10,6 +10,6 @@
 
 ตัวอย่างการสร้างเสียงโทนใช้พิสูจน์โครงสร้างเท่านั้น **ไม่ใช่โมเดล TTS ที่พูดจริง** ส่วน Worker ของโมเดลจริงต้องใช้น้ำหนักโมเดลและ Wheel ที่มีสิทธิ์แจกจ่ายครบก่อนทำ Public Release
 
-ดูคู่มือ docs/UNIVERSAL_VWMODEL_V4_TH.md และตัวอย่างการประกอบโมเดลจริง scripts/convert_all_models_to_v4.py
+ดูคู่มือ docs/UNIVERSAL_VWMODEL_V4_TH.md และตัวสร้างแพ็กเกจ v4 แบบทั่วไป scripts/build_vwmodel_v4.py ซึ่งไม่ผูกกับสถาปัตยกรรมโมเดลใดโมเดลหนึ่ง
 
 ตัวอย่างระบบ Provider รุ่นก่อนย้ายไป tests/fixtures/legacy-provider-sdk เพื่อคง Regression Test โดยไม่นับเป็นตัวอย่าง v4

@@ -313,7 +313,7 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                 self.assertEqual(status,200)
                 self.assertEqual(doc["policy"],"overlap")
                 data={"expected_revision":1,"mode":"live",
-                      "settings":{"engine_id":"makham-paradee-cpu",
+                      "settings":{"engine_id":"model-makham-paradee-1_0_0",
                                   "voice_id":"paradee_thai","speed":1.1,
                                   "voice_controls":{"gain_db":0}}}
                 status,doc=self.post(data)

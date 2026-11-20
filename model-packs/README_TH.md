@@ -1,90 +1,24 @@
-# Universal v3 — v0.11.0 (ปัจจุบัน)
+# Universal .vwmodel v4 — VoxWeaveTTS Model Packages
 
-**การพัฒนา v4:** โมเดลทั้ง 8 รายการถูกแปลงเป็นแพ็กเกจ v4 QA แบบไฟล์เดียวพร้อม Worker ที่อยู่ในแพ็กเกจแล้ว และทดสอบติดตั้ง/ใช้งานจริงผ่าน ไม่ใช่ Release สำหรับแจกจ่าย โมเดลที่มีข้อจำกัดสิทธิ์ยังคงอยู่ในสถานะ HOLD รายละเอียดอยู่ที่ [ผล QA v4](../docs/V4_ALL_MODEL_QA_TH.md) และ [ตัวอย่างสร้างแพ็กเกจ v4 เท่านั้น](../examples/README_TH.md)
+**รองรับเฉพาะ v4 ใน Source และ Portable รุ่นใหม่** โดย Model/Worker/Dependencies ถูกบรรจุมาในไฟล์ .vwmodel เดียว ผู้ใช้เลือกไฟล์และกดติดตั้งเพื่อใช้งาน ไม่ต้องติดตั้ง Runtime ด้วยตนเอง
 
-**สถานะสำคัญ:** v0.11.0 ยังมีโมเดลไม่ครบรุ่น v2 (Kokoro, Vachana, Wayu NC) อย่าพยายามเปลี่ยนชื่อไฟล์เก่ามาติดตั้ง ต้องสร้าง Wheel ออฟไลน์ที่ผ่านการตรวจสิทธิ์และทดสอบการสร้างเสียงจริงก่อน ดู [รายการงานค้าง](../docs/V3_FULL_MODEL_RELEASE_GAP_TH.md)
+ระบบภายในแยก Runtime ของแพ็กเกจ, ตรวจ SHA-256 และ Wheel, เรียก Worker ผ่าน Protocol v1 สำหรับ TTS หรือ Translation และรองรับการย้ายโฟลเดอร์ Portable
 
-**ดาวน์โหลด:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0 · [รายละเอียด Release](../docs/RELEASE_NOTES_v0.11.0.md) · [วิธีติดตั้ง](../docs/UNIVERSAL_VWMODEL_V3_TH.md)
+โมเดล v4 ที่ผ่าน QA ทั้ง 8 รายการ:
 
-แพ็กเกจ Universal v3 เป็นไฟล์เดียว **ติดตั้งโมเดลและ Dependencies ออฟไลน์** รวมสิทธิ์และ SHA-256 ไว้ด้วย รุ่นนี้ไม่รองรับไฟล์ `.vwmodel v1/v2` และไม่มีการติดตั้งหรือซ่อม Runtime แบบแยกใน UI
+| โมเดล | ประเภท | สถานะการทดสอบ | การแจกจ่าย |
+| --- | --- | --- | --- |
+| MakHam Paradee | TTS | เสียงไทยผ่าน | ตรวจสิทธิ์เพิ่ม |
+| FastThaiG2P Thai Som | TTS | เสียงไทยผ่าน | ตรวจสิทธิ์เพิ่ม |
+| Melo Chinese ONNX | TTS | เสียงจีนผ่าน | ตรวจสิทธิ์เพิ่ม |
+| Supertonic 3 | TTS | เสียงอังกฤษผ่าน | OpenRAIL-M / ตรวจเงื่อนไข |
+| Kokoro 82M | TTS | อังกฤษและญี่ปุ่นผ่าน | HOLD: GPL/Native Notices |
+| Vachana Thai 4 Voices | TTS | เสียงไทยผ่าน | HOLD: vachanatts Wheel |
+| Wayu Paxa Edge NC | TTS | เสียงไทยผ่าน | HOLD / CC BY-NC 4.0 |
+| M2M100 418M | Translation | EN→TH และ TH→EN ผ่าน | ตรวจสิทธิ์เพิ่ม |
 
-**แพ็กเกจที่ตรวจ SHA-256 และเตรียมไว้สำหรับ v3:** MakHam (รวมใน Portable + ไฟล์กู้คืนแยก), FastThaiG2P Thai Som, Melo Chinese, Supertonic 3, M2M100 Translation (ทดลองและต้องใช้หน่วยความจำสูง) · [Catalog v3](https://github.com/funggier/VoxWeaveTTS/releases/download/v0.11.0/CATALOG-v3.json)
+ไฟล์ QA อยู่ใน `dist/ModelPackagesV4-QA` ของเครื่องพัฒนา ไม่อยู่ใน GitHub Release เนื่องจากยังไม่ได้ตรวจสิทธิ์ Redistribute ครบ
 
-สิทธิ์โมเดลเสริมยังอยู่ในสถานะ `review_required` และ **ไม่รับรองสิทธิ์การใช้เชิงพาณิชย์แบบครอบคลุม** โดยเฉพาะ Supertonic 3 ใช้ OpenRAIL-M พร้อมข้อจำกัด; Wayu NC ไม่มีแพ็กเกจ v3 แจกในรุ่นนี้ Vachana/Kokoro v2 เดิมก็ไม่สามารถติดตั้งใน v3 ได้โดยตรง
+สร้างตัวอย่างแพ็กเกจใหม่ด้วย `scripts/build_vwmodel_v4.py` และใช้ [ตัวอย่างสำหรับนักพัฒนา v4](../examples/README_TH.md) ดู [คู่มือ v4](../docs/UNIVERSAL_VWMODEL_V4_TH.md) และ [บันทึก QA ทั้ง 8 ตัว](../docs/V4_ALL_MODEL_QA_TH.md)
 
----
-
-## ประวัติแพ็กเกจรุ่นเก่า (v0.9.x / v2)
-
-> เนื้อหาด้านล่างเก็บไว้เป็นประวัติเท่านั้น คำสั่ง `voxweavetts.model_packages` และ `create_multilingual_model_packs.py` เดิมถูกยกเลิกใน v3 ใช้ `scripts/build_vwmodel_v3.py` แทนเมื่อต้องการสร้างแพ็กเกจใหม่
-
-# VoxWeaveTTS Model Packages v0.9.5
-
-**Release:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.5
-
-**New:** MakHam Paradee is now supplied as a verified removable .vwmodel and included by default in the v0.9.5 Portable. All optional packages are available separately, including NC Wayu (NonCommercial only), with package SHA-256 and upstream attribution in catalog.json. The Runtime Environment Registry permits removing an environment only when no installed model uses it. See [v0.9.5 release notes](../docs/RELEASE_NOTES_v0.9.5.md).
-
----
-
-# Model Packages ที่ทดลองแล้ว — VoxWeaveTTS v0.9.4
-
-ไฟล์โมเดลแยกจากตัวโปรแกรมหลัก: **Git Repository เก็บโค้ดสร้างแพ็กเกจ, Manifest, SHA-256, เครดิตและไฟล์ลิขสิทธิ์** ส่วนไฟล์น้ำหนักที่มีขนาดใหญ่จัดเก็บเป็น **GitHub Release Assets** ใน Repository เดียวกัน ไม่ Commit ไฟล์ ONNX ขนาดหลายร้อย MB ลง Git history
-
-**ดาวน์โหลดแพ็กเกจล่าสุด:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.4
-**โปรแกรมหลัก:** https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.9.2
-**ข้อมูลเครื่องตรวจสอบได้:** [catalog.json](catalog.json) มี SHA-256 ของไฟล์ `.vwmodel` และไฟล์โมเดลต้นทางที่ Pin ตาม Version
-
-## รุ่นที่แจก
-
-| แพ็กเกจ | เสียง | ประกาศลิขสิทธิ์จากผู้เผยแพร่ | ข้อควรทราบ |
-|---|---|---|---|
-| **Wayu Paxa Edge [NC / NonCommercial] v1.0.0** | **12 เสียง ไทย/อังกฤษ** | **CC BY-NC 4.0** อนุญาตแจกจ่าย/ดัดแปลงเฉพาะไม่เชิงพาณิชย์ พร้อม Attribution และ Acceptable Use | แยกจาก Portable ZIP; มี `model.pth` และ `voices/*.pt` ที่ตรวจ SHA-256 ตรงต้นฉบับ; ต้องใช้ Runtime `wayu-nc` และ VoxWeaveTTS v0.9.4 ขึ้นไป |
-| Kokoro-82M Multilingual INT8 v1.0.0 | 18 เสียงใน 7 ภาษา (EN/ES/FR/HI/IT/JA/PT), CPU ONNX | **Apache-2.0** ตาม Model Card ของ hexgrad/Kokoro-82M; ONNX conversion by thewh1teagle | ยังไม่ตรวจสิทธิ์ชุดข้อมูลฝึก/เสียงทุกแหล่งโดยอิสระ; ต้องติดตั้ง `.vwmodel` เพิ่มเอง; Portable v0.9.2 มี Runtime CPU ที่จำเป็นแล้ว |
-| MeloTTS Chinese ONNX v1.0.0 | จีนกลาง 1 เสียง (`zh_melo`) | **MIT** ตาม Model Card ของ MyShell.ai; แปลง ONNX โดย k2-fsa | ต้องลงแพ็กเกจแยก, ติดตั้ง sherpa-onnx (รวมแล้วใน Portable v0.9.1), สิทธิ์เสียง/ข้อมูลฝึกยังไม่รับรอง |
-| Supertonic 3 INT8 v1.0.0 | 31 ภาษา (รวมเกาหลี), 62 รายการเลือกเสียง | **OpenRAIL-M** โดย Supertone (มีข้อจำกัดตามเงื่อนไขการใช้งาน) | ไม่ใช่ MIT หรือ Commercial-Cleared; อ่าน License ใน `.vwmodel` ก่อนแจกต่อ/ใช้เชิงพาณิชย์ |
-| Vachana Thai 4 Voices v1.0.0 | 4 เสียง (หญิง 2/ชาย 2) | **MIT** ตาม Hugging Face Model Card ของ VIZINTZOR | ไม่พบรายการข้อมูลฝึกที่แจกแจงครบ ไม่มีการตรวจสิทธิ์เสียงแต่ละคนโดยอิสระ |
-| FastThaiG2P Kokoro Thai Som v0.3.0 | Thai Som 1 เสียง | **Apache-2.0** ตาม Repository FastThaiG2P พร้อม `NOTICE`; ชุดข้อมูล Som TTS ระบุ **CC BY 4.0** | ต้องเก็บเครดิตผู้สร้างและชุดข้อมูล ไม่ใช่สิทธิ์ที่ VoxWeaveTTS สร้างเอง |
-
-เราให้ดาวน์โหลดเพื่อทดลองและแจกต่อ **ตามสิทธิ์ที่ผู้เผยแพร่ต้นทางระบุ** โดยมีไฟล์ `legal/license.txt` / `legal/notice.txt` / `legal/attribution.md` อยู่ภายในแพ็กเกจที่เกี่ยวข้อง และมีสำเนาใน Repository:
-
-- [Vachana — MIT และข้อจำกัด](vachana/ATTRIBUTION.md) | [ประกาศ MIT](vachana/LICENSE.txt)
-- [FastThaiG2P — Apache/CC BY และข้อจำกัด](fastthaig2p/ATTRIBUTION.md) | [Apache-2.0](fastthaig2p/LICENSE.txt) | [NOTICE ต้นฉบับ](fastthaig2p/NOTICE.txt)
-
-### ข้อเท็จจริงเรื่องสิทธิ์ (สำคัญ)
-
-1. **MIT (Vachana)**: ต้นทางระบุ MIT กับโมเดลบน Hugging Face และเผยแพร่ ONNX สี่เสียงที่ Revision `6fa5f03a26f8ec0c0e0582e9e6812efa84d38688`. ตามเงื่อนไข MIT สามารถคัดลอกและเผยแพร่ต่อได้โดยคงประกาศสิทธิ์และเครดิตของเจ้าของผลงาน แต่ต้นทาง **ไม่ได้แจกแจงสิทธิ์ของข้อมูลฝึกทุกแหล่ง** จึงไม่รับรองสิทธิ์เสียงหรือการใช้งานทุกกรณี
-2. **Apache-2.0 (FastThaiG2P)**: Repository ของ Charin Polpanumas / Amazon Web Services แจกโค้ดและโมเดล Thai Som v0.3.0 และมี `LICENSE` กับ `NOTICE` สำหรับการเผยแพร่ต่อ ให้เก็บประกาศเหล่านี้ไว้
-3. **CC BY 4.0 (Som TTS)**: ชุดข้อมูลฝึกที่อ้างถึงในงาน FastThaiG2P เผยแพร่โดย Wannaphong Phatthiyaphaibun เป็น CC BY 4.0 ต้องอ้างชื่อผู้สร้าง แหล่งที่มา และลิงก์เงื่อนไข ชุดแพ็กเกจ **ไม่มีไฟล์ชุดข้อมูลฝึก** แต่บันทึกเครดิตไว้
-4. **การใช้เชิงพาณิชย์**: ผู้ใช้ไม่ได้ต้องการให้เราออกใบรับรองเชิงพาณิชย์ และเรา **ไม่ได้รับรอง** ความถูกต้องของสิทธิ์เสียงหรือข้อมูลฝึกทุกองค์ประกอบ การไม่รับรองไม่ใช่การเพิ่มเงื่อนไข “ห้ามใช้เชิงพาณิชย์” ให้กับ MIT/Apache/CC BY ที่ต้นทางประกาศ
-5. **การแจกต่อ**: ผู้นำไฟล์ไปเผยแพร่ต่อหรือใช้งานในที่อื่นต้องตรวจต้นทางล่าสุด และรักษาเงื่อนไขเดิมทั้งหมดเอง ข้อสงวนสิทธิ์นี้ไม่สามารถยกเว้นภาระตาม License ที่แท้จริงได้
-
-ข้อมูลอ้างอิง: [VachanaTTS](https://huggingface.co/VIZINTZOR/VachanaTTS), [FastThaiG2P v0.3.0](https://github.com/awslabs/FastThaiG2P/releases/tag/v0.3.0), [Som TTS Dataset CC BY 4.0](https://huggingface.co/datasets/pythainlp/som_tts_dataset), [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)
-
-## วิธีติดตั้ง
-
-1. ดาวน์โหลด `VoxWeaveTTS-v0.9.2-portable.zip`, แตกไฟล์ เปิด `VoxWeaveTTS.exe`
-2. ดาวน์โหลดเฉพาะ `.vwmodel` ที่ต้องการจากหน้า Model Packages Release ด้านบน
-3. ในโปรแกรม เข้าเมนู **ตั้งค่า → จัดการ Model Packages → ติดตั้ง Model Package (.vwmodel)** แล้วเลือกไฟล์ที่ดาวน์โหลด
-4. เมื่อรายการแสดง Engine/Model และ Runtime พร้อม ให้เข้า Voice Studio หรือ Live Channel ที่ต้องการ แล้วเลือก Engine และ Voice ของแพ็กเกจนั้น
-5. อ่าน License/Attribution ที่รวมไว้ในแพ็กเกจ และตรวจสอบ SHA-256 เทียบกับ `catalog.json` หรือ `SHA256SUMS.txt` ของ Release
-
-**ถ้าเคยติดตั้งแพ็กเกจทดลองเวอร์ชันเดียวกันแล้ว:** ตัวติดตั้งจะไม่ทับไฟล์เดิม ให้นำไฟล์ที่ต้องการเก็บสำรองก่อน เลือกถอนการติดตั้ง *เฉพาะแพ็กเกจและเวอร์ชันนั้น* แล้วติดตั้งแพ็กเกจใหม่ที่มีเอกสารลิขสิทธิ์ครบ
-
-**Runtime**: โปรแกรม v0.9.2 มี Engine Adapter ทั้ง 5 แพ็ก TTS และ Kokoro ONNX / eSpeak NG runtime ที่ใช้กับแพ็กหลายภาษา และบันเดิล Python Dependencies บางรายการไว้แล้ว ถ้ารายการใน Model Package Manager แสดง **Runtime ไม่พร้อม** ตรวจ `dependencies` ใน Manifest และคู่มือ [Model Packages](../docs/MODEL_PACKAGES_TH.md) ห้ามคัดลอก DLL/Python Package ที่ไม่ทราบแหล่งที่มาลงเครื่องเพื่อแก้ปัญหาแบบสุ่ม
-
-**หมายเหตุเพิ่มเติม:** M2M100 418M เป็น AI Translation `.vwmodel` แยกจาก TTS Model Packages มีให้ดาวน์โหลดในหน้า Release เดียวกันแต่ต้องติดตั้ง Torch/Transformers Runtime เพิ่มเอง และผลการประเมินความหมายยังไม่ดีพอสำหรับ Live อัตโนมัติ
-
-## สำหรับนักพัฒนา / Rebuild
-
-ดึงโมเดลจาก URL ต้นทางที่ตรึง Revision / Tag แล้ววางตามโฟลเดอร์ของคำสั่งต่อไปนี้ (ต้องเป็นไฟล์ที่มี Hash ตรงกับ `catalog.json`):
-
-```powershell
-$env:PYTHONPATH = 'src'
-python -m voxweavetts.model_packages pack-vachana
-python -m voxweavetts.model_packages pack-fastthai
-python scripts/verify_model_pack_release.py --write-catalog --release-tag v0.9.2
-```
-
-คำสั่ง `pack-vachana` และ `pack-fastthai` ใส่เอกสาร License และ Attribution จาก Repository เข้าไปในแพ็กเกจโดยอัตโนมัติ ตัวตรวจสอบจะหยุดเมื่อไฟล์โมเดลเบี่ยงเบนจาก SHA-256 ของผู้เผยแพร่ต้นทาง ไม่ต้องดาวน์โหลดไฟล์ใหม่หรือเรียกโค้ดฝึกโมเดล
-
-> **ไม่มีการเปลี่ยนสัญญาอนุญาตต้นฉบับ** VoxWeaveTTS ทำหน้าที่จัดรูปแบบไฟล์ให้ติดตั้งได้เท่านั้น และให้เครดิตต้นทางตามที่ตรวจสอบพบ ไม่มีการรับประกันการใช้งาน ความเหมาะสม หรือความเป็นเจ้าของเสียง
+เก็บหลักฐาน Attribution ของผู้ผลิตต้นทางไว้ใน `model-packs/fastthaig2p` และ `model-packs/vachana` เพื่อใช้ตรวจสิทธิ์ภายหลัง การนำโมเดลมาทดสอบสำเร็จไม่ใช่ใบอนุญาตให้แจกต่อหรือใช้เชิงพาณิชย์

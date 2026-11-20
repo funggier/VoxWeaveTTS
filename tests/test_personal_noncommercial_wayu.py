@@ -1,70 +1,52 @@
-"""NC models display their actual weight license and stay local-only."""
+"""NC rights are visible in v4 manifests even before public license review."""
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
-from voxweavetts import speech
-from voxweavetts.universal_model_packages import display_model_title
-from voxweavetts.personal_wayu_engine import (
-    ENGINE_ID, PersonalWayuEngine, VOICES, assets_ready, descriptor, runtime_ready,
+from voxweavetts.universal_model_v4 import (
+    inspect_archive, install, status, remove, ready,
 )
-from voxweavetts.processing import InputError
+from test_v4_plugin_packages import fixture
+from scripts.build_vwmodel_v4 import build
 
 
-class PersonalNonCommercialVoiceTests(unittest.TestCase):
-    def test_confirmed_nc_is_explicitly_in_model_title(self):
-        def model(spdx: str, title: str = "Example Voice"):
-            return {"title": title, "license": {"spdx": spdx}}
-        self.assertEqual(
-            display_model_title(model("CC-BY-NC-4.0")),
-            "[NC / NonCommercial] Example Voice",
-        )
-        self.assertEqual(
-            display_model_title(model("CC-BY-NC-SA-4.0")),
-            "[NC / NonCommercial] Example Voice",
-        )
-        self.assertEqual(
-            display_model_title(model("CC-BY-NC-4.0", "[NC] Custom")),
-            "[NC] Custom",
-        )
-        self.assertEqual(display_model_title(model("MIT")), "Example Voice")
-        self.assertEqual(display_model_title(model("OpenRAIL-M")), "Example Voice")
-        self.assertEqual(display_model_title(model("Unknown")), "Example Voice")
+class V4NonCommercialModelTests(unittest.TestCase):
+    def test_v4_nc_rights_are_not_mislabeled_as_commercial_clearance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base=Path(tmp)
+            fixture(base)
+            spec=base/"spec.json"
+            payload=json.loads(spec.read_text("utf-8"))
+            payload["package"]["id"]="qa-nc-voice"
+            payload["package"]["title"]="Restricted voice"
+            payload["rights"]["spdx"]="CC-BY-NC-4.0"
+            payload["rights"]["review_status"]="hold"
+            spec.write_text(json.dumps(payload),encoding="utf-8")
+            archive=build(base/"source",spec,base/"restricted.vwmodel")
+            manifest=inspect_archive(archive)
+            portable=base/"portable"
+            (portable/"runtime/python").mkdir(parents=True)
+            (portable/"runtime/python/python.exe").write_bytes(b"test")
+            install(archive,root=portable)
+            detail=status(manifest,
+                          portable/"models/universal/v4/tts/qa-nc-voice/1.0.0",
+                          root=portable)
+            self.assertTrue(detail["title"].startswith("[NC / NonCommercial]"))
+            self.assertEqual(detail["license"]["review_status"],"hold")
+            self.assertEqual(detail["license"]["spdx"],"CC-BY-NC-4.0")
+            self.assertFalse(detail["license"].get("commercial_cleared",False))
+            self.assertTrue(ready(portable,manifest))
+            self.assertTrue(remove("qa-nc-voice","1.0.0",root=portable))
 
-    def test_wayu_descriptor_is_never_commercial_cleared(self):
-        d = descriptor()
-        self.assertEqual(d.id, ENGINE_ID)
-        self.assertIn("[NC / NonCommercial]", d.label)
-        self.assertEqual(d.commercial_status, "hold")
-        self.assertEqual(d.sample_rate, 24000)
-        self.assertEqual(len(VOICES), 12)
-        self.assertEqual(len(d.voice_ids), 12)
-        self.assertTrue(d.capabilities["seed_control"])
-        self.assertFalse(d.capabilities["voice_cloning"])
-        self.assertTrue(any(i.id == ENGINE_ID for i in speech.list_engine_info()))
-
-    def test_missing_weights_do_not_download_during_synthesis(self):
-        with tempfile.TemporaryDirectory() as temp:
-            self.assertFalse(assets_ready(Path(temp)))
-            engine = PersonalWayuEngine(model_dir=Path(temp))
-            with self.assertRaises(speech.EngineUnavailable):
-                engine.generate("hello", 1.0)
-
-    def test_missing_isolated_python_disables_runtime(self):
-        with patch("voxweavetts.personal_wayu_engine.gateway") as broker:
-            broker.return_value.available.return_value = False
-            self.assertFalse(runtime_ready())
-
-    def test_voice_list_is_constrained(self):
-        engine = PersonalWayuEngine()
-        engine.select_voice("f_teen_bright")
-        self.assertEqual(engine.voice_id, "f_teen_bright")
-        with self.assertRaises(InputError):
-            engine.select_voice("../../bad")
+    def test_uninstalled_nc_package_does_not_run_or_download(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            from voxweavetts.universal_model_v4 import installed_packages
+            self.assertFalse(installed_packages(Path(tmp)))
+            self.assertFalse((Path(tmp)/"runtime/environments-v4").exists())
 
 
-if __name__ == "__main__":
+if __name__=="__main__":
     unittest.main()

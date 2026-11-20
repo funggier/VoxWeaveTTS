@@ -143,7 +143,7 @@ class PartialTTSTests(unittest.TestCase):
         c=SpeechCoordinator(render_wav)
         try:
             created=c.submit(
-                plan(),engine_id=ENGINE_ID,voice_id="thai_som",
+                plan(),engine_id=ENGINE_ID,voice_id="paradee_thai",
                 render_args={"engine":engine}
             )
             job=c.wait(created["speech_id"],timeout=5)
@@ -165,7 +165,7 @@ class PartialTTSTests(unittest.TestCase):
         c=SpeechCoordinator(render_wav)
         try:
             created=c.submit(
-                plan(),engine_id=ENGINE_ID,voice_id="thai_som",
+                plan(),engine_id=ENGINE_ID,voice_id="paradee_thai",
                 render_args={"engine":engine}
             )
             job=c.wait(created["speech_id"],timeout=5)

@@ -12,10 +12,10 @@ const start=html.indexOf("async function loadModelPackages(){");
 const end=html.indexOf("async function loadGlobalVoiceSettings(){",start);
 assert.ok(start>0&&end>start);
 const source=html.slice(start,end);
-assert.ok(!source.includes("????"),"untranslated v3 status placeholder");
+assert.ok(!source.includes("????"),"untranslated v4 status placeholder");
 const packages=[
   {package_id:"vachana-thai-four-voices",version:"1.0.0",
-   title:"ทดสอบ<private>",format_version:3,model_kind:"tts",
+   title:"ทดสอบ<private>",format_version:4,model_kind:"tts",
    engine_id:"model-vachana-thai-four-voices-1_0_0",runtime_state:"ready",
    runtime_source:"bundled-wheels",adapter_trusted:true,
    voices:[{id:"th_f_1",label:"หญิงหนึ่ง"},{id:"th_m_2",label:"ชายสอง"}],
@@ -85,7 +85,7 @@ vm.runInContext(source,scope);
   await tick();
   assert.equal(el("modelPackageList").children.length,2);
   const item=el("modelPackageList").children[0];
-  assert.ok(item.children[0].textContent.includes("Universal v3"));
+  assert.ok(item.children[0].textContent.includes("Universal v4"));
   assert.ok(item.children[0].textContent.includes("ทดสอบ<private>"));
   assert.equal(item.children[2].href,"https://example.org/model");
   assert.ok(item.children[1].textContent.includes("พร้อมใช้งาน"));

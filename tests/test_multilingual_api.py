@@ -64,7 +64,7 @@ class MultilingualHttpTests(unittest.TestCase):
                 self.assertIn("ja", initial["languages"])
                 body = {"expected_revision": 0,
                         "routes": {"th": {
-                            "engine_id": "makham-paradee-cpu",
+                            "engine_id": "model-makham-paradee-1_0_0",
                             "voice_id": "paradee_thai"}}}
                 status, data = self.post("/v1/settings/language-routes", body,
                                          "save-language-routes")
@@ -96,7 +96,7 @@ class MultilingualHttpTests(unittest.TestCase):
                 "seed": kwargs["seed"],
             }
         payload = {"text": "Bonjour", "language": "fr", "mode": "studio",
-                   "engine_id": "makham-paradee-cpu",
+                   "engine_id": "model-makham-paradee-1_0_0",
                    "voice_id": "paradee_thai"}
         request = Request(
             self.base + "/v1/speech", method="POST",
@@ -133,7 +133,7 @@ class MultilingualHttpTests(unittest.TestCase):
         from voxweavetts.server import Handler
         plan = process_text("Bonjour")
         data = {"mode": "reader", "language": "fr",
-                "engine_id": "makham-paradee-cpu", "voice_id": "paradee_thai"}
+                "engine_id": "model-makham-paradee-1_0_0", "voice_id": "paradee_thai"}
         with patch("voxweavetts.server.load_workspace_settings",
                    return_value={"language_routes": {"studio": True, "reader": False}}), \
              patch("voxweavetts.server.choose_route") as routed, \

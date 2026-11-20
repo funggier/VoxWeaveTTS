@@ -97,7 +97,7 @@ class SpanTests(unittest.TestCase):
 
     def test_server_on_samples_routes_without_rewriting_other_modes(self):
         plan = process_text("สวัสดี Hello")
-        saved = {"th": {"engine_id": "makham-paradee-cpu", "voice_id": "paradee_thai"},
+        saved = {"th": {"engine_id": "model-makham-paradee-1_0_0", "voice_id": "paradee_thai"},
                  "en": {"engine_id": "en-fixture", "voice_id": "en_voice"}}
         with (patch("voxweavetts.server.load_workspace_settings", return_value={
                 "language_routes": {}, "language_splitting": {"studio": True},

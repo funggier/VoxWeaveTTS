@@ -1,6 +1,0 @@
-# Vachana Thai ONNX 4-voice provider, isolated from others.
-vachanatts==0.0.7
-ssg==0.0.8
-onnxruntime==1.31.1
-numpy==2.2.6
-pythainlp==5.4.0

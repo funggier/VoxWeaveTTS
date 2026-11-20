@@ -35,8 +35,8 @@ def fake_renderer(plan, **kwargs):
 def submit(coordinator, text="สวัสดี", source_message_id=None, rules=None):
     plan = process_text(text, rules=rules or [], source="test")
     return coordinator.submit(
-        plan, engine_id="fastthaig2p-cpu", voice_id="thai_som",
-        render_args={"engine_id": "fastthaig2p-cpu", "voice_id": "thai_som"},
+        plan, engine_id="model-makham-paradee-1_0_0", voice_id="paradee_thai",
+        render_args={"engine_id": "model-makham-paradee-1_0_0", "voice_id": "paradee_thai"},
         source_message_id=source_message_id,
     )
 
@@ -77,7 +77,7 @@ class CoordinatorTests(unittest.TestCase):
             self.assertTrue(release.wait(4))
             return (
                 process_text("แปลแล้ว", source="test"),
-                {"engine_id": "fastthaig2p-cpu", "voice_id": "thai_som"},
+                {"engine_id": "model-makham-paradee-1_0_0", "voice_id": "paradee_thai"},
             )
         def renderer(plan, **kwargs):
             renders.append(plan["spoken_text"])
@@ -115,7 +115,7 @@ class CoordinatorTests(unittest.TestCase):
             entered.set()
             release.wait(4)
             return (process_text("ห้ามอ่าน", source="test"),
-                    {"engine_id":"fastthaig2p-cpu","voice_id":"thai_som"})
+                    {"engine_id":"model-makham-paradee-1_0_0","voice_id":"paradee_thai"})
         def renderer(plan, **kwargs):
             rendered.append(plan["spoken_text"])
             return fake_renderer(plan, **kwargs)
@@ -293,8 +293,8 @@ class CoordinatorAPITests(unittest.TestCase):
                           side_effect=fake_text_plan), \
              patch.object(Handler, "_speech_params", autospec=True,
                           return_value={
-                              "engine_id":"fastthaig2p-cpu",
-                              "voice_id":"thai_som"
+                              "engine_id":"model-makham-paradee-1_0_0",
+                              "voice_id":"paradee_thai"
                           }):
             try:
                 start = time.monotonic()
@@ -340,13 +340,19 @@ class CoordinatorAPITests(unittest.TestCase):
             headers={"Content-Type": "application/json",
                      "X-VoxWeaveTTS-Intent": "queue-speech"},
         )
-        with patch("voxweavetts.server.get_engine_info", return_value=ready_descriptor):
+        # This HTTP job test owns its own fake renderer. Do not consume a
+        # developer's persisted global voice settings/routes in the test.
+        with patch("voxweavetts.server.get_engine_info", return_value=ready_descriptor), \
+             patch.object(Handler, "_speech_params", return_value={
+                 "engine_id": "model-makham-paradee-1_0_0",
+                 "voice_id": "paradee_thai", "seed": 100, "speed": 1.0,
+             }):
             with urlopen(req, timeout=3) as response:
                 self.assertEqual(response.status, 202)
                 job = json.load(response)
         job_id = job["speech_id"]
         result = self.coordinator.wait(job_id)
-        self.assertEqual(result["state"], "ready")
+        self.assertEqual(result["state"], "ready", result)
         self.assertEqual(result["display_text"], "สวัสดี ***")
         self.assertNotIn("คำลับ", json.dumps(result, ensure_ascii=False))
         self.assertFalse("spoken_text" in str(result))

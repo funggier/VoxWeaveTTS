@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 QA = ROOT / "cache" / "temp" / "v4-wheel-qa"
-ARCHIVE = ROOT / "cache" / "v3-unreleased-candidates" / "demo-wheel-plugin-format-v4.vwmodel"
+ARCHIVE = ROOT / "cache" / "v4-qa-candidates" / "demo-wheel-plugin-format-v4.vwmodel"
 WHEEL = "v4fixture-1.0.0-py3-none-any.whl"
 RECORD = "v4fixture-1.0.0.dist-info/RECORD"
 

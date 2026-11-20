@@ -4,7 +4,7 @@
 
 ผู้สร้างโมเดลจัดเตรียม plugin/adapter.json, assets/ ที่บรรจุน้ำหนักโมเดล และ runtime/wheels/ ที่บรรจุ Dependencies ทั้งหมด จากนั้นสร้าง .vwmodel v4 ด้วย scripts/build_vwmodel_v4.py
 
-scripts/convert_all_models_to_v4.py เป็นตัวอย่างการแปลง Asset + Dependencies ที่มีอยู่เป็นแพ็กเกจ v4 แบบสตรีมและตรวจ SHA-256 จากต้นฉบับ การแปลงไม่ได้หมายความว่าได้รับอนุญาตให้แจกจ่ายโมเดลหรือ Wheel
+สร้างไฟล์ .vwmodel ใหม่โดยใช้ scripts/build_vwmodel_v4.py และตรวจ Metadata แบบแยกจาก Core แพ็กเกจต้องระบุรายการ Voice และภาษาที่แต่ละเสียงรองรับอย่างชัดเจน (voice_language_map สำหรับโมเดลหลายภาษา)
 
 โปรแกรม Core รู้จักเพียง Worker Protocol v1: synthesize รับข้อความและคืน PCM16 Mono + sample_rate โดยสร้าง Plugin เป็น Child Process ต่างหาก
 

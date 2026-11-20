@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from voxweavetts import universal_model_v4 as v4
-from voxweavetts.package_install_v3 import preview, commit
+from voxweavetts.package_install_v4 import preview, commit
 from voxweavetts.engine_provider_catalog import all_providers
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,7 +92,8 @@ class V4PluginPackageTests(unittest.TestCase):
             self.assertEqual(record["format_version"], 4)
             self.assertTrue(record["contains_executable_plugin"])
             self.assertNotIn(str(archive), str(record))
-            with patch.object(v4, "install", return_value={"format_version": 4}) as installer:
+            with patch("voxweavetts.package_install_v4.install",
+                       return_value={"format_version": 4}) as installer:
                 result = commit(record["token"], accepted_rights=True)
                 self.assertEqual(result["format_version"], 4)
                 installer.assert_called_once_with(archive.resolve())

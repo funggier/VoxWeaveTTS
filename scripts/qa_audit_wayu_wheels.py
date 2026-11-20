@@ -1,6 +1,6 @@
 """Read-only QA audit of candidate Wayu wheel bytes (no installation/execution).
 
-Outputs a private report under cache/v3-unreleased-candidates. A clean ZIP
+Outputs a private report under cache/v4-qa-candidates. A clean ZIP
 structure does NOT certify legal permission to distribute dependencies.
 """
 from __future__ import annotations
@@ -15,7 +15,7 @@ from packaging.utils import parse_wheel_filename
 
 ROOT=Path(__file__).resolve().parents[1]
 WHEELS=ROOT/"cache"/"temp"/"qa-wayu-wheels"
-REPORT=ROOT/"cache"/"v3-unreleased-candidates"/"wayu-wheel-audit.json"
+REPORT=ROOT/"cache"/"v4-qa-candidates"/"wayu-wheel-audit.json"
 
 def audit(root: Path=WHEELS)->dict:
     report=[]
@@ -37,7 +37,7 @@ def audit(root: Path=WHEELS)->dict:
         report.append({
             "filename":file.name, "name":str(name), "version":str(version),
             "bytes":file.stat().st_size, "sha256":digest,
-            "v3_rejected_members":scripts[:30],
+            "v4_rejected_members":scripts[:30],
             "license_file_present":bool(licenses),
         })
     duplicates={}
@@ -45,7 +45,7 @@ def audit(root: Path=WHEELS)->dict:
         duplicates.setdefault(row["name"].casefold(),[]).append(row["version"])
     duplicate_names={k:v for k,v in duplicates.items() if len(v)>1}
     return {
-        "format":"voxweavetts.wayu-v3-offline-qa-audit",
+        "format":"voxweavetts.wayu-v4-offline-qa-audit",
         "qa_only":True,"cleared_for_publication":False,
         "wheel_count":len(report),
         "size_mib":round(sum(r["bytes"] for r in report)/1048576,2),
