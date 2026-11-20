@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 import zipfile
 
-import requests
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "cache" / "v4-rights-evidence"
@@ -83,9 +83,10 @@ def collect(archive_dir: Path = ARCHIVES, out_dir: Path = OUT) -> dict:
             "https://cdn.jsdelivr.net/gh/microsoft/onnxruntime@"
             + REF + "/" + filename
         )
-        response = requests.get(url, timeout=15)
-        response.raise_for_status()
-        content = response.content
+        with urlopen(Request(url, headers={
+            "User-Agent": "VoxWeaveTTS-v4-source-notice-audit",
+        }), timeout=15) as response:
+            content = response.read(600_001)
         if not content or len(content) > 600_000 or b"\x00" in content:
             raise ValueError("unexpected source notice size/type: " + filename)
         if filename == "LICENSE" and not content.lstrip().startswith(b"MIT License"):

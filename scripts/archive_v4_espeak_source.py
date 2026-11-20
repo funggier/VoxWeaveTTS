@@ -15,7 +15,7 @@ from pathlib import Path
 import tarfile
 import zipfile
 
-import requests
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "dist" / "ModelPackagesV4-NoticeQA"
@@ -68,9 +68,10 @@ def bundled_binary_index(archive_dir: Path = SOURCE) -> dict:
 
 
 def get_text(url: str, *, max_bytes: int = 200_000) -> bytes:
-    response = requests.get(url, timeout=20)
-    response.raise_for_status()
-    data = response.content
+    with urlopen(Request(url, headers={
+        "User-Agent": "VoxWeaveTTS-v4-source-notice-audit",
+    }), timeout=20) as response:
+        data = response.read(max_bytes + 1)
     if not data or len(data) > max_bytes or b"\x00" in data:
         raise ValueError("unexpected legal/build text size or encoding")
     return data
@@ -80,11 +81,15 @@ def get_tarball(url: str, target: Path, *, max_bytes: int = 80_000_000) -> dict:
     if target.exists():
         data = target.read_bytes()
     else:
-        with requests.get(url, stream=True, timeout=45) as response:
-            response.raise_for_status()
+        with urlopen(Request(url, headers={
+            "User-Agent": "VoxWeaveTTS-v4-source-notice-audit",
+        }), timeout=45) as response:
             chunks = []
             length = 0
-            for chunk in response.iter_content(chunk_size=1024 * 1024):
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
                 length += len(chunk)
                 if length > max_bytes:
                     raise ValueError("upstream source exceeds size bound")

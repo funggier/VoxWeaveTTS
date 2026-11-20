@@ -39,6 +39,7 @@ def make_fixture(root: Path, package_id: str, dll: bytes) -> None:
 class Response:
     def __init__(self, content: bytes):
         self.content = content
+        self.offset = 0
 
     def __enter__(self):
         return self
@@ -46,12 +47,10 @@ class Response:
     def __exit__(self, *args):
         return False
 
-    def iter_content(self, chunk_size: int):
-        for index in range(0, len(self.content), chunk_size):
-            yield self.content[index:index + chunk_size]
-
-    def raise_for_status(self):
-        return None
+    def read(self, max_bytes: int):
+        block = self.content[self.offset:self.offset + max_bytes]
+        self.offset += len(block)
+        return block
 
 
 def tiny_source() -> bytes:
@@ -80,12 +79,13 @@ class EspeakNativeSourceTests(unittest.TestCase):
             }
             source_tar = tiny_source()
 
-            def fake_get(url, **kwargs):
+            def fake_open(request, **kwargs):
+                url = request.full_url
                 if url == target.SOURCE_URL:
                     return Response(source_tar)
                 return Response(docs[url.removeprefix(target.LOADER_BASE)])
 
-            with patch.object(target.requests, "get", side_effect=fake_get), \
+            with patch.object(target, "urlopen", side_effect=fake_open), \
                  patch.object(target, "ROOT", root):
                 audit = target.collect(root, root / "source-data")
 

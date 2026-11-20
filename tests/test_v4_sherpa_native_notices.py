@@ -45,8 +45,14 @@ class FakeResponse:
     def __init__(self, data: bytes):
         self.content = data
 
-    def raise_for_status(self):
-        return None
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, max_bytes: int):
+        return self.content[:max_bytes]
 
 
 class SherpaNativeNoticesTests(unittest.TestCase):
@@ -63,8 +69,8 @@ class SherpaNativeNoticesTests(unittest.TestCase):
                 "ThirdPartyNotices.txt":
                     b"THIRD PARTY SOFTWARE NOTICES AND INFORMATION\nOriginal\n",
             }
-            with patch.object(subject.requests, "get", side_effect=lambda url, **kw:
-                              FakeResponse(documents[url.rsplit("/", 1)[-1]])), \
+            with patch.object(subject, "urlopen", side_effect=lambda request, **kw:
+                              FakeResponse(documents[request.full_url.rsplit("/", 1)[-1]])), \
                  patch.object(subject, "ROOT", root):
                 report = subject.collect(root, root / "saved-notices")
             self.assertFalse(report["public_release_authorized"])
