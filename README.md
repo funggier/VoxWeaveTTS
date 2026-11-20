@@ -1,8 +1,8 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio v0.12.1 — Universal .vwmodel v4 only**
+**Windows Portable TTS Studio v0.12.2 — Universal .vwmodel v4 only**
 
-**Public v0.12.1 is Core-only.** Its ZIP contains **no TTS or translation model weights, no bundled model package, and no model-specific inference runtime.** A separate first-party **Windows SAPI Desktop v4** package can speak real English using installed Windows desktop voices (no Microsoft voice binaries are redistributed). Third-party model packages remain separate and the eight QA migration packs are withheld pending redistribution review.
+**[Public v0.12.2](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.2) is a full Windows Portable Core ZIP, without model weights.** It fixes the v0.12.1 installer rejecting the original GPL/LGPL source archives shipped inside Kokoro and Wayu V4 packages. Download the [seven separately licensed offline V4 model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) without repackaging or redownloading them. Vachana / `vachanatts` stays local-only pending code rights verification.
 
 VoxWeaveTTS is a local-first, Thai-focused TTS application with narration, live chat, per-mode voice settings, translation, speech queues, APIs, and subtitle/OBS synchronization. Its model engines and offline dependencies live in separate, self-contained packages.
 
@@ -31,16 +31,16 @@ The [v4 examples](examples/README_TH.md) cover Python plugin workers (with or wi
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 scripts\build_vwmodel_v4.py --source examples\v4-demo-tone --spec examples\v4-demo-tone\spec.json --output cache\demo-tone-v4.vwmodel
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.1 -StageDirectory dist\release-v0.12.1\VoxWeaveTTS
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.2 -StageDirectory dist\release-v0.12.2\VoxWeaveTTS
 ```
 
-Public Core builds require **no QA archives** and never ship models. An isolated **private QA-only** stage may opt into MakHam with `-SkipZip -IncludeUnreleasedQaMakHam`; the builder blocks ZIP publishing of that option. See [v0.12.1 release notes](docs/RELEASE_NOTES_v0.12.1_TH.md).
+Public Core builds require **no QA archives** and never ship models. An isolated **private QA-only** stage may opt into MakHam with `-SkipZip -IncludeUnreleasedQaMakHam`; the builder blocks ZIP publishing of that option. See [v0.12.2 release notes and Kokoro/Wayu fix](docs/RELEASE_NOTES_v0.12.2_TH.md).
 
 ## Eight-model v4 QA and redistribution rights
 
 All **seven TTS engines** (MakHam, FastThaiG2P, Melo Chinese, Supertonic 3, Kokoro, Vachana, Wayu NC) plus **M2M100 translation** have passed local offline installation and real audio or translation tests as v4 packages.
 
-The eight archives under `dist/ModelPackagesV4-QA` are **not approved for public distribution**. Third-party model/Dependency rights remain under review. Wayu weights remain noncommercial (CC BY-NC 4.0); other models have their own distinct conditions. A user's installation click does not grant a developer redistribution rights.
+**Seven independent V4 model packs are publicly available** in the [model-packs Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4); they retain upstream licenses, including Wayu's noncommercial CC BY-NC 4.0 and the GPL/LGPL source obligations of selected runtime components. The eighth, **Vachana / `vachanatts`**, remains local-only. Older private QA archives remain under `dist/ModelPackagesV4-QA` and are not Release assets.
 
 Prior public releases remain in [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) and Git history; this development branch and its new Portable build accept **only v4**.
 

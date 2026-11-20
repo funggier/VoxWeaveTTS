@@ -1,4 +1,4 @@
-"""Guardrail: v0.12.1 public Core cannot silently bundle pending-rights QA models."""
+"""Guardrail: public v0.12.2 Core cannot silently bundle pending-rights QA models."""
 from __future__ import annotations
 
 import hashlib
@@ -23,9 +23,9 @@ class PublicV4ReleaseContractTests(unittest.TestCase):
     def test_version_is_exact_release_not_dev(self):
         version=(ROOT/"src/voxweavetts/__init__.py").read_text("utf-8")
         pyproject=(ROOT/"pyproject.toml").read_text("utf-8")
-        self.assertIn('__version__ = "0.12.1"',version)
-        self.assertIn('version = "0.12.1"',pyproject)
-        self.assertNotIn("0.12.1.dev0",version)
+        self.assertIn('__version__ = "0.12.2"',version)
+        self.assertIn('version = "0.12.2"',pyproject)
+        self.assertNotIn("0.12.2.dev0",version)
 
     def test_distributable_example_is_a_tone_not_speech(self):
         spec=json.loads((ROOT/"examples/v4-demo-tone/spec.json").read_text("utf-8"))

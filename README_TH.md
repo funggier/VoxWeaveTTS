@@ -1,8 +1,8 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio v0.12.1 — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.2 — Universal .vwmodel v4 เท่านั้น**
 
-**Public Release v0.12.1 เป็น Core-only:** ตัวโปรแกรม Portable ไม่มีน้ำหนักโมเดลเสียงหรือโมเดลแปลภาษาใน ZIP แต่มีแพ็กเกจแยก **Windows SAPI Desktop v4** สำหรับสร้างเสียงพูดอังกฤษจริงด้วยเสียง SAPI ที่ติดตั้งอยู่ใน Windows ของผู้ใช้ (ไม่แจกไฟล์เสียงของ Microsoft) ติดตั้งจากไฟล์ `.vwmodel` เดียวแบบออฟไลน์ได้ โมเดล QA ทั้ง 8 ตัวที่ต้องแจก Wheel/Runtime ของบุคคลที่สามยังไม่ผ่านเกณฑ์สิทธิ์แจกจ่าย
+**Public Release [v0.12.2](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.2) เป็น Core Portable แบบครบชุด (ไม่รวมโมเดล):** แก้ปัญหา [Kokoro และ Wayu ที่ติดตั้งไม่ได้ใน v0.12.1](docs/RELEASE_NOTES_v0.12.2_TH.md) โดยรองรับไฟล์ต้นฉบับ GPL/LGPL ที่แนบอยู่ในแพ็กเกจ V4 ดาวน์โหลด [โมเดล V4 อีก 7 ตัวแยกได้จาก Model Packs Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) โดยคง License เดิมของผู้เผยแพร่ไว้ ส่วน Vachana เก็บเฉพาะในเครื่องและไม่เผยแพร่
 
 VoxWeaveTTS เป็นโปรแกรมอ่านข้อความภาษาไทยและหลายภาษาแบบออฟไลน์ มีระบบจัดคิวเสียง ควบคุมเสียง กรองข้อความ แปลภาษา และแสดง Subtitle/Overlay สำหรับ Live ได้ โดยระบบโมเดลแยกจากตัวโปรแกรมหลักอย่างอิสระ
 
@@ -28,7 +28,7 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 - **Queue / Overlay / API** — คิวเสียงและการอ่านพร้อมข้อมูลเหตุการณ์สำหรับ Subtitle/OBS
 - **Global Settings** — กฎการอ่าน, การแทนคำ, Emoji, และการจัดการโมเดล/ส่วนเสริม
 
-โมเดลที่ไม่ได้ติดตั้งจะไม่ถูกเปิดใช้งาน **Core ที่เผยแพร่สาธารณะไม่มีโมเดลเริ่มต้น:** MakHam และโมเดลอื่นยังอยู่ในชุด QA ภายใน แต่สามารถดาวน์โหลดแพ็กเกจ Windows SAPI Desktop v4 แยกจาก Release เพื่ออ่านภาษาอังกฤษด้วยเสียงที่ Windows มีอยู่แล้วได้ (ไม่ใช่โมเดล Voice Cloning)
+โมเดลที่ไม่ได้ติดตั้งจะไม่ถูกเปิดใช้งาน **Core ที่เผยแพร่สาธารณะไม่มีโมเดลเริ่มต้น:** ดาวน์โหลด MakHam, FastThaiG2P, Melo, Supertonic, Kokoro, Wayu และ M2M100 ได้จาก [Release โมเดล V4 ทั้ง 7 ตัว](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) ติดตั้งผ่านไฟล์ `.vwmodel` โดยตรง และยังมีแพ็กเกจ Windows SAPI Desktop v4 แยกจาก [v0.12.1](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1)
 
 ## สำหรับนักพัฒนาแพ็กเกจ
 
@@ -47,8 +47,9 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 ใช้ PowerShell บน Windows และ Python Environment ของโปรเจกต์:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.1 -StageDirectory dist\release-v0.12.1\VoxWeaveTTS
-.\dist\release-v0.12.1\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.1\VoxWeaveTTS
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.2 -StageDirectory dist\release-v0.12.2\VoxWeaveTTS
+.\dist\release-v0.12.2\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.2\VoxWeaveTTS
+.\.venv\Scripts\python.exe -X utf8 scripts\verify_v4_core_release_model_compatibility.py --stage dist\release-v0.12.2\VoxWeaveTTS
 ```
 
 การสร้าง Public Core **ไม่ต้องมีแพ็กเกจโมเดลใด ๆ** และ Build จะปฏิเสธการรวมแพ็กเกจ QA ลงใน ZIP ส่วนการทดสอบภายในสามารถใช้ `-SkipZip -IncludeUnreleasedQaMakHam` แยกจาก Release ได้
@@ -57,7 +58,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -
 
 ## สถานะการเผยแพร่และสิทธิ์
 
-โครงสร้าง Core และแพ็กเกจทั้ง **8 ตัว (TTS 7 + Translation 1)** ผ่านการติดตั้ง/Inference จริงในสภาพแวดล้อม QA แล้ว และ **น้ำหนักโมเดลของทั้ง 8 ตัวตรงกับ V2 ที่เคยเผยแพร่ (ตรวจ SHA-256)** จึงนำหลักฐานสิทธิ์ของน้ำหนักโมเดลเดิมมาใช้ต่อได้ ส่วนที่ยังต้องจัดการสำหรับการเผยแพร่ V4 คือ License/Notice ของ **Worker และ Dependencies ออฟไลน์ที่เพิ่มมา** โดยยังไม่มี Public Release ของแพ็กเกจ v4 ทั้ง 8 ตัว
+โครงสร้าง Core และแพ็กเกจทั้งหมด **8 ตัว (TTS 7 + Translation 1)** ผ่านการทดสอบใน QA แล้ว และน้ำหนักโมเดล V4 ตรงกับต้นฉบับ V2 ตามหลักฐาน SHA-256 ปัจจุบัน **เผยแพร่โมเดล V4 แบบแยก 7 ตัวแล้ว** (TTS 6 + Translation 1) พร้อมเอกสารสิทธิ์และ Dependencies ออฟไลน์ โดย **Vachana / `vachanatts` ยังคงเก็บเฉพาะในเครื่อง** เพราะสิทธิ์ของตัวโค้ดยังยืนยันไม่ครบ
 
 โปรเจกต์นี้ **ไม่ได้มุ่งการใช้งานเชิงพาณิชย์** และจะแจกโมเดลแยกจาก Core **ภายใต้สิทธิ์เดิมของผู้เผยแพร่** โดย Wayu Paxa Edge ยังคงเป็น **CC BY-NC 4.0** พร้อมข้อกำหนด Attribution และ Acceptable Use ไม่จำเป็นต้องตัด Wayu เพียงเพราะมีข้อจำกัด NonCommercial ส่วน Kokoro / Vachana และโมเดลอื่นจะรักษาข้อกำหนด Dependencies ให้ครบ ไม่ตีความว่าการทำงานได้เท่ากับได้รับสิทธิ์แจกจ่ายแล้ว
 
@@ -77,6 +78,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -
 - [ผลเทียบโมเดล V2/V3/V4 และการคงสิทธิ์เดิม](docs/V4_MODEL_LICENSE_CONTINUITY_TH.md)
 - [สถานะ Model Pack v4 พร้อมสำเนา License/Notice ในแพ็กเกจ](docs/V4_MODEL_PACK_RIGHTS_QA_2026-11-20_TH.md)
 - [ผลประกอบ V4 พร้อม License ของสภาพแวดล้อม โดยคงสิทธิ์โมเดลเดิม](docs/V4_DEPENDENCY_NOTICE_QA_2026-11-20_TH.md)
+- [หมายเหตุ Public Release v0.12.2 และการแก้ Kokoro / Wayu](docs/RELEASE_NOTES_v0.12.2_TH.md)
+- [หมายเหตุ Model Packs V4 ทั้ง 7 ตัว](docs/RELEASE_NOTES_MODEL_PACKS_V4_SEVEN_TH.md)
 - [หมายเหตุ Public Release v0.12.1](docs/RELEASE_NOTES_v0.12.1_TH.md)
 - [หมายเหตุ Public Release v0.12.0](docs/RELEASE_NOTES_v0.12.0_TH.md)
 - [สำเนาเอกสารสิทธิ์จากผู้เผยแพร่ต้นทาง v4 และ SHA-256](docs/V4_UPSTREAM_LICENSE_EVIDENCE_TH.md)

@@ -6,6 +6,8 @@
 
 **รองรับเฉพาะ v4 ใน Source และ Portable รุ่นใหม่** โดย Model/Worker/Dependencies ถูกบรรจุมาในไฟล์ .vwmodel เดียว ผู้ใช้เลือกไฟล์และกดติดตั้งเพื่อใช้งาน ไม่ต้องติดตั้ง Runtime ด้วยตนเอง
 
+**ข้อกำหนด Core:** สำหรับแพ็กเกจ **Kokoro** และ **Wayu** ที่เผยแพร่ใน Release V4 ต้องใช้ [Core v0.12.2 ขึ้นไป](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.2) เพราะ Core v0.12.1 ยังปฏิเสธซอร์ส GPL/LGPL `.tar.gz` ที่บรรจุในไฟล์ ส่วนโมเดล V4 อีก 5 ตัวผ่านการตรวจ Manifest กับ Core v0.12.1 เดิมแล้ว
+
 ระบบภายในแยก Runtime ของแพ็กเกจ, ตรวจ SHA-256 และ Wheel, เรียก Worker ผ่าน Protocol v1 สำหรับ TTS หรือ Translation และรองรับการย้ายโฟลเดอร์ Portable
 
 โมเดล v4 ที่ผ่าน QA ทั้ง 8 รายการ โดย **เผยแพร่สาธารณะ 7 ตัว** และเก็บ Vachana ไว้ในเครื่องพัฒนา:

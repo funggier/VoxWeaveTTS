@@ -1,4 +1,4 @@
-"""VoxWeaveTTS v0.12.1 v4 Core-only ZIP release verification.
+"""VoxWeaveTTS v0.12.2 v4 Core-only ZIP release verification.
 
 CRC, safe paths, zero model weights/runtimes, no private files, isolated
 extraction, HTTP API, YouTube transport, the optional MIT demo tone,
@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = os.getenv("VOXWEAVE_PORTABLE_VERSION", "0.12.1")
+VERSION = os.getenv("VOXWEAVE_PORTABLE_VERSION", "0.12.2")
 ARCHIVE = ROOT / "dist" / f"VoxWeaveTTS-v{VERSION}-portable.zip"
 DEMO = ROOT / "dist" / f"VoxWeaveTTS-v{VERSION}-v4-demo-tone.vwmodel"
 SAPI = ROOT / "dist" / "VoxWeaveTTS-Windows-SAPI-Desktop-v1.0.0-format-v4.vwmodel"
@@ -46,7 +46,7 @@ with zipfile.ZipFile(ARCHIVE) as zip_in:
         "VoxWeaveTTS/third_party_licenses/uv/LICENSE-MIT",
         "VoxWeaveTTS/third_party_licenses/uv/LICENSE-APACHE",
         "VoxWeaveTTS/third_party_licenses/uv/SOURCE.json",
-        "VoxWeaveTTS/docs/RELEASE_NOTES_v0.12.1_TH.md",
+        "VoxWeaveTTS/docs/RELEASE_NOTES_v0.12.2_TH.md",
     }
     if not required <= files:
         raise AssertionError("release ZIP missing Core files: "
