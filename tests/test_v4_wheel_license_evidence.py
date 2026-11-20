@@ -17,7 +17,8 @@ from audit_v4_wheel_licenses import inspect,one_wheel
 
 def fixture(tmp: Path, *, expression: str = "MIT",
             include_license: bool = True, native: bool = False,
-            extra_metadata: str | None = None) -> Path:
+            extra_metadata: str | None = None,
+            duplicate_native: bool = False) -> Path:
     wheel_buffer = io.BytesIO()
     with zipfile.ZipFile(wheel_buffer,"w") as w:
         w.writestr("fixture-1.0.0.dist-info/METADATA",
@@ -31,6 +32,8 @@ def fixture(tmp: Path, *, expression: str = "MIT",
             w.writestr("fixture-1.0.0.dist-info/licenses/LICENSE","Full license text")
         if native:
             w.writestr("fixture/engine.dll",b"binary-qa-only")
+            if duplicate_native:
+                w.writestr("fixture/.data/engine.dll",b"binary-qa-only")
     wheel_bytes=wheel_buffer.getvalue()
     name="runtime/wheels/fixture-1.0.0-py3-none-any.whl"
     manifest={
@@ -79,6 +82,23 @@ class V4WheelLicenseEvidenceTests(unittest.TestCase):
             self.assertIn("native-binary-license-and-source-review",flags)
             self.assertEqual(report["packages"][0]["gpl_wheel_count"],1)
             self.assertEqual(report["packages"][0]["native_wheel_count"],1)
+            binary = report["wheel_details"][0]["native_binaries"][0]
+            self.assertEqual(binary["path"],"fixture/engine.dll")
+            self.assertEqual(binary["size"],len(b"binary-qa-only"))
+            self.assertEqual(binary["sha256"],hashlib.sha256(b"binary-qa-only").hexdigest())
+            self.assertEqual(report["unique_native_payloads_inspected"],1)
+
+    def test_duplicate_native_payloads_have_one_digest_but_two_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=fixture(Path(temp),native=True,duplicate_native=True)
+            report=inspect([path])
+            details=report["wheel_details"][0]
+            self.assertEqual(details["native_binary_count"],2)
+            self.assertEqual(len(details["native_binaries"]),2)
+            self.assertEqual(details["native_binaries"][0]["sha256"],
+                             details["native_binaries"][1]["sha256"])
+            self.assertEqual(report["unique_native_payloads_inspected"],1)
+            self.assertEqual(report["packages"][0]["native_binary_file_count"],2)
 
     def test_bsd_primary_with_embedded_gpl_notice_is_not_mislabeled_as_gpl(self):
         metadata=("Metadata-Version: 2.4\nName: fixture\nVersion: 1.0.0\n"

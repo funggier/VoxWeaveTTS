@@ -13,12 +13,24 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
 from test_v4_plugin_packages import fixture
-from voxweavetts.universal_model_v4 import inspect_archive
+from voxweavetts.universal_model_v4 import inspect_archive, _path, V4PackageError
 import repackage_v4_with_legal_evidence as legal
 from verify_v4_legal_packaging import assess
 
 
 class V4LegalPackageTests(unittest.TestCase):
+    def test_exact_gpl_source_tar_path_is_allowed_other_archives_stay_blocked(self):
+        path = "assets/legal/source/espeak-ng-1.52.0-source.tar.gz"
+        self.assertEqual(_path(path), path)
+        for other in (
+            "assets/legal/source/other-source.tar.gz",
+            "assets/legal/any-other.tar.gz",
+            "plugin/new-payload.tar.gz",
+            "assets/legal/source/../source/espeak-ng-1.52.0-source.tar.gz",
+        ):
+            with self.subTest(other=other), self.assertRaises(V4PackageError):
+                _path(other)
+
     def test_legal_docs_preserve_original_worker_and_model_license(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)

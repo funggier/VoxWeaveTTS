@@ -76,6 +76,20 @@ def one_wheel(outer: zipfile.ZipFile, entry: str, pin: dict) -> dict:
                 and not n.lower().endswith(".py")
             ]
             native_files = [n for n in names if n.lower().endswith((".dll", ".pyd", ".exe", ".so", ".dylib"))]
+            native_evidence = []
+            for native_path in native_files:
+                # Native components may be duplicated inside a wheel (e.g.
+                # sherpa-onnx-core installs the same DLL in two locations).
+                # Hash the *actual bytes* with bounded memory, not the name.
+                digest = hashlib.sha256()
+                with wheel.open(native_path) as binary:
+                    for block in iter(lambda: binary.read(1024 * 1024), b""):
+                        digest.update(block)
+                native_evidence.append({
+                    "path": native_path,
+                    "size": wheel.getinfo(native_path).file_size,
+                    "sha256": digest.hexdigest(),
+                })
             declared = bool(expression or field or classifiers)
             has_text = bool(license_files)
             terms = " ".join([expression, field] + classifiers).lower()
@@ -102,6 +116,7 @@ def one_wheel(outer: zipfile.ZipFile, entry: str, pin: dict) -> dict:
                 "license_classifiers": classifiers[:8],
                 "license_notice_files": license_files[:15],
                 "native_binary_count": len(native_files),
+                "native_binaries": native_evidence,
                 "flags": flags,
             }
 
@@ -138,6 +153,7 @@ def inspect(archives: list[Path]) -> dict:
                     for w in wheels
                 ),
                 "native_wheel_count": sum(w["native_binary_count"] > 0 for w in wheels),
+                "native_binary_file_count": sum(w["native_binary_count"] for w in wheels),
                 "manifest_rights_claim": manifest["rights"].get("spdx"),
                 "public_release_authorized": False,
             })
@@ -145,6 +161,10 @@ def inspect(archives: list[Path]) -> dict:
         "format": "voxweavetts.v4-wheel-license-evidence",
         "version": 1, "scope": "read-only, offline, SHA-verified wheels",
         "unique_wheels_inspected": len(cache),
+        "unique_native_payloads_inspected": len({
+            item["sha256"] for wheel in cache.values()
+            for item in wheel["native_binaries"]
+        }),
         "package_count": len(packages),
         "public_release_authorized": False,
         "packages": packages,
@@ -181,10 +201,12 @@ def main() -> int:
         "packages": [
             {k: v for k, v in p.items()
              if k in ("package_id", "wheel_count", "missing_declaration_count",
-                      "gpl_wheel_count", "native_wheel_count")}
+                      "gpl_wheel_count", "native_wheel_count",
+                      "native_binary_file_count")}
             for p in result["packages"]
         ],
         "unique_wheels_inspected": result["unique_wheels_inspected"],
+        "unique_native_payloads_inspected": result["unique_native_payloads_inspected"],
         "public_release_authorized": False,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2), flush=True)

@@ -103,6 +103,55 @@ def build(source: Path, output: Path) -> dict:
         if hash_bytes(data) != source_doc["sha256"]:
             raise ValueError("original pinned sherpa-onnx LICENSE changed")
         additional["assets/legal/sherpa-onnx-apache-2.0.txt"] = data
+        # sherpa-onnx-core bundles ONNX Runtime native DLLs. Preserve the
+        # matching original Microsoft MIT license and third-party notices.
+        # This is byte-verified evidence, not independent legal clearance.
+        native_index_path = (EVIDENCE / "runtime-sources" /
+                             "onnxruntime-1.28.2" / "INDEX.json")
+        if not native_index_path.is_file():
+            raise ValueError("missing upstream ONNX Runtime 1.28.2 notices")
+        native = json.loads(native_index_path.read_text("utf-8"))
+        if native.get("onnxruntime_windows_dll_fileversion_observed") != "1.28.2":
+            raise ValueError("unexpected bundled ONNX Runtime source version")
+        package_binary = native["model_packages"].get(pkg_name)
+        actual_wheel = next(
+            (f for f in wheel_files
+             if Path(f["path"]).name.startswith("sherpa_onnx_core-")), None
+        )
+        if (not package_binary or actual_wheel is None
+            or package_binary["wheel_sha256"] != actual_wheel["sha256"]):
+            raise ValueError("ONNX Runtime notices do not match the runtime Wheel")
+        source_docs = {}
+        for doc in ("LICENSE", "ThirdPartyNotices.txt"):
+            notice = native["upstream_documents"][doc]
+            path = (ROOT / notice["local_copy"]).resolve()
+            if not path.is_relative_to(EVIDENCE.resolve()):
+                raise ValueError("source notices must be from QA evidence cache")
+            original_notice = path.read_bytes()
+            if (hash_bytes(original_notice) != notice["sha256"]
+                or len(original_notice) != notice["bytes"]):
+                raise ValueError("mismatched upstream ONNX Runtime notice: " + doc)
+            member = ("assets/legal/onnxruntime-1.28.2-"
+                      + ("LICENSE.txt" if doc == "LICENSE"
+                         else "ThirdPartyNotices.txt"))
+            additional[member] = original_notice
+            source_docs[doc] = {
+                "original_url": notice["source"],
+                "sha256": notice["sha256"],
+                "package_path": member,
+            }
+        native_origin = {
+            "component": "Microsoft ONNX Runtime",
+            "component_version": "1.28.2",
+            "binary_dll_sha256": package_binary["dll_sha256"],
+            "origin_wheel_sha256": actual_wheel["sha256"],
+            "original_source_ref": "v1.28.2",
+            "original_source_ref_verified_commit": False,
+            "upstream_licenses": source_docs,
+            "public_release_authorized": False,
+        }
+        additional["assets/legal/onnxruntime-1.28.2-provenance.json"] = (
+            json.dumps(native_origin, indent=2) + "\n").encode("utf-8")
     # Attach verbatim pinned upstream licenses when the original Wheel
     # declares Apache but omits its license text.
     runtime_source = EVIDENCE / "runtime-sources" / "INDEX.json"
@@ -115,6 +164,72 @@ def build(source: Path, output: Path) -> dict:
         if hash_bytes(original_license) != row["sha256"]:
             raise ValueError("original upstream license was altered: " + dep)
         additional[f"assets/legal/{dep}-source-license.txt"] = original_license
+    if pkg_name in ("kokoro-multilingual-int8", "wayu-paxa-edge-nc"):
+        source_index_path = (EVIDENCE / "runtime-sources" /
+                             "espeak-ng-1.52.0" / "INDEX.json")
+        if not source_index_path.is_file():
+            raise ValueError("missing original eSpeak native source evidence")
+        source_index = json.loads(source_index_path.read_text("utf-8"))
+        if (source_index["espeakng_loader_version"] != "0.2.4"
+            or source_index["espeak_ng_version_from_build_workflow"] != "1.52.0"):
+            raise ValueError("unexpected eSpeak version in source archive index")
+        wheel = next(
+            (f for f in wheel_files
+             if Path(f["path"]).name.startswith("espeakng_loader-")), None)
+        source_binary = source_index["native_binaries"].get(pkg_name)
+        if (wheel is None or not source_binary
+            or wheel["sha256"] != source_binary["wheel_sha256"]):
+            raise ValueError("eSpeak GPL source index belongs to another Wheel")
+        src = source_index["espeak_ng_upstream_source_tarball"]
+        src_path = (ROOT / src["local_copy"]).resolve()
+        if not src_path.is_relative_to(EVIDENCE.resolve()):
+            raise ValueError("untrusted eSpeak source cache path")
+        source_bytes = src_path.read_bytes()
+        if len(source_bytes) != src["bytes"] or hash_bytes(source_bytes) != src["sha256"]:
+            raise ValueError("original eSpeak source tarball changed")
+        source_package_path = "assets/legal/source/espeak-ng-1.52.0-source.tar.gz"
+        additional[source_package_path] = source_bytes
+        # Embed all original (unmodified) loader LICENSE and reproducible
+        # source-build instructions. This does not certify the exact DLL
+        # can be reproduced with the available source/toolchain.
+        copied = {}
+        for name, origin in source_index["loader_build_documentation"].items():
+            pathname = (ROOT / origin["local_copy"]).resolve()
+            if not pathname.is_relative_to(EVIDENCE.resolve()):
+                raise ValueError("untrusted eSpeak loader document cache path")
+            content = pathname.read_bytes()
+            if hash_bytes(content) != origin["sha256"] or len(content) != origin["bytes"]:
+                raise ValueError("original espeakng-loader build document changed")
+            target = "assets/legal/espeakng-loader-" + (
+                "LICENSE.txt" if name == "LICENSE"
+                else "upstream-build-script.txt" if name == "build.sh"
+                else "upstream-build-workflow.txt"
+            )
+            additional[target] = content
+            copied[name] = {
+                "upstream_url": origin["url"],
+                "sha256": origin["sha256"],
+                "package_path": target,
+            }
+        provenance = {
+            "component": "espeak-ng native library",
+            "bundled_loader_version": "0.2.4",
+            "eSpeak_ng_source_version": "1.52.0",
+            "binary_dll_sha256": source_binary["dll_sha256"],
+            "origin_wheel_sha256": wheel["sha256"],
+            "espeak_ng_gpl_source_archive_sha256": src["sha256"],
+            "espeak_ng_source_url": src["url"],
+            "espeak_ng_source_package_path": source_package_path,
+            "loader_build_documentation": copied,
+            "license_distinction": (
+                "espeakng-loader MIT LICENSE is separate from eSpeak NG GPLv3+; "
+                "the wheel's missing metadata does not grant separate rights."
+            ),
+            "source_to_dll_exact_build_reproducibility_verified": False,
+            "public_release_authorized": False,
+        }
+        additional["assets/legal/espeak-ng-1.52.0-provenance.json"] = (
+            json.dumps(provenance, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     notice = {
         "format": "voxweavetts.v4-original-license-evidence",
         "package_id": pkg_name,

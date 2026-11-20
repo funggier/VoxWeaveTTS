@@ -73,7 +73,10 @@ def _path(name: str) -> str:
                or any(ord(c) < 33 or c in '<>"|?*' for c in p)
                for p in parts)):
         raise V4PackageError("unsafe package path")
-    if PurePosixPath(name).suffix.lower() not in _ALLOWED_SUFFIXES:
+    # Permit this single upstream GPL source tarball as a legal document.
+    # This does not enable other compressed/executable payload extensions.
+    source_archive = name == "assets/legal/source/espeak-ng-1.52.0-source.tar.gz"
+    if not source_archive and PurePosixPath(name).suffix.lower() not in _ALLOWED_SUFFIXES:
         raise V4PackageError("unsupported package file extension")
     return name
 

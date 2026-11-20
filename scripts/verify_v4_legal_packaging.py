@@ -40,7 +40,8 @@ def assess(original: dict, enriched: dict) -> dict:
             raise ValueError("model/Worker/Wheel bytes changed: " + name)
     extra = sorted(set(current) - set(prior))
     if not extra or not all(
-        x.startswith("assets/legal/") and x.endswith((".txt",".md",".json"))
+        (x.startswith("assets/legal/") and x.endswith((".txt",".md",".json")))
+        or x == "assets/legal/source/espeak-ng-1.52.0-source.tar.gz"
         for x in extra
     ):
         raise ValueError("unexpected new executable or model asset")
@@ -58,10 +59,18 @@ def assess(original: dict, enriched: dict) -> dict:
     }
 
 
-def check(original_folder: Path, updated_folder: Path) -> dict:
+def check(original_folder: Path, updated_folder: Path, *,
+          models: list[str] | None = None,
+          require_native_notices: bool = False,
+          require_espeak_source: bool = False) -> dict:
     from voxweavetts.provider_rights import KNOWN_V4_MODELS
-    models = {}
-    for package_id in KNOWN_V4_MODELS:
+    results_by_model = {}
+    chosen = models if models is not None else list(KNOWN_V4_MODELS)
+    if not chosen or len(chosen) != len(set(chosen)) or any(
+        item not in KNOWN_V4_MODELS for item in chosen
+    ):
+        raise ValueError("unknown or duplicate requested v4 models")
+    for package_id in chosen:
         old = list(original_folder.glob(
             f"VoxWeaveTTS-{package_id}-*-UNRELEASED-QA-format-v4.vwmodel"))
         new = list(updated_folder.glob(
@@ -90,20 +99,93 @@ def check(original_folder: Path, updated_folder: Path) -> dict:
                 for row in evidence["runtime_wheels"]
                 if row["license_declaration_missing"]
             ]
+            if require_native_notices:
+                if package_id not in (
+                    "melo-chinese-onnx", "supertonic3-multilingual-int8"
+                ):
+                    raise ValueError("native notice gate only supports sherpa models")
+                provenance = json.loads(zipfile_reader.read(
+                    "assets/legal/onnxruntime-1.28.2-provenance.json"))
+                if (provenance["component_version"] != "1.28.2"
+                    or provenance["public_release_authorized"] is not False):
+                    raise ValueError("unexpected ONNX Runtime provenance data")
+                wheel = next(
+                    p for p in m1["files"]
+                    if p["path"].startswith("runtime/wheels/sherpa_onnx_core-")
+                )
+                if provenance["origin_wheel_sha256"] != wheel["sha256"]:
+                    raise ValueError("source notice belongs to a different Wheel")
+                import io
+                with zipfile.ZipFile(io.BytesIO(
+                    zipfile_reader.read(wheel["path"]))) as nested:
+                    binary = nested.read("sherpa_onnx/lib/onnxruntime.dll")
+                if hashlib.sha256(binary).hexdigest() != provenance["binary_dll_sha256"]:
+                    raise ValueError("source notice belongs to another ONNX DLL")
+                for details in provenance["upstream_licenses"].values():
+                    notice = zipfile_reader.read(details["package_path"])
+                    if hashlib.sha256(notice).hexdigest() != details["sha256"]:
+                        raise ValueError("ONNX upstream notice bytes changed")
+                results["onnxruntime_upstream_notices_verified"] = True
+            if require_espeak_source:
+                if package_id not in (
+                    "kokoro-multilingual-int8", "wayu-paxa-edge-nc"
+                ):
+                    raise ValueError("eSpeak source gate supports only G2P models")
+                espeak = json.loads(zipfile_reader.read(
+                    "assets/legal/espeak-ng-1.52.0-provenance.json"))
+                if (espeak["eSpeak_ng_source_version"] != "1.52.0"
+                    or espeak["public_release_authorized"] is not False
+                    or espeak["source_to_dll_exact_build_reproducibility_verified"] is not False):
+                    raise ValueError("unexpected eSpeak native provenance")
+                wheel = next(
+                    p for p in m1["files"]
+                    if p["path"].startswith("runtime/wheels/espeakng_loader-")
+                )
+                if espeak["origin_wheel_sha256"] != wheel["sha256"]:
+                    raise ValueError("eSpeak source belongs to another Wheel")
+                import io
+                with zipfile.ZipFile(io.BytesIO(
+                    zipfile_reader.read(wheel["path"]))) as nested:
+                    dll = nested.read("espeakng_loader/espeak-ng.dll")
+                if hashlib.sha256(dll).hexdigest() != espeak["binary_dll_sha256"]:
+                    raise ValueError("eSpeak native DLL does not match provenance")
+                source = zipfile_reader.read(
+                    espeak["espeak_ng_source_package_path"])
+                if hashlib.sha256(source).hexdigest() != (
+                    espeak["espeak_ng_gpl_source_archive_sha256"]
+                ):
+                    raise ValueError("embedded eSpeak GPL source bytes changed")
+                import tarfile
+                with tarfile.open(fileobj=io.BytesIO(source), mode="r:gz") as bundle:
+                    copying = next((
+                        item for item in bundle.getmembers()
+                        if item.name.endswith("/COPYING") and item.isfile()
+                    ), None)
+                    if copying is None or b"GNU GENERAL PUBLIC LICENSE" not in (
+                        bundle.extractfile(copying).read()
+                    ):
+                        raise ValueError("embedded GPL source archive lacks COPYING")
+                for details in espeak["loader_build_documentation"].values():
+                    content = zipfile_reader.read(details["package_path"])
+                    if hashlib.sha256(content).hexdigest() != details["sha256"]:
+                        raise ValueError("original eSpeak loader document changed")
+                results["espeak_upstream_source_and_build_docs_verified"] = True
             if package_id == "wayu-paxa-edge-nc":
                 assert results["original_model_license"] == "CC-BY-NC-4.0"
-        models[package_id] = results
+        results_by_model[package_id] = results
     return {
         "schema": "voxweavetts.v4-legal-copy-manifest-audit",
-        "packages_verified": len(models),
+        "packages_verified": len(results_by_model),
         "total_original_wheels_preserved": sum(m["original_wheel_count"]
-                                               for m in models.values()),
+                                               for m in results_by_model.values()),
         "total_new_legal_files": sum(m["added_license_document_count"]
-                                     for m in models.values()),
+                                     for m in results_by_model.values()),
         "original_licensing_restrictions_preserved": True,
         "technical_legal_evidence_complete": True,
+        "native_notices_required": require_native_notices,
+        "espeak_source_required": require_espeak_source,
         "public_release_authorized": False,
-        "models": models,
+        "models": results_by_model,
     }
 
 
@@ -111,8 +193,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--original", type=Path, default=ORIGINAL)
     parser.add_argument("--repacked", type=Path, default=REPACKED)
+    parser.add_argument("--models", nargs="+", default=None)
+    parser.add_argument("--require-native-notices", action="store_true")
+    parser.add_argument("--require-espeak-source", action="store_true")
     args = parser.parse_args()
-    result = check(args.original, args.repacked)
+    result = check(args.original, args.repacked, models=args.models,
+                   require_native_notices=args.require_native_notices,
+                   require_espeak_source=args.require_espeak_source)
     dest = args.repacked / "CATALOG-LegalQA-v4.json"
     dest.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     print(json.dumps({k:v for k,v in result.items() if k != "models"},
