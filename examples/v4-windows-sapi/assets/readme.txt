@@ -1,0 +1,5 @@
+VoxWeaveTTS v4 optional Windows Desktop Speech (SAPI) bridge.
+
+Original Python/PowerShell code: MIT (see VoxWeaveTTS LICENSE). No third-party wheels, weights, Windows voice databases or proprietary voice binaries are redistributed. It uses only installed local Windows desktop System.Speech voices, subject to the user's Windows/voice license. No network access is needed for synthesis. English is declared because the common Windows desktop voices are English; other languages depend on optional OS voices and are not claimed as supported. Gender selections fall back to the default voice if unavailable. Rate uses the SAPI -10..10 scale and is NOT an exact x-speed multiplier.
+
+Requirements: Windows 10/11 x64, Windows PowerShell 5.1, .NET Framework System.Speech, at least one enabled desktop SAPI voice. Voices from OneCore may not appear in the SAPI desktop list. A standalone user install is required; this plug-in is not included inside Core. The user must trust the Python worker (which launches fixed, non-interpolated local PowerShell code). Not an ML model or voice clone.

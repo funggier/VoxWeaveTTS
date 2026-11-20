@@ -1,0 +1,42 @@
+{
+  "package": {
+    "id": "windows-sapi-desktop",
+    "version": "1.0.0",
+    "kind": "tts",
+    "title": "Windows SAPI Desktop — Local system voices",
+    "languages": [
+      "en"
+    ]
+  },
+  "engine": {
+    "protocol": 1,
+    "entrypoint": "plugin/worker.py",
+    "language": "en",
+    "sample_rate": 16000,
+    "voices": [
+      {
+        "id": "system_default",
+        "label": "Windows default desktop voice"
+      },
+      {
+        "id": "system_female",
+        "label": "Windows female desktop voice (fallback default)"
+      },
+      {
+        "id": "system_male",
+        "label": "Windows male desktop voice (fallback default)"
+      }
+    ]
+  },
+  "runtime": {
+    "python": "3.11",
+    "platform": "windows-x64",
+    "wheels": []
+  },
+  "rights": {
+    "spdx": "MIT",
+    "url": "https://opensource.org/license/mit",
+    "attribution": "VoxWeaveTTS original Windows SAPI bridge only. Uses end-user installed Microsoft Windows System.Speech and SAPI voice licenses; no Windows binaries or voices are redistributed.",
+    "source": "https://github.com/funggier/VoxWeaveTTS"
+  }
+}

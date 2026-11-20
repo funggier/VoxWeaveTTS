@@ -66,6 +66,6 @@ VoxWeaveTTS ไม่ได้มุ่งจำหน่ายโมเดล�
 .\.venv\Scripts\python.exe -X utf8 scripts\verify_v4_legal_packaging.py
 ~~~
 
-การเพิ่ม License ต้นฉบับจาก FlatBuffers/SentencePiece สำหรับแพ็กเกจที่ต้องใช้รองรับในตัวประกอบแล้ว แต่ไฟล์ LegalQA ที่ประกอบในรอบนี้สร้างก่อนขั้นตอนเก็บเอกสารเพิ่มเติมเหล่านั้น จึงต้องประกอบใหม่ก่อนนำไปเผยแพร่จริง
+**อัปเดต:** ประกอบแพ็กเกจ QA แยกที่ `dist/ModelPackagesV4-NoticeQA/` ใหม่ครบ 8 ตัว โดยให้ตัวประกอบรวม License ต้นฉบับที่ตรึง Revision ของ FlatBuffers/SentencePiece สำหรับแพ็กเกจที่เกี่ยวข้องด้วย พร้อมเก็บชุด `LegalQA` เดิมไว้เทียบ ไม่แก้ Weight/Worker/Wheel หรือ License โมเดลเดิม ดู [V4_DEPENDENCY_NOTICE_QA_2026-11-20_TH.md](V4_DEPENDENCY_NOTICE_QA_2026-11-20_TH.md) สำหรับข้อจำกัด Runtime ที่ต้องตรวจให้ครบก่อนเผยแพร่
 
 **ยังไม่อัปโหลดแพ็กเกจ LegalQA เป็น Public GitHub Release** เพราะการตรวจการแจกจ่ายสภาพแวดล้อมบางรายการยังไม่ครบ ไม่ใช่เพราะจำเป็นต้องซื้อ License เชิงพาณิชย์ของโมเดลทุกตัว

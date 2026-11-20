@@ -1,8 +1,8 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio v0.12.0 — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.1 — Universal .vwmodel v4 เท่านั้น**
 
-**Public Release v0.12.0 เป็น Core-only:** โปรแกรม Portable ไม่มีน้ำหนักโมเดลเสียงและไม่มีโมเดลแปลภาษาอยู่ใน ZIP โดยผู้ใช้ติดตั้งแพ็กเกจ `.vwmodel v4` ของตนเองภายหลังได้แบบออฟไลน์ เพราะสิทธิ์แจกจ่ายแพ็กเกจ QA ทั้ง 8 ตัวอยู่ระหว่างตรวจสอบ จึงยังไม่สามารถอ่านข้อความเป็นเสียงจริงได้จนกว่าจะติดตั้งโมเดล TTS ที่ใช้งานได้
+**Public Release v0.12.1 เป็น Core-only:** ตัวโปรแกรม Portable ไม่มีน้ำหนักโมเดลเสียงหรือโมเดลแปลภาษาใน ZIP แต่มีแพ็กเกจแยก **Windows SAPI Desktop v4** สำหรับสร้างเสียงพูดอังกฤษจริงด้วยเสียง SAPI ที่ติดตั้งอยู่ใน Windows ของผู้ใช้ (ไม่แจกไฟล์เสียงของ Microsoft) ติดตั้งจากไฟล์ `.vwmodel` เดียวแบบออฟไลน์ได้ โมเดล QA ทั้ง 8 ตัวที่ต้องแจก Wheel/Runtime ของบุคคลที่สามยังไม่ผ่านเกณฑ์สิทธิ์แจกจ่าย
 
 VoxWeaveTTS เป็นโปรแกรมอ่านข้อความภาษาไทยและหลายภาษาแบบออฟไลน์ มีระบบจัดคิวเสียง ควบคุมเสียง กรองข้อความ แปลภาษา และแสดง Subtitle/Overlay สำหรับ Live ได้ โดยระบบโมเดลแยกจากตัวโปรแกรมหลักอย่างอิสระ
 
@@ -28,7 +28,7 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 - **Queue / Overlay / API** — คิวเสียงและการอ่านพร้อมข้อมูลเหตุการณ์สำหรับ Subtitle/OBS
 - **Global Settings** — กฎการอ่าน, การแทนคำ, Emoji, และการจัดการโมเดล/ส่วนเสริม
 
-โมเดลที่ไม่ได้ติดตั้งจะไม่ถูกเปิดใช้งาน **Core ที่เผยแพร่สาธารณะไม่มีโมเดลเริ่มต้น:** MakHam และโมเดลอื่นยังอยู่ในชุด QA ภายใน ไม่ได้รวมอยู่ใน Public Release
+โมเดลที่ไม่ได้ติดตั้งจะไม่ถูกเปิดใช้งาน **Core ที่เผยแพร่สาธารณะไม่มีโมเดลเริ่มต้น:** MakHam และโมเดลอื่นยังอยู่ในชุด QA ภายใน แต่สามารถดาวน์โหลดแพ็กเกจ Windows SAPI Desktop v4 แยกจาก Release เพื่ออ่านภาษาอังกฤษด้วยเสียงที่ Windows มีอยู่แล้วได้ (ไม่ใช่โมเดล Voice Cloning)
 
 ## สำหรับนักพัฒนาแพ็กเกจ
 
@@ -47,8 +47,8 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 ใช้ PowerShell บน Windows และ Python Environment ของโปรเจกต์:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.0 -StageDirectory dist\release-v0.12.0\VoxWeaveTTS
-.\dist\release-v0.12.0\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.0\VoxWeaveTTS
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.1 -StageDirectory dist\release-v0.12.1\VoxWeaveTTS
+.\dist\release-v0.12.1\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.1\VoxWeaveTTS
 ```
 
 การสร้าง Public Core **ไม่ต้องมีแพ็กเกจโมเดลใด ๆ** และ Build จะปฏิเสธการรวมแพ็กเกจ QA ลงใน ZIP ส่วนการทดสอบภายในสามารถใช้ `-SkipZip -IncludeUnreleasedQaMakHam` แยกจาก Release ได้
@@ -76,5 +76,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -
 - [นโยบายสิทธิ์](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
 - [ผลเทียบโมเดล V2/V3/V4 และการคงสิทธิ์เดิม](docs/V4_MODEL_LICENSE_CONTINUITY_TH.md)
 - [สถานะ Model Pack v4 พร้อมสำเนา License/Notice ในแพ็กเกจ](docs/V4_MODEL_PACK_RIGHTS_QA_2026-11-20_TH.md)
+- [ผลประกอบ V4 พร้อม License ของสภาพแวดล้อม โดยคงสิทธิ์โมเดลเดิม](docs/V4_DEPENDENCY_NOTICE_QA_2026-11-20_TH.md)
+- [หมายเหตุ Public Release v0.12.1](docs/RELEASE_NOTES_v0.12.1_TH.md)
 - [หมายเหตุ Public Release v0.12.0](docs/RELEASE_NOTES_v0.12.0_TH.md)
 - [สำเนาเอกสารสิทธิ์จากผู้เผยแพร่ต้นทาง v4 และ SHA-256](docs/V4_UPSTREAM_LICENSE_EVIDENCE_TH.md)

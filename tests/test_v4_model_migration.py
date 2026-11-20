@@ -23,7 +23,7 @@ class V4OnlyModelTests(unittest.TestCase):
                        if p.is_dir() and not p.name.startswith("__"))
         self.assertEqual(names, sorted([
             "v4-demo-tone", "v4-demo-wheel", "v4-native-worker",
-            "v4-model-plugin", "v4-translation-plugin",
+            "v4-model-plugin", "v4-translation-plugin", "v4-windows-sapi",
         ]))
         self.assertFalse((ROOT/"examples/tts-provider-minimal").exists())
 

@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 
-def verify(stage: Path, demo: Path | None = None) -> dict:
+def verify(stage: Path, demo: Path | None = None, sapi: Path | None = None) -> dict:
     stage = stage.resolve(strict=True)
     assert (stage / "VoxWeaveTTS.exe").is_file()
     assert (stage / "runtime/python/python.exe").is_file()
@@ -113,6 +113,39 @@ def verify(stage: Path, demo: Path | None = None) -> dict:
         assert not installed_packages(stage)
         result["demo_v4_install_audio_uninstall"] = True
         result["demo_is_not_speech"] = True
+    if sapi:
+        # A first-party voice bridge, no model weights: real spoken English
+        # via whatever licensed desktop SAPI voices exist on this Windows host.
+        from voxweavetts.universal_model_v4 import installed_packages as list_installed
+        from voxweavetts.engine_worker_gateway import gateway
+        from voxweavetts.speech import render_wav, refresh_engine_registry
+        from voxweavetts.processing import process_text
+        m = inspect_archive(sapi)
+        assert m["package"]["id"] == "windows-sapi-desktop"
+        assert m["runtime"]["wheels"] == []
+        assert m["rights"]["spdx"] == "MIT"
+        installed = install(sapi, root=stage)
+        assert installed["format_version"] == 4
+        refresh_engine_registry()
+        try:
+            speech, _ = render_wav(
+                process_text("Hello from Windows SAPI speech synthesis"),
+                engine_id=engine_id(m), voice_id="system_default",
+                speed=1.0, seed=11
+            )
+            with wave.open(io.BytesIO(speech)) as pcm:
+                assert pcm.getnchannels() == 1
+                assert pcm.getsampwidth() == 2
+                assert pcm.getframerate() == 16000
+                assert pcm.getnframes() > 10000
+                result["sapi_speech_frames"] = pcm.getnframes()
+        finally:
+            gateway().reset(backend_id(m))
+            assert remove("windows-sapi-desktop", m["package"]["version"], root=stage)
+            refresh_engine_registry()
+        assert not list_installed(stage)
+        result["sapi_real_speech_install_uninstall"] = True
+        result["sapi_host_voice_dependency"] = True
     return result
 
 
@@ -120,8 +153,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", type=Path, required=True)
     parser.add_argument("--demo-package", type=Path, default=None)
+    parser.add_argument("--sapi-package", type=Path, default=None)
     args = parser.parse_args()
-    print(json.dumps(verify(args.stage, args.demo_package),
+    print(json.dumps(verify(args.stage, args.demo_package, args.sapi_package),
                      ensure_ascii=False, indent=2), flush=True)
 
 

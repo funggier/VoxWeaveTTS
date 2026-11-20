@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.12.1 — Windows Desktop SAPI real speech as an optional Universal v4 package
+
+- Keep the Windows Portable Core-only, v4-only, with no ML weights or model-specific dependency wheels bundled.
+- Offer a separate MIT first-party Windows SAPI Desktop `.vwmodel v4` plugin. It generates real English speech from already installed Windows desktop voices without redistributing Windows assets. Provide unit coverage, hostile-text separation, and local synthesis/install/uninstall tests.
+- Retain independently gated model packages; preserve V2/V3-to-v4 SHA-256 provenance and verbatim Wheel license notice QA without implying legal clearance. See [v0.12.1 release notes](docs/RELEASE_NOTES_v0.12.1_TH.md).
+
+
 ## v0.10.3 — Kokoro Windows Portable dependency repair
 
 - Avoid the native CMake/MSBuild build failure of pyopenjtalk 0.4.1 in long Windows Portable paths: the isolated Kokoro trusted runtime recipe now uses Misaki Japanese G2P 0.8.0 and UniDic Lite, preserving Japanese reading without the pyopenjtalk source dependency.

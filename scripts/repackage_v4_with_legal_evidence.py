@@ -190,12 +190,14 @@ def build(source: Path, output: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--models", nargs="+", required=True)
+    parser.add_argument("--output-dir", type=Path, default=OUT,
+                        help="separate QA-only destination (no overwrite)")
     args = parser.parse_args()
     for name in args.models:
         paths = list(DATA.glob(f"VoxWeaveTTS-{name}-*-UNRELEASED-QA-format-v4.vwmodel"))
         if len(paths) != 1:
             raise ValueError("expected exactly one original v4 QA package: "+name)
-        dest = OUT / paths[0].name.replace(
+        dest = args.output_dir / paths[0].name.replace(
             "-UNRELEASED-QA-format-v4", "-LEGAL-QA-format-v4")
         print("LEGAL_QA",json.dumps(build(paths[0],dest),ensure_ascii=False),flush=True)
 

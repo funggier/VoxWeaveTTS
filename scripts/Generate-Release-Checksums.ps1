@@ -1,6 +1,6 @@
 # Universal v4-only QA checksum generator. Public distribution remains rights-gated.
 param(
-  [string]$Version='0.12.0-dev0',
+  [string]$Version='0.12.1-dev0',
   [switch]$QA
 )
 $ErrorActionPreference='Stop'

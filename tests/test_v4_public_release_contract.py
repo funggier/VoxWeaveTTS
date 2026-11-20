@@ -1,4 +1,4 @@
-"""Guardrail: v0.12.0 public Core cannot silently bundle pending-rights QA models."""
+"""Guardrail: v0.12.1 public Core cannot silently bundle pending-rights QA models."""
 from __future__ import annotations
 
 import hashlib
@@ -23,9 +23,9 @@ class PublicV4ReleaseContractTests(unittest.TestCase):
     def test_version_is_exact_release_not_dev(self):
         version=(ROOT/"src/voxweavetts/__init__.py").read_text("utf-8")
         pyproject=(ROOT/"pyproject.toml").read_text("utf-8")
-        self.assertIn('__version__ = "0.12.0"',version)
-        self.assertIn('version = "0.12.0"',pyproject)
-        self.assertNotIn("0.12.0.dev0",version)
+        self.assertIn('__version__ = "0.12.1"',version)
+        self.assertIn('version = "0.12.1"',pyproject)
+        self.assertNotIn("0.12.1.dev0",version)
 
     def test_distributable_example_is_a_tone_not_speech(self):
         spec=json.loads((ROOT/"examples/v4-demo-tone/spec.json").read_text("utf-8"))
@@ -53,11 +53,12 @@ class PublicV4ReleaseContractTests(unittest.TestCase):
             self.assertIn(provenance["source_revision"],row["url"])
 
     def test_release_notes_do_not_claim_uncleared_weights_are_shipped(self):
-        notes=(ROOT/"docs/RELEASE_NOTES_v0.12.0_TH.md").read_text("utf-8")
+        notes=(ROOT/"docs/RELEASE_NOTES_v0.12.1_TH.md").read_text("utf-8")
         self.assertIn("Core-only",notes)
-        self.assertIn("ไม่มีโมเดล",notes)
+        self.assertIn("ไม่แนบน้ำหนักโมเดล",notes)
         self.assertIn("Demo Tone",notes)
-        self.assertIn("ยังไม่เผยแพร่",notes)
+        self.assertIn("ยังไม่ได้รับอนุมัติ",notes)
+        self.assertIn("Windows SAPI",notes)
         self.assertTrue((ROOT/"scripts/verify_v4_core_only_stage.py").is_file())
 
 

@@ -1,8 +1,8 @@
-"""VoxWeaveTTS v0.12.0 v4 Core-only ZIP release verification.
+"""VoxWeaveTTS v0.12.1 v4 Core-only ZIP release verification.
 
 CRC, safe paths, zero model weights/runtimes, no private files, isolated
-extraction, HTTP API, YouTube transport, and an offline separately-packaged
-MIT demo Worker generating a tone (not actual TTS).
+extraction, HTTP API, YouTube transport, the optional MIT demo tone,
+and a first-party Windows SAPI bridge performing actual English speech.
 """
 from __future__ import annotations
 
@@ -15,11 +15,12 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = os.getenv("VOXWEAVE_PORTABLE_VERSION", "0.12.0")
+VERSION = os.getenv("VOXWEAVE_PORTABLE_VERSION", "0.12.1")
 ARCHIVE = ROOT / "dist" / f"VoxWeaveTTS-v{VERSION}-portable.zip"
 DEMO = ROOT / "dist" / f"VoxWeaveTTS-v{VERSION}-v4-demo-tone.vwmodel"
+SAPI = ROOT / "dist" / "VoxWeaveTTS-Windows-SAPI-Desktop-v1.0.0-format-v4.vwmodel"
 
-if not ARCHIVE.is_file() or not DEMO.is_file():
+if not ARCHIVE.is_file() or not DEMO.is_file() or not SAPI.is_file():
     raise SystemExit("Expected release-candidate core ZIP and demo package are missing")
 with ARCHIVE.open("rb") as stream:
     digest = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -39,12 +40,13 @@ with zipfile.ZipFile(ARCHIVE) as zip_in:
         "VoxWeaveTTS/src/voxweavetts/universal_model_v4.py",
         "VoxWeaveTTS/src/voxweavetts/package_install_v4.py",
         "VoxWeaveTTS/examples/v4-demo-tone/plugin/worker.py",
+        "VoxWeaveTTS/examples/v4-windows-sapi/plugin/worker.py",
         "VoxWeaveTTS/docs/UNIVERSAL_VWMODEL_V4_TH.md",
         "VoxWeaveTTS/THIRD_PARTY_NOTICES.txt",
         "VoxWeaveTTS/third_party_licenses/uv/LICENSE-MIT",
         "VoxWeaveTTS/third_party_licenses/uv/LICENSE-APACHE",
         "VoxWeaveTTS/third_party_licenses/uv/SOURCE.json",
-        "VoxWeaveTTS/docs/RELEASE_NOTES_v0.12.0_TH.md",
+        "VoxWeaveTTS/docs/RELEASE_NOTES_v0.12.1_TH.md",
     }
     if not required <= files:
         raise AssertionError("release ZIP missing Core files: "
@@ -96,7 +98,8 @@ with zipfile.ZipFile(ARCHIVE) as zip_in:
         run = subprocess.run(
             [str(python), "-X", "utf8",
              str(ROOT / "scripts/verify_v4_core_only_stage.py"),
-             "--stage", str(stage), "--demo-package", str(DEMO)],
+             "--stage", str(stage), "--demo-package", str(DEMO),
+             "--sapi-package", str(SAPI)],
             cwd=stage, env=env, capture_output=True, text=True,
             encoding="utf-8", errors="replace", timeout=120,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -107,4 +110,5 @@ with zipfile.ZipFile(ARCHIVE) as zip_in:
         payload = json.loads(run.stdout)
         assert payload["model_packages_bundled"] == 0
         assert payload["demo_v4_install_audio_uninstall"]
+        assert payload["sapi_real_speech_install_uninstall"]
 print("PUBLIC_V4_CORE_ZIP_EXTRACT_AND_PLUGIN_VERIFIED", flush=True)
