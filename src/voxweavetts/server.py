@@ -56,6 +56,12 @@ from .universal_model_packages import (
     remove_model_package as remove_universal_package,
     UniversalPackageError,
 )
+from .universal_model_v4 import (
+    installed_packages as installed_v4_packages,
+    status as v4_package_status,
+    remove as remove_v4_package,
+    backend_id as v4_backend_id,
+)
 from .manual_alignment import timing_metrics
 from .engine_provider_catalog import provider_for_adapter
 from .engine_worker_gateway import gateway
@@ -701,11 +707,14 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/v1/settings/synthesis":
                 self.send_json(200, {"seed": _read_seed()})
             elif route == "/v1/model-packages":
-                # Only self-contained, offline Universal v3 is supported.
+                # v3 installed packages coexist with new v4 plugin engines.
                 self.send_json(200, {
                     "packages": [
                         universal_package_status(m, folder=folder)
                         for m, folder in installed_universal_packages()
+                    ] + [
+                        v4_package_status(m, folder)
+                        for m, folder in installed_v4_packages()
                     ],
                 })
             elif route == "/v1/engines":
@@ -752,6 +761,20 @@ class Handler(BaseHTTPRequestHandler):
                     if manifest["package"]["kind"] != "translation":
                         continue
                     detail = universal_package_status(manifest, folder=folder)
+                    packages.append({
+                        "key": detail["package_id"] + "@" + detail["version"],
+                        "package_id": detail["package_id"],
+                        "version": detail["version"],
+                        "title": detail["title"],
+                        "adapter": detail["engine_adapter"],
+                        "license": detail["license"],
+                        "runtime_state": detail["runtime_state"],
+                        "runtime_ready": detail["runtime_ready"],
+                    })
+                for manifest, folder in installed_v4_packages():
+                    if manifest["package"]["kind"] != "translation":
+                        continue
+                    detail = v4_package_status(manifest, folder)
                     packages.append({
                         "key": detail["package_id"] + "@" + detail["version"],
                         "package_id": detail["package_id"],
@@ -955,6 +978,22 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     if not isinstance(payload, dict) or set(payload) != {"package_id", "version"}:
                         raise UniversalPackageError("invalid v3 package removal request")
+                    v4_match = next((
+                        m for m, _ in installed_v4_packages()
+                        if m["package"]["id"] == payload["package_id"]
+                        and m["package"]["version"] == payload["version"]
+                    ), None)
+                    if v4_match is not None:
+                        if v4_match["package"]["kind"] == "translation":
+                            from .m2m_runtime import reset as reset_m2m
+                            reset_m2m()
+                        else:
+                            gateway().reset(v4_backend_id(v4_match))
+                        removed = remove_v4_package(payload["package_id"], payload["version"])
+                        if removed:
+                            refresh_engine_registry()
+                        self.send_json(200, {"removed": removed})
+                        return
                     match = next((
                         manifest for manifest, _ in installed_universal_packages()
                         if manifest["package"]["id"] == payload["package_id"]
@@ -981,9 +1020,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(503, {"error": "native file chooser is unavailable"})
             except (UniversalPackageError, ValueError, KeyError, InputError,
                     UnicodeDecodeError, json.JSONDecodeError, TypeError):
-                self.send_json(400, {"error": "offline v3 package, rights, or checksum invalid"})
+                self.send_json(400, {"error": "offline v3/v4 package, rights, runtime, or checksum invalid"})
             except (OSError, zipfile.BadZipFile):
-                self.send_json(400, {"error": "local v3 package is missing or invalid"})
+                self.send_json(400, {"error": "local v3/v4 package is missing or invalid"})
             except Exception as exc:
                 from .portable_runtime_v3 import OfflineRuntimeError
                 if isinstance(exc, OfflineRuntimeError):

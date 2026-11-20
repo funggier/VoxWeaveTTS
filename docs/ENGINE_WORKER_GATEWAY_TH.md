@@ -109,7 +109,7 @@ extensions/engine-providers/<provider-id>/
   worker.py           # รับ JSON Lines และคืน PCM16
 ```
 
-มีตัวอย่างใน `examples/tts-provider-minimal` (ใช้เสียง tone สำหรับทดสอบ Protocol ไม่ใช่โมเดล TTS)
+มีตัวอย่างใน `tests/fixtures/legacy-provider-sdk (เฉพาะทดสอบระบบเก่า; ตัวอย่างสร้างแพ็กเกจใหม่ใช้ examples/v4-*)` (ใช้เสียง tone สำหรับทดสอบ Protocol ไม่ใช่โมเดล TTS)
 
 เนื่องจาก `worker.py` และ Dependency สามารถรันโค้ดได้ **ห้ามเปิดรันอัตโนมัติจากไฟล์ .vwmodel** ผู้ใช้/นักพัฒนาต้องตรวจโค้ดให้เชื่อถือได้และอนุมัติอย่างชัดเจน:
 

@@ -52,7 +52,7 @@ python scripts/manage_signed_provider.py revoke --publisher-id demo-publisher --
 
 ## สัญญา Worker Protocol v1
 
-ตัวอย่างที่ `examples/tts-provider-minimal/worker.py` ใช้ `voxweavetts.tts_provider_sdk.serve` ซึ่งใช้ Python Standard Library เพียงอย่างเดียว:
+ตัวอย่างที่ `tests/fixtures/legacy-provider-sdk/worker.py (fixture สำหรับทดสอบย้อนหลัง ไม่ใช่ตัวอย่าง v4)` ใช้ `voxweavetts.tts_provider_sdk.serve` ซึ่งใช้ Python Standard Library เพียงอย่างเดียว:
 
 - Request: `version=1`, `request_id` จำนวนเต็ม, `method="synthesize"`, `text` ไม่เกิน 5,000 อักขระ, `voice_id` ที่ประกาศไว้, `speed` 0.6–5.0, `seed` 0–2³¹−1 และ `engine_id` ที่รู้จัก (ถ้าส่งมา)
 - Response สำเร็จ: `version=1`, `request_id`, `ok=true`, `sample_rate`, `pcm16_b64` เป็น PCM16 mono little-endian ที่ **ไม่มี WAV header** ความยาวไม่เกิน 32 MB

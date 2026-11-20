@@ -117,7 +117,14 @@ class WorkerSession:
         if self._process is not None and self._process.poll() is None:
             return
         self._stop()
-        if self.runtime_manifest is not None:
+        if self.runtime_manifest is not None and self.runtime_manifest.get("format_version") == 4:
+            from .universal_model_v4 import worker_command
+            try:
+                command = worker_command(self.root, self.runtime_manifest)
+            except Exception as exc:
+                raise WorkerError("installed v4 external worker is unavailable") from exc
+            python = Path(command[0])
+        elif self.runtime_manifest is not None:
             from .portable_runtime_v3 import run_command
             try:
                 command = run_command(
@@ -291,6 +298,10 @@ class EngineWorkerGateway:
         if profile is None:
             return (self._allow_custom_specs
                     and spec.python_path(root=self.root).is_file())
+        if profile.id.startswith("v4-"):
+            from .universal_model_v4 import for_backend, ready
+            item = for_backend(backend, root=self.root)
+            return bool(item and ready(self.root, item[0]))
         from .universal_model_packages import runtime_for_provider
         return runtime_for_provider(profile.id, root=self.root) is not None
 
@@ -327,7 +338,14 @@ class EngineWorkerGateway:
         profile = provider_for_backend(backend, root=self.root)
         manifest = None
         key = backend
-        if profile is not None:
+        if profile is not None and profile.id.startswith("v4-"):
+            from .universal_model_v4 import for_backend, fingerprint, ready
+            pair = for_backend(backend, root=self.root)
+            if pair is None or not ready(self.root, pair[0]):
+                raise WorkerError("selected v4 plugin runtime is unavailable")
+            manifest = pair[0]
+            key = backend + "|" + fingerprint(manifest)
+        elif profile is not None:
             from .universal_model_packages import runtime_for_provider
             from .portable_runtime_v3 import fingerprint
             manifest = runtime_for_provider(profile.id, root=self.root,

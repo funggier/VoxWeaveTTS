@@ -219,13 +219,17 @@ def ollama_info() -> AIEngineInfo:
 
 def m2m_info() -> AIEngineInfo:
     from .universal_model_packages import native_translation_packages
-    ready_files = bool(native_translation_packages())
+    from .universal_model_v4 import installed_packages as v4_installed
+    v4_models = any(m["package"]["kind"] == "translation"
+                    and m["package"]["id"] == "m2m100-418m"
+                    for m, _ in v4_installed())
+    ready_files = bool(native_translation_packages()) or v4_models
     from .m2m_runtime import ready as isolated_runtime_ready
     deps = isolated_runtime_ready()
     return AIEngineInfo(
         "m2m100", "M2M100 418M (ทดลอง / accuracy varies)", "translation", False, False,
         ready_files, deps,
-        "Universal .vwmodel v3: bundled offline safetensors and tokenizer; "
+        "Universal .vwmodel v4 (v3 migration fallback): offline model/runtime; "
         "requires the optional isolated M2M100 Python runtime (torch, transformers, "
         "sentencepiece, safetensors) installed automatically from one verified file; "
         "experimental translation quality - verify meaning before live use",

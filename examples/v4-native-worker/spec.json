@@ -1,0 +1,34 @@
+{
+  "package": {
+    "id": "demo-native-plugin",
+    "version": "1.0.0",
+    "kind": "tts",
+    "title": "Demo native worker (not speech)",
+    "languages": [
+      "en"
+    ]
+  },
+  "engine": {
+    "protocol": 1,
+    "entrypoint": "plugin/worker.exe",
+    "language": "en",
+    "sample_rate": 16000,
+    "voices": [
+      {
+        "id": "native_tone",
+        "label": "Native tone (not TTS)"
+      }
+    ]
+  },
+  "runtime": {
+    "python": "native",
+    "platform": "windows-x64",
+    "wheels": []
+  },
+  "rights": {
+    "spdx": "MIT",
+    "url": "https://opensource.org/license/mit",
+    "attribution": "VoxWeaveTTS original native worker reference",
+    "source": "https://github.com/funggier/VoxWeaveTTS"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "package": {
+    "id": "demo-tone-plugin",
+    "version": "1.0.0",
+    "kind": "tts",
+    "title": "Demo tone (not speech) — Universal v4",
+    "languages": [
+      "en"
+    ]
+  },
+  "engine": {
+    "protocol": 1,
+    "entrypoint": "plugin/worker.py",
+    "language": "en",
+    "sample_rate": 16000,
+    "voices": [
+      {
+        "id": "demo_tone",
+        "label": "Demo tone (not TTS)"
+      }
+    ]
+  },
+  "runtime": {
+    "python": "3.11",
+    "platform": "windows-x64",
+    "wheels": []
+  },
+  "rights": {
+    "spdx": "MIT",
+    "url": "https://opensource.org/license/mit",
+    "attribution": "VoxWeaveTTS original v4 example worker",
+    "source": "https://github.com/funggier/VoxWeaveTTS"
+  }
+}

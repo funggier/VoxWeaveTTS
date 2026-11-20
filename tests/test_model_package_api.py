@@ -111,6 +111,37 @@ class V3PackageApiTests(unittest.TestCase):
                 commit(token,accepted_rights=True)
             self.assertFalse(installed_packages(root))
 
+    def test_v4_one_click_http_roundtrip_and_no_path_leak(self):
+        # The browser selects a local file and immediately commits that
+        # selection; no second confirmation, code approval, or license server.
+        from test_v4_plugin_packages import fixture
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = fixture(Path(tmp))
+            with patch("voxweavetts.model_file_picker.pick_model_file",
+                       return_value=str(archive)), patch(
+                "voxweavetts.universal_model_v4.install",
+                return_value={"format_version": 4,
+                              "package_id": "demo-future-engine",
+                              "engine_id": "model-demo-future-engine-1_0_0",
+                              "runtime_status": "ready"},
+            ) as installer:
+                status, data = self.post("/v1/model-packages/inspect-local", {},
+                                         intent="inspect-model-package")
+                self.assertEqual(status, 200)
+                self.assertEqual(data["format_version"], 4)
+                self.assertTrue(data["contains_executable_plugin"])
+                self.assertNotIn(str(archive), json.dumps(data))
+                status, result = self.post(
+                    "/v1/model-packages/install-confirmed",
+                    {"token": data["token"], "accepted_rights": True,
+                     "acknowledged_noncommercial": False},
+                    intent="install-model-package",
+                )
+                self.assertEqual(status, 200)
+                self.assertTrue(result["installed"])
+                self.assertEqual(result["format_version"], 4)
+                installer.assert_called_once_with(archive.resolve())
+
     def test_runtime_legacy_endpoints_unavailable(self):
         for path in ("/v1/runtimes/repair", "/v1/runtimes/install-verified",
                      "/v1/engine-providers/install",

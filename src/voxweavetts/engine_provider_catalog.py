@@ -227,6 +227,31 @@ def approve_provider_folder(folder: Path, *, root: Path = ROOT,
 
 def all_providers(root: Path = ROOT) -> dict[str, Provider]:
     providers = dict(PROVIDERS)
+    # v4 engines are discovered from hash-checked local packages. The act of
+    # installing the package is the single user trust decision for its code.
+    from .universal_model_v4 import installed_packages, engine_id, backend_id
+    for manifest, folder in installed_packages(root):
+        if manifest["package"]["kind"] != "tts":
+            continue
+        engine = manifest["engine"]
+        ident = "v4-" + manifest["package"]["id"] + "-" + manifest["package"]["version"].replace(".", "-")
+        eid = engine_id(manifest)
+        backend = backend_id(manifest)
+        if ident in providers or any(eid in old.builtins for old in providers.values()):
+            continue
+        rights = manifest["rights"]
+        declared = {
+            "engine_id": eid, "title": manifest["package"]["title"],
+            "language": engine["language"], "sample_rate": engine["sample_rate"],
+            "voices": engine["voices"], "capabilities": {"speech": True, "speed": True},
+            "supported_languages": manifest["package"]["languages"],
+            "license": {"spdx": rights["spdx"], "url": rights["url"],
+                        "attribution": rights["attribution"]},
+        }
+        providers[ident] = Provider(
+            ident, backend, "external", engine["sample_rate"], (), (eid,),
+            "", plugin_path=folder / "plugin", declared_engine=declared,
+        )
     base = Path(root) / "extensions" / "engine-providers"
     if base.is_dir():
         for folder in sorted(base.iterdir()):

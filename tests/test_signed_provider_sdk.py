@@ -1,4 +1,4 @@
-"""Publisher trust, signed execution approval, revocation and IPC SDK."""
+﻿"""Publisher trust, signed execution approval, revocation and IPC SDK."""
 from __future__ import annotations
 
 import base64
@@ -32,7 +32,7 @@ class SignedProviderTests(unittest.TestCase):
         self.root = Path(temp.name)
         self.folder = self.root / "extensions" / "engine-providers" / "minimal-demo"
         self.folder.parent.mkdir(parents=True)
-        shutil.copytree(ROOT / "examples" / "tts-provider-minimal", self.folder)
+        shutil.copytree(ROOT / "tests" / "fixtures" / "legacy-provider-sdk", self.folder)
         from cryptography.hazmat.primitives.asymmetric.ed25519 import (
             Ed25519PrivateKey,
         )

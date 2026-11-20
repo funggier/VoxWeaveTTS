@@ -16,12 +16,12 @@ class UniversalV3ReleaseReadinessTests(unittest.TestCase):
     def test_version_matches_python_package_and_first_v3_release(self):
         pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         self.assertEqual(pyproject["project"]["version"], __version__)
-        self.assertEqual(__version__, "0.11.0")
+        self.assertEqual(__version__, "0.12.0.dev0")
 
     def test_default_portable_builder_is_v3_only(self):
         wrapper = (ROOT / "scripts" / "Build-Portable.ps1").read_text(encoding="utf-8")
         builder = (ROOT / "scripts" / "Build-Portable-V3.ps1").read_text(encoding="utf-8")
-        self.assertIn("Build-Portable-V3.ps1", wrapper)
+        self.assertIn("Build-Portable-V4.ps1", wrapper)
         self.assertIn("models\\universal\\v3", builder)
         self.assertIn("runtime\\tools\\uv.exe", builder)
         self.assertNotIn("ModelPackagesV2", builder)

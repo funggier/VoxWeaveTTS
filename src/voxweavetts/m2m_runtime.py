@@ -35,7 +35,12 @@ class M2MRuntimeError(RuntimeError):
 
 
 def ready(root: Path = ROOT) -> bool:
-    """M2M100 is ready only when its self-contained v3 runtime is installed."""
+    """M2M100 is ready only with an installed offline v4 (or existing v3) runtime."""
+    from .universal_model_v4 import installed_packages as v4_installed, ready as v4_ready
+    if any(m["package"]["kind"] == "translation"
+           and m["package"]["id"] == "m2m100-418m"
+           and v4_ready(root, m) for m, _ in v4_installed(root)):
+        return True
     from .universal_model_packages import installed_packages
     from .portable_runtime_v3 import ready as runtime_ready
     return any(m["package"]["kind"] == "translation"
@@ -113,14 +118,27 @@ class TranslationWorkerSession:
             "TORCH_HOME": str(self.root / "cache" / "torch"),
             "XDG_CACHE_HOME": str(self.root / "cache"),
         })
-        from .universal_model_packages import installed_packages
-        from .portable_runtime_v3 import run_command, ready as runtime_ready
-        manifest = next((m for m, _folder in installed_packages(self.root)
-                         if m["adapter"]["id"] == "m2m100-transformers-v1"
-                         and runtime_ready(self.root, m)), None)
-        if manifest is None:
-            raise M2MRuntimeError("verified offline M2M100 v3 package is missing")
-        command = run_command(self.root, manifest, "voxweavetts.m2m_worker")
+        from .universal_model_v4 import (
+            installed_packages as v4_installed, ready as v4_ready,
+            worker_command as v4_command,
+        )
+        v4_model = next((m for m, _ in v4_installed(self.root)
+                         if m["package"]["kind"] == "translation"
+                         and m["package"]["id"] == "m2m100-418m"
+                         and v4_ready(self.root, m)), None)
+        if v4_model is not None:
+            # The executable worker and all libraries are packaged with v4.
+            # No M2M100 source code or model-specific adapter is loaded in Core.
+            command = v4_command(self.root, v4_model)
+        else:
+            from .universal_model_packages import installed_packages
+            from .portable_runtime_v3 import run_command, ready as runtime_ready
+            manifest = next((m for m, _folder in installed_packages(self.root)
+                             if m["adapter"]["id"] == "m2m100-transformers-v1"
+                             and runtime_ready(self.root, m)), None)
+            if manifest is None:
+                raise M2MRuntimeError("verified offline M2M100 v4/v3 package is missing")
+            command = run_command(self.root, manifest, "voxweavetts.m2m_worker")
         self._log = (logs / "m2m100-worker.log").open("a", encoding="utf-8")
         try:
             proc = subprocess.Popen(

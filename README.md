@@ -1,5 +1,10 @@
 # VoxWeaveTTS
 
+**v4 model migration — full eight-package private QA:** All seven TTS engines (MakHam, FastThaiG2P, Melo, Supertonic 3, Kokoro, Vachana and non-commercial Wayu) plus M2M100 translation have been repackaged as standalone v4 workers with offline dependencies. Actual offline install, inference and uninstall passed in isolated testing. **These are not cleared for public redistribution.** See the [eight-model QA report](docs/V4_ALL_MODEL_QA_TH.md) and [v4-only examples](examples/README_TH.md).
+
+**Development v0.12.0.dev0 — Universal .vwmodel v4:** one-click local offline TTS engine plugins, with bundled Python 3.11 wheels or self-contained native workers. New engine architectures no longer need Core adapter edits. Previously installed v3 models continue working. See the [v4 plugin guide](docs/UNIVERSAL_VWMODEL_V4_TH.md). Latest published stable remains v0.11.0.
+
+
 **Model catalog status:** v0.11.0 ships five v3 packages; **Kokoro, Vachana and Wayu NC are not yet available as v3 archives**. The older v2 files cannot be used with v3. See the [full-catalog release gate and blockers](docs/V3_FULL_MODEL_RELEASE_GAP_TH.md). No complete-catalog release is claimed yet.
 
 **v0.11.0 — Universal .vwmodel v3 (Windows Portable):** Fully offline, single-file model and dependency installation, per-file license consent, relocatable isolated runtimes, and no v1/v2 package fallback. [Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0) · [v3 guide](docs/UNIVERSAL_VWMODEL_V3_TH.md) · [v0.11.0 notes](docs/RELEASE_NOTES_v0.11.0.md). Older sections below are historical release records.

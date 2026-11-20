@@ -1,5 +1,10 @@
 # VoxWeaveTTS — ระบบสร้างและควบคุมเสียงพูดภาษาไทย
 
+**ความคืบหน้า v4 — โมเดลครบ 8 ตัวใน QA:** ย้าย TTS ทั้ง 7 ตัว (MakHam, FastThaiG2P, Melo, Supertonic 3, Kokoro, Vachana, Wayu NC) และ M2M100 Translation มาเป็นแพ็กเกจ Universal v4 ที่มี Worker และ Dependencies ของตัวเองแล้ว ทดสอบติดตั้งออฟไลน์และสร้างเสียง/แปลภาษาจริงผ่านทั้ง 8 ตัว **ยังไม่ใช่ Public Release เนื่องจากสิทธิ์ Dependencies บางตัวอยู่ระหว่างตรวจสอบ** ดู [ผลทดสอบทั้งหมด](docs/V4_ALL_MODEL_QA_TH.md) · [ตัวอย่างสร้างแพ็กเกจ เฉพาะ v4](examples/README_TH.md)
+
+**กำลังพัฒนา v0.12.0.dev0 — Universal .vwmodel v4:** เปิดให้ติดตั้ง TTS Engine Plugin จากไฟล์เดียวแบบออฟไลน์โดยไม่ต้องเพิ่ม Adapter ใน Core; รองรับ Python 3.11 + Wheel แยก และ Native EXE Worker พร้อมกดติดตั้งครั้งเดียวโดยไม่ถามสิทธิ์ซ้ำ โมเดล v3 ที่ติดตั้งแล้วทำงานต่อได้ ดู [คู่มือ Universal v4](docs/UNIVERSAL_VWMODEL_V4_TH.md) · v0.11.0 ยังเป็น Public Release ล่าสุด
+
+
 **หมายเหตุความครบถ้วนของโมเดล:** v0.11.0 มีโมเดล v3 ให้ติดตั้ง 5 ชุด แต่ **ยังขาด Kokoro, Vachana และ Wayu NC** จากรุ่นก่อน ระบบจะไม่เปิดแพ็กเกจ v2 อัตโนมัติและยังไม่มีไฟล์ v3 ของทั้งสามตัวให้ดาวน์โหลด รายละเอียด [เกณฑ์ก่อน Release รุ่นโมเดลครบ](docs/V3_FULL_MODEL_RELEASE_GAP_TH.md)
 
 **v0.11.0 — Universal .vwmodel v3 (Windows Portable):** รุ่นใหม่ใช้แพ็กเกจโมเดลไฟล์เดียวที่ติดตั้งโมเดลและ Dependencies แบบออฟไลน์โดยสมบูรณ์ มีหน้าต่างยอมรับสิทธิ์ แยก Runtime และย้ายโฟลเดอร์ได้ รองรับเฉพาะ `.vwmodel v3` (v1/v2 ไม่สามารถติดตั้งในรุ่นนี้) ดาวน์โหลด [Release v0.11.0](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.11.0) และอ่าน [คู่มือ v3](docs/UNIVERSAL_VWMODEL_V3_TH.md) / [Release Notes](docs/RELEASE_NOTES_v0.11.0.md) ส่วนด้านล่างเป็นประวัติ Release เก่า

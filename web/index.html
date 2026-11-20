@@ -889,8 +889,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p class="small">ติดตั้งโมเดลและเสียงเพิ่มเติม ดูแหล่งที่มาและลิขสิทธิ์ และถอนการติดตั้งแพ็กเกจที่ไม่ต้องการได้ที่นี่</p>
 <details style="width:100%;margin:12px 0;border:1px solid #32425b;border-radius:10px;padding:12px">
 <summary>จัดการ Model Packages (ติดตั้งหลายโมเดล / หลายเสียง)</summary>
-<p class="small">เลือกไฟล์ .vwmodel เพื่อติดตั้งโมเดลแบบแยกจากโปรแกรม ติดตั้งหลายชุดและหลายเวอร์ชันพร้อมกันได้ โดยไม่รันโค้ดจากแพ็กเกจ ตรวจ SHA-256 ก่อนติดตั้ง และแสดงข้อมูลไลเซนส์ของแต่ละชุด</p>
-<p class="small">คำเตือน: ไลเซนส์ที่ระบุในแพ็กเกจเป็นข้อมูลจากผู้เผยแพร่ ไม่ใช่การรับรองสิทธิ์เชิงพาณิชย์ Engine ของโมเดลต้องรองรับในโปรแกรมอยู่ก่อน</p>
+<p class="small">เลือกไฟล์ .vwmodel แล้วติดตั้งได้ทันทีแบบออฟไลน์ · v4 รองรับ Engine ภายนอกและ Dependencies ที่มากับแพ็กเกจโดยไม่อัปเดตตัวโปรแกรม · v3 ที่ติดตั้งไว้ยังใช้งานได้</p>
+<p class="small">การเลือกไฟล์และกดติดตั้งถือว่ายอมรับสิทธิ์และเลือกเชื่อถือโค้ด Engine ภายนอกในแพ็กเกจ v4 ซึ่งทำงานด้วยสิทธิ์ผู้ใช้ Windows · SHA-256 ตรวจความครบถ้วนของไฟล์ ไม่ได้ยืนยันความปลอดภัยหรือรับรองสิทธิ์เชิงพาณิชย์</p>
 <button type="button" id="modelPackageInstall">ติดตั้ง Model Package (.vwmodel)</button>
 <button type="button" id="modelPackageRefresh">รีเฟรชรายการโมเดล</button>
 <p id="modelPackageStatus" class="small" role="status">กำลังโหลดแพ็กเกจ...</p>
@@ -1394,25 +1394,26 @@ async function loadModelPackages(){
     const li=document.createElement("li");
     const title=document.createElement("strong");
     title.textContent=item.title+" v"+item.version+
-      (item.format_version===3?" · Universal v3 · "+item.model_kind:"");
+      (item.format_version===3||item.format_version===4?" · Universal v"+item.format_version+" · "+item.model_kind:"");
     const details=document.createElement("small");
     details.style.display="block";
     const names=(item.voices||[]).map(v=>v.label).join(", ");
     details.textContent="Engine: "+(item.engine_id||"not registered")+" · เสียง: "+names+
       " · License: "+item.license.spdx+
       " · ตรวจสิทธิ์: "+item.license.review_status+
-      " · Requires: "+(item.dependencies||[]).join(", ");
-    if(item.format_version===3){
+      " · Dependencies: "+(item.dependencies||[]).length+" รายการ"+
+      (item.format_version===4?" · Engine Plugin v4: ผู้ใช้เลือกติดตั้งแล้ว":"");
+    if(item.format_version===3||item.format_version===4){
       const runtimeLabels={
         ready:"พร้อมใช้งาน",
         "adapter-not-approved":"ไม่มี Engine Adapter ที่อนุมัติ",
-        "runtime-not-installed":"ยังไม่ได้ติดตั้ง Runtime · ถอนแล้วติดตั้งแพ็กเกจ v3 อีกครั้ง",
+        "runtime-not-installed":"ยังไม่ได้ติดตั้ง Runtime · ถอนแล้วติดตั้งแพ็กเกจอีกครั้ง",
         "platform-incompatible":"ไม่รองรับแพลตฟอร์มนี้",
         "runtime-id-mismatch":"Runtime ไม่ตรงกับ Engine"
       };
       details.textContent+=" · Runtime: "+(runtimeLabels[item.runtime_state]||item.runtime_state)+
         " · Source: "+item.runtime_source+
-        " · Adapter: "+(item.adapter_trusted?"trusted built-in":"not approved");
+        " · Adapter: "+(item.format_version===4?"external v4 plugin (installed by user)":(item.adapter_trusted?"trusted built-in":"not approved"));
     }
     const source=document.createElement("a");
     source.href=item.license.url;
@@ -1459,7 +1460,7 @@ el("modelPackageRefresh").addEventListener("click",()=>{
 el("modelPackageInstall").addEventListener("click",async()=>{
   const button=el("modelPackageInstall");
   button.disabled=true;
-  el("modelPackageStatus").textContent="เลือก Universal .vwmodel v3 (ติดตั้งโมเดลและ Dependencies แบบออฟไลน์)";
+  el("modelPackageStatus").textContent="เลือก Universal .vwmodel v4/v3 (ไฟล์เดียว ติดตั้งออฟไลน์)";
   try{
     const previewResponse=await fetch("/v1/model-packages/inspect-local",{
       method:"POST",
@@ -1468,27 +1469,19 @@ el("modelPackageInstall").addEventListener("click",async()=>{
       body:"{}",
     });
     const preview=await previewResponse.json();
-    if(!previewResponse.ok)throw Error(preview.error||"ไม่สามารถอ่านแพ็กเกจ v3 ได้");
+    if(!previewResponse.ok)throw Error(preview.error||"ไม่สามารถอ่านแพ็กเกจ .vwmodel ได้");
     if(preview.cancelled){
       el("modelPackageStatus").textContent="ยกเลิกการเลือกไฟล์";
       return;
     }
+    // The Install click is the single user acceptance of rights and, in v4,
+    // trust of its executable engine. No extra confirmation or online check.
     const lic=preview.license||{};
-    const notice="ติดตั้ง "+preview.package.title+" v"+preview.package.version+
-      "\nLicense: "+String(lic.spdx||"ไม่ระบุ")+
-      "\nAttribution: "+String(lic.attribution||"")+
-      "\nสถานะสิทธิ์: "+String(lic.review_status||"review_required")+
-      "\n\nติดตั้งจากไฟล์ในเครื่องเท่านั้น (ไม่ออนไลน์) ยอมรับเงื่อนไขและติดตั้ง?";
-    if(!window.confirm(notice)){
-      el("modelPackageStatus").textContent="ยกเลิกการติดตั้ง";
-      return;
-    }
     const nc=/BY-NC|NONCOMMERCIAL/i.test(String(lic.spdx||""));
-    if(nc&&!window.confirm("โมเดลนี้จำกัดการใช้งานแบบ NonCommercial เท่านั้น ยืนยันว่าเข้าใจข้อจำกัดนี้?")){
-      el("modelPackageStatus").textContent="ยกเลิกการติดตั้งโมเดล NC";
-      return;
-    }
-    el("modelPackageStatus").textContent="กำลังตรวจสอบและติดตั้ง v3 จากไฟล์ออฟไลน์...";
+    el("modelPackageStatus").textContent="กำลังติดตั้ง Universal v"+
+      preview.format_version+" แบบออฟไลน์: "+preview.package.title+
+      " · License: "+String(lic.spdx||"ไม่ระบุ")+
+      (preview.contains_executable_plugin?" · มี Engine Plugin ภายนอก":"");
     const response=await fetch("/v1/model-packages/install-confirmed",{
       method:"POST",
       headers:{"Content-Type":"application/json",
@@ -1506,7 +1499,7 @@ el("modelPackageInstall").addEventListener("click",async()=>{
       el("engineSelect").value=engineId;
       refreshSelectedEngine();
     }
-    el("modelPackageStatus").textContent="ติดตั้ง v3 และ Runtime ออฟไลน์เรียบร้อย: "+result.package_id;
+    el("modelPackageStatus").textContent="ติดตั้ง v"+result.format_version+" และ Runtime ออฟไลน์เรียบร้อย: "+result.package_id+" · License: "+String(lic.spdx||"ไม่ระบุ");
   }catch(error){
     el("modelPackageStatus").textContent="ติดตั้งไม่สำเร็จ: "+String(error.message||error);
   }finally{button.disabled=false;}

@@ -1,5 +1,5 @@
-// Universal v3 model manager UI: offline preview, per-file rights confirmation,
-// no arbitrary path in HTTP, engine refresh, and safe removal.
+// Universal v4 one-click model manager: no extra rights popup, offline
+// local chooser, engine refresh, NC rights shown, and safe removal.
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const vm=require("node:vm");
@@ -22,7 +22,7 @@ const packages=[
    license:{spdx:"MIT",review_status:"review_required",url:"https://example.org/model"},
    dependencies:[]},
   {package_id:"vachana-alt",version:"2.0.0",title:"Alternative",
-   format_version:3,model_kind:"tts",runtime_state:"ready",runtime_source:"bundled-wheels",
+   format_version:4,model_kind:"tts",runtime_state:"ready",runtime_source:"offline-bundled-wheels",
    adapter_trusted:true,engine_id:"model-vachana-alt-2_0_0",voices:[{id:"a",label:"A"}],
    license:{spdx:"Apache-2.0",review_status:"hold",url:"https://example.org/other"},
    dependencies:[]},
@@ -52,7 +52,7 @@ const scope={
       assert.equal(opts.headers["X-VoxWeaveTTS-Intent"],"inspect-model-package");
       assert.equal(opts.body,"{}");
       return {ok:true,async json(){return previewCancelled?{cancelled:true}:{
-        cancelled:false,token:"one-time-token",offline:true,
+        cancelled:false,token:"one-time-token",offline:true,format_version:4,contains_executable_plugin:true,
         package:{id:"vachana-alt",title:"Alternative",version:"2.0.0"},
         license:{spdx:previewLicense,attribution:"Fixture model",review_status:"hold"},
       };}};
@@ -64,7 +64,7 @@ const scope={
       assert.equal(body.accepted_rights,true);
       assert.equal(body.acknowledged_noncommercial,/BY-NC|NONCOMMERCIAL/i.test(previewLicense));
       assert.equal(Object.hasOwn(body,"path"),false);
-      return {ok:true,async json(){return {installed:true,package_id:"vachana-alt",
+      return {ok:true,async json(){return {installed:true,format_version:4,package_id:"vachana-alt",
           engine_id:"model-vachana-alt-2_0_0",version:"2.0.0"};}};
     }
     if(path==="/v1/model-packages/remove"){
@@ -95,19 +95,15 @@ vm.runInContext(source,scope);
   assert.equal(el("engineSelect").value,"model-vachana-alt-2_0_0");
   assert.equal(requests.filter(x=>x.path.endsWith("/inspect-local")).length,1);
   assert.equal(requests.filter(x=>x.path.endsWith("/install-confirmed")).length,1);
-  assert.ok(confirmNotices[0].includes("Attribution: Fixture model"));
-  assert.ok(confirmNotices[0].includes("Apache-2.0"));
+  assert.equal(confirmNotices.length,0,"install must not show a second confirmation");
+  assert.ok(el("modelPackageStatus").textContent.includes("Apache-2.0"));
 
   previewLicense="CC-BY-NC-4.0";
-  confirmReplies=[true,false];
   const installedBefore=requests.filter(x=>x.path.endsWith("/install-confirmed")).length;
   await el("modelPackageInstall").events.click();
-  assert.equal(requests.filter(x=>x.path.endsWith("/install-confirmed")).length,installedBefore);
-  assert.ok(el("modelPackageStatus").textContent.includes("NC"));
-
-  confirmReplies=[true,true];
-  await el("modelPackageInstall").events.click();
   assert.equal(requests.filter(x=>x.path.endsWith("/install-confirmed")).length,installedBefore+1);
+  assert.ok(el("modelPackageStatus").textContent.includes("CC-BY-NC-4.0"));
+  assert.equal(confirmNotices.length,0);
 
   previewCancelled=true;
   await el("modelPackageInstall").events.click();
@@ -119,5 +115,6 @@ vm.runInContext(source,scope);
   assert.equal(packages[0].package_id,"vachana-alt");
   assert.equal(el("modelPackageList").children.length,1);
   assert.ok(requests.some(x=>x.path==="/v1/model-packages/remove"));
-  console.log("PASS: Universal v3 UI, offline preview + rights, NC confirmation, cancel, engine selection and safe uninstall");
+  assert.equal(confirmNotices.length,1,"only destructive uninstall asks confirmation");
+  console.log("PASS: v4 one-click offline install, NC attribution, cancel, engine selection, safe uninstall");
 })().catch(e=>{console.error(e);process.exitCode=1;});

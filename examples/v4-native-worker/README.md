@@ -1,0 +1,1 @@
+Original v4 native executable worker example. Build with the Windows .NET Framework csc compiler into plugin/worker.exe, then package with scripts/build_vwmodel_v4.py. The worker generates test tones rather than speech.
