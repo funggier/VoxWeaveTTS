@@ -81,7 +81,9 @@ def _missing_default_info() -> EngineInfo:
         voice_options=(("paradee_thai", "MakHam Paradee"),),
         sample_rate=SAMPLE_RATE, assets_ready=False, runtime_ready=False,
         capabilities={"speech": True, "speed": True, "seed_control": False,
-                      "voice_cloning": False, **_built_in_dsp_flags()},
+                      "voice_cloning": False, "pitch": False, "formant": False,
+                      "expressiveness": False, "streaming": False,
+                      "phoneme_dictionary": False, **_built_in_dsp_flags()},
         commercial_status="review_required",
     )
 

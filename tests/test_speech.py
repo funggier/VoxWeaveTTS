@@ -105,3 +105,19 @@ class SpeechTests(unittest.TestCase):
         self.assertEqual(info.voice_id, "paradee_thai")
         self.assertFalse(info.capabilities["voice_cloning"])
         self.assertFalse(info.capabilities["pitch"])
+
+    def test_fresh_install_v4_default_exposes_complete_capability_schema(self):
+        """A new checkout has no installed models; its UI must still load."""
+        from voxweavetts.speech import _missing_default_info
+        info = _missing_default_info()
+        self.assertFalse(info.assets_ready)
+        self.assertFalse(info.runtime_ready)
+        self.assertEqual(info.id, ENGINE_ID)
+        self.assertEqual(info.voice_id, "paradee_thai")
+        for field in ("speech", "speed", "pitch", "formant", "voice_cloning",
+                      "expressiveness", "streaming", "seed_control",
+                      "phoneme_dictionary"):
+            with self.subTest(field=field):
+                self.assertIn(field, info.capabilities)
+        self.assertFalse(info.capabilities["pitch"])
+        self.assertFalse(info.capabilities["voice_cloning"])
