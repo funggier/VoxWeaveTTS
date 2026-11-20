@@ -1,6 +1,8 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio — Universal .vwmodel v4 only**
+**Windows Portable TTS Studio v0.12.0 — Universal .vwmodel v4 only**
+
+**Public v0.12.0 is Core-only.** Its ZIP intentionally includes **no TTS or translation weights, no bundled model package, and no model-specific inference runtime.** Install a separately obtained, license-compatible `.vwmodel v4` package offline before attempting real text-to-speech. The eight migration QA packs are withheld pending redistribution review.
 
 VoxWeaveTTS is a local-first, Thai-focused TTS application with narration, live chat, per-mode voice settings, translation, speech queues, APIs, and subtitle/OBS synchronization. Its model engines and offline dependencies live in separate, self-contained packages.
 
@@ -21,7 +23,7 @@ VoxWeaveTTS is a local-first, Thai-focused TTS application with narration, live 
 
 Narration/document reading; Discord, YouTube LIVE and TikTok LIVE chat integrations; configurable pronunciation and filtering rules; per-language model routing; translation; voice controls; shared speech queue; subtitle/OBS overlay; local API.
 
-A fresh Portable build installs the default MakHam **v4** package offline. Additional engines are installed through the same package manager.
+The **published Core-only Portable** contains no default voice. Once the user installs a separately obtained compatible v4 engine, TTS and translation become available. A separate optional original *demo tone* package exercises the plugin system but does **not** synthesize speech.
 
 ## Build and package examples
 
@@ -29,10 +31,10 @@ The [v4 examples](examples/README_TH.md) cover Python plugin workers (with or wi
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 scripts\build_vwmodel_v4.py --source examples\v4-demo-tone --spec examples\v4-demo-tone\spec.json --output cache\demo-tone-v4.vwmodel
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.0-dev0 -SkipZip -StageDirectory dist\VoxWeaveTTS-v4-validation
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.0 -StageDirectory dist\release-v0.12.0\VoxWeaveTTS
 ```
 
-The Portable builder needs the internal offline MakHam v4 QA archive in `dist/ModelPackagesV4-QA`. Its output is deliberately a private QA build, **not a public release**.
+Public Core builds require **no QA archives** and never ship models. An isolated **private QA-only** stage may opt into MakHam with `-SkipZip -IncludeUnreleasedQaMakHam`; the builder blocks ZIP publishing of that option. See [v0.12.0 release notes](docs/RELEASE_NOTES_v0.12.0_TH.md).
 
 ## Eight-model v4 QA and redistribution rights
 

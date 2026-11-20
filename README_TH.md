@@ -1,6 +1,8 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.0 — Universal .vwmodel v4 เท่านั้น**
+
+**Public Release v0.12.0 เป็น Core-only:** โปรแกรม Portable ไม่มีน้ำหนักโมเดลเสียงและไม่มีโมเดลแปลภาษาอยู่ใน ZIP โดยผู้ใช้ติดตั้งแพ็กเกจ `.vwmodel v4` ของตนเองภายหลังได้แบบออฟไลน์ เพราะสิทธิ์แจกจ่ายแพ็กเกจ QA ทั้ง 8 ตัวอยู่ระหว่างตรวจสอบ จึงยังไม่สามารถอ่านข้อความเป็นเสียงจริงได้จนกว่าจะติดตั้งโมเดล TTS ที่ใช้งานได้
 
 VoxWeaveTTS เป็นโปรแกรมอ่านข้อความภาษาไทยและหลายภาษาแบบออฟไลน์ มีระบบจัดคิวเสียง ควบคุมเสียง กรองข้อความ แปลภาษา และแสดง Subtitle/Overlay สำหรับ Live ได้ โดยระบบโมเดลแยกจากตัวโปรแกรมหลักอย่างอิสระ
 
@@ -26,7 +28,7 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 - **Queue / Overlay / API** — คิวเสียงและการอ่านพร้อมข้อมูลเหตุการณ์สำหรับ Subtitle/OBS
 - **Global Settings** — กฎการอ่าน, การแทนคำ, Emoji, และการจัดการโมเดล/ส่วนเสริม
 
-โมเดลที่ไม่ได้ติดตั้งจะไม่ถูกเปิดใช้งาน Engine เริ่มต้นใน Portable ที่สร้างใหม่คือ MakHam v4 ซึ่งติดตั้งจากไฟล์ .vwmodel v4 ไม่ใช่ Built-in Adapter แบบเดิม
+โมเดลที่ไม่ได้ติดตั้งจะไม่ถูกเปิดใช้งาน **Core ที่เผยแพร่สาธารณะไม่มีโมเดลเริ่มต้น:** MakHam และโมเดลอื่นยังอยู่ในชุด QA ภายใน ไม่ได้รวมอยู่ใน Public Release
 
 ## สำหรับนักพัฒนาแพ็กเกจ
 
@@ -45,11 +47,11 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 ใช้ PowerShell บน Windows และ Python Environment ของโปรเจกต์:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.0-dev0 -SkipZip -StageDirectory dist\VoxWeaveTTS-v4-validation
-.\dist\VoxWeaveTTS-v4-validation\runtime\python\python.exe -X utf8 scripts\verify_v4_portable_stage.py --stage dist\VoxWeaveTTS-v4-validation
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.0 -StageDirectory dist\release-v0.12.0\VoxWeaveTTS
+.\dist\release-v0.12.0\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.0\VoxWeaveTTS
 ```
 
-ตัว Build ต้องมีแพ็กเกจ MakHam v4 อยู่ใน `dist/ModelPackagesV4-QA` สำหรับติดตั้งเสียงเริ่มต้นแบบออฟไลน์
+การสร้าง Public Core **ไม่ต้องมีแพ็กเกจโมเดลใด ๆ** และ Build จะปฏิเสธการรวมแพ็กเกจ QA ลงใน ZIP ส่วนการทดสอบภายในสามารถใช้ `-SkipZip -IncludeUnreleasedQaMakHam` แยกจาก Release ได้
 
 ชุดโมเดล QA v4 ทั้งหมดเก็บไว้ในเครื่องที่ `dist/ModelPackagesV4-QA` ไม่ Commit ไฟล์ Weights/Runtime ขึ้น GitHub
 
@@ -72,4 +74,5 @@ Wayu Paxa Edge ยังคงเป็น **CC BY-NC 4.0 — ไม่อนุ
 - [ระบบแปลภาษา](docs/AI_PROCESSING_TRANSLATION_TH.md)
 - [การจัดคิวเสียง](docs/LIVE_MESSAGE_QUEUE_TH.md)
 - [นโยบายสิทธิ์](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
+- [หมายเหตุ Public Release v0.12.0](docs/RELEASE_NOTES_v0.12.0_TH.md)
 - [สำเนาเอกสารสิทธิ์จากผู้เผยแพร่ต้นทาง v4 และ SHA-256](docs/V4_UPSTREAM_LICENSE_EVIDENCE_TH.md)

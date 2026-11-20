@@ -2299,7 +2299,7 @@ el("queueCancel").addEventListener("click", async () => {
 let currentAudioUrl = null;
 fetch("/v1/status").then(r => r.json()).then(status => {
   const ready = Boolean(status.capabilities && status.capabilities.tts_audio);
-  el("audioStatus").textContent = ready ? "Engine พร้อมสร้างเสียง" : "ยังไม่มีโมเดลหรือ Runtime ภาษาไทย — ดู docs/M1_AUDIO_TH.md";
+  el("audioStatus").textContent = ready ? "Engine พร้อมสร้างเสียง" : "ยังไม่มีโมเดลเสียงที่ใช้งานได้ — ไปที่ ตั้งค่า > จัดการโมเดล แล้วติดตั้งไฟล์ .vwmodel v4";
   el("synthesize").disabled = !ready;
   el("nextSeed").disabled = !ready;
 }).catch(() => {

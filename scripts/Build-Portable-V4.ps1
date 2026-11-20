@@ -1,8 +1,9 @@
 # Universal v4-only self-contained Windows Portable. No v3 installer, assets or runtime.
 param(
-  [string]$Version='0.12.0-dev0',
+  [string]$Version='0.12.0',
   [switch]$SkipZip,
-  [string]$StageDirectory=''
+  [string]$StageDirectory='',
+  [switch]$IncludeUnreleasedQaMakHam
 )
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -19,16 +20,24 @@ if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $pythonHome 'LICENSE.txt'))) 
 $stage=Join-Path $root 'dist\VoxWeaveTTS'
 $distRoot=[IO.Path]::GetFullPath((Join-Path $root 'dist'))
 if ($StageDirectory) {
-  if (!$SkipZip) {throw 'Custom staging requires -SkipZip'}
   $stage=[IO.Path]::GetFullPath($StageDirectory)
+  if (!$SkipZip -and (Split-Path $stage -Leaf) -ne 'VoxWeaveTTS') {
+    throw 'ZIP staging directory must be named VoxWeaveTTS'
+  }
 }
 if (!$stage.StartsWith(($distRoot.TrimEnd('\')+'\'),[StringComparison]::OrdinalIgnoreCase)) {
   throw 'Portable stage must be inside project dist/'
 }
 $zip=Join-Path $root ("dist\VoxWeaveTTS-v{0}-portable.zip" -f $Version)
 $makArchive=Join-Path $root 'dist\ModelPackagesV4-QA\VoxWeaveTTS-makham-paradee-1.0.0-UNRELEASED-QA-format-v4.vwmodel'
-if (!(Test-Path -LiteralPath $makArchive -PathType Leaf)) {
-  throw 'MakHam v4 model package for offline bootstrap is missing; prepare v4 QA assets first'
+if ($IncludeUnreleasedQaMakHam) {
+  if (!$SkipZip) { throw 'UNRELEASED-QA MakHam cannot be included in a public ZIP' }
+  if (!(Test-Path -LiteralPath $makArchive -PathType Leaf)) {
+    throw 'QA MakHam v4 archive is missing'
+  }
+}
+if (!$SkipZip -and (Test-Path -LiteralPath $zip -PathType Leaf)) {
+  throw 'Release ZIP already exists; refusing to overwrite it'
 }
 
 function Copy-Tree([string]$source,[string]$destination,[string[]]$skip=@(),[string[]]$skipDirs=@()) {
@@ -53,6 +62,8 @@ Copy-Tree (Join-Path $root 'web') (Join-Path $stage 'web')
 Copy-Tree (Join-Path $root 'extensions') (Join-Path $stage 'extensions') -skipDirs @('engine-providers')
 Copy-Tree (Join-Path $root 'docs') (Join-Path $stage 'docs') @('*v3*','*V3*','*v2*','*V2*')
 Copy-Tree (Join-Path $root 'examples') (Join-Path $stage 'examples')
+# Preserve unmodified license texts for the actual embedded uv.exe binary.
+Copy-Tree (Join-Path $root 'third_party_licenses') (Join-Path $stage 'third_party_licenses')
 if (!(Test-Path (Join-Path $stage 'docs\UNIVERSAL_VWMODEL_V4_TH.md'))) {
   throw 'V4 package protocol documentation missing'
 }
@@ -68,42 +79,27 @@ foreach ($name in @('python.exe','pythonw.exe','python3.dll','python311.dll',
   $from=Join-Path $pythonHome $name
   if (Test-Path $from) {Copy-Item $from (Join-Path $runtime $name) -Force}
 }
-Copy-Tree (Join-Path $pythonHome 'Lib') (Join-Path $runtime 'Lib')
+Copy-Tree (Join-Path $pythonHome 'Lib') (Join-Path $runtime 'Lib') -skipDirs @('site-packages')
 Copy-Tree (Join-Path $pythonHome 'DLLs') (Join-Path $runtime 'DLLs')
 Copy-Tree (Join-Path $pythonHome 'tcl') (Join-Path $runtime 'tcl')
-# The Core has no built-in TTS weights, Torch, Transformers or model-specific
-# runtime dependencies. Those are delivered by individual v4 .vwmodel files.
-Copy-Tree $site (Join-Path $runtime 'Lib\site-packages') @('*.onnx','*.npy','*.pt','*.pth','*.wav','*.mp3','*.flac') @(
-  'torch','torchgen','functorch','transformers','tokenizers','safetensors',
-  'sentencepiece','sympy','networkx',
-  'torch-*.dist-info','transformers-*.dist-info','tokenizers-*.dist-info',
-  'safetensors-*.dist-info','sentencepiece-*.dist-info',
-  'sympy-*.dist-info','networkx-*.dist-info',
-  # Model-specific inference dependencies belong to .vwmodel v4 isolated
-  # environments, never to the Portable Core Python site-packages.
-  'pythaitts','pythaitts-*.dist-info',
-  'onnxruntime','onnxruntime-*.dist-info',
-  'kokoro_onnx','kokoro_onnx-*.dist-info',
-  'sherpa_onnx','sherpa_onnx*.dist-info',
-  'misaki','misaki-*.dist-info',
-  'unidic_lite','unidic_lite-*.dist-info',
-  'espeakng_loader','espeakng_loader-*.dist-info',
-  'phonemizer','phonemizer-*.dist-info','phonemizer_fork-*.dist-info',
-  'fugashi','fugashi.libs','fugashi-*.dist-info',
-  'jaconv','jaconv-*.dist-info',
-  'mojimoji','mojimoji-*.dist-info',
-  'numpy','numpy.libs','numpy-*.dist-info',
-  'scipy','scipy.libs','scipy-*.dist-info',
-  'soundfile','soundfile-*.dist-info',
-  'librosa','librosa-*.dist-info'
-)
+# The public Core contains ONLY its required v4 protocol / YouTube stream
+# dependencies. ML inference stays in user-selected external .vwmodel v4.
 $coreSite=Join-Path $runtime 'Lib\site-packages'
-foreach ($forbidden in @('pythaitts','onnxruntime','kokoro_onnx',
-                         'sherpa_onnx','misaki','numpy','scipy')) {
-  if (Test-Path -LiteralPath (Join-Path $coreSite $forbidden)) {
-    throw ('Model-specific dependency leaked into v4 Core: '+$forbidden)
-  }
+New-Item -ItemType Directory -Force -Path $coreSite | Out-Null
+foreach ($pattern in @('packaging','packaging-*.dist-info',
+                      'grpc','grpcio-*.dist-info',
+                      'google','protobuf-*.dist-info',
+                      'typing_extensions.py','typing_extensions-*.dist-info')) {
+  $hits=@(Get-ChildItem -LiteralPath $site -Filter $pattern -Force)
+  if ($hits.Count -ne 1) {throw ('Core dependency not uniquely present: '+$pattern)}
+  $src=$hits[0].FullName
+  $dest=Join-Path $coreSite $hits[0].Name
+  if ($hits[0].PSIsContainer) { Copy-Tree $src $dest }
+  else { Copy-Item -LiteralPath $src -Destination $dest -Force }
 }
+& (Join-Path $runtime 'python.exe') -X utf8 -c 'import packaging,grpc,typing_extensions;from google import protobuf;assert packaging.__version__ and grpc.__version__ and protobuf.__version__'
+if ($LASTEXITCODE -eq 0) { Write-Output 'CORE_DEPENDENCIES_READY' }
+if ($LASTEXITCODE -ne 0) {throw 'Minimal v4 Core dependencies are incomplete'}
 foreach ($dir in @('presets','models\packages','models\recovery-packages',
                    'cache\temp','cache\torch','cache\huggingface',
                    'voices','output','logs','data\settings','data\reading',
@@ -118,22 +114,34 @@ $env:PYTHONNOUSERSITE='1'
 $python=Join-Path $stage 'runtime\python\python.exe'
 & $python -X utf8 -c 'from voxweavetts.universal_model_v4 import VERSION; assert VERSION==4; from voxweavetts.engine_provider_catalog import all_providers; assert isinstance(all_providers(),dict)'
 if ($LASTEXITCODE -ne 0) {throw 'V4-only Core import validation failed'}
-# A new Portable must be usable immediately, with only a v4 MakHam model.
-& $python -X utf8 (Join-Path $root 'scripts\bootstrap_v4_portable.py') --stage $stage --package $makArchive
-if ($LASTEXITCODE -ne 0) {throw 'Failed to install offline v4 default voice'}
-Copy-Item -LiteralPath $makArchive -Destination (Join-Path $stage 'models\recovery-packages\VoxWeaveTTS-MakHam-v4.vwmodel') -Force
-& $python -X utf8 (Join-Path $root 'scripts\bootstrap_v4_portable.py') --stage $stage --verify-only
-if ($LASTEXITCODE -ne 0) {throw 'Universal v4-only Portable readiness failed'}
+# Only a private, explicitly opted-in QA build may bundle the reviewed-pending
+# MakHam runtime. The PUBLIC v4 Core is deliberately model-free by default.
+if ($IncludeUnreleasedQaMakHam) {
+  & $python -X utf8 (Join-Path $root 'scripts\bootstrap_v4_portable.py') --stage $stage --package $makArchive
+  if ($LASTEXITCODE -ne 0) {throw 'Failed to install offline v4 QA default voice'}
+  Copy-Item -LiteralPath $makArchive -Destination (Join-Path $stage 'models\recovery-packages\VoxWeaveTTS-MakHam-v4.vwmodel') -Force
+  & $python -X utf8 (Join-Path $root 'scripts\bootstrap_v4_portable.py') --stage $stage --verify-only
+  if ($LASTEXITCODE -ne 0) {throw 'v4 QA MakHam readiness failed'}
+} else {
+  & $python -X utf8 -c 'import sys;from pathlib import Path;from voxweavetts.universal_model_v4 import installed_packages;root=Path(sys.argv[1]);assert not installed_packages(root)' $stage
+  if ($LASTEXITCODE -ne 0 -or @(Get-ChildItem $stage -Recurse -File -Filter '*.vwmodel').Count -ne 0) {
+    throw 'A model archive entered the public Core stage'
+  }
+  Write-Output 'PUBLIC_V4_CORE_NO_MODEL_ASSETS_PASS'
+}
 $notice=@(
-  "VoxWeaveTTS v$Version third-party notices (QA, redistribution review pending)",
-  "VoxWeaveTTS Core: MIT, see LICENSE",
-  "Embedded Python 3.11: PSF License, see runtime/python/LICENSE.txt",
-  "Bundled uv and other Python dependencies: see their respective license files",
-  "MakHam Paradee: model licensed as declared in its v4 manifest; rights review pending",
-  "Original training/data attribution: see docs/V4_ALL_MODEL_QA_TH.md and v4 package manifest",
-  "Other engines install only as separate Universal .vwmodel v4 packages",
-  "Wayu NC remains NonCommercial; model/distribution rights not altered by installation",
-  "V4 QA assets have not yet been cleared for publication or commercial use"
+  "VoxWeaveTTS v$Version - third-party notices for the v4 Core",
+  "VoxWeaveTTS source: MIT - see LICENSE",
+  "Embedded CPython: Python Software Foundation License - see runtime/python/LICENSE.txt",
+  "uv 0.12.9 (astral-sh/uv): MIT OR Apache-2.0 - see third_party_licenses/uv/LICENSE-MIT, LICENSE-APACHE and SOURCE.json",
+  "grpcio 1.85.1: Apache-2.0 - see runtime/python/Lib/site-packages/grpcio-1.85.1.dist-info/licenses/LICENSE",
+  "protobuf 7.36.2: BSD-3-Clause - see runtime/python/Lib/site-packages/protobuf-7.36.2.dist-info/LICENSE",
+  "packaging 26.3: Apache-2.0 OR BSD-2-Clause - see runtime/python/Lib/site-packages/packaging-26.3.dist-info/licenses/",
+  "typing_extensions 4.16.0: PSF-2.0 - see runtime/python/Lib/site-packages/typing_extensions-4.16.0.dist-info/licenses/",
+  "The v4 Core includes NO model weights, training datasets, model runtime wheels, or QA model assets.",
+  "Users obtain v4 .vwmodel packages separately; the Core validates and installs them offline.",
+  "Model author/license claims are not assurances of independent redistribution rights.",
+  "Source and attribution references: docs/V4_RIGHTS_REVIEW_TH.md"
 )
 $notice | Set-Content -LiteralPath (Join-Path $stage 'THIRD_PARTY_NOTICES.txt') -Encoding UTF8
 $exe=Join-Path $stage 'VoxWeaveTTS.exe'
@@ -179,9 +187,11 @@ if (!(Select-String -LiteralPath (Join-Path $stage 'web\index.html') -Pattern 'U
   throw 'V4-only package UI missing'
 }
 Write-Output ("V4_ONLY_PORTABLE_STAGE="+$stage)
-Write-Output ("V4_DEFAULT_PACKAGE="+$makArchive)
+if ($IncludeUnreleasedQaMakHam) { Write-Output ("V4_QA_DEFAULT_PACKAGE="+$makArchive) }
+else { Write-Output "V4_PUBLIC_CORE_MODEL_PACKAGES=0" }
 Write-Output "V4_PROTOCOL=1"
 Write-Output "V4_LEGACY_PACKAGE_SUPPORT=False"
+Write-Output ("V4_UNRELEASED_QA_MAKHAM_INCLUDED="+$IncludeUnreleasedQaMakHam.ToString())
 if (!$SkipZip) {
   if (Test-Path -LiteralPath $zip) {
     throw 'V4 ZIP output exists; refusing to overwrite'

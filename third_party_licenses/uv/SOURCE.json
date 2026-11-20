@@ -1,0 +1,21 @@
+{
+  "project": "astral-sh/uv",
+  "source_revision": "9f928602938ac5cf1cd6b294a725833c16f5720e",
+  "version": "0.12.9",
+  "downloaded_at_utc": "2026-11-20T11:20:19.673666+00:00",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    {
+      "file": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/astral-sh/uv/9f928602938ac5cf1cd6b294a725833c16f5720e/LICENSE-MIT",
+      "sha256": "860e3d7a86b84e6a7012c7a635fc64df475cebc6cce34dfeb73a5982ec58176c",
+      "size": 1077
+    },
+    {
+      "file": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/astral-sh/uv/9f928602938ac5cf1cd6b294a725833c16f5720e/LICENSE-APACHE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "size": 11357
+    }
+  ]
+}
