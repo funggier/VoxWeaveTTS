@@ -1,0 +1,148 @@
+{
+  "schema": "voxweavetts.v4-previously-published-weights-provenance",
+  "source_releases": [
+    "v0.10.3",
+    "v0.11.0"
+  ],
+  "verification": "The archive sizes and SHA-256 match GitHub Releases; v4 model weights compare by manifest file SHA-256",
+  "historical_release_assets_verified": 13,
+  "v4_packages_checked": 8,
+  "model_weight_redistribution_license_inherited": true,
+  "environment_wheels_require_separate_distributable_license_evidence": true,
+  "preexisting_public_release_is_not_automatic_redistribution_license": true,
+  "first_party_model_qa_approval_granted": false,
+  "models": {
+    "fastthaig2p-thai-som": {
+      "kind": "tts",
+      "v2_identical": true,
+      "v3_identical": true,
+      "weight_file_count": 2,
+      "offline_wheel_count": 26,
+      "v2_model_assets_added": [],
+      "v2_model_assets_changed": [],
+      "v2_model_assets_removed": [],
+      "v2_unchanged_legal_docs": [
+        "legal/attribution.md",
+        "legal/license.txt",
+        "legal/notice.txt",
+        "legal/rights.json"
+      ],
+      "v2_changed_legal_docs": []
+    },
+    "kokoro-multilingual-int8": {
+      "kind": "tts",
+      "v2_identical": true,
+      "v3_identical": null,
+      "weight_file_count": 2,
+      "offline_wheel_count": 31,
+      "v2_model_assets_added": [],
+      "v2_model_assets_changed": [],
+      "v2_model_assets_removed": [],
+      "v2_unchanged_legal_docs": [
+        "legal/attribution.md",
+        "legal/license.txt"
+      ],
+      "v2_changed_legal_docs": [
+        "legal/rights.json"
+      ]
+    },
+    "m2m100-418m": {
+      "kind": "translation",
+      "v2_identical": true,
+      "v3_identical": true,
+      "weight_file_count": 1,
+      "offline_wheel_count": 25,
+      "v2_model_assets_added": [],
+      "v2_model_assets_changed": [],
+      "v2_model_assets_removed": [],
+      "v2_unchanged_legal_docs": [
+        "attribution.md",
+        "legal/rights.json"
+      ],
+      "v2_changed_legal_docs": []
+    },
+    "makham-paradee": {
+      "kind": "tts",
+      "v2_identical": true,
+      "v3_identical": true,
+      "weight_file_count": 1,
+      "offline_wheel_count": 26,
+      "v2_model_assets_added": [],
+      "v2_model_assets_changed": [],
+      "v2_model_assets_removed": [],
+      "v2_unchanged_legal_docs": [
+        "legal/attribution.md",
+        "legal/license.txt",
+        "legal/rights.json"
+      ],
+      "v2_changed_legal_docs": []
+    },
+    "melo-chinese-onnx": {
+      "kind": "tts",
+      "v2_identical": true,
+      "v3_identical": true,
+      "weight_file_count": 1,
+      "offline_wheel_count": 3,
+      "v2_model_assets_added": [],
+      "v2_model_assets_changed": [],
+      "v2_model_assets_removed": [],
+      "v2_unchanged_legal_docs": [
+        "legal/attribution.md",
+        "legal/license.txt",
+        "legal/rights.json"
+      ],
+      "v2_changed_legal_docs": []
+    },
+    "supertonic3-multilingual-int8": {
+      "kind": "tts",
+      "v2_identical": true,
+      "v3_identical": true,
+      "weight_file_count": 6,
+      "offline_wheel_count": 3,
+      "v2_model_assets_added": [],
+      "v2_model_assets_changed": [],
+      "v2_model_assets_removed": [],
+      "v2_unchanged_legal_docs": [
+        "legal/attribution.md",
+        "legal/conversion-license.txt",
+        "legal/license.txt",
+        "legal/rights.json"
+      ],
+      "v2_changed_legal_docs": []
+    },
+    "vachana-thai-four-voices": {
+      "kind": "tts",
+      "v2_identical": true,
+      "v3_identical": null,
+      "weight_file_count": 4,
+      "offline_wheel_count": 14,
+      "v2_model_assets_added": [],
+      "v2_model_assets_changed": [],
+      "v2_model_assets_removed": [],
+      "v2_unchanged_legal_docs": [
+        "legal/attribution.md",
+        "legal/license.txt"
+      ],
+      "v2_changed_legal_docs": [
+        "legal/rights.json"
+      ]
+    },
+    "wayu-paxa-edge-nc": {
+      "kind": "tts",
+      "v2_identical": true,
+      "v3_identical": null,
+      "weight_file_count": 13,
+      "offline_wheel_count": 106,
+      "v2_model_assets_added": [],
+      "v2_model_assets_changed": [],
+      "v2_model_assets_removed": [],
+      "v2_unchanged_legal_docs": [],
+      "v2_changed_legal_docs": [
+        "legal/acceptable-use.txt",
+        "legal/attribution.md",
+        "legal/license.txt",
+        "legal/rights.json"
+      ]
+    }
+  }
+}

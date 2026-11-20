@@ -109,7 +109,10 @@ def main() -> int:
     sys.path.insert(0, str(stage / "src"))
     reports = []
     for model in args.models:
-        files = list(args.packages.glob("VoxWeaveTTS-" + model + "-*-UNRELEASED-QA-format-v4.vwmodel"))
+        suffix = ("-LEGAL-QA-format-v4.vwmodel"
+                  if args.packages.name == "ModelPackagesV4-LegalQA"
+                  else "-UNRELEASED-QA-format-v4.vwmodel")
+        files = list(args.packages.glob("VoxWeaveTTS-" + model + "-*" + suffix))
         if len(files) != 1:
             raise RuntimeError("expected one exact QA archive for " + model)
         reports.append(test_one(stage, files[0]))

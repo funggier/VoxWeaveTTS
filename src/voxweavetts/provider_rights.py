@@ -1,10 +1,13 @@
-"""Conservative first-party redistribution review for Universal .vwmodel v4.
+"""First-party distribution checks for unchanged model weights plus v4 runtimes.
 
 Independent operational facts:
 - A user can select and install a local, validated v4 archive in one click.
 - Package model-weight terms and runtime dependency terms are distinct.
-- None of the eight unpublished QA model bundles has received complete
-  first-party redistribution clearance.
+- All eight v4 model weight sets are SHA-256 identical to previously
+  published v2 assets, and five are identical to previously published v3.
+- The new v4 Worker/wheel redistributions require their own license notices.
+- A NonCommercial model is in scope for this non-commercial-first project;
+  a commercial license is not required to consider non-commercial release.
 
 This read-only module is NOT consulted as an installation allow-list and
 never converts user-provided manifest claims into legal clearance.
@@ -102,6 +105,10 @@ def review(package_id: str) -> dict[str, Any]:
             "public_release_allowed": False, "legal_clearance": False,
             "user_installs_offline_without_license_server": True,
             "user_install_is_redistribution_clearance": False,
+            "release_intent": "noncommercial-first; original upstream terms",
+            "original_weight_files_sha_identical_to_published_v2": False,
+            "new_v4_runtime_license_review_pending": True,
+            "commercial_clearance_required_for_nc_release": False,
             "reference": _GUIDE,
         }
     return {
@@ -115,6 +122,11 @@ def review(package_id: str) -> dict[str, Any]:
         "public_release_allowed": False, "legal_clearance": False,
         "user_installs_offline_without_license_server": True,
         "user_install_is_redistribution_clearance": False,
+        "release_intent": "noncommercial-first; original upstream terms",
+        "original_weight_files_sha_identical_to_published_v2": True,
+        "new_v4_runtime_license_review_pending": True,
+        "commercial_clearance_required_for_nc_release": False,
+        "weight_provenance_report": "docs/v4_weight_continuity_summary.json",
         "reference": _GUIDE,
     }
 

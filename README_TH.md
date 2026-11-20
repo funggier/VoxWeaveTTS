@@ -57,9 +57,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -
 
 ## สถานะการเผยแพร่และสิทธิ์
 
-โครงสร้าง Core และแพ็กเกจทั้ง **8 ตัว (TTS 7 + Translation 1)** ผ่านการติดตั้ง/Inference จริงในสภาพแวดล้อม QA แล้ว แต่ **ยังไม่ได้เผยแพร่ v4 เป็น Public Release** เพราะต้องตรวจสิทธิ์ Redistribution ของน้ำหนักโมเดลและ Dependencies เพิ่ม
+โครงสร้าง Core และแพ็กเกจทั้ง **8 ตัว (TTS 7 + Translation 1)** ผ่านการติดตั้ง/Inference จริงในสภาพแวดล้อม QA แล้ว และ **น้ำหนักโมเดลของทั้ง 8 ตัวตรงกับ V2 ที่เคยเผยแพร่ (ตรวจ SHA-256)** จึงนำหลักฐานสิทธิ์ของน้ำหนักโมเดลเดิมมาใช้ต่อได้ ส่วนที่ยังต้องจัดการสำหรับการเผยแพร่ V4 คือ License/Notice ของ **Worker และ Dependencies ออฟไลน์ที่เพิ่มมา** โดยยังไม่มี Public Release ของแพ็กเกจ v4 ทั้ง 8 ตัว
 
-Wayu Paxa Edge ยังคงเป็น **CC BY-NC 4.0 — ไม่อนุญาตการใช้เชิงพาณิชย์** และ Kokoro / Vachana มีข้อกำหนดสิทธิ์ Dependencies ที่ต้องตรวจเพิ่ม ไม่ตีความว่าการทำงานได้เท่ากับได้รับสิทธิ์แจกจ่ายแล้ว
+โปรเจกต์นี้ **ไม่ได้มุ่งการใช้งานเชิงพาณิชย์** และจะแจกโมเดลแยกจาก Core **ภายใต้สิทธิ์เดิมของผู้เผยแพร่** โดย Wayu Paxa Edge ยังคงเป็น **CC BY-NC 4.0** พร้อมข้อกำหนด Attribution และ Acceptable Use ไม่จำเป็นต้องตัด Wayu เพียงเพราะมีข้อจำกัด NonCommercial ส่วน Kokoro / Vachana และโมเดลอื่นจะรักษาข้อกำหนด Dependencies ให้ครบ ไม่ตีความว่าการทำงานได้เท่ากับได้รับสิทธิ์แจกจ่ายแล้ว
 
 รุ่นที่เคยเผยแพร่ไว้ก่อนหน้าสามารถดูใน [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) และ Git History แต่ **Source/Portable ที่พัฒนาใหม่รองรับเฉพาะ v4**
 
@@ -74,5 +74,7 @@ Wayu Paxa Edge ยังคงเป็น **CC BY-NC 4.0 — ไม่อนุ
 - [ระบบแปลภาษา](docs/AI_PROCESSING_TRANSLATION_TH.md)
 - [การจัดคิวเสียง](docs/LIVE_MESSAGE_QUEUE_TH.md)
 - [นโยบายสิทธิ์](docs/COMMERCIAL_LICENSE_POLICY_TH.md)
+- [ผลเทียบโมเดล V2/V3/V4 และการคงสิทธิ์เดิม](docs/V4_MODEL_LICENSE_CONTINUITY_TH.md)
+- [สถานะ Model Pack v4 พร้อมสำเนา License/Notice ในแพ็กเกจ](docs/V4_MODEL_PACK_RIGHTS_QA_2026-11-20_TH.md)
 - [หมายเหตุ Public Release v0.12.0](docs/RELEASE_NOTES_v0.12.0_TH.md)
 - [สำเนาเอกสารสิทธิ์จากผู้เผยแพร่ต้นทาง v4 และ SHA-256](docs/V4_UPSTREAM_LICENSE_EVIDENCE_TH.md)
