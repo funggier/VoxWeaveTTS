@@ -67,16 +67,16 @@ const EXTENSION_PHASE_NAMES=Object.freeze({
   starting_worker:"ขั้นตอน 2/4 · สร้างรหัสจับคู่สำหรับส่วนเสริม",
   waiting_extension_pair:"ขั้นตอน 3/4 · รอกรอกรหัสจับคู่ในส่วนเสริม Chrome (ใช้ได้ 5 นาที)",
   waiting_chat_dom:"ขั้นตอน 4/4 · ส่วนเสริมเชื่อมต่อแล้ว · รอข้อความใหม่ในแท็บ TikTok LIVE",
-  ready:"เชื่อมต่อสำเร็จ · รับคอมเมนต์จาก TikTok Extension ได้แล้ว",
+  ready:"กำลังรับข้อความ",
   comments_off:"ส่วนเสริมพบ Comments off ในแท็บ TikTok ที่เลือก · ตรวจสอบว่าเปิด LIVE ที่แสดงคอมเมนต์ได้",
   extension_disconnected:"ส่วนเสริมขาดการเชื่อมต่อ · กดสร้างรหัสจับคู่ใหม่ใน VoxWeaveTTS แล้วเชื่อมส่วนเสริมอีกครั้ง",
   retrying:"ช่องทางส่วนเสริมขัดข้อง · ตรวจการเชื่อมต่อกับโปรแกรมในเครื่อง",
   error:"เชื่อมต่อไม่สำเร็จ",
-  ended:"หยุดรับข้อความจาก TikTok Extension แล้ว",
-  stopped:"หยุดรับข้อความจาก TikTok Extension แล้ว",
+  ended:"หยุดรับข้อความแล้ว",
+  stopped:"หยุดรับข้อความแล้ว",
 });
 const STATE_LABELS={
-  queued:"รออ่าน",preparing:"กำลังแปล/สร้างเสียง",reading:"กำลังอ่าน",read:"อ่านแล้ว",
+  queued:"รอประมวลผล",preparing:"กำลังแปล/แยก",prepared:"แปล/แยกแล้ว",rendering:"กำลังสร้างเสียง",ready:"เสียงพร้อมรอเล่น",reading:"กำลังอ่าน",read:"อ่านแล้ว",
   skipped:"ข้ามการอ่าน",random_removed:"สุ่มลบจากคิว",manual:"เลือกอ่านเอง",
 };
 const RPC_PHASE_NAMES={
@@ -102,7 +102,7 @@ const BROWSER_PHASE_NAMES=Object.freeze({
   connecting_dom:"ขั้นตอน 4/5 · เชื่อมระบบควบคุม DOM ของ Browser",
   reading_dom:"ขั้นตอน 5/5 · ตรวจสอบองค์ประกอบข้อความในหน้า Chat",
   waiting_chat_dom:"ขั้นตอน 5/5 · รอให้หน้า Live Chat โหลดหรือเปิดแชท",
-  ready:"เชื่อมต่อสำเร็จ · อ่านจากโหมดแชทที่คุณเลือกใน YouTube",
+  ready:"กำลังรับข้อความ",
   comments_off:"TikTok ใน Browser นี้แสดง Comments off · ไม่ได้แปลว่าเจ้าของไลฟ์ปิดคอมเมนต์ ตรวจสอบสิทธิ์การเข้าถึงในหน้าต่างนี้",
   comments_off_login_prompt:"TikTok ใน Browser ที่โปรแกรมควบคุมแสดง Comments off และ Log in · แต่ LIVE อาจมีคอมเมนต์ปกติใน Chrome ธรรมดา อย่าลองเข้าสู่ระบบซ้ำหากระบบจำกัดจำนวนครั้ง",
   login_prompt:"TikTok แสดง Log in และยังไม่พบ DOM แชท · ไม่ได้แปลว่าต้องเข้าสู่ระบบจึงจะดูคอมเมนต์ได้",
@@ -168,6 +168,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   const seen=new Set();
   let visible=[], overflow=0, randomRemoved=0;
   let spokenHistory=[], modelHistory=[], currentSpeech=null;
+  let pipelineQueues=[];
   const pendingModelInputs=new Map();
   const browserMode=mode==="youtube_browser"||mode==="tiktok_browser";
   const extensionMode=mode==="tiktok_browser";
@@ -193,7 +194,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       if(browserStageLog.length>12)browserStageLog.shift();
       get("FeedProgress")?.replaceChildren(...browserStageLog);
     }
-    message(desc+(extra?" · "+extra:""));
+    // Operational counters already live in FeedQueueStatus. Avoid repeating
+    // provider/Extension labels and diagnostics in the ready status line.
+    message(phase==="ready"?"กำลังรับข้อความ":desc+(extra?" · "+extra:""));
   }
   function buildSettingsProfile(){
     const blocked=get("FeedBlocked").value;
@@ -322,14 +325,14 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     let read=0,passive=0;
     // Newest-first; never prune a queued or currently reading message.
     visible=visible.filter(entry=>{
-      if(["queued","preparing","reading"].includes(entry.state))return true;
+      if(["queued","preparing","prepared","rendering","ready","reading"].includes(entry.state))return true;
       if(entry.state==="read")return ++read<=keep;
       return ++passive<=MAX_PASSIVE;
     });
   }
   function renderSummary(){
     const queued=visible.filter(x=>x.state==="queued").length;
-    const reading=visible.filter(x=>x.state==="preparing"||x.state==="reading").length;
+    const reading=visible.filter(x=>["preparing","prepared","rendering","ready","reading"].includes(x.state)).length;
     const read=visible.filter(x=>x.state==="read").length;
     get("FeedQueueStatus").textContent=
       "คิวรออ่าน "+queued+
@@ -342,6 +345,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     visible=[];overflow=0;randomRemoved=0;
     spokenHistory=[];modelHistory=[];currentSpeech=null;
     pendingModelInputs.clear();
+    setPipelineQueues([]);
     renderSpokenHistory();renderModelHistory();
     if(get("FeedCurrentStatus"))get("FeedCurrentStatus").textContent="ยังไม่มีงานสร้างเสียง";
     if(get("FeedCurrentText"))get("FeedCurrentText").textContent="";
@@ -355,7 +359,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     // Otherwise a slow TTS model can create thousands of DOM nodes per tick.
     const shown=visible.slice(0,MAX_RENDERED);
     for(const active of visible.slice(MAX_RENDERED)){
-      if(["preparing","reading"].includes(active.state))shown.push(active);
+      if(["preparing","prepared","rendering","ready","reading"].includes(active.state))shown.push(active);
     }
     for(const data of shown){
       const li=document.createElement("li");
@@ -490,6 +494,57 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       status.textContent=(labels[record.stage]||record.stage)+(error?" · "+error:"");
     }
     if(body)body.textContent=text;
+  }
+  // Explicit local pipeline view. Never show raw incoming chat as the
+  // *translated* text: that field is populated only by private TTS inspection.
+  function setPipelineQueues(snapshot){
+    if(!Array.isArray(snapshot))return;
+    pipelineQueues=snapshot.slice(0,5).map(item=>({
+      stage:String(item.stage||"").slice(0,20),
+      author:String(item.author||"").slice(0,80),
+      inputs:Array.isArray(item.inputs)?item.inputs.slice(0,96).map(x=>({
+        language:String(x.language||"").slice(0,16),
+        text:String(x.text||"").slice(0,8000),
+        engine_id:String(x.engine_id||"").slice(0,100),
+      })):[],
+    }));
+    const prepared=get("FeedPreparedItems"),ready=get("FeedReadyAudioItems");
+    if(!prepared||!ready)return;
+    prepared.replaceChildren();ready.replaceChildren();
+    let pending=0,audio=0;
+    for(const item of pipelineQueues){
+      if(item.stage==="reading")continue;
+      const produced=item.stage==="ready";
+      const area=produced?ready:prepared;
+      const li=document.createElement("li");
+      li.className="source-message";
+      const header=document.createElement("small");
+      header.className="source-message-state";
+      header.textContent=(item.author?item.author+" · ":"")+
+        (produced?"เสียงพร้อมรอเล่น":item.stage==="preparing"
+          ?"กำลังแปล/แยกข้อความ":item.stage==="rendering"
+          ?"กำลังสร้างเสียง":"รอสร้างเสียง");
+      li.appendChild(header);
+      if(item.inputs.length){
+        for(const chunk of item.inputs){
+          const line=document.createElement("div");
+          const tag=document.createElement("small");
+          tag.className="source-message-state";
+          tag.textContent="["+(chunk.language||"default")+" · "+chunk.engine_id+"] ";
+          const text=document.createElement("span");
+          text.textContent=chunk.text;
+          line.append(tag,text);li.appendChild(line);
+        }
+      }else{
+        const hint=document.createElement("span");
+        hint.textContent="รอผลข้อความหลังแปลและแยกภาษา…";
+        li.appendChild(hint);
+      }
+      area.appendChild(li);
+      if(produced)audio++;else pending++;
+    }
+    get("FeedPreparedStatus").textContent="รอสร้างเสียง "+pending+" ข้อความ";
+    get("FeedReadyAudioStatus").textContent="มีเสียงพร้อมรออ่าน "+audio+" ข้อความ";
   }
   function setMessageState(messageId,state){
     if(!Object.prototype.hasOwnProperty.call(STATE_LABELS,state))return;
@@ -998,7 +1053,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   });
   root.VoxSourceQueueUI?.attach(mode,el);
   renderSummary();
-  return {start,stop,poll,resetPending,suspend:localSuspend,setMessageState,setSpeechDiagnostic,setSpeechModelInputs,exportSettings,importSettings,
+  return {start,stop,poll,resetPending,suspend:localSuspend,setMessageState,setPipelineQueues,setSpeechDiagnostic,setSpeechModelInputs,exportSettings,importSettings,
           get connected(){return connected;},get visible(){return visible.slice();}};
 }
 root.VoxSourceFeed={attach};

@@ -230,7 +230,7 @@ class Handler(BaseHTTPRequestHandler):
             and len(parts[3]) == 32
             and all(ch in "0123456789abcdef" for ch in parts[3])):
             suffix = parts[4] if len(parts) == 5 else ""
-            if suffix in ("", "audio", "events", "cancel", "alignment", "tts-inputs"):
+            if suffix in ("", "audio", "events", "cancel", "alignment", "tts-inputs", "tts-preview", "start-render", "ack-audio"):
                 return parts[3], suffix
         return None
 
@@ -1008,7 +1008,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(500, {"error": "could not write selected file"})
             return
         job_route = self._job_route(route)
-        if job_route is not None and job_route[1] == "tts-inputs":
+        if job_route is not None and job_route[1] in ("tts-inputs", "tts-preview"):
             # The translated/replaced/pronounced model input is PRIVATE.
             # Never add it to public GET job status, SSE, or subtitles. A
             # browser can retrieve it only via explicit same-origin POST.
@@ -1018,7 +1018,9 @@ class Handler(BaseHTTPRequestHandler):
                        for name in ("127.0.0.1", "localhost")}
             if (f"http://{host}" not in origins or origin != f"http://{host}"
                 or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "inspect-tts-inputs"):
+                or self.headers.get("X-VoxWeaveTTS-Intent") != (
+                    "inspect-tts-preview" if job_route[1] == "tts-preview"
+                    else "inspect-tts-inputs")):
                 self.reject_unread_post(403, {"error": "same-origin TTS input inspection required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -1027,13 +1029,66 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 if self._read_json(max_bytes=32):
                     raise InputError("TTS input inspection takes no parameters")
-                self.send_json(200, self._coordinator().get_model_inputs(job_route[0]))
+                inspector = (self._coordinator().get_prepared_model_inputs
+                             if job_route[1] == "tts-preview"
+                             else self._coordinator().get_model_inputs)
+                self.send_json(200, inspector(job_route[0]))
             except JobMissing:
                 self.send_json(404, {"error": "speech job not found"})
             except JobNotReady:
                 self.send_json(409, {"error": "model inputs not yet available"})
             except (InputError, UnicodeDecodeError, json.JSONDecodeError):
                 self.send_json(400, {"error": "invalid TTS input inspection request"})
+            return
+        if job_route is not None and job_route[1] == "ack-audio":
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            local = {f"http://{name}:{self.server.server_port}"
+                     for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in local or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "ack-staged-wav"):
+                self.reject_unread_post(403, {"error": "same-origin audio acknowledgment required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "audio acknowledgment requires JSON"})
+                return
+            try:
+                if self._read_json(max_bytes=32):
+                    raise InputError("audio acknowledgment takes no parameters")
+                self.send_json(200, self._coordinator().acknowledge_staged_audio(job_route[0]))
+            except JobMissing:
+                self.send_json(404, {"error": "speech job not found"})
+            except JobNotReady:
+                self.send_json(409, {"error": "speech job is not ready"})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid audio acknowledgment"})
+            return
+        if job_route is not None and job_route[1] == "start-render":
+            # Only an explicitly intent-gated local browser can spend a TTS
+            # slot. Prevent cross-site pages from draining staged queues.
+            host = self.headers.get("Host", "").lower().strip()
+            origin = self.headers.get("Origin", "").lower().strip()
+            local = {f"http://{name}:{self.server.server_port}"
+                     for name in ("127.0.0.1", "localhost")}
+            if (f"http://{host}" not in local or origin != f"http://{host}"
+                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                or self.headers.get("X-VoxWeaveTTS-Intent") != "start-staged-speech-render"):
+                self.reject_unread_post(403, {"error": "same-origin render intent required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "render start requires JSON"})
+                return
+            try:
+                if self._read_json(max_bytes=32):
+                    raise InputError("render start takes no parameters")
+                self.send_json(200, self._coordinator().start_render(job_route[0]))
+            except JobMissing:
+                self.send_json(404, {"error": "speech job not found"})
+            except JobNotReady:
+                self.send_json(409, {"error": "speech plan not ready"})
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid render start request"})
             return
         if job_route is not None and job_route[1] == "cancel":
             if self.headers.get("X-VoxWeaveTTS-Intent") != "cancel-speech-job":
@@ -1246,6 +1301,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 data = self._read_json()
+                hold_for_render = data.get("hold_for_render", False)
+                if type(hold_for_render) is not bool:
+                    raise InputError("hold_for_render must be boolean")
                 ai_settings = load_ai_settings()["settings"]
                 should_prepare = (
                     ai_settings["enabled"] and ai_settings["operation"] != "none"
@@ -1273,6 +1331,7 @@ class Handler(BaseHTTPRequestHandler):
                         engine_id=data.get("engine_id", "pending"),
                         voice_id=data.get("voice_id", "pending"),
                         source_message_id=data.get("source_message_id"),
+                        hold_for_render=hold_for_render,
                     )
                 else:
                     plan = self._text_plan(data, ai_settings=ai_settings)
@@ -1280,6 +1339,7 @@ class Handler(BaseHTTPRequestHandler):
                     job = self._coordinator().submit(
                         plan, engine_id=params["engine_id"], voice_id=params["voice_id"],
                         render_args=params,
+                        hold_for_render=hold_for_render,
                         source_message_id=data.get("source_message_id"),
                     )
                 self.send_json(202 if job["state"] not in {"ready", "failed"} else 200, job)

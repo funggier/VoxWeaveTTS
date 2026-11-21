@@ -74,8 +74,8 @@ async function main(){
   assert.equal(requests[0].payload.credential,"");
   assert.equal(received[0].msg.text,"สวัสดีครับ");
   assert.equal(received[0].auto,true);
-  assert.match(el(prefix+"FeedStatus").textContent,/เชื่อมต่อสำเร็จ/);
-  assert.match(el(prefix+"FeedStatus").textContent,/รับ 1/);
+  assert.equal(el(prefix+"FeedStatus").textContent,"กำลังรับข้อความ");
+  assert.match(el(prefix+"FeedQueueStatus").textContent,/คิวรออ่าน/);
   assert.ok(el(prefix+"FeedProgress").children.length>=3,"progress stages should render");
   assert.equal(el(prefix+"FeedItems").children.length,1);
   el(prefix+"FeedItems").children[0].children[2].events.click();

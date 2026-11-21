@@ -59,9 +59,11 @@ class _Job:
     plan: dict[str, Any] | None
     render_args: dict[str, Any]
     prepare: Callable[[], tuple[dict[str, Any], dict[str, Any]]] | None = None
+    hold_for_render: bool = False
     state: str = "queued"
     created_at: str = field(default_factory=_now_utc)
     created_mono: float = field(default_factory=time.monotonic)
+    updated_mono: float = field(default_factory=time.monotonic)
     updated_at: str = field(default_factory=_now_utc)
     event_seq: int = 0
     events: list[dict[str, Any]] = field(default_factory=list)
@@ -169,6 +171,7 @@ class SpeechCoordinator:
     def _transition(self, job: _Job, state: str, *, error: str | None = None) -> None:
         job.state = state
         job.updated_at = _now_utc()
+        job.updated_mono = time.monotonic()
         job.error = error
         job.event_seq += 1
         job.events.append({
@@ -202,15 +205,23 @@ class SpeechCoordinator:
     def _prune(self) -> None:
         now = time.monotonic()
         for job in list(self._jobs.values()):
+            # A generated staged WAV must not expire based on when the
+            # earlier translation started. It gets its own TTL after ready.
+            since = (job.updated_mono if job.state == "ready" and
+                     job.hold_for_render else job.created_mono)
             if (job.state in _TERMINAL
-                and now - job.created_mono > self._ttl_seconds):
+                and now - since > self._ttl_seconds):
                 self._drop(job)
     def _make_room(self) -> None:
         # Evict completed jobs only when a NEW submission needs space, never
         # while clients are polling a just-finished job or downloading audio.
         if len(self._jobs) >= self._max_jobs:
             for job in list(self._jobs.values()):
-                if job.state in _TERMINAL:
+                # Until the browser has actually fetched a staged WAV, it
+                # must not be evicted by an unrelated mode that submits work.
+                if job.state in _TERMINAL and not (
+                    job.state == "ready" and job.hold_for_render
+                ):
                     self._drop(job)
                     if len(self._jobs) < self._max_jobs:
                         break
@@ -218,6 +229,7 @@ class SpeechCoordinator:
     def submit(
         self, plan: dict[str, Any], *, engine_id: str, voice_id: str,
         render_args: dict[str, Any], source_message_id: str | None = None,
+        hold_for_render: bool = False,
     ) -> dict[str, Any]:
         if not isinstance(plan, dict) or not isinstance(plan.get("segments"), list):
             raise InputError("invalid speech plan")
@@ -245,6 +257,7 @@ class SpeechCoordinator:
                 id=uuid4().hex, source=source, source_message_id=source_message_id,
                 display_text=plan["display_text"], engine_id=engine_id,
                 voice_id=voice_id, plan=plan, render_args=dict(render_args),
+                hold_for_render=hold_for_render,
             )
             self._jobs[job.id] = job
             if key is not None:
@@ -254,15 +267,16 @@ class SpeechCoordinator:
                 job.plan = None
                 self._transition(job, "skipped")
             else:
-                self._transition(job, "queued")
-                self._queue.append(job.id)
+                self._transition(job, "prepared" if hold_for_render else "queued")
+                if not hold_for_render:
+                    self._queue.append(job.id)
             self._cv.notify_all()
             return job.snapshot()
 
     def submit_deferred(
         self, prepare: Callable[[], tuple[dict[str, Any], dict[str, Any]]], *,
         source: str, engine_id: str = "pending", voice_id: str = "pending",
-        source_message_id: str | None = None,
+        source_message_id: str | None = None, hold_for_render: bool = False,
     ) -> dict[str, Any]:
         """Reserve stable speech ID; prepare on a separate worker.
 
@@ -296,6 +310,7 @@ class SpeechCoordinator:
                 id=uuid4().hex, source=source, source_message_id=source_message_id,
                 display_text="", engine_id=engine_id, voice_id=voice_id,
                 plan=None, render_args={}, prepare=prepare,
+                hold_for_render=hold_for_render,
             )
             self._jobs[job.id] = job
             if key is not None:
@@ -337,8 +352,9 @@ class SpeechCoordinator:
                         job.plan = None
                         self._transition(job, "skipped")
                     else:
-                        self._transition(job, "queued")
-                        self._queue.append(job.id)
+                        self._transition(job, "prepared" if job.hold_for_render else "queued")
+                        if not job.hold_for_render:
+                            self._queue.append(job.id)
                     self._cv.notify_all()
             except Exception:
                 # Never expose AI errors or unfiltered text from tools, models,
@@ -456,6 +472,68 @@ class SpeechCoordinator:
                             error=("all_tts_chunks_failed" if all_failed
                                    else "speech rendering failed")
                         )
+
+    def acknowledge_staged_audio(self, job_id: str) -> dict[str, Any]:
+        """Browser copied the WAV bytes; it is safe for global job eviction."""
+        with self._cv:
+            self._prune()
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise JobMissing("unknown speech_id")
+            if job.state != "ready":
+                raise JobNotReady("staged WAV is not available")
+            job.hold_for_render = False
+            return job.snapshot()
+
+    def start_render(self, job_id: str) -> dict[str, Any]:
+        """Release a prepared speech plan to the single TTS worker.
+
+        Only the explicit browser admission makes a staged job render.
+        Idempotent for already rendering/ready; cancelled work stays cancelled.
+        """
+        with self._cv:
+            self._prune()
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise JobMissing("unknown speech_id")
+            if job.state == "prepared":
+                if job.plan is None:
+                    raise JobNotReady("prepared speech plan missing")
+                self._transition(job, "queued")
+                self._queue.append(job.id)
+                self._cv.notify_all()
+            elif job.state not in ("queued", "rendering", "ready"):
+                raise JobNotReady("job cannot start rendering")
+            return job.snapshot()
+
+    def get_prepared_model_inputs(self, job_id: str) -> dict[str, Any]:
+        """Explicit PRIVATE inspection after AI + post-rules, before TTS.
+
+        Queued, rendering and ready stages qualify. Unlike snapshot/events,
+        this returns the actual speech model-bound text only through the
+        same-origin intent-gated HTTP endpoint. Never return source text
+        when AI preparation is still running or a job has been skipped.
+        """
+        with self._cv:
+            self._prune()
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise JobMissing("unknown speech_id")
+            if job.state not in ("prepared", "queued", "rendering", "ready"):
+                raise JobNotReady("speech preparation has not completed")
+            if job.model_inputs is None and job.plan is not None:
+                from .tts_model_inputs import collect_model_inputs
+                job.model_inputs = collect_model_inputs(
+                    job.plan,
+                    {"engine_id": job.engine_id, "voice_id": job.voice_id,
+                     **job.render_args},
+                )
+            return {
+                "speech_id": job.id,
+                "state": job.state,
+                "available": job.model_inputs is not None,
+                "inputs": [dict(item) for item in (job.model_inputs or [])],
+            }
 
     def get_model_inputs(self, job_id: str) -> dict[str, Any]:
         """Private local diagnostic; never part of ordinary speech status."""

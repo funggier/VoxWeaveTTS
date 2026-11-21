@@ -42,12 +42,15 @@ class SourceQueueSettingsTests(unittest.TestCase):
             for mode in SOURCE_MODES:
                 value={**DEFAULTS,"max_chars":8000,
                        "read_history_limit":2,"random_queue_enabled":True,
-                       "random_queue_threshold":30,"random_queue_keep":6}
+                       "random_queue_threshold":30,"random_queue_keep":6,
+                       "prepare_ahead":mode in {"youtube_browser","tiktok_browser"}}
                 saved=save_settings({"mode":mode,"expected_revision":0,"settings":value},
                                     path=path)
                 self.assertEqual(saved["modes"][mode]["revision"],1)
             read=load_settings(path=path)
             self.assertEqual(len(read["modes"]),6)
+            self.assertTrue(read["modes"]["youtube_browser"]["settings"]["prepare_ahead"])
+            self.assertFalse(read["modes"]["discord"]["settings"]["prepare_ahead"])
             self.assertEqual(read["modes"]["youtube_browser"]["settings"]["max_chars"],8000)
             self.assertNotIn("credential",path.read_text(encoding="utf-8"))
             self.assertNotIn("token",path.read_text(encoding="utf-8"))
@@ -67,6 +70,10 @@ class SourceQueueSettingsTests(unittest.TestCase):
                 {**DEFAULTS,"read_history_limit":101},
                 {**DEFAULTS,"random_queue_keep":20},
                 {**DEFAULTS,"auto_read":1},
+                {**DEFAULTS,"prepare_ahead":"yes"},
+                {**DEFAULTS,"prepare_queue_limit":0},
+                {**DEFAULTS,"ready_audio_queue_limit":9},
+                {**DEFAULTS,"prepare_queue_limit":8,"ready_audio_queue_limit":8},
                 {**DEFAULTS,"source_id":"sensitive"},
             )
             for settings in invalid:
@@ -98,6 +105,28 @@ class SourceQueueSettingsTests(unittest.TestCase):
             self.assertEqual(result["modes"]["live"]["revision"],4)
             self.assertTrue(result["modes"]["live"]["settings"]["continue_on_tts_error"])
             self.assertFalse(result["modes"]["discord"]["settings"]["continue_on_tts_error"])
+
+    def test_previous_release_settings_add_disabled_pipeline_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"source-queues.json"
+            previous={k:v for k,v in DEFAULTS.items() if k!="prepare_ahead"}
+            document={"schema_version":1,"modes":{
+                mode:{"revision":7,"settings":{**previous,
+                    "continue_on_tts_error":True}}
+                for mode in SOURCE_MODES
+            }}
+            path.write_text(json.dumps(document),encoding="utf-8")
+            loaded=load_settings(path=path)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")),document)
+            for entry in loaded["modes"].values():
+                self.assertTrue(entry["settings"]["continue_on_tts_error"])
+                self.assertFalse(entry["settings"]["prepare_ahead"])
+                self.assertEqual(entry["revision"],7)
+            updated={**loaded["modes"]["live"]["settings"],"prepare_ahead":True}
+            saved=save_settings({"mode":"live","expected_revision":7,
+                                 "settings":updated},path=path)
+            self.assertTrue(saved["modes"]["live"]["settings"]["prepare_ahead"])
+            self.assertFalse(saved["modes"]["discord"]["settings"]["prepare_ahead"])
 
     def test_corrupted_settings_do_not_silently_reset(self):
         with tempfile.TemporaryDirectory() as tmp:

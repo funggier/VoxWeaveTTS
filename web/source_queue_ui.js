@@ -19,7 +19,7 @@ function attach(mode,el){
   if(!save||!status)return null;
   let revision=0;
   let loading=false;
-  const ids=["Blocked","MaxChars","KeepRead","Auto","RandomEnable","RandomThreshold","RandomKeep","ContinueOnTtsError"];
+  const ids=["Blocked","MaxChars","KeepRead","Auto","RandomEnable","RandomThreshold","RandomKeep","ContinueOnTtsError","PrepareAhead","PrepareQueueLimit","ReadyAudioQueueLimit"];
   const initial=ids.map(key=>String(get(key)?.type==="checkbox"?Boolean(get(key).checked):get(key)?.value??""));
   const dirty=()=>ids.some((key,index)=>String(get(key)?.type==="checkbox"?Boolean(get(key).checked):get(key)?.value??"")!==initial[index]);
 
@@ -44,7 +44,12 @@ function attach(mode,el){
       random_queue_threshold:int("RandomThreshold",2,100000),
       random_queue_keep:int("RandomKeep",1,99999),
       continue_on_tts_error:get("ContinueOnTtsError")?.checked===true,
+      prepare_ahead:get("PrepareAhead")?.checked===true,
+      prepare_queue_limit:int("PrepareQueueLimit",1,8),
+      ready_audio_queue_limit:int("ReadyAudioQueueLimit",1,8),
     };
+    if(settings.prepare_queue_limit+settings.ready_audio_queue_limit>10)
+      throw Error("รวมคิวเตรียมและคิวเสียงรอต้องไม่เกิน 10");
     if(settings.random_queue_keep>=settings.random_queue_threshold)
       throw Error("จำนวนข้อความที่สุ่มเก็บต้องน้อยกว่าจำนวนเริ่มสุ่มลบ");
     return settings;
@@ -59,6 +64,12 @@ function attach(mode,el){
     get("RandomThreshold").value=String(value.random_queue_threshold);
     get("RandomKeep").value=String(value.random_queue_keep);
     get("ContinueOnTtsError").checked=value.continue_on_tts_error===true;
+    get("PrepareAhead").checked=value.prepare_ahead===true;
+    get("PrepareQueueLimit").value=String(value.prepare_queue_limit??3);
+    get("ReadyAudioQueueLimit").value=String(value.ready_audio_queue_limit??2);
+    get("PrepareAhead").dispatchEvent?.(new Event("change"));
+    get("PrepareQueueLimit").dispatchEvent?.(new Event("change"));
+    get("ReadyAudioQueueLimit").dispatchEvent?.(new Event("change"));
     // Existing feed keeps its own queue/render semantics; signal input
     // handlers rather than touching the feed's internal data structures.
     get("KeepRead").dispatchEvent?.(new Event("input"));

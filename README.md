@@ -1,8 +1,10 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio v0.12.2 — Universal .vwmodel v4 only**
+**Windows Portable TTS Studio v0.12.3 — Universal .vwmodel v4 only**
 
-**[Public v0.12.2](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.2) is a full Windows Portable Core ZIP, without model weights.** It fixes the v0.12.1 installer rejecting the original GPL/LGPL source archives shipped inside Kokoro and Wayu V4 packages. Download the [seven separately licensed offline V4 model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) without repackaging or redownloading them. Vachana / `vachanatts` stays local-only pending code rights verification.
+**v0.12.3 opt-in Live prefetch pipeline:** The six Live modes now have independently persisted, configurable preparation/translation queue depth (1–8, default 3) and ready-audio queue depth (1–8, default 2), with their combined limit capped at 10, not including the active WAV or incoming raw-chat queue. AI preparation and WAV synthesis can overlap previous playback while preserving FIFO; opt-in random chat pruning applies to the unprocessed raw chat only. See [Thai release notes](docs/RELEASE_NOTES_v0.12.3_TH.md).
+
+**[Public v0.12.3](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.3) is a full Windows Portable Core ZIP, without model weights.** It fixes the v0.12.1 installer rejecting the original GPL/LGPL source archives shipped inside Kokoro and Wayu V4 packages. Download the [seven separately licensed offline V4 model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) without repackaging or redownloading them. Vachana / `vachanatts` stays local-only pending code rights verification.
 
 VoxWeaveTTS is a local-first, Thai-focused TTS application with narration, live chat, per-mode voice settings, translation, speech queues, APIs, and subtitle/OBS synchronization. Its model engines and offline dependencies live in separate, self-contained packages.
 
@@ -31,10 +33,10 @@ The [v4 examples](examples/README_TH.md) cover Python plugin workers (with or wi
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 scripts\build_vwmodel_v4.py --source examples\v4-demo-tone --spec examples\v4-demo-tone\spec.json --output cache\demo-tone-v4.vwmodel
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.2 -StageDirectory dist\release-v0.12.2\VoxWeaveTTS
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.3 -StageDirectory dist\release-v0.12.3\VoxWeaveTTS
 ```
 
-Public Core builds require **no QA archives** and never ship models. An isolated **private QA-only** stage may opt into MakHam with `-SkipZip -IncludeUnreleasedQaMakHam`; the builder blocks ZIP publishing of that option. See [v0.12.2 release notes and Kokoro/Wayu fix](docs/RELEASE_NOTES_v0.12.2_TH.md).
+Public Core builds require **no QA archives** and never ship models. An isolated **private QA-only** stage may opt into MakHam with `-SkipZip -IncludeUnreleasedQaMakHam`; the builder blocks ZIP publishing of that option. See [v0.12.3 Live pipeline release notes](docs/RELEASE_NOTES_v0.12.3_TH.md).
 
 ## Eight-model v4 QA and redistribution rights
 

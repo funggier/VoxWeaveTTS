@@ -5,7 +5,7 @@
 (function(root){
 "use strict";
 function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState,
-                 onSpeechDiagnostic,onSpeechModelInputs,
+                 onSpeechDiagnostic,onSpeechModelInputs,onPipelineState,
                  playAudio=async audio=>{await audio.play();return true;},cancelAudio=()=>{}}){
   if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("unknown source mode");
   const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
@@ -20,6 +20,10 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   // Pending items remain FIFO until spoken, explicitly reset or stopped.
   const incoming=[];
   let autoBusy=false, activeIncoming=null, queueEpoch=0, randomRemoved=0;
+  const prefetched=[]; // FIFO jobs preparing/rendering while another WAV plays
+  let activePreparedTask=null;
+  let submissionTail=Promise.resolve(); // preserves HTTP enqueue order
+  let prefetchSequence=0; // distinct source key for an explicit failed-job retry
   let autoPaused=false; // temporary playback error; never alters user preference
   let activePartialFailure=false; // pause decision applies only after the WAV actually ends
   let manualHolding=false; // manual preview may preempt, but must not erase FIFO
@@ -30,6 +34,13 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   function clearAutoQueue({includeActive=false}={}){
     for(const item of incoming)mark(item,"skipped");
     incoming.length=0;
+    for(const task of prefetched){mark(task.item,"skipped");cancelPrefetched(task);}
+    prefetched.length=0;
+    if(includeActive&&activePreparedTask){
+      cancelPrefetched(activePreparedTask);
+      activePreparedTask=null;
+    }
+    showPipeline();
     if(includeActive){
       randomRemoved=0;
       queueEpoch++;
@@ -43,10 +54,13 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     // Queue reset is intentionally NON-disruptive: the one active item can
     // be preparing/translation, synthesizing, playing or paused for a retry.
     // Only messages which have not started processing are discarded.
-    const cleared=incoming.length;
+    const cleared=incoming.length+prefetched.length;
     randomRemoved=0;
     for(const item of incoming)mark(item,"skipped");
     incoming.length=0;
+    for(const task of prefetched){mark(task.item,"skipped");cancelPrefetched(task);}
+    prefetched.length=0;
+    showPipeline();
     return {
       cleared,
       active_message_id:activeIncoming?.message_id == null
@@ -187,6 +201,20 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     if(!autoPlay){
       // Hold the manual preview only if an existing Live backlog was
       // interrupted; otherwise a new LIVE feed can start normally.
+      // A manual preview invalidates jobs prepared for the old stream.
+      // Restore their original FIFO order before using the legacy manual path.
+      if(activePreparedTask||prefetched.length){
+        const tasks=[...(activePreparedTask?[activePreparedTask]:[]),...prefetched];
+        tasks.forEach(task=>{
+          cancelPrefetched(task);
+          mark(task.item,"queued");
+        });
+        incoming.unshift(...tasks.map(task=>task.item));
+        if(activePreparedTask){activeIncoming=null;autoBusy=false;}
+        activePreparedTask=null;prefetched.length=0;
+        queueEpoch++;
+        showPipeline();
+      }
       manualHolding=Boolean(activeIncoming||incoming.length);
       if(activeIncoming){
         mark(activeIncoming,"queued");
@@ -327,35 +355,288 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       if(my===generation)get("Submit").disabled=false;
     }
   }
+  // The backend already has distinct AI-preparation and TTS workers. Submit
+  // future jobs in FIFO order while the current WAV is playing. The browser
+  // owns playback ordering: a completed future job never plays out of turn.
+  function showPipeline(){
+    const tasks=[...(activePreparedTask?[activePreparedTask]:[]),...prefetched];
+    onPipelineState?.(tasks.filter(task=>!task.cancelled).map(task=>({
+      stage:task.stage,author:task.item.author||"",inputs:task.inputs||[],
+    })));
+  }
+  function cancelPrefetched(task){
+    task.cancelled=true;
+    if(task.jobId)fetch("/v1/jobs/"+task.jobId+"/cancel",{
+      method:"POST",headers:{"X-VoxWeaveTTS-Intent":"cancel-speech-job"},
+    }).catch(()=>{});
+  }
+  function makePrefetchPayload(item,sequence=null){
+    const payload=getSpeechPayload(item.text,mode);
+    const parts=speechParts(item,item.text);
+    payload.text=[parts.sender_prefix_text,parts.content].filter(Boolean).join(" ");
+    payload.content_text=parts.content;
+    payload.sender_prefix_text=parts.sender_prefix_text;
+    payload.source=mode==="live"?"youtube-live":mode==="youtube_browser"
+      ?"youtube-live-browser":mode==="tiktok"?"tiktok-live"
+      :mode==="tiktok_browser"?"tiktok-live-extension":"discord";
+    if(item.message_id!=null)
+      payload.source_message_id=mode+"-"+String(item.message_id).slice(0,90)+
+        (sequence===null?"":"-p"+sequence);
+    return payload;
+  }
+  async function inspectPrefetched(task,finished=false){
+    if(task.cancelled)return;
+    try{
+      const response=await fetch("/v1/jobs/"+task.jobId+
+        (finished?"/tts-inputs":"/tts-preview"),{
+          method:"POST",cache:"no-store",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":finished
+                     ?"inspect-tts-inputs":"inspect-tts-preview"},
+          body:"{}",
+        });
+      if(!response.ok)return;
+      const result=await response.json();
+      if(task.cancelled||result.speech_id!==task.jobId
+         ||result.available!==true||!Array.isArray(result.inputs))return;
+      task.inputs=result.inputs;
+      showPipeline();
+    }catch{/* Diagnostics are optional; do not stall audio or leak chat text. */}
+  }
+  function queueLimits(){
+    const limit=(id,fallback)=>{
+      const raw=Number(get(id)?.value);
+      return Number.isInteger(raw)&&raw>=1&&raw<=8?raw:fallback;
+    };
+    const prepared=limit("FeedPrepareQueueLimit",3);
+    const ready=limit("FeedReadyAudioQueueLimit",2);
+    return {prepared,ready:Math.min(ready,Math.max(1,10-prepared))};
+  }
+  function requestRender(task){
+    if(task.cancelled||task.stage!=="prepared"||!task.jobId)return;
+    // Reserve the slot before the asynchronous POST, preventing bursts.
+    task.stage="rendering";
+    mark(task.item,"rendering");
+    showPipeline();
+    task.renderRequest=fetch("/v1/jobs/"+task.jobId+"/start-render",{
+      method:"POST",
+      headers:{"Content-Type":"application/json",
+               "X-VoxWeaveTTS-Intent":"start-staged-speech-render"},
+      body:"{}",
+    }).then(async response=>{
+      if(!response.ok)throw Error("ไม่สามารถเริ่มสร้างเสียงจากคิวที่เตรียมไว้");
+      return response.json();
+    }).catch(error=>{task.renderError=error;});
+  }
+  function scheduleRenders(){
+    if(autoPaused||manualHolding||!guard(mode))return;
+    // Current FIFO head is exempt from the *waiting-audio* quota: it must
+    // begin rendering even when all permitted future WAV slots are filled.
+    if(activePreparedTask?.stage==="prepared")
+      requestRender(activePreparedTask);
+    const max=queueLimits().ready;
+    let reserved=prefetched.filter(t=>!t.cancelled&&
+      (t.stage==="rendering"||t.stage==="ready")).length;
+    for(const task of prefetched){
+      if(reserved>=max)break;
+      if(task.stage!=="prepared"||task.cancelled)continue;
+      requestRender(task);
+      reserved++;
+    }
+  }
+  async function followPrefetched(task){
+    const deadline=Date.now()+240000;
+    while(!task.cancelled&&Date.now()<deadline){
+      if(task.renderError)throw task.renderError;
+      // Immediate snapshot, not ?wait=1: a staged job intentionally stays
+      // prepared until the browser grants a free audio-render slot.
+      const response=await fetch("/v1/jobs/"+task.jobId,{cache:"no-store"});
+      if(!response.ok)throw Error("ไม่สามารถตรวจสถานะงานเสียงล่วงหน้า");
+      const job=await response.json();
+      if(task.cancelled)return null;
+      if(job.state==="prepared"){
+        if(!task.inputs)await inspectPrefetched(task);
+        if(task.cancelled)return null;
+        if(task.stage!=="rendering"){
+          task.stage="prepared";
+          mark(task.item,"prepared");
+          showPipeline();
+          scheduleRenders();
+        }
+      }else if(job.state==="queued"||job.state==="rendering"){
+        if(!task.inputs)await inspectPrefetched(task);
+        if(task.cancelled)return null;
+        task.stage="rendering";
+        mark(task.item,"rendering");
+        showPipeline();
+      }else if(job.state==="ready"){
+        task.stage="ready";task.job=job;
+        await inspectPrefetched(task,true);
+        if(task.cancelled)return null;
+        mark(task.item,"ready");
+        showPipeline();
+        fillPrefetched();
+        scheduleRenders();
+        return job;
+      }else if(["skipped","failed","cancelled"].includes(job.state)){
+        task.stage=job.state;task.job=job;
+        showPipeline();
+        return job;
+      }
+      // Bound polling and keep the JS event loop free for playback events.
+      await new Promise(resolve=>setTimeout(resolve,150));
+    }
+    if(task.cancelled)return null;
+    throw Error("งานเสียงล่วงหน้ารอนานเกิน 4 นาที");
+  }
+  function startPrefetched(item){
+    const task={item,stage:"preparing",inputs:null,job:null,
+                jobId:null,cancelled:false,promise:null,renderError:null,
+                sequence:++prefetchSequence,composedText:""};
+    mark(item,"preparing");
+    // Serialize admissions, not AI: server has separate preparation/TTS
+    // workers and will hold each job after translation until start-render.
+    const admit=submissionTail.then(async()=>{
+      if(task.cancelled)return false;
+      const payload=makePrefetchPayload(item,task.sequence);
+      payload.hold_for_render=true;
+      task.composedText=payload.text;
+      let response,created;
+      const deadline=Date.now()+180000;
+      while(!task.cancelled){
+        response=await fetch("/v1/jobs",{
+          method:"POST",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":"queue-speech"},
+          body:JSON.stringify(payload),
+        });
+        if(response.status!==429)break;
+        if(Date.now()>=deadline)throw Error("คิวงานเสียงกลางเต็มเกิน 3 นาที");
+        await new Promise(resolve=>setTimeout(resolve,600));
+      }
+      if(task.cancelled)return false;
+      created=await response.json();
+      if(!response.ok)throw Error(created.error||"สร้างงานเสียงล่วงหน้าไม่สำเร็จ");
+      task.jobId=created.speech_id;
+      if(task.cancelled){cancelPrefetched(task);return false;}
+      return true;
+    });
+    submissionTail=admit.then(()=>{},()=>{});
+    task.promise=admit.then(ok=>ok?followPrefetched(task):null);
+    task.promise.catch(()=>{}); // future jobs are observed when their turn arrives
+    return task;
+  }
+  function fillPrefetched(){
+    if(!get("FeedPrepareAhead")?.checked||autoPaused||manualHolding
+       ||!get("FeedAuto").checked||!guard(mode))return;
+    const limits=queueLimits();
+    // Only source items in incoming remain subject to opt-in random deletion.
+    // Once claimed, a message is guaranteed to stay in FIFO, except Reset.
+    const pending=()=>prefetched.filter(t=>!t.cancelled&&
+      ["preparing","prepared"].includes(t.stage)).length;
+    while(incoming.length&&pending()<limits.prepared
+      &&prefetched.length<limits.prepared+limits.ready){
+      prefetched.push(startPrefetched(incoming.shift()));
+    }
+    showPipeline();
+    scheduleRenders();
+  }
+  async function consumePrefetched(task,ticket){
+    const item=task.item;
+    const job=await task.promise;
+    if(task.cancelled||ticket!==queueEpoch||!guard(mode))return false;
+    if(!job)return false;
+    if(job.state==="skipped")return "skipped";
+    if(job.state==="failed"&&job.error==="all_tts_chunks_failed"
+        &&get("FeedContinueOnTtsError")?.checked===true)return "all_failed";
+    if(job.state!=="ready")
+      throw Error("งานเสียง "+job.state+(job.error?" · "+String(job.error).slice(0,120):""));
+    // All preprocessing, language routing and WAV synthesis already finished.
+    // Only fetch the ready WAV when its turn to play arrives.
+    releaseAudio();
+    const response=await fetch("/v1/jobs/"+task.jobId+"/audio");
+    if(!response.ok)throw Error("WAV ของคิวล่วงหน้าไม่พร้อม");
+    const wav=await response.blob();
+    if(task.cancelled||ticket!==queueEpoch||!guard(mode))return false;
+    // The browser now owns the WAV, so the global job registry may evict
+    // the server copy without discarding unplayed future audio.
+    fetch("/v1/jobs/"+task.jobId+"/ack-audio",{
+      method:"POST",
+      headers:{"Content-Type":"application/json",
+               "X-VoxWeaveTTS-Intent":"ack-staged-wav"},
+      body:"{}",
+    }).catch(()=>{});
+    wavUrl=URL.createObjectURL(wav);
+    jobId=task.jobId;
+    lastReady=job;
+    activePartialFailure=job.partial_failure===true;
+    clock.setSpeech(job.speech_id,job.audio);
+    audio.src=wavUrl;
+    audio.style.display="block";
+    get("Download").href=wavUrl;
+    get("Download").style.display="inline-block";
+    onSpeechModelInputs?.(item.message_id,task.inputs||[]);
+    onSpeechDiagnostic?.({message_id:item.message_id,stage:"ready",
+       text:task.composedText,error:""});
+    // Start in strict arrival order. No playback awaits any other future job.
+    const started=await playAudio(audio);
+    if(!started)return false;
+    if(task.cancelled||ticket!==queueEpoch)return false;
+    task.stage="reading";
+    mark(item,"reading");
+    onSpeechDiagnostic?.({message_id:item.message_id,stage:"reading",
+       text:task.composedText,error:""});
+    showPipeline();
+    return true;
+  }
   async function pumpIncoming(){
     if(autoBusy||autoPaused||manualHolding||!guard(mode)||!get("FeedAuto").checked)return;
     // Wait for the current manual or automatic WAV to finish.
     if(!audio.paused&&!audio.ended)return;
-    const next=incoming.shift();
+    fillPrefetched();
+    const task=prefetched.shift()||null;
+    const next=task?task.item:incoming.shift();
     if(!next)return;
     const ticket=queueEpoch;
     activeIncoming=next;
+    activePreparedTask=task;
     autoBusy=true; // remains true until the audio "ended" event
-    mark(next,"preparing");
+    mark(next,task?task.stage:"preparing");
+    showPipeline();
+    fillPrefetched(); // prepare up to two later jobs while this one plays
     pickedMessage=null;
     get("Text").value=next.text;
+    if(task){
+      // Do not allow Firefox Retry to replay the prior message's WAV if
+      // the current staged translation or TTS fails before audio download.
+      releaseAudio();
+      lastReady=null;
+      jobId=null;
+    }
     try{
-      const played=await submit({autoPlay:true,messageId:next.message_id});
+      const played=task?await consumePrefetched(task,ticket)
+        :await submit({autoPlay:true,messageId:next.message_id});
       if(ticket!==queueEpoch)return; // stop/mode switch cancelled this job
       if(played==="skipped" || played==="all_failed"){
         mark(next,"skipped");
         activeIncoming=null;
+        activePreparedTask=null;
+        showPipeline();
         autoBusy=false;
         pumpIncoming();
         return;
       }
       if(!played){
         // Playback was cancelled/not started; keep pending messages and WAV.
+        activePreparedTask=null;
+        showPipeline();
         pauseAuto("ยังเริ่มเล่นเสียงไม่ได้ (คิวหรือ Browser ยกเลิกการเล่น)",
           {replayReady:Boolean(lastReady&&wavUrl)});
       }
     }catch(error){
       if(ticket!==queueEpoch)return;
+      activePreparedTask=null;
+      showPipeline();
       pauseAuto(playbackFailure(error),
         {replayReady:Boolean(lastReady&&wavUrl)});
     }
@@ -402,6 +683,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     if(!opts.read_comments)return "manual";
     incoming.push(msg);
     reduceQueueIfNeeded();
+    fillPrefetched();
     pumpIncoming();
     return "queued";
   }
@@ -410,6 +692,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     const wasPartial=Boolean(activeIncoming)&&activePartialFailure;
     if(activeIncoming)mark(activeIncoming,"read");
     activeIncoming=null;
+    activePreparedTask=null;
+    showPipeline();
     activePartialFailure=false;
     autoBusy=false;
     if(wasPartial && get("FeedContinueOnTtsError")?.checked!==true){
@@ -431,7 +715,18 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   }
   get("FeedAuto").addEventListener("change",()=>{
     autoPaused=false;
-    if(get("FeedAuto").checked)pumpIncoming();
+    if(get("FeedAuto").checked){fillPrefetched();pumpIncoming();}
+  });
+  for(const setting of ["FeedPrepareQueueLimit","FeedReadyAudioQueueLimit"]){
+    get(setting)?.addEventListener("change",()=>{
+      fillPrefetched();scheduleRenders();showPipeline();
+    });
+  }
+  get("FeedPrepareAhead")?.addEventListener("change",()=>{
+    // Existing admitted work stays FIFO even when switched off; only
+    // future admission stops. Never discard user messages on toggling.
+    if(get("FeedPrepareAhead").checked){fillPrefetched();pumpIncoming();}
+    showPipeline();
   });
   get("AutoRetry")?.addEventListener("click",async()=>{
     if(!get("FeedAuto").checked){
@@ -467,6 +762,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       activeIncoming=null;
     }
     autoBusy=false;
+    fillPrefetched();
     pumpIncoming();
   });
   function resume(){
@@ -503,6 +799,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           get pendingAuto(){return incoming.length;},
           get skippedOverflow(){return 0;},
           get randomRemovedCount(){return randomRemoved;},
+          get pipelineCount(){return prefetched.length+(activePreparedTask?1:0);},
           get jobId(){return jobId;}};
 }
 root.VoxModeInputs={attach};

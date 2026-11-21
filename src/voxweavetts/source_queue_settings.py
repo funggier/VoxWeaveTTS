@@ -27,6 +27,9 @@ DEFAULTS = {
     "random_queue_threshold": 20,
     "random_queue_keep": 5,
     "continue_on_tts_error": False,
+    "prepare_ahead": False,  # opt-in parallel AI/TTS while previous WAV plays
+    "prepare_queue_limit": 3,
+    "ready_audio_queue_limit": 2,
 }
 _LOCK = threading.RLock()
 _MAX_FILE_SIZE = 96_000  # six modes may each contain 2,000 Thai filter chars
@@ -43,7 +46,7 @@ def validate_settings(raw: Any) -> dict[str, Any]:
     if (not isinstance(blocked, str) or len(blocked) > 2000
         or any(ord(ch) < 32 or ord(ch) == 127 for ch in blocked)):
         raise InputError("invalid blocked words")
-    for key in ("auto_read", "random_queue_enabled", "continue_on_tts_error"):
+    for key in ("auto_read", "random_queue_enabled", "continue_on_tts_error", "prepare_ahead"):
         if type(raw[key]) is not bool:
             raise InputError("invalid queue switch")
     for key, low, high in (
@@ -51,10 +54,14 @@ def validate_settings(raw: Any) -> dict[str, Any]:
         ("read_history_limit", 0, 100),
         ("random_queue_threshold", 2, 100000),
         ("random_queue_keep", 1, 99999),
+        ("prepare_queue_limit", 1, 8),
+        ("ready_audio_queue_limit", 1, 8),
     ):
         value = raw[key]
         if type(value) is not int or not low <= value <= high:
             raise InputError("invalid queue setting: " + key)
+    if raw["prepare_queue_limit"] + raw["ready_audio_queue_limit"] > 10:
+        raise InputError("pipeline limits together cannot exceed 10")
     if raw["random_queue_keep"] >= raw["random_queue_threshold"]:
         raise InputError("random queue keep must be lower than its threshold")
     return dict(raw)
@@ -84,12 +91,15 @@ def _read(path: Path) -> dict[str, Any]:
                 or type(record["revision"]) is not int
                 or not 0 <= record["revision"] <= 1000000000):
                 raise ValueError("invalid queue settings revision")
-            # Migrate queue settings saved before the new switch existed.
-            # Unexpected keys remain invalid; existing user values survive.
+            # Two independently added opt-in switches: migrate any subset
+            # of these missing keys, while rejecting unexpected keys.
             stored = record["settings"]
+            new_switches = {"continue_on_tts_error", "prepare_ahead",
+                            "prepare_queue_limit", "ready_audio_queue_limit"}
             if (isinstance(stored, dict)
-                and set(stored) == set(DEFAULTS) - {"continue_on_tts_error"}):
-                record["settings"] = {**stored, "continue_on_tts_error": False}
+                and set(DEFAULTS) - new_switches <= set(stored) <= set(DEFAULTS)):
+                record["settings"] = {**stored, **{key: DEFAULTS[key] for key in
+                    new_switches - set(stored)}}
             validate_settings(record["settings"])
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError, InputError) as exc:
         raise InputError("invalid stored source queue settings") from exc

@@ -93,8 +93,8 @@ async function main(){
   await feed.poll();
   assert.equal(received[0].msg.text,"สวัสดีครับ");
   assert.equal(received[0].auto,true);
-  assert.match(el(prefix+"FeedStatus").textContent,/เชื่อมต่อสำเร็จ/);
-  assert.match(el(prefix+"FeedStatus").textContent,/รับ 1/);
+  assert.equal(el(prefix+"FeedStatus").textContent,"กำลังรับข้อความ");
+  assert.match(el(prefix+"FeedQueueStatus").textContent,/คิวรออ่าน/);
   assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แถวคอมเมนต์ 1/);
   assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แยกข้อความได้ 1/);
   assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แท็บ อยู่เบื้องหลัง/);

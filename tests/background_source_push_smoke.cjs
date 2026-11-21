@@ -104,7 +104,7 @@ async function run(){
  assert.equal(doc.hidden,true);
  assert.equal(lastInterval!==null,true);
  assert.ok(polls>=4 && polls<=5,"SSE should drain batches without spin");
- assert.match(get("youtubeBrowserFeedStatus").textContent,/Live chat/);
+ assert.equal(get("youtubeBrowserFeedStatus").textContent,"กำลังรับข้อความ");
  // Browser focus recovery still works after EventSource disconnects.
  eventSource.readyState=0;
  sourceQueue.push({message_id:"focus",author:"Viewer",text:"เมื่อกลับมา"});
