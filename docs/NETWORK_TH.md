@@ -38,3 +38,34 @@ Start-Console.cmd --host 100.84.6.5 --port 8775
 คำสั่ง `set` มีผลในหน้าต่าง Command Prompt ที่เปิดโปรแกรม ถ้ากำหนดตัวแปรไว้ `Start-Console.cmd` จะใช้รหัสนี้ก่อนรหัสใน `data/network.json`
 
 ถ้าเปิดผ่าน **`VoxWeaveTTS.exe`** ให้เลือกเครือข่าย กด **Apply & Restart** แล้วใช้รหัสที่โปรแกรมสร้างและแสดงในช่อง **Network login** เมื่อเปิด `Start-Console.cmd` โดยไม่ได้กำหนดตัวแปร โปรแกรมจะใช้รหัสที่บันทึกไว้จาก Launcher ได้ด้วย
+
+### ตั้งรหัสผ่าน IP และพอร์ตไว้ใน `Start-Console.cmd`
+
+หากต้องการดับเบิลคลิกเพื่อเปิดด้วยค่าเดิมทุกครั้ง ให้เปิด `Start-Console.cmd` ในโปรแกรมแก้ไขข้อความ แล้วใช้ตัวอย่างนี้
+
+~~~bat
+@echo off
+setlocal
+cd /d "%~dp0"
+
+rem Network password for clients on other devices
+set "VOXWEAVETTS_NETWORK_PASSWORD=REPLACE_WITH_YOUR_OWN_PASSWORD"
+
+set "PYTHONPATH=%CD%\src"
+set "PYTHONNOUSERSITE=1"
+set "PYTHONDONTWRITEBYTECODE=1"
+set "HF_HOME=%CD%\cache\huggingface"
+set "TORCH_HOME=%CD%\cache\torch"
+set "XDG_CACHE_HOME=%CD%\cache"
+set "TEMP=%CD%\cache\temp"
+set "TMP=%TEMP%"
+if not exist "%TEMP%" mkdir "%TEMP%"
+
+"%CD%\runtime\python\python.exe" -m voxweavetts --host 100.84.6.5 --port 8775 %*
+if errorlevel 1 pause
+endlocal
+~~~
+
+- เปลี่ยน `REPLACE_WITH_YOUR_OWN_PASSWORD` เป็นรหัสสุ่มของคุณ ใช้ตัวอักษรอังกฤษและตัวเลข 16–128 ตัวได้ รหัสจะเก็บเป็นข้อความในไฟล์ `.cmd`
+- เปลี่ยน `100.84.6.5` เป็น IPv4 ของเครื่องที่รัน VoxWeaveTTS บน Tailscale หรือ LAN และเปลี่ยน `8775` เป็นพอร์ตที่ต้องการ
+- บันทึกไฟล์แล้วดับเบิลคลิก `Start-Console.cmd` บนเครื่องที่รันโปรแกรม จากนั้นเปิด `http://IP:พอร์ต/` บนเครื่องอื่น แล้วเข้าด้วยชื่อผู้ใช้ `voxweave` และรหัสที่กำหนด
