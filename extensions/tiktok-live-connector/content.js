@@ -138,11 +138,18 @@
       if(node.nodeType===3)return node.nodeValue||"";
       if(node.nodeType!==1)return "";
       if(node.tagName==="IMG"){
-        const label=node.getAttribute("alt")||"";
-        // A named emote must be a distinct token even if the DOM has no
-        // whitespace around the image.
-        return /^[A-Za-z][A-Za-z0-9_-]{1,47}$/.test(label)
-          ?" "+label+" ":label;
+        // TikTok native emoji names can arrive as [smile], smile or Unicode
+        // in IMG accessible attributes. Normalize bare lowercase names to
+        // the platform's [name] shortcode *only for images inside comments*.
+        // Do not inspect image src, download images, or parse sender badges.
+        const label=(node.getAttribute("alt")||
+          node.getAttribute("aria-label")||
+          node.getAttribute("title")||"").trim().slice(0,120);
+        const name=/^[A-Za-z][A-Za-z0-9_-]{1,47}$/.test(label);
+        const bracket=/^\[[A-Za-z][A-Za-z0-9_-]{1,47}\]$/.test(label);
+        const canonical=name&&label===label.toLowerCase()
+          ?"["+label+"]":label;
+        return name||bracket?" "+canonical+" ":canonical;
       }
       let content="";
       for(const child of node.childNodes)content+=visit(child);

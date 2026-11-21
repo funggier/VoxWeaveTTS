@@ -182,6 +182,30 @@ class ProcessingTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(InputError):
                 process_text("www", rules=[bad])
 
+    def test_tiktok_bracketed_emoji_repetition_and_skip_by_source(self):
+        emoji = "[smile]"
+        packed = emoji * 5
+        rule = {"match": emoji, "match_mode": "repeat_run",
+                "min_repeats": 3, "mode": "replace", "spoken": "ยิ้ม"}
+        plan = process_text(packed, rules=[rule], source="tiktok-live-extension")
+        self.assertEqual(plan["spoken_text"], "ยิ้ม")
+        self.assertEqual(plan["display_text"], packed)
+        self.assertEqual(plan["segments"][0]["source_end"], len(packed))
+        spaced = " ".join([emoji] * 4)
+        phrase = {"match": emoji, "match_mode": "phrase_run",
+                  "min_repeats": 3, "mode": "replace"}
+        self.assertEqual(process_text(spaced, rules=[phrase],
+                                      source="tiktok-live")["spoken_text"], emoji)
+        ignored = {"match": emoji, "match_mode": "phrase_run",
+                   "min_repeats": 3, "mode": "skip",
+                   "sources": ["tiktok-live-extension"]}
+        self.assertEqual(process_text("ก่อน "+spaced+" หลัง", rules=[ignored],
+                                      source="tiktok-live-extension")["spoken_text"],
+                         "ก่อน  หลัง")
+        self.assertEqual(process_text("ก่อน "+spaced+" หลัง", rules=[ignored],
+                                      source="youtube-live")["spoken_text"],
+                         "ก่อน "+spaced+" หลัง")
+
     def test_silence(self):
         r=process_text("ก่อนคำต้องห้ามหลัง",rules=[{"match":"คำต้องห้าม","mode":"silence","display":"***","silence_ms":450}])
         self.assertEqual(r["display_text"],"ก่อน***หลัง")

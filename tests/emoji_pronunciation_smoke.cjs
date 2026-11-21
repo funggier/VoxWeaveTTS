@@ -68,6 +68,22 @@ assert.equal(emoji.replace("<:smile:123456789012345678>",{
 assert.equal(emoji.replace("<a:smile:123456789012345678>",{
   ":smile:":"ยิ้ม"}),"ยิ้ม");
 assert.equal(emoji.replace(":smile:",{":smile:":"ยิ้ม"}),"ยิ้ม");
+// TikTok's platform-owned emoji names use brackets rather than colons.
+// Allow both spellings as opt-in dictionary keys, preferring exact brackets.
+assert.equal(emoji.validKey("[smile]"),true);
+assert.equal(emoji.validKey("[laughwithtears]"),true);
+const tikTok=emoji.parseEditor(
+  "[smile] = ยิ้ม\n:cry: = ร้องไห้\n[laughwithtears] = หัวเราะ");
+assert.equal(emoji.replace("[smile] [smile] [laughwithtears] [cry]",tikTok),
+  "ยิ้ม ยิ้ม หัวเราะ ร้องไห้");
+assert.equal(emoji.replace("[smile]",{"[smile]":"ยิ้มจริง",":smile:":"ยิ้มสำรอง"}),
+  "ยิ้มจริง");
+assert.equal(emoji.replace("[smile]",{":smile:":"ยิ้มสำรอง"}),"ยิ้มสำรอง");
+assert.equal(emoji.replace("ข้อความ [unmapped] [🙂]",tikTok),"ข้อความ [unmapped] [🙂]");
+assert.equal(emoji.replace("plain smile and smiling",tikTok),"plain smile and smiling",
+  "never interpret a bare lowercase word as a TikTok emoji");
+for(const invalid of ["[]","[a]","[smile here]","[123]","[test]extra"])
+  assert.equal(emoji.validKey(invalid),false);
 assert.equal(emoji.validKey("catJAM"),true);
 assert.equal(emoji.parseEditor("").constructor,Object,
   "blank mapping editor is valid");

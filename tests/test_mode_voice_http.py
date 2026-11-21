@@ -221,6 +221,8 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                     ("youtube_browser", {"😂":"ขำ"}),
                     ("discord", {":party_parrot:":"นกเต้น"}),
                     ("discord_client", {"<a:wave:123456789012345678>":"โบกมือ"}),
+                    ("tiktok", {"[smile]":"ยิ้ม",":laugh:":"หัวเราะ"}),
+                    ("tiktok_browser", {"[laughwithtears]":"ขำมาก"}),
                 )
                 for revision,(mode,dictionary) in enumerate(formats):
                     payload={**DEFAULT_SPEECH_FORMAT,
@@ -240,8 +242,10 @@ class ModeVoiceHTTPTests(unittest.TestCase):
                                  {":party_parrot:":"นกเต้น"})
                 self.assertEqual(doc["speech_formats"]["discord_client"]["emoji_dictionary"],
                                  {"<a:wave:123456789012345678>":"โบกมือ"})
-                self.assertFalse(doc["speech_formats"]["tiktok"]["read_emojis"]
-                                 if "tiktok" in doc["speech_formats"] else False)
+                self.assertEqual(doc["speech_formats"]["tiktok"]["emoji_dictionary"],
+                                 {"[smile]":"ยิ้ม",":laugh:":"หัวเราะ"})
+                self.assertEqual(doc["speech_formats"]["tiktok_browser"]["emoji_dictionary"],
+                                 {"[laughwithtears]":"ขำมาก"})
                 self.assertTrue(voice.load_workspace_settings(target)
                                 ["speech_formats"]["live"]["read_emojis"])
                 old_revision=doc["revision"]

@@ -41,7 +41,10 @@ DEFAULT_SPEECH_FORMAT = {
 }
 
 
-_CUSTOM_EMOJI = re.compile(r"^(?::[A-Za-z0-9_-]{2,48}:|<a?:[A-Za-z0-9_]{2,32}:[0-9]{5,22}>)$")
+_CUSTOM_EMOJI = re.compile(
+    r"^(?::[A-Za-z0-9_-]{2,48}:|<a?:[A-Za-z0-9_]{2,32}:[0-9]{5,22}>|"
+    r"\[[A-Za-z][A-Za-z0-9_-]{1,47}\])$"
+)
 _NAMED_EMOTE = re.compile(r"^(?=.{2,48}$)(?=.*[A-Z])[A-Za-z][A-Za-z0-9_-]*$")
 
 

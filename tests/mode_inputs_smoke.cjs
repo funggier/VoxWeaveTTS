@@ -166,6 +166,21 @@ async function main(){
     "TikFinity message text remains unchanged");
   get("tiktokAudio").paused=true;
   get("tiktokAudio").events.ended();
+  get("tiktokFeedEmojiMappings").value=
+    "[smile] = ยิ้ม\n:cry: = ร้องไห้\n[laughwithtears] = ขำมาก\n😂 = หัวเราะ";
+  assert.equal(tiktok.receiveIncoming({
+    message_id:"tt-shortcodes",kind:"comment",
+    text:"[smile] [smile] [cry] [laughwithtears] 😂 [unknown]"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).content_text,
+    "ยิ้ม ยิ้ม ร้องไห้ ขำมาก หัวเราะ [unknown]",
+    "TikFinity native bracket emoji, colon aliases, Unicode and unknown tokens");
+  assert.equal(get("tiktokText").value,
+    "[smile] [smile] [cry] [laughwithtears] 😂 [unknown]",
+    "TikFinity raw comment stays unchanged");
+  get("tiktokAudio").paused=true;
+  get("tiktokAudio").events.ended();
   get("tiktokFeedFormatread_emojis").checked=false;
   assert.equal(tiktok.receiveIncoming({
     message_id:"tt-emoji-off",kind:"comment",text:"GGWP 😂"
@@ -234,6 +249,16 @@ async function main(){
     "ท่าน Sprite ขำ Extension Pam กล่าวข้อความว่า เก่ง Extension ขำ Extension @เพื่อน");
   assert.equal(get("tiktokBrowserText").value,"GGWP 😂 @เพื่อน",
     "TikTok Extension source comment remains untouched");
+  get("tiktokBrowserAudio").paused=true;
+  get("tiktokBrowserAudio").events.ended();
+  get("tiktokBrowserFeedEmojiMappings").value="[smile] = ยิ้ม Extension\n:cry: = ร้องไห้ Extension";
+  assert.equal(browser.receiveIncoming({
+    message_id:"dom-emote",text:"[smile] [cry] 😂 [none]"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).content_text,"ยิ้ม Extension ร้องไห้ Extension 😂 [none]",
+    "TikTok Extension handles native bracket emotes while preserving unmapped content");
+  assert.equal(get("tiktokBrowserText").value,"[smile] [cry] 😂 [none]");
   get("tiktokBrowserAudio").paused=true;
   get("tiktokBrowserAudio").events.ended();
   get("tiktokBrowserFeedFormatread_emojis").checked=false;

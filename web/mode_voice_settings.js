@@ -449,9 +449,13 @@ function attach({document,engines,getDefault}){
       emojiEditor=create("textarea");
       emojiEditor.id=prefix+"FeedEmojiMappings";
       emojiEditor.rows=5;emojiEditor.maxLength=8192;
-      emojiEditor.placeholder="😂 = หัวเราะ\n❤️ = หัวใจ\n:face-blue-smiling: = ยิ้ม\n:yt: = ยูทูบ\n:party_parrot: = นกเต้น\nGGWP = เก่งมาก";
-      const note=create("small",
-        "Unicode ของ YouTube/Discord เช่น 😂 ❤️ 👍🏽 รองรับโดยตรง · อีโมจิสำเร็จรูปของ YouTube เช่น :face-blue-smiling: และ :yt: · Discord แบบ <:name:id> / <a:name:id> ใช้ :name: = คำอ่าน หรือระบุรหัสเต็ม · รวมสูงสุด 64 รายการต่อโหมด · อีโมจิที่ไม่ได้ตั้งค่าจะคงเดิม · กฎไม่อ่าน/วลีซ้ำกำหนดเพิ่มในแท็บกฎการอ่านส่วนกลาง");
+      const isTikTok=mode==="tiktok"||mode==="tiktok_browser";
+      emojiEditor.placeholder=isTikTok
+        ?"😂 = หัวเราะ\n❤️ = หัวใจ\n[smile] = ยิ้ม\n[laughwithtears] = ขำมาก\n:cry: = ร้องไห้"
+        :"😂 = หัวเราะ\n❤️ = หัวใจ\n:face-blue-smiling: = ยิ้ม\n:yt: = ยูทูบ\n:party_parrot: = นกเต้น\nGGWP = เก่งมาก";
+      const note=create("small",isTikTok
+        ?"TikTok รองรับ Unicode เช่น 😂 ❤️ 👍🏽 และชื่ออิโมจิแบบ [smile], [laughwithtears] (ตั้ง :smile: เป็นชื่อสำรองได้) · โหมด TikFinity ใช้ชื่อที่ส่งมาจริง และ Extension อ่านชื่อจากภาพในเนื้อหาคอมเมนต์ · บาง LIVE อาจไม่แสดงอิโมจิพิเศษเป็นภาพ · จำกัด 64 รายการต่อโหมด · คำที่ไม่ได้ตั้งค่าไม่เปลี่ยน · จัดการข้าม/ซ้ำในแท็บกฎการอ่าน"
+        :"Unicode ของ YouTube/Discord เช่น 😂 ❤️ 👍🏽 รองรับโดยตรง · อีโมจิสำเร็จรูปของ YouTube เช่น :face-blue-smiling: และ :yt: · Discord แบบ <:name:id> / <a:name:id> ใช้ :name: = คำอ่าน หรือระบุรหัสเต็ม · รวมสูงสุด 64 รายการต่อโหมด · อีโมจิที่ไม่ได้ตั้งค่าจะคงเดิม · กฎไม่อ่าน/วลีซ้ำกำหนดเพิ่มในแท็บกฎการอ่านส่วนกลาง");
       note.className="small";
       holder.append(caption,emojiEditor,note);
       panel.appendChild(holder);
@@ -476,7 +480,9 @@ function attach({document,engines,getDefault}){
       if(emojiEditor&&options.read_emojis){
         try{
           const dictionary=Emoji.parseEditor(emojiEditor.value);
-          shown=Emoji.replace(shown+" 😂❤️ GGWP",dictionary);
+          shown=Emoji.replace(shown+
+            (mode==="tiktok"||mode==="tiktok_browser"?" 😂❤️ [smile] [laughwithtears]":" 😂❤️ GGWP"),
+            dictionary);
         }catch(error){
           preview.textContent="พจนานุกรมอีโมจิ: "+error.message;
           return;

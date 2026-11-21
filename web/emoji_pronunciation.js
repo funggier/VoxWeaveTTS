@@ -6,6 +6,10 @@
 "use strict";
 const MAX_RULES=64, MAX_EDITOR=8192;
 const DISCORD_SHORT=/^:[A-Za-z0-9_-]{2,48}:$/;
+// TikTok native non-Unicode emoji use square-bracket names such as [smile].
+// A user may also configure :smile: and it will match the same TikTok token.
+const TIKTOK_SHORT=/^\[[A-Za-z][A-Za-z0-9_-]{1,47}\]$/;
+const TIKTOK_TOKEN=/^\[([A-Za-z][A-Za-z0-9_-]{1,47})\]/;
 const DISCORD_FULL=/^<a?:[A-Za-z0-9_]{2,32}:[0-9]{5,22}>$/;
 const DISCORD_TOKEN=/^<a?:([A-Za-z0-9_]{2,32}):[0-9]{5,22}>/;
 const EMOJI=/[\p{Extended_Pictographic}\p{Regional_Indicator}\u20E3]/u;
@@ -30,7 +34,8 @@ function hasTokenBoundaries(text,start,length){
 function validKey(key){
   return typeof key==="string" && key.length>0 &&
     [...key].length<=48 && !/[\u0000-\u001f\u007f\s]/u.test(key) &&
-    (DISCORD_SHORT.test(key)||DISCORD_FULL.test(key)||NAMED_EMOTE.test(key)||EMOJI.test(key));
+    (DISCORD_SHORT.test(key)||DISCORD_FULL.test(key)||TIKTOK_SHORT.test(key)
+      ||NAMED_EMOTE.test(key)||EMOJI.test(key));
 }
 function validate(dictionary){
   if(!dictionary || typeof dictionary!=="object"||Array.isArray(dictionary))
@@ -108,6 +113,21 @@ function replace(text,dictionary){
       else{
         result+=discord[0];
         i+=discord[0].length;
+        continue;
+      }
+    }
+    // For a TikTok [shortcode], prefer a specifically configured [name]
+    // over the alternative :name: spelling. Never interpret bare words in
+    // prose as an emote or alter a bracket token when no rule is configured.
+    const tiktok=TIKTOK_TOKEN.exec(text.slice(i));
+    if(!matched&&tiktok){
+      const exact=dictionary[tiktok[0]];
+      const colon=dictionary[":"+tiktok[1]+":"];
+      if(exact!==undefined||colon!==undefined)
+        matched={length:tiktok[0].length,value:exact!==undefined?exact:colon};
+      else{
+        result+=tiktok[0];
+        i+=tiktok[0].length;
         continue;
       }
     }

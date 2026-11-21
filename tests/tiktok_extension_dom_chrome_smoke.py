@@ -141,7 +141,9 @@ def main():
                 <div class="DivChatMessageItem" data-id="emoji-chat">
                    <span class="SpanUserName">EmojiViewer</span>
                    <span class="SpanChatMessageText">สวัสดี <img alt="😂">
-                     <img alt="GGWP"> และ <img alt="❤️"></span>
+                     <img alt="GGWP"> และ <img alt="❤️"> <img alt="smile">
+                      <img alt="[laughwithtears]"><img aria-label="cry">
+                      <img title="smile"> [smile] </span>
                 </div>
               `);
               return [...list.querySelectorAll(".DivChatMessageItem")].map(x=>x.innerText);
@@ -159,7 +161,10 @@ def main():
             assert messages["not-gift"]["kind"]=="comment",messages
             assert messages["not-gift"]["text"]=="sent Heart Me × 3",messages
             assert messages["emoji-chat"]["kind"]=="comment",messages
-            assert messages["emoji-chat"]["text"]=="สวัสดี 😂 GGWP และ ❤️",messages
+            assert messages["emoji-chat"]["text"]==(
+                "สวัสดี 😂 GGWP และ ❤️ [smile] [laughwithtears] "
+                "[cry] [smile] [smile]"
+            ),messages
             assert not any(key in messages for key in
                 ("gift-system","gift-system-x","gift-generic")),messages
             print("PASS: Chrome DOM isolates chat, preserves emoji-image alt "
