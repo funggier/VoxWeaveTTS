@@ -3,7 +3,7 @@
 The coordinator consumes an already-filtered speech plan or an optional
 asynchronous AI preparation callback, then a renderer callable. AI preparation
 and TTS rendering use separate workers with one bounded job registry. Live
-translation can run concurrently while the client retains playback order. It has
+translation can group messages while the client retains playback order. It has
 NO dependency on any specific model, voice package or ML framework. 'ready'
 means audio was synthesized, NOT played.
 """
@@ -27,6 +27,7 @@ MAX_AUDIO_BYTES = 16_000_000
 MAX_TOTAL_AUDIO_BYTES = 512_000_000  # bounded global WAV cache, not per source
 JOB_TTL_SECONDS = 900
 TRANSLATION_GATHER_SECONDS = 0.15
+MAX_BATCH_TEXT_CHARS = 12_000
 _TERMINAL = frozenset({"ready", "failed", "cancelled", "skipped"})
 
 
@@ -50,6 +51,13 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
+@dataclass(frozen=True)
+class LiveTranslation:
+    text: str
+    settings: dict[str, Any]
+    finish: Callable[[dict[str, Any]], tuple[dict[str, Any], dict[str, Any]]]
+
+
 @dataclass
 class _Job:
     id: str
@@ -62,6 +70,7 @@ class _Job:
     render_args: dict[str, Any]
     prepare: Callable[[], tuple[dict[str, Any], dict[str, Any]]] | None = None
     hold_for_render: bool = False
+    translation: LiveTranslation | None = None
     state: str = "queued"
     created_at: str = field(default_factory=_now_utc)
     created_mono: float = field(default_factory=time.monotonic)
@@ -132,7 +141,7 @@ class SpeechCoordinator:
         self._queue: deque[str] = deque()
         self._prepare_queue: deque[str] = deque()
         self._translation_queue: deque[str] = deque()
-        self._translation_workers: set[threading.Thread] = set()
+        self._translation_worker: threading.Thread | None = None
         self._translation_limit = 1
         self._translation_minimum = 1
         self._translation_timer: threading.Timer | None = None
@@ -284,7 +293,7 @@ class SpeechCoordinator:
         self, prepare: Callable[[], tuple[dict[str, Any], dict[str, Any]]], *,
         source: str, engine_id: str = "pending", voice_id: str = "pending",
         source_message_id: str | None = None, hold_for_render: bool = False,
-        live_translation: bool = False,
+        live_translation: LiveTranslation | None = None,
     ) -> dict[str, Any]:
         """Reserve stable speech ID; prepare on a separate worker.
 
@@ -317,14 +326,14 @@ class SpeechCoordinator:
             job = _Job(
                 id=uuid4().hex, source=source, source_message_id=source_message_id,
                 display_text="", engine_id=engine_id, voice_id=voice_id,
-                plan=None, render_args={}, prepare=prepare,
-                hold_for_render=hold_for_render,
+                plan=None, render_args={}, prepare=prepare if live_translation is None else None,
+                hold_for_render=hold_for_render, translation=live_translation,
             )
             self._jobs[job.id] = job
             if key is not None:
                 self._dedupe[key] = job.id
             self._transition(job, "preparing")
-            if live_translation:
+            if live_translation is not None:
                 self._translation_queue.append(job.id)
                 self._start_translations()
             else:
@@ -352,46 +361,70 @@ class SpeechCoordinator:
                 self._start_translations()
 
     def _start_translations(self) -> None:
-        # Called with the coordinator lock held. Count an in-flight call
-        # until it actually returns, even if the browser has cancelled it.
-        if (self._closed or not self._translation_queue
-                or len(self._translation_workers) >= self._translation_limit):
+        # One request at a time. Settings snapshots keep unrelated prompts,
+        # endpoints and target languages out of the same batch.
+        if self._closed or not self._translation_queue or self._translation_worker:
             self._cancel_translation_timer()
             return
-        if self._translation_workers and len(self._translation_queue) < self._translation_minimum:
-            oldest = self._jobs[self._translation_queue[0]]
-            remaining = TRANSLATION_GATHER_SECONDS - (time.monotonic() - oldest.created_mono)
-            if remaining > 0:
-                if self._translation_timer is None:
-                    timer = threading.Timer(remaining, self._wake_translations)
-                    timer.daemon = True
-                    self._translation_timer = timer
-                    timer.start()
-                return
-        # Flush an idle lane or a tail that has reached its deadline.
+        first = self._jobs[self._translation_queue[0]]
+        assert first.translation is not None
+        settings = first.translation.settings
+        batch = []
+        size = 0
+        split_required = False
+        for job_id in self._translation_queue:
+            job = self._jobs[job_id]
+            entry = job.translation
+            assert entry is not None
+            if batch and (entry.settings != settings or size + len(entry.text) > MAX_BATCH_TEXT_CHARS):
+                split_required = True
+                break
+            batch.append((job, entry))
+            size += len(entry.text)
+            if len(batch) == self._translation_limit:
+                break
+        remaining = TRANSLATION_GATHER_SECONDS - (time.monotonic() - first.created_mono)
+        if len(batch) < self._translation_minimum and not split_required and remaining > 0:
+            if self._translation_timer is None:
+                timer = threading.Timer(remaining, self._wake_translations)
+                timer.daemon = True
+                self._translation_timer = timer
+                timer.start()
+            return
         self._cancel_translation_timer()
-        while self._translation_queue and len(self._translation_workers) < self._translation_limit:
-            job = self._jobs.get(self._translation_queue.popleft())
-            if job is None or job.state != "preparing" or job.prepare is None:
-                continue
-            worker = threading.Thread(
-                target=self._work_translate, args=(job, job.prepare),
-                name="voxweavetts-live-translation", daemon=True,
-            )
-            self._translation_workers.add(worker)
-            try:
-                worker.start()
-            except RuntimeError:
-                self._translation_workers.remove(worker)
-                job.prepare = None
-                self._transition(job, "failed", error="AI speech preparation failed")
-
-    def _work_translate(self, job: _Job, callback: Callable) -> None:
+        for _ in batch:
+            self._translation_queue.popleft()
+        worker = threading.Thread(
+            target=self._work_translate, args=(batch,),
+            name="voxweavetts-live-translation", daemon=True,
+        )
+        self._translation_worker = worker
         try:
-            self._prepare_job(job, callback)
+            worker.start()
+        except RuntimeError:
+            self._translation_worker = None
+            for job, _entry in batch:
+                self._fail_preparation(job)
+            self._start_translations()
+
+    def _work_translate(self, batch: list[tuple[_Job, LiveTranslation]]) -> None:
+        try:
+            from .ai_processing import process_ollama_batch
+
+            with self._cv:
+                batch = [(job, entry) for job, entry in batch if job.state == "preparing"]
+            if not batch:
+                return
+            results = process_ollama_batch([entry.text for _, entry in batch], batch[0][1].settings)
+            for (job, entry), result in zip(batch, results, strict=True):
+                self._prepare_job(job, lambda: entry.finish(result))
+        except Exception:
+            with self._cv:
+                for job, _entry in batch:
+                    self._fail_preparation(job)
         finally:
             with self._cv:
-                self._translation_workers.remove(threading.current_thread())
+                self._translation_worker = None
                 self._start_translations()
 
     def _work_prepare(self) -> None:
@@ -424,6 +457,7 @@ class SpeechCoordinator:
                 job.plan = plan
                 job.render_args = dict(arguments)
                 job.prepare = None
+                job.translation = None
                 job.engine_id = arguments["engine_id"]
                 job.voice_id = arguments["voice_id"]
                 job.display_text = plan["display_text"]
@@ -440,9 +474,13 @@ class SpeechCoordinator:
             # Never expose AI errors or unfiltered text from tools, models,
             # reference files, or the original message through job events.
             with self._cv:
-                if job.state == "preparing":
-                    job.prepare = None
-                    self._transition(job, "failed", error="AI speech preparation failed")
+                self._fail_preparation(job)
+
+    def _fail_preparation(self, job: _Job) -> None:
+        if job.state == "preparing":
+            job.prepare = None
+            job.translation = None
+            self._transition(job, "failed", error="AI speech preparation failed")
 
     def _work(self) -> None:
         while True:
@@ -705,6 +743,7 @@ class SpeechCoordinator:
                     job.audio = None
                 job.plan = None
                 job.prepare = None
+                job.translation = None
                 job.timeline = None
                 job.model_inputs = None
                 for pending in (self._prepare_queue, self._translation_queue, self._queue):
@@ -733,18 +772,18 @@ class SpeechCoordinator:
     def close(self) -> None:
         with self._cv:
             self._closed = True
-            translation_workers = tuple(self._translation_workers)
+            translation_worker = self._translation_worker
             self._translation_queue.clear()
             self._cancel_translation_timer()
             for job in self._jobs.values():
                 if job.state not in _TERMINAL:
                     job.plan = None
                     job.prepare = None
+                    job.translation = None
                     job.model_inputs = None
                     self._transition(job, "cancelled")
             self._cv.notify_all()
         self._thread.join(timeout=1.0)
         self._prepare_thread.join(timeout=1.0)
-        deadline = time.monotonic() + 1.0
-        for worker in translation_workers:
-            worker.join(timeout=max(0.0, deadline - time.monotonic()))
+        if translation_worker is not None:
+            translation_worker.join(timeout=1.0)

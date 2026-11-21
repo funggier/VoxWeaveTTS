@@ -68,7 +68,7 @@ from .source_queue_settings import (load_settings as load_source_queues,
                                     SettingsConflict as SourceQueueConflict)
 from .language_routes import load_routes, save_routes, choose_route, LANGUAGES
 from .speech_coordinator import (
-    SpeechCoordinator, QueueFull, JobMissing, JobNotReady, AlignmentConflict, EVENT_SCHEMA_VERSION,
+    LiveTranslation, SpeechCoordinator, QueueFull, JobMissing, JobNotReady, AlignmentConflict, EVENT_SCHEMA_VERSION,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -1364,13 +1364,21 @@ class Handler(BaseHTTPRequestHandler):
                                 else self._text_plan(queued_data, ai_settings=ai_settings))
                         params = self._queue_params(queued_data, plan)
                         return plan, params
+                    translation = None
+                    if (pipeline is not None and ai_settings["live_ollama_parallel_enabled"]
+                            and pipeline.needs_ollama_translation()):
+                        def finish_translation(result):
+                            plan = pipeline.finish(result)
+                            return plan, self._queue_params(queued_data, plan)
+
+                        translation = LiveTranslation(pipeline.text, pipeline.settings, finish_translation)
                     job = self._coordinator().submit_deferred(
                         prepare, source=data.get("source", "manual"),
                         engine_id=data.get("engine_id", "pending"),
                         voice_id=data.get("voice_id", "pending"),
                         source_message_id=data.get("source_message_id"),
                         hold_for_render=hold_for_render,
-                        live_translation=pipeline is not None and pipeline.needs_ollama_translation(),
+                        live_translation=translation,
                     )
                 else:
                     plan = self._text_plan(data, ai_settings=ai_settings)

@@ -15,7 +15,7 @@ from unittest.mock import patch
 from urllib.request import Request, urlopen
 
 from voxweavetts.ai_pipeline import process_pipeline
-from voxweavetts.ai_processing import DEFAULTS, AIUnavailable, load_settings, validate_settings
+from voxweavetts.ai_processing import DEFAULTS, AIUnavailable, load_settings, process_ollama_batch, validate_settings
 from voxweavetts.processing import InputError, process_text
 from voxweavetts.server import Handler
 from voxweavetts.speech_coordinator import SpeechCoordinator, QueueFull, JobNotReady
@@ -109,16 +109,33 @@ class AILiveLoadTests(unittest.TestCase):
         finally:
             c.close()
 
-    def test_live_ollama_overlaps_across_sources_and_bypasses_same_language(self):
+    def test_live_ollama_sends_one_prompt_per_batch_and_restores_ids(self):
         entered = Queue()
-        release = {text: threading.Event() for text in ("first foreign", "second foreign", "tail foreign")}
+        release = threading.Event()
         tts_started, tts_release = threading.Event(), threading.Event()
+        translated = {
+            "first foreign": "แปลข้อความแรก",
+            "second foreign": "แปลข้อความที่สอง",
+            "fourth foreign": "แปลข้อความที่สี่",
+            "tail foreign": "แปลท้ายคิว",
+            "first resized": "คำแปลใหม่รายการแรก",
+            "second resized": "คำแปลใหม่รายการที่สอง",
+        }
 
-        def translate(text, *_args):
-            entered.put(text)
-            if not release[text].wait(6):
-                raise AIUnavailable("test translation was not released")
-            return "แปลแล้ว"
+        def reply(_settings, body, *, max_bytes):
+            self.assertGreater(max_bytes, 32_768)
+            messages = body["messages"]
+            self.assertIn("data only", messages[0]["content"])
+            self.assertNotIn("first foreign", messages[0]["content"])
+            items = json.loads(messages[1]["content"])["items"]
+            texts = [item["text"] for item in items]
+            entered.put(texts)
+            if texts == ["first foreign"]:
+                if not release.wait(6):
+                    raise AIUnavailable("test did not release the first group")
+            rows = [{"id": item["id"], "translation": translated[item["text"]]}
+                    for item in reversed(items) if item["text"] in translated]
+            return json.dumps({"translations": rows}, ensure_ascii=False)
 
         def renderer(plan, **args):
             if plan["spoken_text"] == "เสียงก่อนหน้า":
@@ -152,7 +169,7 @@ class AILiveLoadTests(unittest.TestCase):
                 job = c.get(job_id)
                 if job["state"] != "preparing":
                     self.assertEqual(job["state"], "prepared", job)
-                    return job
+                    return job["display_text"]
                 time.sleep(0.01)
             self.fail("speech job did not reach prepared state")
 
@@ -160,11 +177,12 @@ class AILiveLoadTests(unittest.TestCase):
             with (
                 TemporaryDirectory() as directory,
                 patch("voxweavetts.ai_processing.AI_SETTINGS_FILE", Path(directory) / "ai.json"),
-                patch("voxweavetts.ai_processing._ollama_chat", side_effect=translate),
+                patch("voxweavetts.ai_processing._ollama_request_text", side_effect=reply),
                 patch.object(Handler, "_queue_params", return_value=VOICE),
             ):
                 initial = load_settings()
-                enabled = settings(enabled=True, model="mock", live_ollama_parallel_enabled=True)
+                enabled = settings(enabled=True, model="mock", live_ollama_parallel_enabled=True,
+                                   live_ollama_parallel_limit=3, live_ollama_parallel_minimum=2)
                 saved = post("/v1/settings/ai", {"settings": enabled,
                              "expected_revision": initial["revision"]}, "save-ai-settings")
                 previous = c.submit(process_text("เสียงก่อนหน้า"),
@@ -174,79 +192,69 @@ class AILiveLoadTests(unittest.TestCase):
                 first = submit("แปลคำนี้", rules=[
                     {"match": "แปลคำนี้", "spoken": "first foreign", "stage": "pre_ai"}
                 ])
-                self.assertEqual(entered.get(timeout=3), "first foreign",
-                                 "a single message starts when the lane is empty")
+                self.assertEqual(entered.get(timeout=3), ["first foreign"])
                 second = submit("second foreign", source="discord")
-                self.assertEqual(entered.get(timeout=3), "second foreign")
                 passthrough = submit("ข้อความภาษาไทย")
+                third = submit("third foreign")
+                fourth = submit("fourth foreign")
                 tail = submit("tail foreign")
-                self.assertEqual(wait_prepared(passthrough)["display_text"], "ข้อความภาษาไทย")
-                self.assertTrue(entered.empty(), "full translation slots keep the tail queued")
+                self.assertEqual(wait_prepared(passthrough), "ข้อความภาษาไทย")
+                self.assertTrue(entered.empty(), "Only one Ollama request is in flight")
                 self.assertEqual(c.get(previous)["state"], "rendering")
 
-                release["second foreign"].set()
-                wait_prepared(second)
-                self.assertEqual(entered.get(timeout=3), "tail foreign")
-                self.assertEqual(c.get(first)["state"], "preparing")
-                post("/v1/settings/ai", {"settings": {**enabled, "live_ollama_parallel_enabled": False},
-                     "expected_revision": saved["revision"]}, "save-ai-settings")
-                self.assertEqual(c._translation_limit, 1)
-                self.assertEqual(c.get(tail)["state"], "preparing",
-                                 "already submitted translations can finish when the toggle is off")
-                release["tail foreign"].set()
-                release["first foreign"].set()
-                wait_prepared(tail)
-                wait_prepared(first)
-                self.assertTrue(entered.empty(), "passthrough never calls Ollama")
+                release.set()
+                self.assertEqual(entered.get(timeout=3), ["second foreign", "third foreign", "fourth foreign"])
+                self.assertEqual(entered.get(timeout=3), ["tail foreign"])
+                self.assertEqual([wait_prepared(job) for job in (first, second, passthrough, third, fourth, tail)],
+                    ["แปลข้อความแรก", "แปลข้อความที่สอง", "ข้อความภาษาไทย",
+                     "third foreign", "แปลข้อความที่สี่", "แปลท้ายคิว"])
+                self.assertTrue(entered.empty())
+                resized = post("/v1/settings/ai", {
+                    "settings": {**enabled, "live_ollama_parallel_limit": 2},
+                    "expected_revision": saved["revision"],
+                }, "save-ai-settings")
+                self.assertEqual(resized["settings"]["live_ollama_parallel_limit"], 2)
+                self.assertEqual(resized["settings"]["live_ollama_parallel_minimum"], 2)
+                with patch("voxweavetts.speech_coordinator.TRANSLATION_GATHER_SECONDS", 2):
+                    new_first = submit("first resized")
+                    with c._cv:
+                        self.assertIn(new_first, c._translation_queue)
+                    self.assertTrue(entered.empty(), "Saved minimum should gather the first message")
+                    new_second = submit("second resized")
+                    self.assertEqual(entered.get(timeout=3), ["first resized", "second resized"])
+                self.assertEqual([wait_prepared(job) for job in (new_first, new_second)],
+                                 ["คำแปลใหม่รายการแรก", "คำแปลใหม่รายการที่สอง"])
+                post("/v1/settings/ai", {"settings": {**resized["settings"], "live_ollama_parallel_enabled": False},
+                     "expected_revision": resized["revision"]}, "save-ai-settings")
+                with patch("voxweavetts.ai_processing._ollama_chat", return_value="แปลแบบข้อความเดียว") as single:
+                    self.assertEqual(wait_prepared(submit("normal single")), "แปลแบบข้อความเดียว")
+                    single.assert_called_once()
         finally:
+            release.set()
             tts_release.set()
-            for event in release.values():
-                event.set()
             server.shutdown()
             server.server_close()
             thread.join(timeout=3)
             c.close()
 
-    def test_live_ollama_minimum_holds_only_for_a_short_window(self):
-        first_started, first_release = threading.Event(), threading.Event()
-        c = SpeechCoordinator(fake_renderer)
-        def first():
-            first_started.set()
-            first_release.wait(6)
-            return process_text("หนึ่ง"), VOICE
-
-        def submit(callback):
-            return c.submit_deferred(callback, source="youtube-live", hold_for_render=True,
-                                     live_translation=True)["speech_id"]
-
-        def work(event):
-            def prepare():
-                event.set()
-                return process_text("ข้อความ"), VOICE
-            return prepare
-
-        try:
-            c.set_translation_limits(4, 2)
-            submit(first)
-            self.assertTrue(first_started.wait(3), "an idle lane sends one message immediately")
-            gathered_one, gathered_two = threading.Event(), threading.Event()
-            with patch("voxweavetts.speech_coordinator.TRANSLATION_GATHER_SECONDS", 3):
-                job = submit(work(gathered_one))
-                with c._cv:
-                    self.assertIn(job, c._translation_queue)
-                self.assertFalse(gathered_one.is_set())
-                submit(work(gathered_two))
-                self.assertTrue(gathered_one.wait(1), "reaching the minimum drains the available work")
-                self.assertTrue(gathered_two.wait(1))
-
-            c.set_translation_limits(4, 4)
-            leftover = threading.Event()
-            submit(work(leftover))
-            self.assertTrue(leftover.wait(2), "short final tail flushes even while a request is active")
-            self.assertFalse(first_release.is_set())
-        finally:
-            first_release.set()
-            c.close()
+    def test_batch_translates_foreign_spans_and_invalid_ids_only_affect_their_message(self):
+        batch_settings = settings(enabled=True, model="mock", translation_mode="foreign_spans")
+        def reply(_settings, body, *, max_bytes):
+            items = json.loads(body["messages"][1]["content"])["items"]
+            self.assertEqual(items, [{"id": 0, "text": "hello"}, {"id": 1, "text": "world"},
+                                     {"id": 2, "text": "good morning"}])
+            return json.dumps({"translations": [
+                {"id": 2, "translation": "อรุณสวัสดิ์"},
+                {"id": 1, "translation": "โลก"},
+                {"id": 0, "translation": "สวัสดี"},
+                {"id": 2, "translation": "สวัสดีตอนเช้า"},
+                {"id": 999, "translation": "ข้อมูลที่ไม่ได้ขอ"},
+            ]}, ensure_ascii=False)
+        with patch("voxweavetts.ai_processing._ollama_request_text", side_effect=reply) as request:
+            results = process_ollama_batch(["คำว่า hello กับ world", "พูดว่า good morning"], batch_settings)
+        request.assert_called_once()
+        self.assertEqual([(item["status"], item["text"]) for item in results],
+                         [("processed", "คำว่า สวัสดี กับ โลก"), ("fallback", "พูดว่า good morning")])
 
     def test_live_ollama_parallel_settings_validate_and_migrate(self):
         legacy = validate_settings({"engine": "ollama"})

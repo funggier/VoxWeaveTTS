@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.12.8
+
+- Send multiple Live messages to Ollama as a single structured JSON prompt with per-message IDs and fallback.
+- Apply the saved maximum, minimum, and enable setting to Live batch translation.
+- See [v0.12.8 release notes and sample benchmarks](docs/RELEASE_NOTES_v0.12.8_TH.md).
+
 ## v0.12.7
 
 - Add opt-in concurrent Ollama translation for staged Live speech with a shared cap, a configurable pending threshold, and a bounded short-tail flush.

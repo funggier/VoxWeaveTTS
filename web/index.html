@@ -927,12 +927,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <label><input id="aiAutoDetect" type="checkbox" checked> ข้ามแปลเมื่อไม่พบอักษรต่างภาษา (ตรวจแบบคร่าว ๆ)</label>
 <label><input id="aiTranslationBypassValidation" type="checkbox"> ข้ามการตรวจสอบความถูกต้องของคำแปล (ความหมาย/ภาษา) — Ollama: ยังตรวจ JSON / M2M100: ตรวจข้อความและขนาดเสมอ · ถ้าเปิดจะยอมรับผลแปลแม้ตรวจพบภาษาผิดหรือรูปประโยคไม่ตรง</label>
 <div id="aiLiveOllamaParallelPanel">
-<label><input id="aiLiveOllamaParallel" type="checkbox"> แปลข้อความ Live พร้อมกันด้วย Ollama</label>
-<label for="aiLiveOllamaLimit">จำนวนข้อความที่แปลพร้อมกันสูงสุด</label>
+<label><input id="aiLiveOllamaParallel" type="checkbox"> ส่งหลายข้อความในพรอมป์เดียวให้ Ollama</label>
+<label for="aiLiveOllamaLimit">จำนวนข้อความสูงสุดต่อชุด</label>
 <input id="aiLiveOllamaLimit" type="number" min="1" max="64" step="1" value="2" disabled aria-describedby="aiLiveOllamaHint">
-<label for="aiLiveOllamaMinimum">ขั้นต่ำของข้อความสะสมก่อนส่ง</label>
+<label for="aiLiveOllamaMinimum">จำนวนข้อความขั้นต่ำก่อนส่งชุด</label>
 <input id="aiLiveOllamaMinimum" type="number" min="1" max="2" step="1" value="1" disabled aria-describedby="aiLiveOllamaHint">
-<p class="small" id="aiLiveOllamaHint">ใช้ร่วมกันทุกโหมด Live ที่เปิดเตรียมเสียงล่วงหน้า · ส่งทันทีเมื่อคิวแปลว่าง · รายการที่เหลือส่งเองหลังพักสะสมสั้น ๆ · อ่านตามลำดับเดิม</p>
+<p class="small" id="aiLiveOllamaHint">ใช้ร่วมกันทุกโหมด Live ที่เปิดเตรียมเสียงล่วงหน้า · หนึ่งคำขอต่อชุด · ส่งรายการท้ายคิวเองหลังรอสะสมสั้น ๆ · อ่านตามลำดับเดิม</p>
 </div>
 <label for="aiPriority">Priority Instructions — คำสั่งสำคัญสูงกว่า Custom Prompt (ยกเว้นภาษาปลายทางที่เลือกไว้ชัดเจน)</label>
 <textarea id="aiPriority" rows="4" maxlength="4000" placeholder="เช่น ตอบภาษาไทยเสมอ และไม่เกิน 3 ประโยค"></textarea>
