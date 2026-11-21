@@ -4,6 +4,7 @@
 
 - Send multiple Live messages to Ollama as a single structured JSON prompt with per-message IDs and fallback.
 - Apply the saved maximum, minimum, and enable setting to Live batch translation.
+- Let saved instructions define the custom task and support opt-in Ollama tools in single and batch translation.
 - See [v0.12.8 release notes and sample benchmarks](docs/RELEASE_NOTES_v0.12.8_TH.md).
 
 ## v0.12.7

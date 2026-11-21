@@ -41,7 +41,7 @@ class AIToolSettingsTests(unittest.TestCase):
             {"tool_max_calls": 4},
             {"tool_max_calls": True},
             {"tool_calling_enabled": True},
-            {"tool_calling_enabled": True, "tool_web_lookup": True, "operation": "translate"},
+            {"tool_calling_enabled": True, "tool_web_lookup": True, "operation": "none"},
             {"tool_calling_enabled": True, "tool_web_lookup": True, "engine": "m2m100"},
             {"tool_calling_enabled": True, "tool_file_read": True, "operation": "custom"},
             {"tool_calling_enabled": True, "tool_file_read": True,
@@ -246,14 +246,66 @@ class OllamaToolLoopTests(unittest.TestCase):
         self.assertEqual(sent[0]["messages"][1]["role"], "user")
         self.assertEqual(json.loads(sent[0]["messages"][1]["content"])["text"],
                          "What is the capital of Thailand?")
-        self.assertEqual(json.loads(sent[0]["messages"][1]["content"])["task"],
-                         "process_with_saved_instructions")
-        self.assertEqual(json.loads(sent[0]["messages"][1]["content"])["workflow"],
-                         "unspecified")
+        self.assertEqual(set(json.loads(sent[0]["messages"][1]["content"])), {"text"})
         self.assertIn("TRUSTED CONFIGURATION",sent[0]["messages"][0]["content"])
         self.assertEqual(sent[1]["messages"][-1]["role"], "tool")
         self.assertNotIn("tools", sent[1]) if config["tool_max_calls"] == 1 else None
         lookup.assert_called_once_with("Thailand", "en")
+
+    def test_translation_batch_reads_allowlisted_file_once_for_repeated_requests(self):
+        file_data = [{"name": "glossary.json", "text": '{"Red Loft":"เรดลอฟต์"}'}]
+        config = settings(enabled=True, operation="translate", model="fake:4b", target_language="th",
+                          tool_calling_enabled=True, tool_file_read=True, allow_context_files=True,
+                          context_files=[str(Path(__file__).resolve())], tool_max_calls=2,
+                          priority_instructions="Use the glossary's approved spelling.",
+                          custom_prompt="Use natural Thai.")
+        tool_reply = {"message":{"role":"assistant", "content":"",
+                      "tool_calls":[{"function":{"name":"read_reference_file","arguments":{"file_id":0}}}]}}
+        final = {"message":{"role":"assistant","content":json.dumps({"translations":[
+            {"id":1,"translation":"แวะที่เรดลอฟต์ไหม"},
+            {"id":0,"translation":"ยินดีต้อนรับสู่เรดลอฟต์"},
+        ]},ensure_ascii=False)}}
+        replies = [_Reply(tool_reply), _Reply(tool_reply), _Reply(final)]
+        calls = []
+        def fetch(request, timeout):
+            calls.append(json.loads(request.data))
+            return replies.pop(0)
+        with patch.object(ai_processing,"_read_context_files",return_value=file_data) as context, \
+             patch.object(ai_tools,"execute_tool",wraps=ai_tools.execute_tool) as execute, \
+             patch.object(ai_tools,"urlopen",side_effect=fetch):
+            rows = ai_processing.process_ollama_batch(
+                ["Welcome to Red Loft.", "Shall we stop at Red Loft?"], config)
+        self.assertEqual([row["text"] for row in rows],
+                         ["ยินดีต้อนรับสู่เรดลอฟต์", "แวะที่เรดลอฟต์ไหม"])
+        self.assertTrue(all(row["status"] == "processed" for row in rows))
+        context.assert_called_once()
+        execute.assert_called_once()
+        self.assertEqual(len(calls),3)
+        self.assertEqual(len(json.loads(calls[0]["messages"][1]["content"])["items"]), 2)
+        system = calls[0]["messages"][0]["content"]
+        self.assertIn("Use the glossary's approved spelling.", system)
+        self.assertIn("Use natural Thai.", system)
+        self.assertNotIn("เรดลอฟต์", system)
+        self.assertNotIn("before answering", system)
+        tool_messages = [msg["content"] for msg in calls[-1]["messages"] if msg["role"] == "tool"]
+        self.assertEqual(sum("เรดลอฟต์" in msg for msg in tool_messages), 1)
+        self.assertIn("earlier result", tool_messages[-1])
+        self.assertEqual(calls[-1]["format"]["required"], ["translations"])
+        self.assertNotIn("tools", calls[-1])
+
+    def test_single_translation_with_tools_can_finish_in_one_request(self):
+        config = settings(enabled=True, operation="translate", model="fake:4b", target_language="th",
+                          priority_instructions="", custom_prompt="",
+                          tool_calling_enabled=True, tool_web_lookup=True)
+        reply = _Reply({"message":{"role":"assistant",
+                           "content":'{"translation":"สวัสดีครับ"}'}})
+        with patch.object(ai_tools,"urlopen",return_value=reply) as fetch, \
+             patch.object(ai_tools,"execute_tool") as execute:
+            result = ai_processing.process_ai("Hello.", config)
+        self.assertEqual(result["text"], "สวัสดีครับ")
+        self.assertEqual(result["status"], "processed")
+        fetch.assert_called_once()
+        execute.assert_not_called()
 
     def test_tool_custom_plain_response_gets_one_schema_retry_without_tools(self):
         config = settings(enabled=True, operation="custom", model="qwen3.5:4b",
@@ -278,7 +330,7 @@ class OllamaToolLoopTests(unittest.TestCase):
         self.assertEqual(calls[1]["format"]["required"],["result"])
 
     def test_denied_function_cannot_execute_external_action(self):
-        config = settings(enabled=True, operation="custom",
+        config = settings(enabled=True, operation="custom", custom_prompt="Summarize the input.",
                           model="example:4b", tool_calling_enabled=True,
                           tool_web_lookup=True)
         response = _Reply({"message": {
@@ -294,7 +346,7 @@ class OllamaToolLoopTests(unittest.TestCase):
         self.assertEqual(outcome["text"], "input untrusted")
 
     def test_malformed_tool_name_or_language_is_denied_not_crash(self):
-        config = settings(enabled=True, operation="custom", model="example:4b",
+        config = settings(enabled=True, operation="custom", custom_prompt="Summarize the input.", model="example:4b",
                           tool_calling_enabled=True, tool_web_lookup=True)
         bad_response = _Reply({"message": {"tool_calls": [
             {"function": {"name": ["search_encyclopedia"],

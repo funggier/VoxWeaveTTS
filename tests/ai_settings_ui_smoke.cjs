@@ -19,7 +19,7 @@ const doc={
 const el=id=>doc.getElementById(id);
 const settings={
   enabled:false, engine:"ollama", ollama_base_url:"http://127.0.0.1:11434",
-  model:"", operation:"translate", custom_task:"unspecified",
+  model:"", operation:"translate",
   source_language:"auto",target_language:"th",translation_mode:"whole_message",
   auto_detect:true,translation_bypass_validation:false,priority_instructions:"",custom_prompt:"",
   display_mode:"processed",timeout_seconds:10,keep_alive_minutes:360,
@@ -168,20 +168,8 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   el("aiEngine").change();
   el("aiOperation").value="custom";
   el("aiOperation").change();
-  assert.equal(el("aiCustomTaskPanel").hidden,false);
-  assert.equal(el("aiCustomTask").disabled,false);
-  assert.equal(el("aiCustomTask").value,"unspecified");
-  for(const workflow of ["unspecified","translate_only","answer_questions","translate_question_and_answer"]){
-    el("aiCustomTask").value=workflow;
-    el("aiCustomTask").change();
-    assert.match(el("aiLanguageHint").textContent,
-      workflow==="unspecified"?/ไม่ระบุ/
-      :workflow==="translate_only"?/แปลอย่างเดียว/
-      :workflow==="answer_questions"?/ตอบคำถามแทนการแปล/
-      :/แปลคำถามและตอบต่อท้าย/);
-    el("aiSave").click(); await tick();
-    assert.equal(settings.custom_task,workflow,"dropdown workflow must persist in settings");
-  }
+  assert.equal(Object.hasOwn(app.readFields(),"custom_task"),false);
+  assert.equal(el("aiSourceLanguage").disabled,true);
   assert.equal(el("aiTarget").disabled,false,
     "custom prompt mode must expose the output language selector");
   assert.match(el("aiLanguageHint").textContent,/ไม่ระบุภาษาผลลัพธ์/);
@@ -209,6 +197,21 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   el("aiSave").click();
   await tick();
   assert.equal(settings.tool_calling_enabled,false);
+  el("aiOperation").value="translate";
+  el("aiOperation").change();
+  assert.equal(el("aiToolsEnabled").disabled,false);
+  el("aiToolsEnabled").checked=true;
+  el("aiSave").click();
+  await tick();
+  assert.equal(settings.tool_calling_enabled,true);
+  assert.equal(settings.operation,"translate");
+  el("aiOperation").value="none";
+  el("aiOperation").change();
+  assert.equal(el("aiToolsEnabled").disabled,true);
+  assert.equal(app.readFields().tool_calling_enabled,false);
+  el("aiToolsEnabled").checked=false;
+  el("aiOperation").value="custom";
+  el("aiOperation").change();
   // Search provider profiles never contain API keys or save automatically.
   el("aiSearchProvider").value="searxng";
   el("aiSearchProvider").change();

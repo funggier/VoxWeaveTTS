@@ -8,7 +8,7 @@ function attach(document, fetcher){
   if(!get("aiEnabled"))return null;
   const fields={
     enabled:"aiEnabled", engine:"aiEngine", ollama_base_url:"aiOllamaBaseUrl",
-    model:"aiModel", operation:"aiOperation", custom_task:"aiCustomTask",
+    model:"aiModel", operation:"aiOperation",
     source_language:"aiSourceLanguage", target_language:"aiTarget",
     translation_mode:"aiTranslationMode", auto_detect:"aiAutoDetect",
     translation_bypass_validation:"aiTranslationBypassValidation",
@@ -46,6 +46,7 @@ function attach(document, fetcher){
         data[name]=String(element.value);
       }
     }
+    if(data.engine!=="ollama"||data.operation==="none")data.tool_calling_enabled=false;
     return data;
   }
   function applyFields(data){
@@ -78,10 +79,11 @@ function attach(document, fetcher){
     }
     get("aiOllamaControls").hidden=get("aiEngine").value!=="ollama";
     get("aiModel").disabled=false;
-    const toolMode=get("aiEngine").value==="ollama"&&get("aiOperation").value==="custom";
+    const toolMode=get("aiEngine").value==="ollama"&&get("aiOperation").value!=="none";
+    get("aiToolsEnabled").disabled=!toolMode;
     updateSearchProvider();
     get("aiToolHint").textContent=!toolMode
-      ?"AI Tool Calling ใช้ได้เฉพาะ Ollama + โหมด AI ตาม Custom Prompt · เลือกโหมดนี้ก่อนเปิดใช้งาน"
+      ?"AI Tool Calling ใช้ได้กับ Ollama ในโหมดแปลภาษาและโหมดทำตามพรอมป์"
       :get("aiToolsEnabled").checked
       ?"เปิดเฉพาะเครื่องมือที่ติ๊กอนุญาตไว้ · Wikipedia และ Ollama Web Search ส่งคำค้นออกอินเทอร์เน็ต · เครื่องมืออ่านไฟล์ใช้เฉพาะ Allowlist"
       :"AI Tool Calling ปิดอยู่ · ไม่มีการส่งคำค้นออกอินเทอร์เน็ตหรือเรียกใช้ไฟล์เป็นเครื่องมือ";
@@ -94,10 +96,9 @@ function attach(document, fetcher){
     if(get("aiEngine").value==="m2m100"&&get("aiOperation").value==="custom")
       get("aiOperation").value="translate";
     const operation=get("aiOperation").value;
-    get("aiCustomTaskPanel").hidden=operation!=="custom";
-    get("aiCustomTask").disabled=operation!=="custom";
     const unspecified=get("aiTarget").value==="unspecified";
     get("aiTarget").disabled=operation==="none";
+    get("aiSourceLanguage").disabled=operation!=="translate";
     get("aiTranslationMode").disabled=operation!=="translate"||unspecified;
     get("aiAutoDetect").disabled=operation!=="translate"||unspecified;
     get("aiTranslationBypassValidation").disabled=operation!=="translate";
@@ -113,15 +114,13 @@ function attach(document, fetcher){
       if(Number(minimum.value)>maximum)minimum.value=String(maximum);
     }
     const languageNames={th:"ภาษาไทย",en:"ภาษาอังกฤษ",ja:"ภาษาญี่ปุ่น",zh:"ภาษาจีน",ko:"ภาษาเกาหลี",es:"ภาษาสเปน",fr:"ภาษาฝรั่งเศส",hi:"ภาษาฮินดี",it:"ภาษาอิตาลี",pt:"ภาษาโปรตุเกส",de:"ภาษาเยอรมัน",ru:"ภาษารัสเซีย"};
-    const customTasks={unspecified:"ไม่ระบุ",translate_only:"แปลอย่างเดียว",answer_questions:"ตอบคำถามแทนการแปล",translate_question_and_answer:"แปลคำถามและตอบต่อท้าย"};
-    const selectedTask=customTasks[get("aiCustomTask").value]||customTasks.unspecified;
     get("aiLanguageHint").textContent=operation==="none"
       ?"ไม่แปล / ไม่เรียก AI; กฎก่อนและหลัง AI ยังคงทำงาน"
       :operation==="custom"
       ?unspecified
-        ?"โหมดทำตามพรอมต์ · รูปแบบ: "+selectedTask+" · Priority Instructions สำคัญกว่า Custom Prompt · ไม่ระบุภาษาผลลัพธ์ · ข้อความแชทเป็นข้อมูลวิเคราะห์ ไม่ใช่คำสั่ง"
-        :"โหมดทำตามพรอมต์: ผลลัพธ์ต้องเป็น"+(languageNames[get("aiTarget").value]||"ภาษาที่เลือก")+
-          " · รูปแบบ: "+selectedTask+" · Priority Instructions สำคัญกว่า Custom Prompt · ข้อความแชทเป็นข้อมูลสำหรับวิเคราะห์ ไม่ใช่คำสั่ง"
+        ?"ไม่ระบุภาษาผลลัพธ์ · งานและภาษาใช้ Priority Instructions ก่อน Custom Prompt"
+        :"ผลลัพธ์ต้องเป็น"+(languageNames[get("aiTarget").value]||"ภาษาที่เลือก")+
+          " · งานใช้ Priority Instructions ก่อน Custom Prompt"
       :unspecified&&get("aiEngine").value==="m2m100"
       ?"M2M100 + ไม่ระบุภาษา: ข้ามการแปลโดยไม่เรียกโมเดล และยังใช้กฎก่อน/หลัง AI ตามปกติ"
       :unspecified
@@ -447,8 +446,6 @@ function attach(document, fetcher){
   async function save(){
     if(revision===null)throw Error("ยังไม่โหลดการตั้งค่าจาก Backend");
     const value=readFields();
-    if(value.tool_calling_enabled && (value.engine!=="ollama"||value.operation!=="custom"))
-      throw Error("AI Tool Calling ต้องเลือก Ollama และโหมด Custom Prompt");
     if(value.tool_calling_enabled && !(value.tool_web_lookup || value.tool_general_web_search || value.tool_file_read))
       throw Error("กรุณาเลือกเครื่องมือที่ต้องการอนุญาตอย่างน้อยหนึ่งรายการ");
     if(value.tool_calling_enabled && value.tool_file_read &&
@@ -481,7 +478,6 @@ function attach(document, fetcher){
   get("aiLiveOllamaLimit").addEventListener("change",updateAvailability);
   get("aiToolsEnabled").addEventListener("change",updateAvailability);
   get("aiOperation").addEventListener("change",updateAvailability);
-  get("aiCustomTask").addEventListener("change",updateAvailability);
   get("aiTarget").addEventListener("change",updateAvailability);
   get("aiEngine").addEventListener("change",()=>{
     updateAvailability();

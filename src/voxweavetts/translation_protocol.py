@@ -86,6 +86,16 @@ def _translation_question_lost(original: str, translated: str, target: str) -> b
     return cue is not None and not cue.search(translated)
 
 
+def validate_target_language(translated: str, target: str) -> None:
+    # Avoid mistakenly reading Bengali/Hindi/Chinese when Thai was selected.
+    # Cannot distinguish languages sharing Latin or Han scripts; separate
+    # semantic checks or more capable models are needed for those.
+    expected = _TARGET_SCRIPTS.get(target)
+    if (expected is not None and not expected.search(translated)
+            and _LETTERS.search(translated)):
+        raise TranslationContractError("model output does not use the selected target language script")
+
+
 def validate_translation(original: str, translated: str, target: str,
                          *, bypass_content_checks: bool = False) -> str:
     if not isinstance(translated, str):
@@ -99,13 +109,7 @@ def validate_translation(original: str, translated: str, target: str,
         return translated
     if _language_label_loop(original, translated):
         raise TranslationContractError("model returned repeated language names, not a translation")
-    # Avoid mistakenly reading Bengali/Hindi/Chinese when Thai was selected.
-    # Cannot distinguish languages sharing Latin or Han scripts; separate
-    # semantic checks or more capable models are needed for those.
-    expected = _TARGET_SCRIPTS.get(target)
-    if (expected is not None and not expected.search(translated)
-            and _LETTERS.search(translated)):
-        raise TranslationContractError("model output does not use the selected target language script")
+    validate_target_language(translated, target)
     if _translation_question_lost(original, translated, target):
         raise TranslationContractError("model answered a question or lost question meaning")
     return translated
