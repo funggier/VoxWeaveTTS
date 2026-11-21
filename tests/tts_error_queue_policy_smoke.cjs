@@ -84,7 +84,7 @@ async function scenario(mode,first,continueOnError){
     assert.equal(api.receiveIncoming({message_id:"first",text:"first"},true),"queued");
     assert.equal(api.receiveIncoming({message_id:"second",text:"second"},true),"queued");
     for(let i=0;i<6;i++)await tick();
-    assert.equal(calls,first==="all"&&continueOnError?2:1);
+    assert.equal(calls,["all","generic"].includes(first)&&continueOnError?2:1);
     if(first==="partial"){
       assert.equal(playCount,1);
       assert.equal(states.get("first"),"reading");
@@ -123,22 +123,27 @@ async function scenario(mode,first,continueOnError){
         assert.equal(calls,2);
       }
     }else if(first==="generic"){
-      assert.equal(api.autoPaused,true,"other errors must not be silently skipped");
-      assert.equal(api.pendingAuto,2);
-      assert.equal(playCount,0);
-      assert.equal(states.get("first"),"queued");
+      assert.equal(api.autoPaused,!continueOnError);
+      assert.equal(api.pendingAuto,continueOnError?0:2);
+      assert.equal(playCount,continueOnError?1:0);
+      assert.equal(states.get("first"),continueOnError?"skipped":"queued");
+      if(continueOnError){
+        assert.equal(states.get("second"),"reading");
+        await finish();
+        assert.equal(states.get("second"),"read");
+        assert.equal(api.autoPaused,false);
+      }
     }
     return {mode,first,continueOnError,calls,playCount};
   }finally{global.fetch=oldFetch;}
 }
 (async()=>{
   for(const mode of modes){
-    for(const first of ["partial","all"]){
+    for(const first of ["partial","all","generic"]){
       for(const option of [false,true]){
         await scenario(mode,first,option);
       }
     }
   }
-  await scenario("live","generic",true);
-  console.log("PASS: 6 modes x 4 partial/all failure combinations, plus unrelated failure safety, FIFO resume and no duplicate playback");
+  console.log("PASS: six modes x 6 partial/all/generic TTS failure cases, auto-continue vs pause, FIFO and no duplicate playback");
 })().catch(e=>{console.error(e);process.exitCode=1;});

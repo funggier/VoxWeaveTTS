@@ -111,6 +111,24 @@ async function testFirefoxDenialAndResume(){
   }finally{t.cleanup();}
 }
 
+async function testFirefoxPermissionStillPausesWithErrorContinuationEnabled(){
+  const t=createHarness({denyFirstPlay:true});
+  try{
+    t.get("liveFeedContinueOnTtsError").checked=true;
+    t.api.receiveIncoming({message_id:"blocked",text:"เสียงที่หนึ่ง"},true);
+    t.api.receiveIncoming({message_id:"pending",text:"เสียงที่สอง"},true);
+    await tick();
+    assert.equal(t.api.autoPaused,true,
+      "Browser NotAllowedError requires a gesture; do not skip every LIVE chat");
+    assert.equal(t.states.get("blocked"),"queued");
+    assert.equal(t.api.pendingAuto,1);
+    assert.match(t.get("liveStatus").textContent,/NotAllowedError/);
+    await t.get("liveAutoRetry").fire("click");
+    assert.equal(t.api.autoPaused,false);
+    assert.equal(t.states.get("blocked"),"reading");
+  }finally{t.cleanup();}
+}
+
 async function testIncomingMessagesQueueWhileFirefoxAutoplayPaused(){
   const t=createHarness({denyFirstPlay:true});
   try{
@@ -333,6 +351,7 @@ async function testResetDoesNotInterruptTranslationOrSynthesis(){
   await testResetDoesNotInterruptCurrentlyPlaying();
   await testResetDoesNotInterruptTranslationOrSynthesis();
   await testFirefoxDenialAndResume();
+  await testFirefoxPermissionStillPausesWithErrorContinuationEnabled();
   await testIncomingMessagesQueueWhileFirefoxAutoplayPaused();
   await testSpeechJobFailureIsNotAutoplay();
   await testSchedulerCancelledPlayback();

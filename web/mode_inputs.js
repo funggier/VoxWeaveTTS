@@ -28,6 +28,27 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
                       discarded:null,pending:null,phase:""};
   let completedReads=0, importantNotice="";
   let manualSynthesizing=false;
+  let errorSkipped=0;
+  const continueOnError=()=>get("FeedContinueOnTtsError")?.checked===true;
+  function jobTimeoutMinutes(){
+    const n=Number(get("FeedSpeechTimeoutMinutes")?.value);
+    return Number.isInteger(n)&&n>=1&&n<=60?n:4;
+  }
+  const jobTimeoutMs=()=>jobTimeoutMinutes()*60000;
+  function timeoutError(kind){
+    const error=new Error(kind+"รอนานเกิน "+jobTimeoutMinutes()+" นาที");
+    error.code="speech_timeout";
+    return error;
+  }
+  function blockedAutoplay(error){
+    return ["NotAllowedError","SecurityError"].includes(String(error?.name||""));
+  }
+  function cancelSpeechJob(id){
+    if(!id)return;
+    fetch("/v1/jobs/"+id+"/cancel",{
+      method:"POST",headers:{"X-VoxWeaveTTS-Intent":"cancel-speech-job"}
+    }).catch(()=>{});
+  }
   // LIVE status is a snapshot, not the last log message. In particular,
   // connection, AI, TTS and audio playback cannot overwrite each other.
   function setSourceStatus(snapshot){
@@ -85,7 +106,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       " · กำลังสร้างเสียง "+count("rendering")+
       " · เสียงรอเล่น "+count("ready")+
       " · อ่านจบ "+completedReads+
-      " · สุ่มลบ "+randomRemoved,
+      " · สุ่มลบ "+randomRemoved+
+      " · ข้ามข้อผิดพลาด "+errorSkipped,
     ];
     if(importantNotice)lines.push("แจ้งเตือน: "+importantNotice);
     get("Status").textContent=lines.join("\n");
@@ -172,6 +194,33 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
     feedback("อ่านอัตโนมัติพักชั่วคราว · "+reason+
       " · กด 'อ่านอัตโนมัติต่อ' หลังแก้ไข");
+  }
+  function skipFailedJob(error,task){
+    // Only an explicitly enabled policy discards failed speech. A denied
+    // autoplay permission must pause: skipping would silently eat the LIVE
+    // backlog without producing any sound.
+    const reason=playbackFailure(error);
+    if(task)cancelPrefetched(task);
+    else cancelSpeechJob(jobId);
+    activePartialFailure=false;
+    lastReady=null;
+    jobId=null;
+    releaseAudio();
+    if(activeIncoming)mark(activeIncoming,"skipped");
+    onSpeechDiagnostic?.({
+      message_id:activeIncoming?.message_id??null,stage:"failed",
+      text:task?.composedText||String(get("Text").value||"").slice(0,9000),
+      error:reason,
+    });
+    errorSkipped++;
+    feedback("ข้ามข้อความที่ผิดพลาดแล้ว · "+reason+" · อ่านคิวถัดไป");
+    activeIncoming=null;
+    activePreparedTask=null;
+    autoBusy=false;
+    showPipeline();
+    fillPrefetched();
+    // Prevent synchronous stack growth on multiple failures in a row.
+    Promise.resolve().then(()=>pumpIncoming());
   }
   function readOptions(){
     const pick=key=>{
@@ -346,7 +395,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       // The server waits on its speech-job condition (up to 10s) and wakes
       // the browser via a network response. A hidden tab may throttle timers
       // to 60s or longer, so no setTimeout drives Live TTS progression.
-      const deadline=Date.now()+240000;
+      const deadline=Date.now()+jobTimeoutMs();
       while(Date.now()<deadline){
         if(my!==generation||!guard(mode))return;
         const r=await fetch("/v1/jobs/"+created.speech_id+"?wait=1",{
@@ -418,7 +467,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           throw Error("งานเสียง "+job.state+(job.error?" · "+String(job.error).slice(0,200):""));
         // No client-side timer: immediately request the next bounded wait.
       }
-      throw Error("งานเสียงยังไม่เสร็จใน 4 นาที กรุณาตรวจคิว");
+      throw timeoutError("งานเสียง");
     }catch(e){
       if(my===generation){
         diagnose("failed",playbackFailure(e));
@@ -485,13 +534,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }catch{/* Diagnostics are optional; do not stall audio or leak chat text. */}
   }
   function queueLimits(){
-    const limit=(id,fallback)=>{
+    const limit=(id,fallback,maximum)=>{
       const raw=Number(get(id)?.value);
-      return Number.isInteger(raw)&&raw>=1&&raw<=8?raw:fallback;
+      return Number.isInteger(raw)&&raw>=1&&raw<=maximum?raw:fallback;
     };
-    const prepared=limit("FeedPrepareQueueLimit",3);
-    const ready=limit("FeedReadyAudioQueueLimit",2);
-    return {prepared,ready:Math.min(ready,Math.max(1,10-prepared))};
+    return {prepared:limit("FeedPrepareQueueLimit",3,100),
+            ready:limit("FeedReadyAudioQueueLimit",2,20)};
   }
   function requestRender(task){
     if(task.cancelled||task.stage!=="prepared"||!task.jobId)return;
@@ -526,8 +574,13 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
   }
   async function followPrefetched(task){
-    const deadline=Date.now()+240000;
-    while(!task.cancelled&&Date.now()<deadline){
+    const limit=jobTimeoutMs();
+    let processingElapsed=0,lastTick=Date.now(),wasProcessing=true;
+    while(!task.cancelled){
+      const now=Date.now();
+      if(wasProcessing)processingElapsed+=Math.max(0,now-lastTick);
+      lastTick=now;
+      if(processingElapsed>=limit)throw timeoutError("งานเสียงล่วงหน้า");
       if(task.renderError)throw task.renderError;
       // Immediate snapshot, not ?wait=1: a staged job intentionally stays
       // prepared until the browser grants a free audio-render slot.
@@ -535,6 +588,9 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       if(!response.ok)throw Error("ไม่สามารถตรวจสถานะงานเสียงล่วงหน้า");
       const job=await response.json();
       if(task.cancelled)return null;
+      // An intentionally held "prepared" job waits for a WAV render slot.
+      // That wait must not be mistaken for a slow AI/TTS computation.
+      wasProcessing=job.state!=="prepared"||task.stage==="rendering";
       if(job.state==="prepared"){
         if(!task.inputs)await inspectPrefetched(task);
         if(task.cancelled)return null;
@@ -565,10 +621,14 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         return job;
       }
       // Bound polling and keep the JS event loop free for playback events.
-      await new Promise(resolve=>setTimeout(resolve,150));
+      // Large read-ahead queues must not hammer /v1/jobs every 150ms per
+      // item. The FIFO head remains responsive; speculative work polls slowly.
+      const interval=task===activePreparedTask?150:
+        Math.min(8000,1000+Math.ceil(prefetched.length/10)*500);
+      await new Promise(resolve=>setTimeout(resolve,interval));
     }
     if(task.cancelled)return null;
-    throw Error("งานเสียงล่วงหน้ารอนานเกิน 4 นาที");
+    return null;
   }
   function startPrefetched(item){
     const task={item,stage:"preparing",inputs:null,job:null,
@@ -583,7 +643,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       payload.hold_for_render=true;
       task.composedText=payload.text;
       let response,created;
-      const deadline=Date.now()+180000;
+      const deadline=Date.now()+jobTimeoutMs();
       while(!task.cancelled){
         response=await fetch("/v1/jobs",{
           method:"POST",
@@ -592,7 +652,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           body:JSON.stringify(payload),
         });
         if(response.status!==429)break;
-        if(Date.now()>=deadline)throw Error("คิวงานเสียงกลางเต็มเกิน 3 นาที");
+        if(Date.now()>=deadline)throw timeoutError("คิวงานเสียงกลาง");
         await new Promise(resolve=>setTimeout(resolve,600));
       }
       if(task.cancelled)return false;
@@ -699,6 +759,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         :await submit({autoPlay:true,messageId:next.message_id});
       if(ticket!==queueEpoch)return; // stop/mode switch cancelled this job
       if(played==="skipped" || played==="all_failed"){
+        if(played==="all_failed")errorSkipped++;
         mark(next,"skipped");
         activeIncoming=null;
         activePreparedTask=null;
@@ -708,14 +769,21 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         return;
       }
       if(!played){
-        // Playback was cancelled/not started; keep pending messages and WAV.
-        activePreparedTask=null;
-        showPipeline();
-        pauseAuto("ยังเริ่มเล่นเสียงไม่ได้ (คิวหรือ Browser ยกเลิกการเล่น)",
-          {replayReady:Boolean(lastReady&&wavUrl)});
+        const failure=new Error("ยังเริ่มเล่นเสียงไม่ได้ (คิวหรือ Browser ยกเลิกการเล่น)");
+        if(continueOnError())skipFailedJob(failure,task);
+        else{
+          // Preserve generated WAV and message when error skipping is off.
+          activePreparedTask=null;
+          showPipeline();
+          pauseAuto(failure.message,{replayReady:Boolean(lastReady&&wavUrl)});
+        }
       }
     }catch(error){
       if(ticket!==queueEpoch)return;
+      if(continueOnError()&&!blockedAutoplay(error)){
+        skipFailedJob(error,task);
+        return;
+      }
       activePreparedTask=null;
       showPipeline();
       pauseAuto(playbackFailure(error),
@@ -797,8 +865,11 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   });
   audio.addEventListener("error",()=>{
     if(!activeIncoming)return;
-    // A corrupt/unsupported WAV must be regenerated, not retried indefinitely.
-    pauseAuto("ไฟล์เสียงเล่นไม่ได้ใน Browser · ตรวจรูปแบบ WAV แล้วลองอ่านต่อ");
+    // A corrupt/unsupported WAV cannot be replayed. Skip when requested;
+    // otherwise pause so users can investigate without losing the message.
+    const error=new Error("ไฟล์เสียงเล่นไม่ได้ใน Browser · ตรวจรูปแบบ WAV");
+    if(continueOnError())skipFailedJob(error,activePreparedTask);
+    else pauseAuto(error.message+" แล้วลองอ่านต่อ");
   });
   for(const suffix of ["FeedRandomEnable","FeedRandomThreshold","FeedRandomKeep"]){
     get(suffix)?.addEventListener("change",()=>{

@@ -21,9 +21,9 @@ from .manual_alignment import validate_manual_cues
 from .audio_alignment import AudioAlignmentProvider, PCMActivityProvider, BASIS as ACTIVITY_BASIS
 
 EVENT_SCHEMA_VERSION = 1
-MAX_JOBS = 12
+MAX_JOBS = 768  # six Live modes: up to 100 prepared + 20 WAV jobs each, plus active/other jobs
 MAX_AUDIO_BYTES = 16_000_000
-MAX_TOTAL_AUDIO_BYTES = 64_000_000
+MAX_TOTAL_AUDIO_BYTES = 512_000_000  # bounded global WAV cache, not per source
 JOB_TTL_SECONDS = 900
 _TERMINAL = frozenset({"ready", "failed", "cancelled", "skipped"})
 
@@ -119,7 +119,7 @@ class SpeechCoordinator:
     ) -> None:
         if not callable(renderer):
             raise TypeError("renderer must be callable")
-        if not 1 <= max_jobs <= 100 or max_total_audio_bytes < 1024 or ttl_seconds <= 0:
+        if not 1 <= max_jobs <= 1024 or max_total_audio_bytes < 1024 or ttl_seconds <= 0:
             raise ValueError("invalid coordinator limits")
         self._renderer = renderer
         self._alignment_provider = alignment_provider if alignment_provider is not None else PCMActivityProvider()

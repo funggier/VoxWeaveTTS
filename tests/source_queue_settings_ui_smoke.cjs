@@ -16,7 +16,7 @@ const root={
     read_history_limit:2,random_queue_enabled:true,
     random_queue_threshold:30,random_queue_keep:5,
     continue_on_tts_error:true,prepare_ahead:true,
-    prepare_queue_limit:3,ready_audio_queue_limit:2,
+    prepare_queue_limit:3,ready_audio_queue_limit:2,speech_job_timeout_minutes:7,
   }}])),
 };
 const sent=[];
@@ -58,7 +58,7 @@ const controllers={};
     for(const suffix of ["MaxChars","KeepRead","Save","SaveStatus",
                           "Auto","RandomEnable","RandomThreshold",
                           "RandomKeep","Blocked","ContinueOnTtsError","PrepareAhead",
-                           "PrepareQueueLimit","ReadyAudioQueueLimit"]){
+                           "PrepareQueueLimit","ReadyAudioQueueLimit","SpeechTimeoutMinutes"]){
       assert.ok(html.includes('id="'+prefix+"Feed"+suffix+'"'),"missing "+mode+"/"+suffix);
     }
     assert.match(html,new RegExp('id="'+prefix+'FeedMaxChars"[^>]*max="8000"'));
@@ -72,13 +72,18 @@ const controllers={};
   }
   await tick();await tick();
   for(const [mode,prefix] of modes){
+    assert.match(html,new RegExp('id="'+prefix+'FeedPrepareQueueLimit"[^>]*max="100"'));
+    assert.match(html,new RegExp('id="'+prefix+'FeedReadyAudioQueueLimit"[^>]*max="20"'));
     assert.equal(el(prefix+"FeedMaxChars").value,"8000","load "+mode);
     assert.equal(el(prefix+"FeedKeepRead").value,"2","load history "+mode);
     assert.equal(el(prefix+"FeedContinueOnTtsError").checked,true,"load error setting "+mode);
     assert.equal(el(prefix+"FeedPrepareAhead").checked,true,"load pipeline "+mode);
     assert.equal(el(prefix+"FeedPrepareQueueLimit").value,"3");
     assert.equal(el(prefix+"FeedReadyAudioQueueLimit").value,"2");
+    assert.equal(el(prefix+"FeedSpeechTimeoutMinutes").value,"7");
+    assert.match(html,new RegExp('id="'+prefix+'FeedSpeechTimeoutMinutes"[^>]*min="1" max="60"'));
     el(prefix+"FeedKeepRead").value="3";
+    el(prefix+"FeedSpeechTimeoutMinutes").value=mode==="discord"?"11":"9";
     if(mode==="youtube_browser"){
       el(prefix+"FeedPrepareQueueLimit").value="4";
       el(prefix+"FeedReadyAudioQueueLimit").value="5";
@@ -97,6 +102,15 @@ const controllers={};
     assert.equal(root.modes[mode].settings.ready_audio_queue_limit,
       mode==="youtube_browser"?5:2);
   }
+  for(const [mode] of modes)
+    assert.equal(root.modes[mode].settings.speech_job_timeout_minutes,
+                 mode==="discord"?11:9);
+  // Invalid timeout is rejected before any POST.
+  el("liveFeedSpeechTimeoutMinutes").value="61";
+  await el("liveFeedSave").events.click();
+  assert.equal(sent.length,6);
+  assert.match(el("liveFeedSaveStatus").textContent,/60/);
+  el("liveFeedSpeechTimeoutMinutes").value="9";
   // Reject beyond 8,000 *before* sending a POST; no secret inputs are serialized.
   const pref="live";
   el(pref+"FeedMaxChars").value="8001";
@@ -104,17 +118,28 @@ const controllers={};
   assert.equal(sent.length,6);
   assert.match(el(pref+"FeedSaveStatus").textContent,/8,000/);
   el(pref+"FeedMaxChars").value="8000";
-  el(pref+"FeedPrepareQueueLimit").value="8";
-  el(pref+"FeedReadyAudioQueueLimit").value="8";
+  // High-end machines: both independent maxima must save successfully.
+  el(pref+"FeedPrepareQueueLimit").value="100";
+  el(pref+"FeedReadyAudioQueueLimit").value="20";
   await el(pref+"FeedSave").events.click();
-  assert.equal(sent.length,6,"pipeline caps exceeding 10 must reject locally");
-  assert.match(el(pref+"FeedSaveStatus").textContent,/10/);
-  el(pref+"FeedPrepareQueueLimit").value="3";
-  el(pref+"FeedReadyAudioQueueLimit").value="2";
-  root.modes.live.revision=3; // simulated other tab save
+  assert.equal(sent.length,7,"100 text plans and 20 WAV slots are independent");
+  assert.equal(root.modes.live.settings.prepare_queue_limit,100);
+  assert.equal(root.modes.live.settings.ready_audio_queue_limit,20);
+  el(pref+"FeedPrepareQueueLimit").value="101";
   await el(pref+"FeedSave").events.click();
   assert.equal(sent.length,7);
+  assert.match(el(pref+"FeedSaveStatus").textContent,/100/);
+  el(pref+"FeedPrepareQueueLimit").value="100";
+  el(pref+"FeedReadyAudioQueueLimit").value="21";
+  await el(pref+"FeedSave").events.click();
+  assert.equal(sent.length,7);
+  assert.match(el(pref+"FeedSaveStatus").textContent,/20/);
+  el(pref+"FeedPrepareQueueLimit").value="3";
+  el(pref+"FeedReadyAudioQueueLimit").value="2";
+  root.modes.live.revision=4; // simulated other tab save
+  await el(pref+"FeedSave").events.click();
+  assert.equal(sent.length,8);
   assert.match(el(pref+"FeedSaveStatus").textContent,/อีกแท็บ/);
-  assert.equal(root.modes.live.revision,3);
+  assert.equal(root.modes.live.revision,4);
   console.log("PASS: 6 mode queue save buttons, independent load/save, 8,000 limit, no secrets, revision conflict");
 })().catch(e=>{console.error(e);process.exitCode=1;});

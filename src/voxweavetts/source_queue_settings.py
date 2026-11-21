@@ -30,6 +30,7 @@ DEFAULTS = {
     "prepare_ahead": False,  # opt-in parallel AI/TTS while previous WAV plays
     "prepare_queue_limit": 3,
     "ready_audio_queue_limit": 2,
+    "speech_job_timeout_minutes": 4,  # per-source, legacy default
 }
 _LOCK = threading.RLock()
 _MAX_FILE_SIZE = 96_000  # six modes may each contain 2,000 Thai filter chars
@@ -54,14 +55,13 @@ def validate_settings(raw: Any) -> dict[str, Any]:
         ("read_history_limit", 0, 100),
         ("random_queue_threshold", 2, 100000),
         ("random_queue_keep", 1, 99999),
-        ("prepare_queue_limit", 1, 8),
-        ("ready_audio_queue_limit", 1, 8),
+        ("prepare_queue_limit", 1, 100),
+        ("ready_audio_queue_limit", 1, 20),
+        ("speech_job_timeout_minutes", 1, 60),
     ):
         value = raw[key]
         if type(value) is not int or not low <= value <= high:
             raise InputError("invalid queue setting: " + key)
-    if raw["prepare_queue_limit"] + raw["ready_audio_queue_limit"] > 10:
-        raise InputError("pipeline limits together cannot exceed 10")
     if raw["random_queue_keep"] >= raw["random_queue_threshold"]:
         raise InputError("random queue keep must be lower than its threshold")
     return dict(raw)
@@ -95,7 +95,8 @@ def _read(path: Path) -> dict[str, Any]:
             # of these missing keys, while rejecting unexpected keys.
             stored = record["settings"]
             new_switches = {"continue_on_tts_error", "prepare_ahead",
-                            "prepare_queue_limit", "ready_audio_queue_limit"}
+                            "prepare_queue_limit", "ready_audio_queue_limit",
+                            "speech_job_timeout_minutes"}
             if (isinstance(stored, dict)
                 and set(DEFAULTS) - new_switches <= set(stored) <= set(DEFAULTS)):
                 record["settings"] = {**stored, **{key: DEFAULTS[key] for key in

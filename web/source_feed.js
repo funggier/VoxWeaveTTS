@@ -507,6 +507,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   // *translated* text: that field is populated only by private TTS inspection.
   function setPipelineQueues(snapshot){
     if(!Array.isArray(snapshot))return;
+    // Show only five previews to bound DOM while counting every admitted job.
+    // Up to 100 future text-only tasks can be held without DOM growth.
+    const totalPrepared=snapshot.filter(item=>item.stage!=="ready"&&item.stage!=="reading").length;
+    const totalReady=snapshot.filter(item=>item.stage==="ready").length;
     pipelineQueues=snapshot.slice(0,5).map(item=>({
       stage:String(item.stage||"").slice(0,20),
       author:String(item.author||"").slice(0,80),
@@ -551,8 +555,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       area.appendChild(li);
       if(produced)audio++;else pending++;
     }
-    get("FeedPreparedStatus").textContent="รอสร้างเสียง "+pending+" ข้อความ";
-    get("FeedReadyAudioStatus").textContent="มีเสียงพร้อมรออ่าน "+audio+" ข้อความ";
+    get("FeedPreparedStatus").textContent="รอสร้างเสียง "+totalPrepared+" ข้อความ"+
+      (totalPrepared>pending?" · แสดงตัวอย่างบางส่วน":"");
+    get("FeedReadyAudioStatus").textContent="มีเสียงพร้อมรออ่าน "+totalReady+" ข้อความ"+
+      (totalReady>audio?" · แสดงตัวอย่างบางส่วน":"");
   }
   function setMessageState(messageId,state){
     if(!Object.prototype.hasOwnProperty.call(STATE_LABELS,state))return;

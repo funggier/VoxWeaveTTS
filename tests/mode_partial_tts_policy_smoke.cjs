@@ -9,7 +9,7 @@ for(const prefix of ["live","youtubeBrowser","tiktokBrowser","tiktok",
                      "discord","discordClient"])
   assert.ok(html.includes('id="'+prefix+'FeedContinueOnTtsError"'),
             "new per-mode option "+prefix);
-assert.ok(html.includes("อ่านต่อเมื่อสร้างมีเสียงผิดพลาด"));
+assert.ok(html.includes("อ่านต่อเมื่อเกิดความผิดพลาด"));
 
 async function scenario({continued,firstFailure,attempts=["partial","ready"]}){
   const fields=new Map();

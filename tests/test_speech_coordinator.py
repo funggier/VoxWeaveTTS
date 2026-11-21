@@ -16,6 +16,7 @@ from voxweavetts.processing import process_text
 from voxweavetts.speech import engine_info, render_wav
 from voxweavetts.speech_coordinator import (
     JobMissing, JobNotReady, QueueFull, SpeechCoordinator,
+    MAX_JOBS, MAX_TOTAL_AUDIO_BYTES,
 )
 from voxweavetts.server import Handler
 
@@ -68,6 +69,33 @@ class CoordinatorTests(unittest.TestCase):
                              "generated_audio_samples_not_playback")
         finally:
             c.close()
+
+    def test_hundred_prepared_and_twenty_audio_jobs_are_bounded_and_fifo(self):
+        self.assertGreaterEqual(MAX_JOBS, 6 * (100 + 20))
+        self.assertGreaterEqual(MAX_TOTAL_AUDIO_BYTES, 20 * 16_000_000)
+        coordinator = SpeechCoordinator(fake_renderer)
+        try:
+            plan = process_text("สวัสดี", source="test")
+            jobs = [coordinator.submit(
+                plan, engine_id="fake-tts", voice_id="voice",
+                render_args={}, source_message_id=f"large-{i}",
+                hold_for_render=True,
+            ) for i in range(121)]
+            self.assertEqual(len({job["speech_id"] for job in jobs}),121)
+            self.assertTrue(all(job["state"]=="prepared" for job in jobs))
+            for job in jobs[:20]:
+                coordinator.start_render(job["speech_id"])
+            for job in jobs[:20]:
+                self.assertEqual(
+                    coordinator.wait(job["speech_id"],timeout=5)["state"],
+                    "ready",
+                )
+            self.assertTrue(all(
+                coordinator.get(job["speech_id"])["state"]=="prepared"
+                for job in jobs[20:]
+            ))
+        finally:
+            coordinator.close()
 
     def test_deferred_ai_preparation_is_nonblocking_and_keeps_job_id(self):
         entered, release = threading.Event(), threading.Event()

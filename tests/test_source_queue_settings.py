@@ -72,8 +72,12 @@ class SourceQueueSettingsTests(unittest.TestCase):
                 {**DEFAULTS,"auto_read":1},
                 {**DEFAULTS,"prepare_ahead":"yes"},
                 {**DEFAULTS,"prepare_queue_limit":0},
-                {**DEFAULTS,"ready_audio_queue_limit":9},
-                {**DEFAULTS,"prepare_queue_limit":8,"ready_audio_queue_limit":8},
+                {**DEFAULTS,"ready_audio_queue_limit":0},
+                {**DEFAULTS,"ready_audio_queue_limit":21},
+                {**DEFAULTS,"prepare_queue_limit":101},
+                {**DEFAULTS,"speech_job_timeout_minutes":0},
+                {**DEFAULTS,"speech_job_timeout_minutes":61},
+                {**DEFAULTS,"speech_job_timeout_minutes":True},
                 {**DEFAULTS,"source_id":"sensitive"},
             )
             for settings in invalid:
@@ -81,6 +85,18 @@ class SourceQueueSettingsTests(unittest.TestCase):
                     save_settings({"mode":"live","expected_revision":0,"settings":settings},
                                   path=path)
                 self.assertFalse(path.exists())
+
+    def test_high_capacity_per_mode_limits_are_independent(self):
+        high={**DEFAULTS,"prepare_queue_limit":100,
+              "ready_audio_queue_limit":20,
+              "speech_job_timeout_minutes":60}
+        self.assertEqual(validate_settings(high),high)
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"queue.json"
+            first=save_settings({"mode":"live","expected_revision":0,
+                                "settings":high},path=path)
+            self.assertEqual(first["modes"]["live"]["settings"],high)
+            self.assertEqual(first["modes"]["discord"]["settings"],DEFAULTS)
 
     def test_existing_saved_preferences_gain_disabled_switch_without_data_loss(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -96,6 +112,7 @@ class SourceQueueSettingsTests(unittest.TestCase):
             self.assertFalse(loaded["modes"]["live"]["settings"]["continue_on_tts_error"])
             self.assertEqual(loaded["modes"]["live"]["settings"]["max_chars"],8000)
             self.assertEqual(loaded["modes"]["live"]["revision"],3)
+            self.assertEqual(loaded["modes"]["live"]["settings"]["speech_job_timeout_minutes"],4)
             # No implicit mutation of private/old preferences until Save.
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")),document)
             settings={**loaded["modes"]["live"]["settings"],
@@ -127,6 +144,30 @@ class SourceQueueSettingsTests(unittest.TestCase):
                                  "settings":updated},path=path)
             self.assertTrue(saved["modes"]["live"]["settings"]["prepare_ahead"])
             self.assertFalse(saved["modes"]["discord"]["settings"]["prepare_ahead"])
+
+    def test_pre_upgrade_settings_migrate_timeout_without_overwriting_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"source-queues.json"
+            old={k:v for k,v in DEFAULTS.items() if k!="speech_job_timeout_minutes"}
+            old["continue_on_tts_error"]=True
+            old["prepare_ahead"]=True
+            old["prepare_queue_limit"]=4
+            old["ready_audio_queue_limit"]=3
+            document={"schema_version":1,"modes":{
+                mode:{"revision":5,"settings":dict(old)} for mode in SOURCE_MODES}}
+            path.write_text(json.dumps(document),encoding="utf-8")
+            loaded=load_settings(path=path)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")),document)
+            for entry in loaded["modes"].values():
+                self.assertEqual(entry["settings"]["speech_job_timeout_minutes"],4)
+                self.assertEqual(entry["settings"]["prepare_queue_limit"],4)
+                self.assertTrue(entry["settings"]["continue_on_tts_error"])
+            update={**loaded["modes"]["live"]["settings"],
+                    "speech_job_timeout_minutes":17}
+            saved=save_settings({"mode":"live","expected_revision":5,
+                                "settings":update},path=path)
+            self.assertEqual(saved["modes"]["live"]["settings"]["speech_job_timeout_minutes"],17)
+            self.assertEqual(saved["modes"]["discord"]["settings"]["speech_job_timeout_minutes"],4)
 
     def test_corrupted_settings_do_not_silently_reset(self):
         with tempfile.TemporaryDirectory() as tmp:
