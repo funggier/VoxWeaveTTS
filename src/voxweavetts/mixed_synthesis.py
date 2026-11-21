@@ -57,7 +57,7 @@ def render_mixed_language_wav(
     from .processing import InputError
     from .voice_controls import validate_controls
 
-    speech.validate_speech_request(plan, speed, voice_id, engine_id)
+    default_info = speech.validate_speech_request(plan, speed, voice_id, engine_id)
     seed = speech.validate_seed(seed)
     controls = validate_controls(voice_controls)
     if (not isinstance(language_voice_routes, dict)
@@ -66,12 +66,14 @@ def render_mixed_language_wav(
                    or not {"engine_id", "voice_id"} <= set(route)
                    for lang, route in language_voice_routes.items())):
         raise InputError("invalid mixed-language model routes")
-    default_info = speech.get_engine_info(engine_id)
     # The default may be unavailable while explicitly routed language models
     # are ready. Mark only the spans using an unavailable engine as failed.
 
     # Private instances per request: no model/voice state leaks between jobs.
     engines = {(engine_id, seed): engine} if engine is not None else {}
+    # Reuse descriptor checks inside this single speech job; rendering still
+    # validates each selected model before starting the external worker.
+    route_infos = {engine_id: default_info}
     groups: list[list[tuple[bytes, int] | int]] = []
     sample_rates: list[int] = []
     used: list[dict[str, str]] = []
@@ -98,7 +100,10 @@ def render_mixed_language_wav(
                 if not expected_chunks:
                     continue
                 try:
-                    info = speech.get_engine_info(selected_engine)
+                    info = route_infos.get(selected_engine)
+                    if info is None:
+                        info = speech.get_engine_info(selected_engine)
+                        route_infos[selected_engine] = info
                     if not (info.assets_ready and info.runtime_ready):
                         raise speech.EngineUnavailable(
                             "configured language TTS model is not installed or unavailable")
@@ -118,6 +123,7 @@ def render_mixed_language_wav(
                         chunk_plan, engine_id=selected_engine, voice_id=selected_voice,
                         speed=selected_speed, seed=selected_seed,
                         voice_controls=selected_controls, engine=engines[key],
+                        _known_info=info,
                     )
                     with wave.open(io.BytesIO(wav), "rb") as reader:
                         if reader.getnchannels() != 1 or reader.getsampwidth() != 2:

@@ -192,6 +192,7 @@ function attach(document, fetcher){
 
     save.addEventListener("click",async()=>{
       save.disabled=true;
+      ui.status.textContent="กำลังบันทึกการตั้งค่าเสียง...";
       try{
         const profile=readTuning(ui);
         routes[language]={...routes[language],...profile};
@@ -364,6 +365,7 @@ function attach(document, fetcher){
   });
   el("languageRouteSave").addEventListener("click",async()=>{
     const button=el("languageRouteSave");button.disabled=true;
+    status("กำลังบันทึกโมเดลและค่าเสียงตามภาษา...");
     try{
       // The global Save button also commits edits made in expanded voice panels.
       for(const [language,ui] of routeEditors)

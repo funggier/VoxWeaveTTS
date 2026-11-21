@@ -15,7 +15,7 @@ import re
 import unicodedata
 
 from .processing import InputError
-from .speech import get_engine_info, validate_speech_request, validate_seed, DEFAULT_SEED
+from .speech import validate_speech_request, validate_seed, DEFAULT_SEED
 from .voice_controls import validate_controls
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -90,10 +90,11 @@ def validate_voice_profile(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, dict) or not {"engine_id","voice_id","speed","voice_controls"} <= set(raw) or set(raw) - {"engine_id","voice_id","speed","voice_controls","seed"}:
         raise InputError("invalid workspace voice settings")
     engine_id = raw["engine_id"]
-    info = get_engine_info(engine_id)
     voice_id = raw["voice_id"]
     speed = raw["speed"]
-    validate_speech_request({"segments": []}, speed, voice_id, info.id)
+    # validate_speech_request also verifies the engine ID and voice. Avoid
+    # describing the same installed v4 provider twice on every mode save.
+    validate_speech_request({"segments": []}, speed, voice_id, engine_id)
     controls = validate_controls(raw["voice_controls"])
     return {
         "engine_id": engine_id, "voice_id": voice_id,

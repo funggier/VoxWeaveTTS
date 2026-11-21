@@ -109,6 +109,7 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   assert.ok(assigned.children[1].textContent.includes("fr"));
   assert.notEqual(ids.languageRouteLanguage.value,"fr");
   ids.languageRouteSave.click();
+  assert.match(ids.languageRouteStatus.textContent,/กำลังบันทึก/);
   await tick();
   assert.equal(sent.length,1);
   assert.equal(sent[0].routes.fr.voice_id,"ff_siwis");
@@ -130,7 +131,9 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   grid.children[4].children[2].value="2.00";
   grid.children[5].children[0].checked=false;
   grid.children[6].children[1].value="321";
-  details.children[3].click();await tick();
+  details.children[3].click();
+  assert.match(details.children[4].textContent,/กำลังบันทึก/);
+  await tick();
   assert.equal(sent.length,2,"per-language Save should persist immediately");
   assert.equal(sent[1].routes.fr.speed,1.35);
   assert.equal(sent[1].routes.fr.seed,321);

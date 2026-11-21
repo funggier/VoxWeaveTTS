@@ -113,6 +113,53 @@ class VoiceStudioTests(unittest.TestCase):
                 with self.assertRaises(InputError):
                     presets.save_preset({"name": invalid, "engine_id": PARADEE_ENGINE_ID})
 
+    def test_loading_many_presets_reuses_engine_metadata_per_request(self):
+        descriptor=get_engine_info(ENGINE_ID)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            presets, "PRESETS_DIR", Path(tmp)/"presets"
+        ), patch.object(presets, "PRESETS_FILE", Path(tmp)/"legacy.json"):
+            folder=presets.PRESETS_DIR
+            folder.mkdir()
+            for index in range(25):
+                (folder/f"manual-{index:02d}.json").write_text(
+                    json.dumps({"name":f"Preset {index}",
+                                "engine_id":ENGINE_ID,
+                                "voice_id":"paradee_thai"}),
+                    encoding="utf8")
+            with patch.object(presets,"get_engine_info",
+                              return_value=descriptor) as lookup:
+                result=presets.load_presets()
+                self.assertEqual(len(result),25)
+                self.assertEqual(lookup.call_count,1,
+                                 "preset count must not multiply model integrity checks")
+                presets.load_presets()
+                self.assertEqual(lookup.call_count,2,
+                                 "a new load must recheck installed engines")
+
+    def test_canonical_preset_override_and_missing_model_preserved(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            presets, "PRESETS_DIR", Path(tmp)/"presets"
+        ), patch.object(presets, "PRESETS_FILE", Path(tmp)/"legacy.json"):
+            folder=presets.PRESETS_DIR
+            folder.mkdir()
+            name="Same Preset"
+            canonical={"name":name,"engine_id":ENGINE_ID,
+                       "voice_id":"paradee_thai","speed":1.25}
+            manual={**canonical,"speed":2.00}
+            (folder/presets._filename(name)).write_text(
+                json.dumps(canonical),encoding="utf8")
+            (folder/"z-manual.json").write_text(
+                json.dumps(manual),encoding="utf8")
+            (folder/"lost-model.json").write_text(json.dumps({
+                "name":"Unavailable but visible",
+                "engine_id":"model-missing-v4-1_0_0",
+                "voice_id":"old_voice"
+            }),encoding="utf8")
+            loaded={item["name"]:item for item in presets.load_presets()}
+            self.assertEqual(loaded[name]["speed"],1.25,
+                             "canonical preset takes priority over a manual copy")
+            self.assertEqual(loaded["Unavailable but visible"]["voice_id"],"old_voice")
+
     def test_render_applies_dsp_to_speech_but_not_silence(self):
         plan = process_text(
             "ฮ่าคำต้องห้าม",

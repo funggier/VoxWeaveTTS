@@ -61,6 +61,24 @@ class SpeechTests(unittest.TestCase):
         with self.assertRaises(InputError):
             render_wav(process_text("x"*8001), engine=ConstantEngine())
 
+    def test_render_uses_one_descriptor_validation_for_all_metadata(self):
+        from unittest.mock import patch
+        from voxweavetts import speech
+        plan=process_text("สวัสดี คำทดสอบ")
+        with patch.object(speech,"get_engine_info",
+                          wraps=speech.get_engine_info) as lookup:
+            _wav,metadata=render_wav(plan,engine=ConstantEngine())
+        self.assertEqual(lookup.call_count,1,
+                         "render must not rediscover packages for voice count and seed")
+        self.assertEqual(metadata["voice_id"],"paradee_thai")
+
+    def test_default_engine_lookup_does_not_describe_every_installed_model(self):
+        from unittest.mock import patch
+        from voxweavetts import speech
+        with patch.object(speech,"list_engine_info",
+                          side_effect=AssertionError("whole registry enumeration")):
+            self.assertEqual(speech.get_engine_info(ENGINE_ID).id,ENGINE_ID)
+
     def test_eight_thousand_characters_synthesized_in_bounded_chunks(self):
         from voxweavetts.speech import MAX_SPEECH_CHARS, _chunks
         self.assertEqual(MAX_SPEECH_CHARS, 8000)

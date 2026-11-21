@@ -13,7 +13,7 @@ import re
 import tempfile
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .processing import InputError
 from .speech import DEFAULT_SEED, get_engine_info, validate_seed
@@ -30,7 +30,8 @@ MAX_PRESETS = 64
 MAX_FILE_BYTES = 16_384
 
 
-def validate_preset(raw: Any, *, allow_unavailable: bool = False) -> dict[str, Any]:
+def validate_preset(raw: Any, *, allow_unavailable: bool = False,
+                    _resolve_engine: Callable[[str], Any] | None = None) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise InputError("preset must be a JSON object")
     name = raw.get("name")
@@ -40,7 +41,7 @@ def validate_preset(raw: Any, *, allow_unavailable: bool = False) -> dict[str, A
     if not isinstance(engine_id, str) or not _ENGINE_ID.fullmatch(engine_id):
         raise InputError("invalid preset engine_id")
     try:
-        info = get_engine_info(engine_id)
+        info = (_resolve_engine or get_engine_info)(engine_id)
     except InputError:
         if not allow_unavailable:
             raise
@@ -74,6 +75,23 @@ def _filename(name: str) -> str:
 
 def _load_unlocked() -> list[dict[str, Any]]:
     found: dict[str, dict[str, Any]] = {}
+    # A preset refresh used to re-discover/hash the same installed V4 workers
+    # twice for every preset (up to 128 checks for 64 files). Cache only for
+    # this single load; the next request always rechecks installed packages.
+    engine_cache: dict[str, Any] = {}
+    missing = object()
+
+    def resolve_engine(engine_id: str) -> Any:
+        cached = engine_cache.get(engine_id, missing)
+        if cached is missing:
+            try:
+                cached = get_engine_info(engine_id)
+            except InputError:
+                cached = None
+            engine_cache[engine_id] = cached
+        if cached is None:
+            raise InputError("unknown engine_id")
+        return cached
     if PRESETS_FILE.is_file():
         if PRESETS_FILE.stat().st_size > 40_000:
             raise InputError("legacy voice preset file is too large")
@@ -84,7 +102,8 @@ def _load_unlocked() -> list[dict[str, Any]]:
         if not isinstance(parsed, list) or len(parsed) > MAX_PRESETS:
             raise InputError("invalid legacy voice presets")
         for item in parsed:
-            valid = validate_preset(item, allow_unavailable=True)
+            valid = validate_preset(item, allow_unavailable=True,
+                                    _resolve_engine=resolve_engine)
             found[valid["name"]] = valid
     if PRESETS_DIR.is_dir():
         files = [file for file in PRESETS_DIR.iterdir()
@@ -93,25 +112,26 @@ def _load_unlocked() -> list[dict[str, Any]]:
             raise InputError("too many voice preset JSON files")
         # Filenames can be user-defined. Canonical saved names always take
         # precedence over a manually dropped same-name JSON.
+        canonical: dict[str, dict[str, Any]] = {}
         for file in sorted(files, key=lambda file: file.name):
             if file.stat().st_size > MAX_FILE_BYTES:
                 continue
             try:
                 doc = json.loads(file.read_text(encoding="utf-8-sig"))
-                valid = validate_preset(doc, allow_unavailable=True)
+                valid = validate_preset(doc, allow_unavailable=True,
+                                        _resolve_engine=resolve_engine)
             except (OSError, ValueError, TypeError):
                 continue  # A broken user file must not hide every good preset.
             found[valid["name"]] = valid
-        for file in sorted(files, key=lambda file: file.name):
-            if file.stat().st_size > MAX_FILE_BYTES:
-                continue
-            try:
-                doc = json.loads(file.read_text(encoding="utf-8-sig"))
-                valid = validate_preset(doc)
-            except (OSError, ValueError, TypeError):
-                continue
             if file.name == _filename(valid["name"]):
-                found[valid["name"]] = valid
+                try:
+                    canonical[valid["name"]] = validate_preset(
+                        doc, _resolve_engine=resolve_engine)
+                except (OSError, ValueError, TypeError):
+                    pass
+        # Canonical files still take precedence over manually copied names;
+        # legacy and unavailable-model presets remain visible as before.
+        found.update(canonical)
     return [found[name] for name in sorted(found, key=str.casefold)]
 
 

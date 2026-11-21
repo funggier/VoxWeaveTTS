@@ -170,13 +170,16 @@ class SynthesisTests(unittest.TestCase):
             "th": {"engine_id": "thai", "voice_id": "thai_voice", "speed": 1.2},
             "en": {"engine_id": "english", "voice_id": "en_voice", "speed": 0.9},
         }
-        with (patch("voxweavetts.speech.get_engine_info", side_effect=self.info),
+        with (patch("voxweavetts.speech.get_engine_info",
+                    side_effect=self.info) as discovery,
               patch("voxweavetts.speech.create_voice_engine",
                     side_effect=lambda key, seed: FakeEngine(
                         key, self.info(key).sample_rate, events))):
             wav, metadata = render_wav(
                 plan, engine_id="thai", voice_id="thai_voice",
                 speed=1, seed=100, language_voice_routes=routes)
+        self.assertEqual(discovery.call_count,2,
+                         "four language spans should validate two engine descriptors")
         self.assertEqual([(e[0], e[2], e[3]) for e in events], [
             ("thai", "ผมอยากทำ", 1.2),
             ("english", "Computer ", 0.9),

@@ -99,7 +99,12 @@ def list_engine_info() -> list[EngineInfo]:
 
 def get_engine_info(engine_id: str) -> EngineInfo:
     if engine_id == ENGINE_ID:
-        return next(info for info in list_engine_info() if info.id == ENGINE_ID)
+        # The default engine's missing-package placeholder does not require
+        # describing *every* installed model for every speech validation.
+        try:
+            return _worker_aware_info(engine_registry().get(engine_id))
+        except InputError:
+            return _missing_default_info()
     return _worker_aware_info(engine_registry().get(engine_id))
 
 
@@ -217,10 +222,15 @@ def _chunks(text: str, limit: int = 110) -> list[str]:
 
 
 def validate_speech_request(plan: dict[str, Any], speed: float, voice_id: str,
-                            engine_id: str = ENGINE_ID) -> None:
+                            engine_id: str = ENGINE_ID, *,
+                            _known_info: EngineInfo | None = None) -> EngineInfo:
     if type(speed) not in (int, float) or not math.isfinite(speed) or not 0.6 <= speed <= 5.0:
         raise InputError("speed must be a finite number from 0.6 to 5.0")
-    info = get_engine_info(engine_id)
+    # Internal mixed-language sub-spans reuse the validated descriptor for
+    # their single synthesis job. Never cache descriptors across jobs.
+    info = _known_info if _known_info is not None else get_engine_info(engine_id)
+    if not isinstance(info, EngineInfo) or info.id != engine_id:
+        raise InputError("invalid selected engine descriptor")
     if voice_id not in info.voice_ids:
         raise InputError(f"voice_id is not available in selected engine {engine_id}")
     segments = plan.get("segments")
@@ -228,6 +238,7 @@ def validate_speech_request(plan: dict[str, Any], speed: float, voice_id: str,
         raise InputError(f"speech plan must have at most {MAX_PLAN_SEGMENTS} segments")
     if sum(len(s["spoken_text"]) for s in segments) > MAX_SPEECH_CHARS:
         raise InputError(f"speech renderer accepts up to {MAX_SPEECH_CHARS} spoken characters")
+    return info
 
 
 def render_wav(
@@ -240,6 +251,7 @@ def render_wav(
     voice_controls: dict[str, Any] | None = None,
     engine: VoiceEngine | None = None,
     language_voice_routes: dict[str, dict[str, Any]] | None = None,
+    _known_info: EngineInfo | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Synthesize segments as a single WAV, retaining precise segment offsets.
 
@@ -254,13 +266,14 @@ def render_wav(
             language_voice_routes=language_voice_routes,
             engine=engine,
         )
-    validate_speech_request(plan, speed, voice_id, engine_id)
+    info = validate_speech_request(plan, speed, voice_id, engine_id,
+                                   _known_info=_known_info)
     seed = validate_seed(seed)
     controls = validate_controls(voice_controls)
     # A fresh model instance per speech job prevents its random state from
     # drifting between otherwise identical utterances.
     engine = engine if engine is not None else create_voice_engine(engine_id, seed=seed)
-    if len(get_engine_info(engine_id).voice_ids) > 1:
+    if len(info.voice_ids) > 1:
         select_voice = getattr(engine, "select_voice", None)
         if not callable(select_voice):
             raise SpeechFailure("multi-voice adapter must implement select_voice")
@@ -331,7 +344,7 @@ def render_wav(
     return audio_buffer.getvalue(), {
         "engine_id": engine.id,
         "voice_id": voice_id,
-        "seed": seed if get_engine_info(engine_id).capabilities.get("seed_control") else None,
+        "seed": seed if info.capabilities.get("seed_control") else None,
         "voice_controls": controls,
         "sample_rate": rate,
         "duration_ms": round(frames * 1000 / rate),

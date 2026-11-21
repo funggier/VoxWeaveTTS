@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from voxweavetts.engine_contract import EngineInfo
-from voxweavetts.language_routes import voice_languages, save_routes
+from voxweavetts.language_routes import voice_languages, save_routes, _RouteEngineInfo
 from voxweavetts.processing import InputError
 
 
@@ -21,7 +21,13 @@ class V4MultilingualVoiceTests(unittest.TestCase):
             voice_options=tuple((v,v) for v in voice_map),
             voice_language_map=voice_map,
             assets_ready=True,runtime_ready=True,capabilities={"speech":True})
-        with patch("voxweavetts.speech.get_engine_info",return_value=info):
+        with (patch("voxweavetts.speech.get_engine_info",return_value=info),
+              patch("voxweavetts.language_routes._installed_route_engines",
+                    return_value={info.id:_RouteEngineInfo(
+                        voice_ids=info.voice_ids,
+                        voice_language_map=info.voice_language_map,
+                        supported_languages=info.supported_languages,
+                        language=info.language)})):
             for voice,lang in voice_map.items():
                 self.assertEqual(voice_languages(info.id,voice),{lang})
             with tempfile.TemporaryDirectory() as tmp:

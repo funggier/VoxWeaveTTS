@@ -13,6 +13,7 @@ import tempfile
 import threading
 import unicodedata
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
 from .processing import InputError
@@ -86,9 +87,8 @@ def load_routes(path: Path = PATH) -> dict[str, Any]:
         return {"revision": value["revision"], "routes": value["routes"]}
 
 
-def voice_languages(engine_id: str, voice_id: str) -> set[str]:
-    from .speech import get_engine_info
-    info = get_engine_info(engine_id)
+def _languages_for_voice(info: Any, voice_id: str) -> set[str]:
+    """Use one validated engine descriptor for multiple language assignments."""
     if voice_id not in info.voice_ids:
         raise InputError("unknown voice ID in language route")
     if info.voice_language_map:
@@ -103,6 +103,52 @@ def voice_languages(engine_id: str, voice_id: str) -> set[str]:
     return {info.language}
 
 
+def voice_languages(engine_id: str, voice_id: str) -> set[str]:
+    from .speech import get_engine_info
+    return _languages_for_voice(get_engine_info(engine_id), voice_id)
+
+
+@dataclass(frozen=True)
+class _RouteEngineInfo:
+    """Only the validated v4 manifest fields needed for language routing."""
+    voice_ids: tuple[str, ...]
+    voice_language_map: dict[str, str]
+    supported_languages: tuple[str, ...]
+    language: str
+
+
+def _installed_route_engines() -> dict[str, _RouteEngineInfo]:
+    """Check installed package integrity once, without querying worker readiness.
+
+    A route save never starts model workers and need not enumerate the live
+    registry or hash the same files for each assigned language. Installed v4
+    manifests are validated by installed_packages(), including worker-code
+    SHA-256. No cache survives this operation or an install/uninstall.
+    """
+    from .speech import ENGINE_ID
+    from .universal_model_v4 import installed_packages, engine_id
+    descriptors = {}
+    for manifest, _folder in installed_packages():
+        if manifest["package"]["kind"] != "tts":
+            continue
+        engine = manifest["engine"]
+        descriptors[engine_id(manifest)] = _RouteEngineInfo(
+            voice_ids=tuple(voice["id"] for voice in engine["voices"]),
+            voice_language_map=dict(engine.get("voice_language_map", {})),
+            supported_languages=tuple(manifest["package"]["languages"]),
+            language=engine["language"],
+        )
+    if ENGINE_ID not in descriptors:
+        # Preserve the historic uninstalled MakHam placeholder contract:
+        # saved language preferences remain editable before installing a
+        # user-selected v4 voice package.
+        descriptors[ENGINE_ID] = _RouteEngineInfo(
+            voice_ids=("paradee_thai",), voice_language_map={},
+            supported_languages=("th", "en"), language="th",
+        )
+    return descriptors
+
+
 def save_routes(request: Any, path: Path = PATH) -> dict[str, Any]:
     if (not isinstance(request, dict)
             or set(request) != {"expected_revision", "routes"}
@@ -111,12 +157,18 @@ def save_routes(request: Any, path: Path = PATH) -> dict[str, Any]:
             or not isinstance(request["routes"], dict)
             or not set(request["routes"]) <= set(LANGUAGES)):
         raise InputError("invalid language routing update")
-    validated = {}
-    for language, route in request["routes"].items():
-        profile = _validate_route_shape(route)
-        if language not in voice_languages(profile["engine_id"], profile["voice_id"]):
-            raise InputError("selected model/voice cannot speak this language")
-        validated[language] = profile
+    # Validate installed, hash-checked V4 manifest metadata ONCE for the
+    # entire route update. Re-describing runtime readiness per language used
+    # to re-scan all installed model files repeatedly, stalling the UI.
+    validated = {language: _validate_route_shape(route)
+                 for language, route in request["routes"].items()}
+    if validated:
+        descriptors = _installed_route_engines()
+        for language, profile in validated.items():
+            info = descriptors.get(profile["engine_id"])
+            if info is None or language not in _languages_for_voice(
+                    info, profile["voice_id"]):
+                raise InputError("selected model/voice cannot speak this language")
     with _LOCK:
         current = load_routes(path)
         if current["revision"] != request["expected_revision"]:
