@@ -1,8 +1,10 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio v0.12.4 — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.5 — Universal .vwmodel v4 เท่านั้น**
 
-**แก้ความช้าในการบันทึกโมเดลเสียงตามภาษา (ซอร์สบน main หลัง Release v0.12.4):** เดิมปุ่มบันทึกตรวจสอบแพ็กเกจ V4 ซ้ำหลายรอบต่อภาษา แม้ใช้โมเดลเดียวกัน ทำให้เวลาบันทึกเพิ่มตามจำนวนภาษาและจำนวนโมเดลที่ติดตั้ง ตอนนี้เปลี่ยนเป็นตรวจ Manifest ที่ติดตั้งและไฟล์ Worker ด้วยเงื่อนไขความปลอดภัยเดิม **เพียงหนึ่งรอบต่อการบันทึก** ไม่ต้องเริ่มหรือสั่งสถานะ Worker เพียงเพื่อบันทึกโปรไฟล์ ยังคงตรวจใหม่ทุกครั้งที่บันทึก จึงรองรับการติดตั้ง/ถอนโมเดลโดยไม่เก็บแคชสิทธิ์ข้ามคำสั่ง; การบันทึกยังเป็นแบบ revision และเขียนไฟล์อะตอมิกตามเดิม สำหรับเมนู Voice Preset เพิ่มแคชข้อมูล Engine **เฉพาะภายในคำขอโหลดหนึ่งครั้ง** และอ่านไฟล์ JSON แต่ละไฟล์หนึ่งรอบ ลดการสแกนโมเดลที่ซ้ำกัน นอกจากนี้ระหว่างบันทึกหน้า UI จะแสดงข้อความ “กำลังบันทึก…” ทันที และการสร้างเสียงแบบแยกหลายภาษาใช้ Descriptor ซ้ำในงานเสียงเดียวแทนการตรวจใหม่ทุกช่วงภาษา (ความพร้อมของ Worker ยังตรวจตอนสร้างเสียงตามปกติ) ผล Benchmark ภายในบนเครื่องพัฒนา: บันทึก 2 ภาษา จาก 20 ครั้ง/ประมาณ 105 ms เหลือ 1 ครั้ง/ประมาณ 4 ms; ตัวเลขขึ้นกับจำนวนแพ็กเกจและสภาพแวดล้อม
+**กฎการอ่านส่วนกลาง (v0.12.5)** แก้ไข นำเข้า และดาวน์โหลด JSON แยกช่วงก่อนและหลัง AI ได้ ปุ่มบันทึกในโปรแกรมเขียนทั้งสองช่วงลงไฟล์เดิม
+
+**แก้ความช้าในการบันทึกโมเดลเสียงตามภาษา (รวมใน v0.12.5):** เดิมปุ่มบันทึกตรวจสอบแพ็กเกจ V4 ซ้ำหลายรอบต่อภาษา แม้ใช้โมเดลเดียวกัน ทำให้เวลาบันทึกเพิ่มตามจำนวนภาษาและจำนวนโมเดลที่ติดตั้ง ตอนนี้เปลี่ยนเป็นตรวจ Manifest ที่ติดตั้งและไฟล์ Worker ด้วยเงื่อนไขความปลอดภัยเดิม **เพียงหนึ่งรอบต่อการบันทึก** ไม่ต้องเริ่มหรือสั่งสถานะ Worker เพียงเพื่อบันทึกโปรไฟล์ ยังคงตรวจใหม่ทุกครั้งที่บันทึก จึงรองรับการติดตั้ง/ถอนโมเดลโดยไม่เก็บแคชสิทธิ์ข้ามคำสั่ง; การบันทึกยังเป็นแบบ revision และเขียนไฟล์อะตอมิกตามเดิม สำหรับเมนู Voice Preset เพิ่มแคชข้อมูล Engine **เฉพาะภายในคำขอโหลดหนึ่งครั้ง** และอ่านไฟล์ JSON แต่ละไฟล์หนึ่งรอบ ลดการสแกนโมเดลที่ซ้ำกัน นอกจากนี้ระหว่างบันทึกหน้า UI จะแสดงข้อความ “กำลังบันทึก…” ทันที และการสร้างเสียงแบบแยกหลายภาษาใช้ Descriptor ซ้ำในงานเสียงเดียวแทนการตรวจใหม่ทุกช่วงภาษา (ความพร้อมของ Worker ยังตรวจตอนสร้างเสียงตามปกติ) ผล Benchmark ภายในบนเครื่องพัฒนา: บันทึก 2 ภาษา จาก 20 ครั้ง/ประมาณ 105 ms เหลือ 1 ครั้ง/ประมาณ 4 ms; ตัวเลขขึ้นกับจำนวนแพ็กเกจและสภาพแวดล้อม
 
 **แถบสถานะด้านล่างของโหมด Live (รวมใน v0.12.4):** แสดงสถานะการเชื่อมต่อและจำนวนที่รับ/กรอง/รอรับจากต้นทาง แยกจากสถานะของระบบอ่านเสียง (กำลังแปล/แยก, เตรียมข้อความแล้ว, กำลังสร้าง WAV, เสียงรอเล่น, กำลังอ่าน, อ่านจบ, พักคิวหรือหยุด) พร้อมจำนวนคิวแชทดิบและจำนวนที่สุ่มลบ · แจ้งข้อผิดพลาดสำคัญแยกแถวเพื่อไม่ให้ข้อมูลใหม่เขียนทับคำเตือน ข้อความสั้น **“กำลังรับข้อความ”** ที่ช่องเชื่อมต่อยังคงอยู่ ไม่ซ้ำในแถบสถานะล่าง
 
@@ -14,7 +16,7 @@
 
 **Live Pipeline ใน v0.12.3 (เกณฑ์เก่า; รุ่น v0.12.4 ขยายตามด้านบนแล้ว):** เพิ่มสวิตช์ **เตรียมและสร้างเสียงล่วงหน้า** แยกทั้ง 6 โหมด Live โดยกำหนดเพดาน **คิวเตรียม/แปลล่วงหน้า (1–8; เริ่มต้น 3)** และ **คิวเสียงรอเล่น (1–8; เริ่มต้น 2)** ผลรวมไม่เกิน 10 คิว ไม่รวมเสียงที่กำลังเล่นและคิวแชทดิบที่มีระบบสุ่มลดของเดิม เมื่อเปิดระบบจะเตรียมข้อความและสร้างเสียงถัดไปขณะเสียงก่อนเล่นอยู่ แต่ยังเล่นตามลำดับเดิม เมื่อปิดจะกลับไปทำงานแบบเดิม การตั้งค่าแยกแต่ละโหมดและบันทึกได้ ดู [คู่มือและ Release Notes v0.12.3](docs/RELEASE_NOTES_v0.12.3_TH.md)
 
-**Public Release [v0.12.4](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.4) เป็น Core Portable แบบครบชุด (ไม่รวมโมเดล):** แก้ปัญหา [Kokoro และ Wayu ที่ติดตั้งไม่ได้ใน v0.12.1](docs/RELEASE_NOTES_v0.12.2_TH.md) โดยรองรับไฟล์ต้นฉบับ GPL/LGPL ที่แนบอยู่ในแพ็กเกจ V4 ดาวน์โหลด [โมเดล V4 อีก 7 ตัวแยกได้จาก Model Packs Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) โดยคง License เดิมของผู้เผยแพร่ไว้ ส่วน Vachana เก็บเฉพาะในเครื่องและไม่เผยแพร่
+**Public Release [v0.12.5](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.5) เป็น Core Portable แบบครบชุด (ไม่รวมโมเดล):** แก้ปัญหา [Kokoro และ Wayu ที่ติดตั้งไม่ได้ใน v0.12.1](docs/RELEASE_NOTES_v0.12.2_TH.md) โดยรองรับไฟล์ต้นฉบับ GPL/LGPL ที่แนบอยู่ในแพ็กเกจ V4 ดาวน์โหลด [โมเดล V4 อีก 7 ตัวแยกได้จาก Model Packs Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) โดยคง License เดิมของผู้เผยแพร่ไว้ ส่วน Vachana เก็บเฉพาะในเครื่องและไม่เผยแพร่
 
 VoxWeaveTTS เป็นโปรแกรมอ่านข้อความภาษาไทยและหลายภาษาแบบออฟไลน์ มีระบบจัดคิวเสียง ควบคุมเสียง กรองข้อความ แปลภาษา และแสดง Subtitle/Overlay สำหรับ Live ได้ โดยระบบโมเดลแยกจากตัวโปรแกรมหลักอย่างอิสระ
 
@@ -59,9 +61,9 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 ใช้ PowerShell บน Windows และ Python Environment ของโปรเจกต์:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.4 -StageDirectory dist\release-v0.12.4\VoxWeaveTTS
-.\dist\release-v0.12.4\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.4\VoxWeaveTTS
-.\.venv\Scripts\python.exe -X utf8 scripts\verify_v4_core_release_model_compatibility.py --stage dist\release-v0.12.4\VoxWeaveTTS
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.5 -StageDirectory dist\release-v0.12.5\VoxWeaveTTS
+.\dist\release-v0.12.5\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.5\VoxWeaveTTS
+.\.venv\Scripts\python.exe -X utf8 scripts\verify_v4_core_release_model_compatibility.py --stage dist\release-v0.12.5\VoxWeaveTTS
 ```
 
 การสร้าง Public Core **ไม่ต้องมีแพ็กเกจโมเดลใด ๆ** และ Build จะปฏิเสธการรวมแพ็กเกจ QA ลงใน ZIP ส่วนการทดสอบภายในสามารถใช้ `-SkipZip -IncludeUnreleasedQaMakHam` แยกจาก Release ได้
@@ -90,6 +92,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -
 - [ผลเทียบโมเดล V2/V3/V4 และการคงสิทธิ์เดิม](docs/V4_MODEL_LICENSE_CONTINUITY_TH.md)
 - [สถานะ Model Pack v4 พร้อมสำเนา License/Notice ในแพ็กเกจ](docs/V4_MODEL_PACK_RIGHTS_QA_2026-11-20_TH.md)
 - [ผลประกอบ V4 พร้อม License ของสภาพแวดล้อม โดยคงสิทธิ์โมเดลเดิม](docs/V4_DEPENDENCY_NOTICE_QA_2026-11-20_TH.md)
+- [Release v0.12.5 แยกกฎก่อนและหลัง AI](docs/RELEASE_NOTES_v0.12.5_TH.md)
 - [Release v0.12.4 รวมอิโมจิและกฎข้อความซ้ำ](docs/RELEASE_NOTES_v0.12.4_TH.md)
 - [Live Pipeline รุ่น v0.12.3](docs/RELEASE_NOTES_v0.12.3_TH.md)
 - [หมายเหตุ Public Release v0.12.2 และการแก้ Kokoro / Wayu](docs/RELEASE_NOTES_v0.12.2_TH.md)

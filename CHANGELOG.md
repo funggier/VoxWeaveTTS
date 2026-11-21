@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.12.5
+
+- Split the shared Rules editor, JSON import, and export by AI stage while preserving the existing revision-guarded settings file.
+- Reduce repeated v4 package scans for language-route saves, preset loading, and multilingual speech jobs.
+- See [v0.12.5 release notes](docs/RELEASE_NOTES_v0.12.5_TH.md).
+
 ## v0.12.1 — Windows Desktop SAPI real speech as an optional Universal v4 package
 
 - Keep the Windows Portable Core-only, v4-only, with no ML weights or model-specific dependency wheels bundled.
