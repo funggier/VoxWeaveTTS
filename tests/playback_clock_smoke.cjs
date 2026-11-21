@@ -88,5 +88,26 @@ async function main(){
   assert.equal(sent.at(-1).session_id,'b'.repeat(32));
   assert.deepEqual(sent.map(e=>e.sequence).slice(0,6),[1,2,3,4,5,6]);
   console.log('PASS: play/currentTime, silence cue, seek, pause/resume, ended, stop and monotonic report sequence');
+  // A browser on a LAN HTTP origin exposes getRandomValues without randomUUID.
+  let fills=0;
+  sandbox.window.crypto={
+    getRandomValues(bytes){
+      assert.equal(bytes.length,16);
+      return bytes.fill(fills++===0?0:255);
+    },
+  };
+  const lanEvents=[];
+  const lanClock=library.attach(media,payload=>{lanEvents.push(payload);});
+  const firstSession=lanClock.setSpeech('a'.repeat(32),timeline);
+  assert.equal(firstSession,'00000000000040008000000000000000');
+  await media.play();
+  media.end();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(lanEvents.map(event=>event.event),['start','ended']);
+  assert.ok(lanEvents.every(event=>event.session_id===firstSession));
+  assert.equal(lanClock.setSpeech('a'.repeat(32),timeline),'ffffffffffff4fffbfffffffffffffff');
+  lanClock.clear();
+  assert.equal(fills,2);
+  console.log('PASS: session generation and playback events on HTTP origins without randomUUID');
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});

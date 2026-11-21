@@ -11,9 +11,17 @@
     return cue && cue.kind === "speech" ? cue.display_text : "";
   }
 
+  function newPlaybackSessionId() {
+    // LAN HTTP pages have secure randomness, even without Crypto.randomUUID.
+    const bytes = root.crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  }
+
   function attach(media, reporter, onUpdate, makeSession) {
     if (!media || typeof reporter !== "function") throw new Error("media and reporter required");
-    const generateId = makeSession || (() => root.crypto.randomUUID().replace(/-/g, ""));
+    const generateId = makeSession || newPlaybackSessionId;
     let active = null;
     let reportedStart = false;
     let sequence = 0;
