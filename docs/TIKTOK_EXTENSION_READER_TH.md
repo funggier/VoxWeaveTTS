@@ -1,6 +1,6 @@
-# TikTok LIVE (Extension) — คู่มือ Source Project v0.2.5
+# TikTok LIVE (Extension) — คู่มือ Source Project v0.2.6
 
-**หมายเหตุ:** รองรับการอ่านอีโมจิ TikTok แล้วใน Portable v0.5.2 พร้อม Extension v0.2.5; Portable v0.5.1 รุ่นก่อนหน้าไม่มีฟีเจอร์นี้
+**หมายเหตุ:** ใน Portable v0.12.4 และ Extension v0.2.6 รองรับอิโมจิ Unicode และชื่อพิเศษ TikTok ในวงเล็บเหลี่ยม เช่น [smile] / [laughwithtears] โดยตั้งคำอ่านในพจนานุกรมแยกตามโหมดได้
 
 **โหมดนี้รับเฉพาะข้อความคอมเมนต์จาก TikTok LIVE เท่านั้น** ไม่รองรับการอ่านข้อความแจ้งเตือนของขวัญ (Gift), Follow, Share, Join หรือ Like และไม่มีตัวเลือกเปิดการอ่าน Gift อีกแล้ว
 
@@ -14,7 +14,7 @@
 
 ## ติดตั้งและเริ่มใช้งาน
 
-1. แตก `VoxWeaveTTS-v0.5.0-portable.zip` ให้ครบทั้งโฟลเดอร์ หรือแตก ZIP ส่วนเสริมแยก `VoxWeaveTTS-TikTok-Extension-v0.2.4.zip`
+1. แตก `VoxWeaveTTS-v0.12.4-portable.zip` ให้ครบทั้งโฟลเดอร์ หรือแตก ZIP ส่วนเสริมแยก `VoxWeaveTTS-TikTok-Extension-v0.2.6.zip`
 2. เปิด Chrome ไปที่ `chrome://extensions` เปิด Developer mode แล้วกด **Load unpacked**
 3. เลือกโฟลเดอร์ `extensions/tiktok-live-connector` (ต้องมีไฟล์ `manifest.json` อยู่ในโฟลเดอร์นั้น)
 4. เปิดแท็บ `https://www.tiktok.com/@username/live` ที่สามารถเห็นข้อความคอมเมนต์
@@ -33,9 +33,9 @@
 GGWP = เก่งมาก
 ```
 
-ค่าเริ่มต้นปิดไว้ เปลี่ยนคำอ่านเฉพาะข้อความที่จะส่งไปสร้างเสียง ไม่แก้คอมเมนต์ต้นฉบับที่รับมา และ **ไม่เปิดการอ่าน Gift** กลับมา รุ่น Extension v0.2.5 อ่านข้อความ `alt` ของรูปอีโมจิภายในคอมเมนต์เมื่อ TikTok แสดงรูปดังกล่าว โดยไม่ดึงป้ายระดับหรือยศเข้าเนื้อหาเสียง ดู [คู่มือการอ่านอีโมจิ](EMOJI_PRONUNCIATION_TH.md)
+ค่าเริ่มต้นปิดไว้ เปลี่ยนคำอ่านเฉพาะข้อความที่จะส่งไปสร้างเสียง ไม่แก้คอมเมนต์ต้นฉบับที่รับมา และ **ไม่เปิดการอ่าน Gift** กลับมา รุ่น Extension v0.2.6 อ่านข้อความ `alt` ของรูปอีโมจิภายในคอมเมนต์เมื่อ TikTok แสดงรูปดังกล่าว โดยไม่ดึงป้ายระดับหรือยศเข้าเนื้อหาเสียง ดู [คู่มือการอ่านอีโมจิ](EMOJI_PRONUNCIATION_TH.md)
 
-อัปเดต Source Project: รีสตาร์ต `Start-Dev.cmd` และรีเฟรช Web UI ส่วน Extension ให้กด Reload ใน `chrome://extensions` (ต้องแสดง v0.2.5), รีเฟรชแท็บ LIVE และจับคู่ใหม่
+อัปเดต Source Project: รีสตาร์ต `Start-Dev.cmd` และรีเฟรช Web UI ส่วน Extension ให้กด Reload ใน `chrome://extensions` (ต้องแสดง v0.2.6), รีเฟรชแท็บ LIVE และจับคู่ใหม่
 
 ## การตั้งค่าชื่อผู้ส่ง
 
