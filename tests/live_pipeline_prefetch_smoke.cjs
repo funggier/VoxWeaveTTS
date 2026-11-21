@@ -37,6 +37,24 @@ async function run(){
   const audio=el("liveAudio");
   const jobs=new Map();
   const prior=global.fetch;
+  const priorEventSource=global.EventSource;
+  const streams=[];
+  let statusReads=0;
+  global.EventSource=class {
+    constructor(url){
+      assert.equal(url,"/v1/jobs/staged/stream");
+      this.handlers={};this.readyState=1;
+      streams.push(this);
+    }
+    addEventListener(name,callback){this.handlers[name]=callback;}
+    close(){this.readyState=2;}
+    emit(id){
+      this.handlers.staged({data:JSON.stringify({jobs:[id],resync:false})});
+    }
+  };
+  const changed=id=>{
+    for(const stream of streams)if(stream.readyState===1)stream.emit(id);
+  };
   global.fetch=async(path,options={})=>{
     if(path==="/v1/jobs"&&options.method==="POST"){
       const body=JSON.parse(options.body);
@@ -57,6 +75,7 @@ async function run(){
       assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"start-staged-speech-render");
       renderOrder.push(id);
       jobs.get(id).renderStarted=true;
+      setImmediate(()=>changed(id));
       return {ok:true,async json(){return{speech_id:id,state:"queued"};}};
     }
     if(suffix==="/cancel"){
@@ -75,6 +94,7 @@ async function run(){
     }
     if(suffix==="?wait=1")return {ok:true,async json(){return{speech_id:id,state:"ready",audio:{duration_ms:250,segments:[]}};}};
     if(suffix==="")return {ok:true,async json(){
+      statusReads++;
       const state=jobs.get(id).renderStarted?"ready":id==="job1"&&!releaseFirst?"preparing":"prepared";
       if(state==="prepared")preparedFirst.add(id);
       return {speech_id:id,state,audio:state==="ready"?{duration_ms:250,segments:[]}:undefined};
@@ -112,7 +132,12 @@ async function run(){
     await waitFor(()=>preparedFirst.has("job2")&&preparedFirst.has("job3"),
       "later prepared messages return before the first translation");
     assert.deepEqual(renderOrder,[],"a prepared later message cannot enter TTS early");
+    const idleReads=statusReads;
+    await new Promise(r=>setTimeout(r,250));
+    assert.equal(statusReads,idleReads,"no timer polling while awaiting a staged-job change");
+    assert.equal(streams.length,1,"one connection for all staged jobs");
     releaseFirst=true;
+    streams[0].handlers.open(); // a reconnect catches up even if the state event was missed
     await waitFor(()=>played.length===1,"first WAV starts");
     assert.equal(renderOrder[0],"job1");
     const bottom=el("liveStatus").textContent;
@@ -156,6 +181,7 @@ async function run(){
     assert.deepEqual(played,["text1","text2","text3","text4","text5","text6"],
       "audio must always follow accepted chat order");
     assert.equal(ctrl.pendingAuto,0);
+    assert.ok(streams.every(stream=>stream.readyState===2),"idle job watchers release connections");
     assert.deepEqual(renderOrder.slice(0,3),["job1","job2","job3"],
       "the TTS API receives the contiguous prepared prefix in order");
     for(let i=1;i<=6;i++)assert.equal(states.get("item"+i),"read");
@@ -181,6 +207,6 @@ async function run(){
     assert.equal(played.at(-1),"text7");
     assert.equal(played.length,7);
     console.log("PASS: ahead ON/OFF, two staged jobs, private translated view, FIFO, reset, no duplicate WAV playback");
-  }finally{global.fetch=prior;}
+  }finally{global.fetch=prior;global.EventSource=priorEventSource;}
 }
 run().catch(err=>{console.error(err);process.exitCode=1;});

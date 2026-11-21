@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.12.10
+
+- Wake staged Live jobs through a shared server event stream so background browser timers do not drive the connected queue.
+- Generate playback session IDs on HTTP LAN and Tailnet pages.
+- Document network passwords and full Start-Console.cmd configuration examples.
+- See [v0.12.10 release notes](docs/RELEASE_NOTES_v0.12.10_TH.md).
+
 ## v0.12.9
 
 - Configure IPv4 and port in Windows Portable for Local, LAN, Tailnet, or all IPv4 interfaces. Save the listener settings and require a network access code for other devices.

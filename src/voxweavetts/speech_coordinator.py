@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from itertools import islice
 import threading
 import time
 from typing import Any, Callable
@@ -147,6 +148,8 @@ class SpeechCoordinator:
         self._translation_timer: threading.Timer | None = None
         self._dedupe: dict[tuple[str, str], str] = {}
         self._audio_bytes = 0
+        self._staged_revision = 0
+        self._staged_changes: deque[str] = deque(maxlen=1024)
         self._cv = threading.Condition(threading.RLock())
         self._closed = False
         self._thread = threading.Thread(
@@ -198,10 +201,35 @@ class SpeechCoordinator:
             "state": state,
             "timestamp": job.updated_at,
         })
+        if job.hold_for_render:
+            self._note_staged_change(job)
         self._cv.notify_all()
+
+    def _note_staged_change(self, job: _Job) -> None:
+        self._staged_revision += 1
+        self._staged_changes.append(job.id)
+
+    def staged_revision(self) -> int:
+        with self._cv:
+            return self._staged_revision
+
+    def watch_staged(self, revision: int, timeout: float) -> dict[str, Any] | None:
+        """Wake one client stream for changed staged jobs, without job content."""
+        with self._cv:
+            if not self._cv.wait_for(lambda: self._staged_revision != revision, timeout):
+                return None
+            count = self._staged_revision - revision
+            resync = not 0 < count <= len(self._staged_changes)
+            jobs = [] if resync else list(dict.fromkeys(
+                islice(reversed(self._staged_changes), count)
+            ))
+            return {"revision": self._staged_revision, "jobs": jobs, "resync": resync}
 
     def _drop(self, job: _Job) -> None:
         self._jobs.pop(job.id, None)
+        if job.hold_for_render:
+            self._note_staged_change(job)
+            self._cv.notify_all()
         if job.source_message_id:
             self._dedupe.pop((job.source, job.source_message_id), None)
         if job.audio is not None:

@@ -86,6 +86,7 @@ _PLAYBACK_STATE = PlaybackHub()
 _MODE_LOCK = threading.Lock()
 _SOURCE_LOCK = threading.Lock()
 _JOB_WAIT_LIMIT = threading.BoundedSemaphore(12)
+_STAGED_STREAM_LIMIT = threading.BoundedSemaphore(12)
 
 
 def _load_json(relative: str, default: Any) -> Any:
@@ -475,6 +476,41 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             state.unsubscribe()
 
+    def _stream_staged_jobs(self) -> None:
+        if not _STAGED_STREAM_LIMIT.acquire(blocking=False):
+            self.send_json(429, {"error": "too many staged job watchers"})
+            return
+        try:
+            coordinator = self._coordinator()
+            revision = coordinator.staged_revision()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-transform")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+            self.connection.settimeout(6.0)
+
+            # EventSource.open rechecks subscribed jobs, covering changes before
+            # registration and during reconnects without exporting job content.
+            self.wfile.write(b"retry: 500\n\n")
+            self.wfile.flush()
+            deadline = time.monotonic() + 25
+            while time.monotonic() < deadline:
+                update = coordinator.watch_staged(revision, timeout=5.0)
+                if update is None:
+                    self.wfile.write(b": keepalive\n\n")
+                else:
+                    revision = update["revision"]
+                    payload = json.dumps(update, separators=(",", ":"))
+                    self.wfile.write(("event: staged\ndata: " + payload + "\n\n").encode("ascii"))
+                self.wfile.flush()
+        except OSError:
+            pass
+        finally:
+            _STAGED_STREAM_LIMIT.release()
+
     def _stream_sources(self) -> None:
         """Push lightweight source wake-ups independently of hidden-tab timers.
 
@@ -703,6 +739,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, self._playback_state().snapshot(self._subtitle_mode()))
             elif route == "/v1/playback/stream":
                 self._stream_playback()
+            elif route == "/v1/jobs/staged/stream":
+                self._stream_staged_jobs()
             elif route == "/v1/jobs":
                 self.send_json(200, {"schema_version": EVENT_SCHEMA_VERSION,
                                      "jobs": self._coordinator().list()})

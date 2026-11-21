@@ -343,6 +343,32 @@ class CoordinatorAPITests(unittest.TestCase):
             finally:
                 release.set()
 
+    def test_stage_stream_wakes_for_staged_jobs_with_ids_only(self):
+        coordinator = self.server.speech_coordinator
+        with urlopen(self.base + "/v1/jobs/staged/stream", timeout=3) as events:
+            self.assertEqual(events.headers.get_content_type(), "text/event-stream")
+            self.assertEqual(events.readline().strip(), b"retry: 500")
+            self.assertEqual(events.readline(), b"\n")
+            job = coordinator.submit(
+                process_text("ข้อความลับสำหรับทดสอบ", source="test"),
+                engine_id="fake-tts", voice_id="voice", render_args={},
+                hold_for_render=True,
+            )
+            self.assertEqual(job["state"], "prepared")
+            self.assertEqual(events.readline().strip(), b"event: staged")
+            data = events.readline()
+            self.assertTrue(data.startswith(b"data: "))
+            update = json.loads(data[6:])
+            self.assertEqual(update["jobs"], [job["speech_id"]])
+            self.assertFalse(update["resync"])
+            self.assertEqual(set(update), {"revision", "jobs", "resync"})
+            self.assertEqual(events.readline(), b"\n")
+            coordinator.cancel(job["speech_id"])
+            self.assertEqual(events.readline().strip(), b"event: staged")
+            cancelled = json.loads(events.readline()[6:])
+            self.assertEqual(cancelled["jobs"], [job["speech_id"]])
+            self.assertGreater(cancelled["revision"], update["revision"])
+
     def test_wait_for_job_result_uses_server_condition_not_browser_timer(self):
         job_id="a"*32
         snapshot={"speech_id":job_id,"state":"ready","audio_ready":True}

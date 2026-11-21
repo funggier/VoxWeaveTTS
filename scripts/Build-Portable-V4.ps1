@@ -1,6 +1,6 @@
 # Universal v4-only self-contained Windows Portable. No v3 installer, assets or runtime.
 param(
-  [string]$Version='0.12.9',
+  [string]$Version='0.12.10',
   [switch]$SkipZip,
   [string]$StageDirectory='',
   [switch]$IncludeUnreleasedQaMakHam

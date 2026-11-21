@@ -4,6 +4,58 @@
  */
 (function(root){
 "use strict";
+// One connection per page for all Live modes. The stream carries job IDs
+// only; fetch the current snapshot on a change or after a reconnect.
+const stagedListeners=new Map();
+let stagedStream=null;
+function watchStagedJob(id){
+  if(typeof root.EventSource!=="function")return null;
+  if(!stagedStream){
+    try{
+      const stream=new root.EventSource("/v1/jobs/staged/stream");
+      const wakeAll=()=>{for(const listeners of stagedListeners.values())listeners.forEach(wake=>wake());};
+      stream.addEventListener("open",wakeAll);
+      stream.addEventListener("error",wakeAll);
+      stream.addEventListener("staged",event=>{
+        let message;
+        try{message=JSON.parse(event.data);}catch{return;}
+        if(stagedStream!==stream||!Array.isArray(message?.jobs))return;
+        if(message.resync)wakeAll();
+        else for(const id of message.jobs)stagedListeners.get(id)?.forEach(wake=>wake());
+      });
+      stagedStream=stream;
+    }catch{return null;}
+  }
+
+  let revision=0,finish=null;
+  const wake=()=>{revision++;finish?.();};
+  let listeners=stagedListeners.get(id);
+  if(!listeners){listeners=new Set();stagedListeners.set(id,listeners);}
+  listeners.add(wake);
+
+  return {
+    get revision(){return revision;},
+    get connected(){return stagedStream?.readyState===1;},
+    wake,
+    wait(after,millis){
+      if(revision!==after)return Promise.resolve();
+      return new Promise(resolve=>{
+        const timer=millis===undefined?null:setTimeout(()=>finish?.(),millis);
+        finish=()=>{
+          if(timer!==null)clearTimeout(timer);
+          finish=null;
+          resolve();
+        };
+      });
+    },
+    close(){
+      wake();
+      listeners.delete(wake);
+      if(!listeners.size)stagedListeners.delete(id);
+      if(!stagedListeners.size){stagedStream?.close();stagedStream=null;}
+    },
+  };
+}
 function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState,
                  onSpeechDiagnostic,onSpeechModelInputs,onPipelineState,
                  playAudio=async audio=>{await audio.play();return true;},cancelAudio=()=>{}}){
@@ -507,6 +559,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   }
   function cancelPrefetched(task){
     task.cancelled=true;
+    task.wakeStatus?.();
     if(task.jobId)fetch("/v1/jobs/"+task.jobId+"/cancel",{
       method:"POST",headers:{"X-VoxWeaveTTS-Intent":"cancel-speech-job"},
     }).catch(()=>{});
@@ -569,7 +622,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       if(!response.ok)throw Error("ไม่สามารถเริ่มสร้างเสียงจากคิวที่เตรียมไว้");
       return response.json();
     });
-    task.renderRequest=request.catch(error=>{task.renderError=error;});
+    task.renderRequest=request.catch(error=>{task.renderError=error;task.wakeStatus?.();});
+    task.wakeStatus?.();
     renderSubmissionTail=task.renderRequest;
   }
   function scheduleRenders(){
@@ -594,60 +648,71 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   async function followPrefetched(task){
     const limit=jobTimeoutMs();
     let processingElapsed=0,lastTick=Date.now(),wasProcessing=true;
-    while(!task.cancelled){
-      const now=Date.now();
-      if(wasProcessing)processingElapsed+=Math.max(0,now-lastTick);
-      lastTick=now;
-      if(processingElapsed>=limit)throw timeoutError("งานเสียงล่วงหน้า");
-      if(task.renderError)throw task.renderError;
-      // Immediate snapshot, not ?wait=1: a staged job intentionally stays
-      // prepared until the browser grants a free audio-render slot.
-      const response=await fetch("/v1/jobs/"+task.jobId,{cache:"no-store"});
-      if(!response.ok)throw Error("ไม่สามารถตรวจสถานะงานเสียงล่วงหน้า");
-      const job=await response.json();
-      if(task.cancelled)return null;
-      // An intentionally held "prepared" job waits for a WAV render slot.
-      // That wait must not be mistaken for a slow AI/TTS computation.
-      wasProcessing=job.state!=="prepared"||task.stage==="rendering";
-      if(job.state==="prepared"){
-        if(!task.inputs)await inspectPrefetched(task);
+    const watcher=watchStagedJob(task.jobId);
+    task.wakeStatus=watcher?.wake;
+    try{
+      while(!task.cancelled){
+        const observed=watcher?.revision;
+        const now=Date.now();
+        if(wasProcessing)processingElapsed+=Math.max(0,now-lastTick);
+        lastTick=now;
+        if(task.renderError)throw task.renderError;
+        // Immediate snapshot, not ?wait=1: a staged job intentionally stays
+        // prepared until the browser grants a free audio-render slot.
+        const response=await fetch("/v1/jobs/"+task.jobId,{cache:"no-store"});
+        if(!response.ok)throw Error("ไม่สามารถตรวจสถานะงานเสียงล่วงหน้า");
+        const job=await response.json();
         if(task.cancelled)return null;
-        if(task.stage!=="rendering"){
-          task.stage="prepared";
-          mark(task.item,"prepared");
+        // An intentionally held "prepared" job waits for a WAV render slot.
+        // That wait must not be mistaken for a slow AI/TTS computation.
+        if(job.state==="prepared"){
+          if(!task.inputs)await inspectPrefetched(task);
+          if(task.cancelled)return null;
+          if(task.stage!=="rendering"){
+            task.stage="prepared";
+            mark(task.item,"prepared");
+            showPipeline();
+            scheduleRenders();
+          }
+        }else if(job.state==="queued"||job.state==="rendering"){
+          if(!task.inputs)await inspectPrefetched(task);
+          if(task.cancelled)return null;
+          task.stage="rendering";
+          mark(task.item,"rendering");
+          showPipeline();
+        }else if(job.state==="ready"){
+          task.stage="ready";task.job=job;
+          await inspectPrefetched(task,true);
+          if(task.cancelled)return null;
+          mark(task.item,"ready");
+          showPipeline();
+          fillPrefetched();
+          scheduleRenders();
+          return job;
+        }else if(["skipped","failed","cancelled"].includes(job.state)){
+          task.stage=job.state;task.job=job;
           showPipeline();
           scheduleRenders();
+          return job;
         }
-      }else if(job.state==="queued"||job.state==="rendering"){
-        if(!task.inputs)await inspectPrefetched(task);
-        if(task.cancelled)return null;
-        task.stage="rendering";
-        mark(task.item,"rendering");
-        showPipeline();
-      }else if(job.state==="ready"){
-        task.stage="ready";task.job=job;
-        await inspectPrefetched(task,true);
-        if(task.cancelled)return null;
-        mark(task.item,"ready");
-        showPipeline();
-        fillPrefetched();
-        scheduleRenders();
-        return job;
-      }else if(["skipped","failed","cancelled"].includes(job.state)){
-        task.stage=job.state;task.job=job;
-        showPipeline();
-        scheduleRenders();
-        return job;
+        wasProcessing=job.state!=="prepared"||task.stage==="rendering";
+        if(wasProcessing&&processingElapsed>=limit)throw timeoutError("งานเสียงล่วงหน้า");
+        if(watcher?.connected){
+          // A timeout wakes the error path only. Job progress comes from the server.
+          await watcher.wait(observed,wasProcessing?limit-processingElapsed:undefined);
+        }else{
+          // Older servers and unavailable streams retain bounded status polling.
+          const interval=task===activePreparedTask||task===prefetched[0]?150:
+            Math.min(8000,1000+Math.ceil(prefetched.length/10)*500);
+          if(watcher)await watcher.wait(observed,interval);
+          else await new Promise(resolve=>setTimeout(resolve,interval));
+        }
       }
-      // Bound polling and keep the JS event loop free for playback events.
-      // Large read-ahead queues must not hammer /v1/jobs every 150ms per
-      // item. The FIFO head remains responsive; speculative work polls slowly.
-      const interval=task===activePreparedTask||task===prefetched[0]?150:
-        Math.min(8000,1000+Math.ceil(prefetched.length/10)*500);
-      await new Promise(resolve=>setTimeout(resolve,interval));
+      return null;
+    }finally{
+      delete task.wakeStatus;
+      watcher?.close();
     }
-    if(task.cancelled)return null;
-    return null;
   }
   function startPrefetched(item){
     const task={item,stage:"preparing",inputs:null,job:null,
@@ -761,6 +826,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     const ticket=queueEpoch;
     activeIncoming=next;
     activePreparedTask=task;
+    if(task?.stage==="prepared")requestRender(task);
     autoBusy=true; // remains true until the audio "ended" event
     mark(next,task?task.stage:"preparing");
     showPipeline();
