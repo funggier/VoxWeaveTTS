@@ -1,6 +1,6 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio v0.12.8 — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.9 — Universal .vwmodel v4 เท่านั้น**
 
 **แปลข้อความ Live เป็นชุดด้วย Ollama (v0.12.8)** ส่งหลายข้อความในพรอมป์เดียว ตั้งขนาดชุดและขั้นต่ำได้โดยใช้ค่าที่บันทึกไว้จากรุ่นก่อน โปรแกรมอ่านตามลำดับเดิม ดูผลทดสอบโมเดลตัวอย่างในบันทึกรีลีส
 
@@ -20,7 +20,7 @@
 
 **Live Pipeline ใน v0.12.3 (เกณฑ์เก่า; รุ่น v0.12.4 ขยายตามด้านบนแล้ว):** เพิ่มสวิตช์ **เตรียมและสร้างเสียงล่วงหน้า** แยกทั้ง 6 โหมด Live โดยกำหนดเพดาน **คิวเตรียม/แปลล่วงหน้า (1–8; เริ่มต้น 3)** และ **คิวเสียงรอเล่น (1–8; เริ่มต้น 2)** ผลรวมไม่เกิน 10 คิว ไม่รวมเสียงที่กำลังเล่นและคิวแชทดิบที่มีระบบสุ่มลดของเดิม เมื่อเปิดระบบจะเตรียมข้อความและสร้างเสียงถัดไปขณะเสียงก่อนเล่นอยู่ แต่ยังเล่นตามลำดับเดิม เมื่อปิดจะกลับไปทำงานแบบเดิม การตั้งค่าแยกแต่ละโหมดและบันทึกได้ ดู [คู่มือและ Release Notes v0.12.3](docs/RELEASE_NOTES_v0.12.3_TH.md)
 
-**Public Release [v0.12.8](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.8) เป็น Core Portable แบบครบชุด (ไม่รวมโมเดล):** แก้ปัญหา [Kokoro และ Wayu ที่ติดตั้งไม่ได้ใน v0.12.1](docs/RELEASE_NOTES_v0.12.2_TH.md) โดยรองรับไฟล์ต้นฉบับ GPL/LGPL ที่แนบอยู่ในแพ็กเกจ V4 ดาวน์โหลด [โมเดล V4 อีก 7 ตัวแยกได้จาก Model Packs Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) โดยคง License เดิมของผู้เผยแพร่ไว้ ส่วน Vachana เก็บเฉพาะในเครื่องและไม่เผยแพร่
+**Public Release [v0.12.9](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.9) เป็น Core Portable แบบครบชุด (ไม่รวมโมเดล):** รุ่น v0.12.2 แก้ปัญหา [Kokoro และ Wayu ที่ติดตั้งไม่ได้ใน v0.12.1](docs/RELEASE_NOTES_v0.12.2_TH.md) โดยรองรับไฟล์ต้นฉบับ GPL/LGPL ที่แนบอยู่ในแพ็กเกจ V4 ดาวน์โหลด [โมเดล V4 อีก 7 ตัวแยกได้จาก Model Packs Release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4) โดยคง License เดิมของผู้เผยแพร่ไว้ ส่วน Vachana เก็บเฉพาะในเครื่องและไม่เผยแพร่
 
 VoxWeaveTTS เป็นโปรแกรมอ่านข้อความภาษาไทยและหลายภาษาแบบออฟไลน์ มีระบบจัดคิวเสียง ควบคุมเสียง กรองข้อความ แปลภาษา และแสดง Subtitle/Overlay สำหรับ Live ได้ โดยระบบโมเดลแยกจากตัวโปรแกรมหลักอย่างอิสระ
 
@@ -67,9 +67,9 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 ใช้ PowerShell บน Windows และ Python Environment ของโปรเจกต์:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.8 -StageDirectory dist\release-v0.12.8\VoxWeaveTTS
-.\dist\release-v0.12.8\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.8\VoxWeaveTTS
-.\.venv\Scripts\python.exe -X utf8 scripts\verify_v4_core_release_model_compatibility.py --stage dist\release-v0.12.8\VoxWeaveTTS
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.9 -StageDirectory dist\release-v0.12.9\VoxWeaveTTS
+.\dist\release-v0.12.9\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.9\VoxWeaveTTS
+.\.venv\Scripts\python.exe -X utf8 scripts\verify_v4_core_release_model_compatibility.py --stage dist\release-v0.12.9\VoxWeaveTTS
 ```
 
 การสร้าง Public Core **ไม่ต้องมีแพ็กเกจโมเดลใด ๆ** และ Build จะปฏิเสธการรวมแพ็กเกจ QA ลงใน ZIP ส่วนการทดสอบภายในสามารถใช้ `-SkipZip -IncludeUnreleasedQaMakHam` แยกจาก Release ได้
@@ -98,6 +98,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -
 - [ผลเทียบโมเดล V2/V3/V4 และการคงสิทธิ์เดิม](docs/V4_MODEL_LICENSE_CONTINUITY_TH.md)
 - [สถานะ Model Pack v4 พร้อมสำเนา License/Notice ในแพ็กเกจ](docs/V4_MODEL_PACK_RIGHTS_QA_2026-11-20_TH.md)
 - [ผลประกอบ V4 พร้อม License ของสภาพแวดล้อม โดยคงสิทธิ์โมเดลเดิม](docs/V4_DEPENDENCY_NOTICE_QA_2026-11-20_TH.md)
+- [Release v0.12.9 ตั้งค่าเครือข่ายและแก้ Export JSON](docs/RELEASE_NOTES_v0.12.9_TH.md)
 - [Release v0.12.8 ส่งข้อความเป็นชุดพร้อมผลทดสอบโมเดล](docs/RELEASE_NOTES_v0.12.8_TH.md)
 - [Release v0.12.7 แปลข้อความ Live พร้อมกัน](docs/RELEASE_NOTES_v0.12.7_TH.md)
 - [Release v0.12.6 ติดตั้งโมเดลหลายไฟล์](docs/RELEASE_NOTES_v0.12.6_TH.md)

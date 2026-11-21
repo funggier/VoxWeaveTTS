@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.12.9
+
+- Configure IPv4 and port in Windows Portable for Local, LAN, Tailnet, or all IPv4 interfaces. Save the listener settings and require a network access code for other devices.
+- Add Start-Console.cmd examples for IPv4 and port overrides.
+- Fix JSON profile exports for random queues and browser modes. On LAN and Tailnet, send the file to the viewing browser.
+- See [v0.12.9 release notes](docs/RELEASE_NOTES_v0.12.9_TH.md).
+
 ## v0.12.8
 
 - Send multiple Live messages to Ollama as a single structured JSON prompt with per-message IDs and fallback.

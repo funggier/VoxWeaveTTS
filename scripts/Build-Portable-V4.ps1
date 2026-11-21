@@ -1,6 +1,6 @@
 # Universal v4-only self-contained Windows Portable. No v3 installer, assets or runtime.
 param(
-  [string]$Version='0.12.8',
+  [string]$Version='0.12.9',
   [switch]$SkipZip,
   [string]$StageDirectory='',
   [switch]$IncludeUnreleasedQaMakHam
@@ -160,6 +160,15 @@ exit /b %ERRORLEVEL%
 '@ | Set-Content -LiteralPath (Join-Path $stage 'Stop-Console.cmd') -Encoding Ascii
 @'
 @echo off
+rem Network examples: run one command below in Command Prompt.
+rem With no arguments, the script uses the saved data\network.json settings.
+rem --host and --port override those values for this launch only.
+rem Local:    Start-Console.cmd --host 127.0.0.1 --port 8775
+rem LAN:      Start-Console.cmd --host 192.168.1.20 --port 8775
+rem Tailnet:  Start-Console.cmd --host 100.84.6.5 --port 8775
+rem All IPv4: Start-Console.cmd --host 0.0.0.0 --port 8775
+rem For LAN and Tailnet, replace the example IP with this PC's adapter IP.
+rem Non-local modes use the saved access code or VOXWEAVETTS_NETWORK_PASSWORD.
 setlocal
 cd /d "%~dp0"
 set "PYTHONPATH=%CD%\src"
