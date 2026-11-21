@@ -80,6 +80,108 @@ class ProcessingTests(unittest.TestCase):
             "ฮ่า"
         )
 
+    def test_custom_character_repeat_thresholds_select_highest_and_whole_run(self):
+        rules = [
+            {"match": "w", "match_mode": "repeat_run", "min_repeats": 3,
+             "mode": "replace", "spoken": "ฮ่าฮ่าฮ่า"},
+            {"match": "w", "match_mode": "repeat_run", "min_repeats": 5,
+             "mode": "replace", "spoken": "ขำมากมากฮ่าฮ่า"},
+            {"match": "w", "match_mode": "repeat_run", "min_repeats": 7,
+             "mode": "replace", "spoken": "ขำไม่หยุดฮ่าฮ่าฮ่า"},
+        ]
+        for raw, expected in (
+            ("ww", "ww"),
+            ("www", "ฮ่าฮ่าฮ่า"),
+            ("wwww", "ฮ่าฮ่าฮ่า"),
+            ("wwwww", "ขำมากมากฮ่าฮ่า"),
+            ("wwwwww", "ขำมากมากฮ่าฮ่า"),
+            ("wwwwwww", "ขำไม่หยุดฮ่าฮ่าฮ่า"),
+            ("wwwwwwwww", "ขำไม่หยุดฮ่าฮ่าฮ่า"),
+            ("wowwww", "wowwww"),
+            ("www.example.com", "www.example.com"),
+            ("www wwww wwwww", "ฮ่าฮ่าฮ่า ฮ่าฮ่าฮ่า ขำมากมากฮ่าฮ่า"),
+        ):
+            with self.subTest(raw=raw):
+                result = process_text(raw, rules=rules)
+                self.assertEqual(result["spoken_text"], expected)
+                self.assertEqual(result["display_text"], raw)
+        selected = process_text("wwwwwwwww", rules=list(reversed(rules)))
+        self.assertEqual(selected["spoken_text"], "ขำไม่หยุดฮ่าฮ่าฮ่า")
+        self.assertEqual(len(selected["segments"]), 1)
+        self.assertEqual(selected["segments"][0]["source_end"], 9)
+
+    def test_fives_and_emoji_repeats_compatible_with_legacy_rules(self):
+        laugh = {"match": "555", "match_mode": "five_run", "spoken": "ฮ่า ฮ่า ฮ่า"}
+        custom = {"match": "5", "match_mode": "repeat_run", "min_repeats": 7,
+                  "spoken": "ขำไม่หยุด"}
+        rules = [laugh, custom]
+        self.assertEqual(process_text("55555", rules=rules)["spoken_text"], "ฮ่า ฮ่า ฮ่า")
+        self.assertEqual(process_text("555555555", rules=rules)["spoken_text"], "ขำไม่หยุด")
+        self.assertEqual(process_text("25555555", rules=rules)["spoken_text"], "25555555")
+        self.assertEqual(process_text("55555555.20", rules=rules)["spoken_text"], "55555555.20")
+        emoji = {"match": "😂", "match_mode": "repeat_run",
+                 "min_repeats": 3, "spoken": "ขำไม่หยุด"}
+        self.assertEqual(process_text("😂😂😂😂", rules=[emoji])["spoken_text"], "ขำไม่หยุด")
+
+    def test_whitespace_separated_repeated_phrase_collapse_and_thresholds(self):
+        base = {"match": "หน้าหัวเราะ", "match_mode": "phrase_run", "mode": "replace"}
+        rules = [
+            {**base, "min_repeats": 3},
+            {**base, "min_repeats": 5, "spoken": "ขำมาก"},
+            {**base, "min_repeats": 7, "spoken": "ขำไม่หยุด"},
+        ]
+        for n, expected in (
+            (2, "หน้าหัวเราะ หน้าหัวเราะ"),
+            (3, "หน้าหัวเราะ"),
+            (4, "หน้าหัวเราะ"),
+            (5, "ขำมาก"),
+            (6, "ขำมาก"),
+            (7, "ขำไม่หยุด"),
+            (9, "ขำไม่หยุด"),
+        ):
+            raw = " ".join(["หน้าหัวเราะ"] * n)
+            with self.subTest(count=n):
+                plan = process_text(raw, rules=list(reversed(rules)))
+                self.assertEqual(plan["spoken_text"], expected)
+                self.assertEqual(plan["display_text"], raw)
+                if n >= 3:
+                    self.assertEqual(plan["segments"][0]["source_end"], len(raw))
+        self.assertEqual(process_text("หน้าหัวเราะ\nหน้าหัวเราะ  หน้าหัวเราะ",
+            rules=[rules[0]])["spoken_text"], "หน้าหัวเราะ")
+        not_a_phrase = "หน้าหัวเราะ หน้าหัวเราะอีก หน้าหัวเราะ"
+        self.assertEqual(process_text(not_a_phrase, rules=[rules[0]])["spoken_text"], not_a_phrase)
+
+    def test_repeated_phrase_can_be_skipped_or_targeted_by_source(self):
+        rule = {"match": "หน้าหัวเราะ", "match_mode": "phrase_run",
+                "min_repeats": 3, "mode": "skip",
+                "sources": ["youtube-live"], "display": "[ไม่อ่าน]"}
+        raw = "สวัสดี หน้าหัวเราะ หน้าหัวเราะ หน้าหัวเราะ มาก"
+        self.assertEqual(process_text(raw, rules=[rule], source="youtube-live")["spoken_text"],
+                         "สวัสดี  มาก")
+        self.assertEqual(process_text(raw, rules=[rule], source="youtube-live")["display_text"],
+                         "สวัสดี [ไม่อ่าน] มาก")
+        self.assertEqual(process_text(raw, rules=[rule], source="discord")["spoken_text"], raw)
+        self.assertEqual(process_text(raw, rules=[{**rule,"mode":"replace","spoken":"ขำ"}],
+                                      source="youtube-live")["spoken_text"], "สวัสดี ขำ มาก")
+
+    def test_invalid_repeat_rules_rejected_without_arbitrary_regex(self):
+        for bad in (
+            {"match": "w", "match_mode": "repeat_run", "min_repeats": 1},
+            {"match": "w", "match_mode": "repeat_run", "min_repeats": 1001},
+            {"match": "w", "match_mode": "repeat_run", "min_repeats": 3.5},
+            {"match": "w", "match_mode": "repeat_run", "min_repeats": True},
+            {"match": "w w", "match_mode": "repeat_run", "min_repeats": 3},
+            {"match": "w", "match_mode": "repeat_run"},
+            {"match": "  หน้าหัวเราะ", "match_mode": "phrase_run", "min_repeats": 3},
+            {"match": "หน้าหัวเราะ ", "match_mode": "phrase_run", "min_repeats": 3},
+            {"match": "หน้า\nหัวเราะ", "match_mode": "phrase_run", "min_repeats": 3},
+            {"match": "a", "match_mode": "phrase_run", "min_repeats": "3"},
+            {"match": "a", "match_mode": "literal", "min_repeats": 3},
+            {"match": "w+", "match_mode": "regex", "min_repeats": 3},
+        ):
+            with self.subTest(bad=bad), self.assertRaises(InputError):
+                process_text("www", rules=[bad])
+
     def test_silence(self):
         r=process_text("ก่อนคำต้องห้ามหลัง",rules=[{"match":"คำต้องห้าม","mode":"silence","display":"***","silence_ms":450}])
         self.assertEqual(r["display_text"],"ก่อน***หลัง")

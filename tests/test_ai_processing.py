@@ -27,6 +27,23 @@ class ProcessingTests(unittest.TestCase):
         for key in ("spoken_text", "display_text", "segments", "source"):
             self.assertEqual(new[key], old[key])
 
+    def test_source_specific_youtube_emoji_phrase_rule_after_language_detection(self):
+        text = "หน้าหัวเราะ หน้าหัวเราะ หน้าหัวเราะ"
+        rules = [{"match":"หน้าหัวเราะ", "match_mode":"phrase_run",
+                  "min_repeats":3, "mode":"replace",
+                  "sources":["youtube-live-browser"]}]
+        youtube = process_pipeline(text, rules=rules, source="youtube-live-browser")
+        self.assertEqual(youtube["spoken_text"], "หน้าหัวเราะ")
+        self.assertEqual(youtube["display_text"], text)
+        self.assertEqual(youtube["processing"]["post_ai_text"], "หน้าหัวเราะ")
+        discord = process_pipeline(text, rules=rules, source="discord")
+        self.assertEqual(discord["spoken_text"], text)
+        # Two-stage processing: skip rule also works after translated text
+        # enters post-AI, leaving the rest of the message audible.
+        skipped = process_pipeline("สวัสดี "+text+" ครับ",
+            rules=[{**rules[0],"mode":"skip"}], source="youtube-live-browser")
+        self.assertEqual(skipped["spoken_text"], "สวัสดี  ครับ")
+
     def test_disabled_ai_does_not_probe_ollama_server(self):
         # TTS must remain fast and usable when Ollama is unavailable.
         with patch("voxweavetts.ai_engine_registry.ollama_info",

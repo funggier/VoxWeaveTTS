@@ -38,6 +38,10 @@ class TextSettingsTests(unittest.TestCase):
         rules=[
             {"match":'“ฮ่า\\ฮ่า” 😄',"mode":"replace","spoken":'ฮ่า "ดัง"'},
             {"match":"555","match_mode":"five_run","spoken":"ฮ่า ฮ่า ฮ่า"},
+            {"match":"w","match_mode":"repeat_run","min_repeats":3,
+             "spoken":"ฮ่าฮ่าฮ่า"},
+            {"match":"หน้าหัวเราะ","match_mode":"phrase_run",
+             "min_repeats":3,"spoken":"หน้าหัวเราะ"},
         ]
         result=text_settings.save_section("rules",rules,initial["revisions"]["rules"])
         self.assertTrue(result["saved"])

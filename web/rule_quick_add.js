@@ -12,7 +12,7 @@ const SOURCE_OPTIONS=Object.freeze([
   {value:"tiktok-live-extension",label:"TikTok LIVE (Extension)"},
   {value:"discord",label:"Discord (Bot / Client)"},
 ]);
-const MATCH_MODES=Object.freeze(["literal","five_run"]);
+const MATCH_MODES=Object.freeze(["literal","five_run","repeat_run","phrase_run"]);
 const ACTIONS=Object.freeze(["replace","skip","silence"]);
 function fail(message){throw new Error(message);}
 function sourceList(checked=[],extra=""){
@@ -31,7 +31,7 @@ function build(options){
   if(!options||typeof options!=="object")fail("ข้อมูลกฎไม่ถูกต้อง");
   const match_mode=options.match_mode||"literal";
   if(!MATCH_MODES.includes(match_mode))
-    fail("รูปแบบค้นหาต้องเป็นข้อความตรงตัวหรือเลข 5 ต่อเนื่อง");
+    fail("รูปแบบค้นหาต้องเป็นข้อความตรงตัว เลข 5 ต่อเนื่อง อักขระซ้ำ หรือวลีซ้ำ");
   const match=match_mode==="five_run"?"555":options.match;
   if(typeof match!=="string"||!match.trim()||match.length>200)
     fail("ข้อความที่ค้นหาต้องไม่ว่างและยาวไม่เกิน 200 ตัวอักษร");
@@ -43,6 +43,21 @@ function build(options){
   const rule={match,mode};
   if(stage==="pre_ai")rule.stage=stage;
   if(match_mode==="five_run")rule.match_mode=match_mode;
+  if(match_mode==="repeat_run"||match_mode==="phrase_run"){
+    if(match_mode==="repeat_run"&&
+       ([...match].length>16||/[\s\u0000-\u001f\u007f]/u.test(match)))
+      fail("ข้อความซ้ำต้องเป็นอักขระหรือสัญลักษณ์สั้น ๆ ไม่เกิน 16 ตัวและไม่มีช่องว่าง");
+    if(match_mode==="phrase_run"&&
+       (match.length>100||match!==match.trim()||/[\u0000-\u001f\u007f]/u.test(match)))
+      fail("วลีซ้ำต้องไม่ขึ้นต้นหรือลงท้ายด้วยช่องว่าง และยาวไม่เกิน 100 ตัวอักษร");
+    const minimum=options.min_repeats;
+    if(!((typeof minimum==="string"&&/^\d+$/.test(minimum))
+        ||(typeof minimum==="number"&&Number.isInteger(minimum)))
+       ||Number(minimum)<2||Number(minimum)>1000)
+      fail("จำนวนซ้ำขั้นต่ำต้องเป็นจำนวนเต็ม 2–1000");
+    rule.match_mode=match_mode;
+    rule.min_repeats=Number(minimum);
+  }
   if(mode==="replace"){
     const spoken=options.spoken??"";
     if(typeof spoken!=="string"||spoken.length>500)

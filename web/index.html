@@ -760,7 +760,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p class="json-status" id="ruleJsonStatus" role="status">ใช้ JSON มาตรฐาน · ค่าข้อความต้องอยู่ในเครื่องหมายคำพูดคู่</p>
 <details class="rule-quick">
 <summary style="cursor:pointer">เพิ่มกฎอย่างรวดเร็ว — แทนคำ / ข้ามคำ / หยุดเสียง / จำกัดช่องทาง</summary>
-<p class="small">เลือกเงื่อนไขแล้วเพิ่มกฎลง JSON ได้ทันที โดยยังต้องกด <strong>บันทึกในโปรแกรม</strong> เพื่อใช้งานจริง ไม่รองรับ Regular Expression แบบกำหนดเอง</p>
+<p class="small">เลือกเงื่อนไขแล้วเพิ่มกฎลง JSON ได้ทันที โดยยังต้องกด <strong>บันทึกในโปรแกรม</strong> เพื่อใช้งานจริง · เพิ่มกฎอักขระติดกันซ้ำ เช่น 555 หรือ www และวลีซ้ำ เช่น หน้าหัวเราะ หน้าหัวเราะ ได้ ไม่รองรับ Regular Expression แบบกำหนดเอง</p>
 <div class="rule-quick-grid">
 <div>
 <label for="ruleStage">ช่วงของกฎ (stage)</label>
@@ -768,7 +768,9 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <label for="ruleMatchMode">รูปแบบการค้นหา (match_mode)</label>
 <select id="ruleMatchMode">
 <option value="literal">ข้อความตรงตัว (literal)</option>
-<option value="five_run">เลข 5 ติดต่อกันตั้งแต่ 3 ตัวขึ้นไป (five_run)</option>
+<option value="five_run">เลข 5 ต่อเนื่อง 3 ตัวขึ้นไป (กฎเดิม)</option>
+<option value="repeat_run">อักขระ/สัญลักษณ์ติดกันซ้ำ (repeat_run)</option>
+<option value="phrase_run">คำหรือวลีซ้ำที่คั่นด้วยช่องว่าง (phrase_run)</option>
 </select>
 <p class="small">ข้อความตรงตัวจะค้นหาทุกตำแหน่งที่พบ รวมถึงภายในคำอื่นและแยกตัวพิมพ์เล็ก/ใหญ่</p>
 </div>
@@ -776,6 +778,11 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <label for="ruleMatch">ข้อความที่ต้องการค้นหา (match)</label>
 <input id="ruleMatch" type="text" placeholder="เช่น คำต้องห้าม หรือ สวัสดี!" maxlength="200">
 <p class="small" id="ruleMatchHint">สูงสุด 200 ตัวอักษร · ป้อนเครื่องหมายพิเศษได้</p>
+<div id="ruleRepeatGroup" hidden>
+<label for="ruleRepeatMin">จำนวนที่ซ้ำขั้นต่ำ (min_repeats)</label>
+<input id="ruleRepeatMin" type="number" min="2" max="1000" step="1" value="3">
+<p class="small">เช่น 3 / 5 / 7 · หากหลายกฎตรงกัน ระบบจะใช้เกณฑ์ขั้นต่ำสูงที่สุดที่เข้าเงื่อนไข โดยจับทั้งกลุ่มซ้ำ ไม่ตัดแบ่ง</p>
+</div>
 </div>
 <div>
 <label for="ruleMode">การทำงาน (mode)</label>
@@ -1284,6 +1291,7 @@ const getQuickRuleInput=()=>({
   match_mode:el("ruleMatchMode").value,
   stage:el("ruleStage").value,
   match:el("ruleMatch").value,
+  min_repeats:el("ruleRepeatMin").value,
   mode:el("ruleMode").value,
   spoken:el("ruleSpoken").value,
   display:el("ruleDisplay").value,
@@ -1307,6 +1315,7 @@ function previewQuickRule(){
 }
 function refreshRuleQuickFields(){
   const five=el("ruleMatchMode").value==="five_run";
+  const repeat=["repeat_run","phrase_run"].includes(el("ruleMatchMode").value);
   if(five&&!usingFiveRun){
     cachedLiteralRuleMatch=el("ruleMatch").value;
     el("ruleMatch").value="555";
@@ -1315,15 +1324,22 @@ function refreshRuleQuickFields(){
   }
   usingFiveRun=five;
   el("ruleMatch").readOnly=five;
+  el("ruleRepeatGroup").hidden=!repeat;
+  el("ruleMatch").maxLength=el("ruleMatchMode").value==="repeat_run"?16:
+    el("ruleMatchMode").value==="phrase_run"?100:200;
   el("ruleMatchHint").textContent=five
     ?"ใช้ 555 อัตโนมัติ · จับกลุ่มเลข 5 ตั้งแต่ 3 ตัวขึ้นไป ไม่จับตัวเลขยาวทั่วไป"
+    :el("ruleMatchMode").value==="repeat_run"
+    ?"อักขระ/สัญลักษณ์ที่ติดกัน เช่น w, 5, 😂 หรือ ❤️ · ยาวไม่เกิน 16 ตัว ไม่มีช่องว่าง"
+    :el("ruleMatchMode").value==="phrase_run"
+    ?"คำ/วลีที่ต้องซ้ำโดยมีช่องว่างคั่น เช่น หน้าหัวเราะ · ยาวไม่เกิน 100 ตัว · เว้นคำอ่านแทนว่างจะอ่านเพียงหนึ่งครั้ง"
     :"สูงสุด 200 ตัวอักษร · ป้อนเครื่องหมายพิเศษได้";
   const mode=el("ruleMode").value;
   el("ruleSpokenGroup").hidden=mode!=="replace";
   el("ruleSilenceGroup").hidden=mode!=="silence";
   previewQuickRule();
 }
-for(const id of ["ruleMatch","ruleSpoken","ruleDisplay","ruleSilenceMs",
+for(const id of ["ruleMatch","ruleRepeatMin","ruleSpoken","ruleDisplay","ruleSilenceMs",
                  "ruleSourcesExtra","ruleMatchMode","ruleMode","ruleStage"]){
   el(id).addEventListener("input",id==="ruleMatchMode"||id==="ruleMode"
     ?refreshRuleQuickFields:previewQuickRule);

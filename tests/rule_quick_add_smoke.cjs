@@ -24,6 +24,19 @@ assert.deepEqual(build({match_mode:"five_run",match:"ignored",
   mode:"replace",spoken:"ฮ่า ฮ่า ฮ่า"}),{
   match:"555",mode:"replace",match_mode:"five_run",spoken:"ฮ่า ฮ่า ฮ่า"
 });
+assert.deepEqual(build({match:"w",match_mode:"repeat_run",min_repeats:"5",
+  mode:"replace",spoken:"ขำมาก"}),{
+  match:"w",mode:"replace",match_mode:"repeat_run",min_repeats:5,spoken:"ขำมาก"
+});
+assert.deepEqual(build({match:"หน้าหัวเราะ",match_mode:"phrase_run",
+  min_repeats:"3",mode:"replace",spoken:""}),{
+  match:"หน้าหัวเราะ",mode:"replace",match_mode:"phrase_run",min_repeats:3
+});
+assert.deepEqual(build({match:"หน้าหัวเราะ",match_mode:"phrase_run",
+  min_repeats:7,mode:"skip",sources:["youtube-live"]}),{
+  match:"หน้าหัวเราะ",mode:"skip",match_mode:"phrase_run",min_repeats:7,
+  sources:["youtube-live"]
+});
 assert.deepEqual(build({match:"aa",mode:"replace",spoken:""}),{
   match:"aa",mode:"replace"
 },"empty spoken omits optional value");
@@ -58,6 +71,15 @@ const bad=[
   {match:"good",sources:["x".repeat(65)]},
   {match:"good",sources:new Array(33).fill(0).map((_,i)=>"s"+i)},
   {match:"good",extra_sources:"first,"},
+  {match:"w",match_mode:"repeat_run",min_repeats:1},
+  {match:"w",match_mode:"repeat_run",min_repeats:1001},
+  {match:"w",match_mode:"repeat_run",min_repeats:"3.5"},
+  {match:"w",match_mode:"repeat_run",min_repeats:""},
+  {match:"w w",match_mode:"repeat_run",min_repeats:"3"},
+  {match:"หน้าหัวเราะ ",match_mode:"phrase_run",min_repeats:"3"},
+  {match:"  หน้าหัวเราะ",match_mode:"phrase_run",min_repeats:"3"},
+  {match:"หน้า\nหัวเราะ",match_mode:"phrase_run",min_repeats:"3"},
+  {match:"x",match_mode:"phrase_run",min_repeats:"no"},
 ];
 for(const input of bad)
   assert.throws(()=>build(input),"invalid quick rule should be rejected: "+JSON.stringify(input).slice(0,90));

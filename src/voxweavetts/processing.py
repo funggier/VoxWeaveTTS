@@ -5,6 +5,7 @@ Only text planning is implemented here. Audio generation/playback remains separa
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -14,6 +15,33 @@ MAX_SILENCE_MS = 10_000
 # Predefined, bounded pattern; it is not arbitrary user-supplied regex.
 # Exclude digit sequences within larger numbers and decimal/grouped numbers.
 _FIVE_RUN = re.compile(r'(?<!\d)(?<!\d[.,])5{3,}(?!\d)(?![.,]\d)')
+
+
+@lru_cache(maxsize=256)
+def _repeat_pattern(unit: str, minimum: int) -> re.Pattern[str]:
+    """A bounded literal *unit* run, never arbitrary user regex.
+
+    Digits must not be interpreted as laughter inside decimal/grouped values.
+    Latin sequences must be whole tokens, not suffixes of normal English
+    words or domains. For Thai and Unicode emoji units, allow adjacent prose.
+    """
+    escaped = re.escape(unit)
+    repeated = rf"(?:{escaped}){{{minimum},}}"
+    if len(unit) == 1 and unit.isdecimal():
+        return re.compile(r"(?<!\d)(?<!\d[.,])" + repeated
+                          + r"(?!\d)(?![.,]\d)")
+    if unit.isascii() and any(ch.isalpha() for ch in unit):
+        return re.compile(r"(?<![A-Za-z0-9_])" + repeated
+                          + r"(?![A-Za-z0-9_.])")
+    return re.compile(repeated)
+
+
+@lru_cache(maxsize=256)
+def _phrase_pattern(phrase: str, minimum: int) -> re.Pattern[str]:
+    """Find complete, whitespace-separated repetitions of one literal phrase."""
+    literal = re.escape(phrase)
+    return re.compile(r"(?<!\w)" + literal +
+                      rf"(?:\s+{literal}){{{minimum - 1},}}" + r"(?!\w)")
 # These are spoken laugh approximations, NOT language translation. Only the
 # known legacy Thai 555 rule is localized; arbitrary user replacements remain
 # exactly as specified unless spoken_by_language explicitly overrides them.
@@ -48,19 +76,33 @@ class Rule:
     match_mode: str = "literal"
     stage: str = "post_ai"
     spoken_by_language: tuple[tuple[str, str], ...] = ()
+    min_repeats: int = 0
 
     @classmethod
     def parse(cls, raw: Any) -> "Rule":
         if not isinstance(raw, Mapping):
             raise InputError("each rule must be an object")
         match_mode = raw.get("match_mode", "literal")
-        if match_mode not in {"literal", "five_run"}:
-            raise InputError("match_mode must be literal or five_run")
+        if match_mode not in {"literal", "five_run", "repeat_run", "phrase_run"}:
+            raise InputError("match_mode must be literal, five_run, repeat_run or phrase_run")
         match = _text(raw.get("match", "555" if match_mode == "five_run" else None), "match", 200)
         if not match:
             raise InputError("match cannot be empty")
         if match_mode == "five_run" and match != "555":
             raise InputError("five_run requires match=555")
+        minimum = 0
+        if match_mode in {"repeat_run", "phrase_run"}:
+            if (match_mode == "repeat_run" and
+                (len(match) > 16 or any(ch.isspace() or ord(ch) < 32 for ch in match))):
+                raise InputError("repeat_run match must be one non-whitespace unit of up to 16 characters")
+            if match_mode == "phrase_run" and (len(match) > 100 or
+                match != match.strip() or any(ord(ch) < 32 for ch in match)):
+                raise InputError("phrase_run match must be a trimmed phrase of at most 100 characters")
+            minimum = raw.get("min_repeats")
+            if type(minimum) is not int or not 2 <= minimum <= 1000:
+                raise InputError("min_repeats must be an integer from 2 to 1000")
+        elif "min_repeats" in raw:
+            raise InputError("min_repeats is only allowed for repeated match modes")
         mode = raw.get("mode", "replace")
         if mode not in {"replace", "skip", "silence"}:
             raise InputError("mode must be replace, skip, or silence")
@@ -95,7 +137,7 @@ class Rule:
         ):
             raise InputError("sources must be a list of non-empty short strings")
         return cls(match, mode, spoken, display, duration, tuple(sources),
-                   match_mode, stage, spoken_by_language)
+                   match_mode, stage, spoken_by_language, minimum)
 
     def applies_to(self, source: str) -> bool:
         return not self.sources or source in self.sources
@@ -103,6 +145,12 @@ class Rule:
     def find(self, text: str, position: int) -> tuple[int, str] | None:
         if self.match_mode == "five_run":
             result = _FIVE_RUN.search(text, position)
+            return (result.start(), result.group()) if result else None
+        if self.match_mode == "repeat_run":
+            result = _repeat_pattern(self.match, self.min_repeats).search(text, position)
+            return (result.start(), result.group()) if result else None
+        if self.match_mode == "phrase_run":
+            result = _phrase_pattern(self.match, self.min_repeats).search(text, position)
             return (result.start(), result.group()) if result else None
         index = text.find(self.match, position)
         return (index, self.match) if index >= 0 else None
@@ -184,14 +232,18 @@ def process_text(
 
     position = 0
     while position < len(text):
-        candidate: tuple[int, int, int, Rule, str] | None = None
+        candidate: tuple[int, int, int, int, Rule, str] | None = None
         for priority, rule in enumerate(active):
             result = rule.find(text, position)
             if result is None:
                 continue
             index, matched = result
-            rank = (index, -len(matched), priority, rule, matched)
-            if candidate is None or rank[:3] < candidate[:3]:
+            # Compare earliest position, longest *whole run*, then highest
+            # minimum threshold. A 7+ rule overrides 5+/3+ even when it
+            # was added later in the JSON list; literal legacy ties stay FIFO.
+            specificity = -rule.min_repeats if rule.match_mode in {"repeat_run", "phrase_run"} else 0
+            rank = (index, -len(matched), specificity, priority, rule, matched)
+            if candidate is None or rank[:4] < candidate[:4]:
                 candidate = rank
 
         if candidate is None:
@@ -199,14 +251,17 @@ def process_text(
             add_segment("speech", apply_pronunciations(original, pronunciations),
                         original, position, len(text))
             break
-        index, _neg_length, _priority, rule, matched = candidate
+        index, _neg_length, _specificity, _priority, rule, matched = candidate
         if index > position:
             original = text[position:index]
             add_segment("speech", apply_pronunciations(original, pronunciations),
                         original, position, index)
         end = index + len(matched)
         if rule.mode == "replace":
-            spoken = matched if rule.spoken is None else rule.spoken
+            # For phrase_run, default spoken is the phrase ONCE. The original
+            # (possibly long) repeated phrase remains in display/subtitles.
+            spoken = (rule.match if rule.match_mode == "phrase_run" else matched
+                      ) if rule.spoken is None else rule.spoken
             if language:
                 overrides = dict(rule.spoken_by_language)
                 if language in overrides:

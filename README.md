@@ -51,3 +51,6 @@ All **seven TTS engines** (MakHam, FastThaiG2P, Melo Chinese, Supertonic 3, Koko
 Prior public releases remain in [GitHub Releases](https://github.com/funggier/VoxWeaveTTS/releases) and Git history; this development branch and its new Portable build accept **only v4**.
 
 Documentation: [v4 wheel license notice QA](docs/V4_DEPENDENCY_NOTICE_QA_2026-11-20_TH.md) · [v4-only QA handoff](docs/V4_ONLY_QA_HANDOFF_2026-11-20_TH.md) · [v4 protocol](docs/UNIVERSAL_VWMODEL_V4_TH.md) · [model QA report](docs/V4_ALL_MODEL_QA_TH.md) · [API](docs/API.md) · [translation](docs/AI_PROCESSING_TRANSLATION_TH.md) · [rights policy](docs/COMMERCIAL_LICENSE_POLICY_TH.md).
+
+
+**Declarative repeated-text rules (main branch, after v0.12.3):** The shared Rule system and browser Quick Add support match_mode repeat_run (a literal character/emoji unit repeated consecutively) and phrase_run (an exact word or phrase repeated with whitespace between copies), with min_repeats from 2 to 1000. Three, five and seven-repeat thresholds may coexist, with the highest eligible minimum winning while matching the full run. phrase_run replacements with unspecified spoken collapse the phrase to one spoken copy; subtitles retain the original repeated text. Existing five_run, literal, skip, silence, sources, and per-stage processing remain compatible; no arbitrary regular expression evaluation.

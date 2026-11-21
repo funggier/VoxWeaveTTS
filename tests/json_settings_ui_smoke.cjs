@@ -111,6 +111,45 @@ async function main(){
   el('ruleReload').click();
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(JSON.parse(el('rule').value)[0].match,'ฮ่า');
-  console.log('PASS: startup loading, Unicode quick entry, atomic save, stale-tab conflict, file import/download, reload, invalid-JSON preservation');
+  el('rule').value='[]';
+  el('ruleMatchMode').value='phrase_run';
+  el('ruleMatchMode').listeners.change();
+  assert.equal(el('ruleRepeatGroup').hidden,false);
+  assert.equal(el('ruleMatch').maxLength,100);
+  el('ruleMatch').value='หน้าหัวเราะ';
+  el('ruleRepeatMin').value='3';
+  el('ruleSpoken').value='';
+  el('ruleMatch').listeners.input();
+  assert.equal(JSON.parse(el('ruleQuickPreview').textContent).match_mode,'phrase_run');
+  el('ruleAdd').click();
+  assert.equal(JSON.parse(el('rule').value).length,1);
+  assert.equal(JSON.parse(el('rule').value)[0].min_repeats,3);
+  assert.equal('spoken' in JSON.parse(el('rule').value)[0],false,
+    'blank spoken collapses repeated phrase to a single copy on backend');
+  el('ruleMatchMode').value='repeat_run';
+  el('ruleMatchMode').listeners.change();
+  assert.equal(el('ruleRepeatGroup').hidden,false);
+  assert.equal(el('ruleMatch').maxLength,16);
+  el('ruleMatch').value='w';
+  for(const [count,spoken] of [[3,'ฮ่าฮ่าฮ่า'],[5,'ขำมากมากฮ่าฮ่า'],[7,'ขำไม่หยุดฮ่าฮ่าฮ่า']]){
+    el('ruleRepeatMin').value=String(count);
+    el('ruleSpoken').value=spoken;
+    el('ruleAdd').click();
+    const added=JSON.parse(el('rule').value).at(-1);
+    assert.equal(added.match_mode,'repeat_run');
+    assert.equal(added.min_repeats,count);
+    assert.equal(added.spoken,spoken);
+  }
+  assert.equal(JSON.parse(el('rule').value).length,4);
+  el('ruleRepeatMin').value='1';
+  el('ruleRepeatMin').listeners.input();
+  assert.match(el('ruleQuickPreview').textContent,/2–1000/);
+  el('ruleAdd').click();
+  assert.equal(JSON.parse(el('rule').value).length,4,
+    'bad minimum must not damage existing unsaved rules');
+  el('ruleMatchMode').value='literal';
+  el('ruleMatchMode').listeners.change();
+  assert.equal(el('ruleRepeatGroup').hidden,true);
+  console.log('PASS: JSON editor, Unicode, phrase collapse and 3/5/7 repeated character rule builder');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
