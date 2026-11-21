@@ -329,6 +329,22 @@ async function main(){
   },true),"queued");
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads.at(-1).text,"ท่าน @เพื่อน❤️ พิมพ์ว่า สวัสดี 😂❤️");
+  get("youtubeBrowserAudio").paused=true;
+  get("youtubeBrowserAudio").events.ended();
+  get("youtubeBrowserFeedFormatread_emojis").checked=true;
+  get("youtubeBrowserFeedEmojiMappings").value=
+    ":yt: = ยูทูบ\n:face-blue-smiling: = ยิ้ม\n❤ = หัวใจ";
+  assert.equal(youtubeBrowser.receiveIncoming({
+    message_id:"yb-builtins",author:"ผู้ชม",
+    text:"สวัสดี :yt: :face-blue-smiling: ❤️ ❤"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).content_text,"สวัสดี ยูทูบ ยิ้ม หัวใจ หัวใจ",
+    "YouTube built-in emoji and Unicode presentation variant map to speech");
+  assert.equal(get("youtubeBrowserText").value,"สวัสดี :yt: :face-blue-smiling: ❤️ ❤",
+    "source comment must remain unchanged");
+  get("youtubeBrowserAudio").paused=true;
+  get("youtubeBrowserAudio").events.ended();
 
   current="discord";
   get("discordAutoRetry").events.click();
@@ -346,6 +362,14 @@ async function main(){
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(payloads.at(-1).text,"คุณ ผู้ชม พิมพ์ว่า เยี่ยม เยี่ยมมาก นกเต้น");
   assert.equal(get("discordText").value,"เยี่ยม 👍🏽 <a:party_parrot:123456789012345678>");
+  get("discordAudio").paused=true;get("discordAudio").events.ended();
+  get("discordFeedEmojiMappings").value="👍 = เยี่ยม\n:wave: = โบกมือ";
+  assert.equal(discord.receiveIncoming({
+    message_id:"discord-all-emoji",author:"ผู้ชม",text:"👍🏼 <a:wave:123456789012345678>"
+  },true),"queued");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(payloads.at(-1).content_text,"เยี่ยม โบกมือ",
+    "Discord standard Unicode variants and custom emotes are read safely");
   get("discordAudio").paused=true;get("discordAudio").events.ended();
 
   current="discord_client";

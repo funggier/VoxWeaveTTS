@@ -49,17 +49,27 @@ CHAT_SCRIPT = r"""(() => {
       if (node.nodeType === 3) { text += node.nodeValue || ""; return; }
       if (node.nodeType !== 1) return;
       if (node.tagName === "IMG") {
-        const name = node.getAttribute("alt") || "";
-        // A named emoji (e.g. GGWP) must remain its own token even if the
-        // image touches adjacent text with no spaces in the DOM.
-        text += /^[A-Za-z][A-Za-z0-9_-]{1,47}$/.test(name)
-          ? " " + name + " " : name;
+        // YouTube delivers Unicode emoji and platform-owned emotes as IMG
+        // with accessible names. Use the image ALT first, with accessible
+        // label/title only as fallbacks; never fetch the image or read its URL.
+        const name = (node.getAttribute("alt") ||
+          node.getAttribute("aria-label") ||
+          node.getAttribute("title") || "").trim().slice(0, 120);
+        // Names without capitals (e.g. face-blue-smiling or yt) are YouTube
+        // emote identifiers, not prose. Canonicalize to :name: to match both
+        // the official API text and the user-editable emoji dictionary.
+        // Preserve legacy GGWP/catJAM names and Unicode glyphs as-is.
+        const named = /^[A-Za-z][A-Za-z0-9_-]{1,47}$/.test(name);
+        const canonical = named && name===name.toLowerCase()
+          ? ":" + name + ":" : name;
+        text += named || /^:[A-Za-z0-9_-]{2,48}:$/.test(name)
+          ? " " + canonical + " " : canonical;
         return;
       }
       for (const child of node.childNodes) visit(child);
     };
     visit(element);
-    return text;
+    return text.replace(/\s+/gu, " ").trim();
   };
   return {ready:true, chat_mode:chatMode,
           page_visibility:document.visibilityState || "unknown",

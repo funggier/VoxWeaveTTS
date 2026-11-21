@@ -38,6 +38,36 @@ for(const invalid of ["😂 = \n","😂 หัวเราะ\n","😂 = ชอ�
 assert.throws(()=>emoji.parseEditor(
   Array.from({length:65},(_,i)=>"😂"+i+" = คำ").join("\n")),/64/);
 assert.equal(emoji.validKey("GGWP"),true);
+// YouTube-wide emotes are available to all viewers, unlike channel-only
+// emoji; API and browser both expose their canonical :name: shortcodes.
+const youtube=emoji.parseEditor(
+  ":face-blue-smiling: = หน้ายิ้มสีฟ้า\n:yt: = ยูทูบ");
+assert.equal(emoji.replace(":face-blue-smiling: :yt:",youtube),
+  "หน้ายิ้มสีฟ้า ยูทูบ");
+assert.equal(emoji.replace(":yt::yt::yt:",youtube),
+  "ยูทูบ ยูทูบ ยูทูบ");
+
+// Standard Unicode emoji from YouTube and Discord can differ by presentation
+// VS16 and by modifiers. Exact variants always win; the generic mapping
+// works for unlisted tones without leaking leftover variation selectors.
+const shared=emoji.parseEditor(
+  "❤ = หัวใจ\n👍 = เยี่ยม\n👍🏽 = เยี่ยมมาก\n👩‍💻 = โปรแกรมเมอร์");
+assert.equal(emoji.replace("❤️ ❤ 👍 👍🏽 👍🏻 👩🏽‍💻",shared),
+  "หัวใจ หัวใจ เยี่ยม เยี่ยมมาก เยี่ยม โปรแกรมเมอร์");
+assert.equal(emoji.replace("👍🏼",{ "👍🏽":"ผิวเข้ม" }),"👍🏼",
+  "specific tinted emoji must not become fallback for another tone");
+assert.equal(emoji.replace("👍🏽",{ "👍":"ดี", "👍🏽":"ดีมาก" }),"ดีมาก");
+assert.equal(emoji.replace("👍🏽",{ "👍":"ดี" }),"ดี");
+assert.equal(emoji.replace("🥹🤣🇹🇭",{ "😂":"ขำ" }),"🥹🤣🇹🇭",
+  "unconfigured Unicode graphemes are unchanged");
+assert.equal(emoji.replace("😂 😂 😂",{ "😂":"หน้าหัวเราะ" }),
+  "หน้าหัวเราะ หน้าหัวเราะ หน้าหัวเราะ",
+  "user can apply phrase_run to post-emoji text");
+assert.equal(emoji.replace("<:smile:123456789012345678>",{
+  ":smile:":"ยิ้ม"}),"ยิ้ม");
+assert.equal(emoji.replace("<a:smile:123456789012345678>",{
+  ":smile:":"ยิ้ม"}),"ยิ้ม");
+assert.equal(emoji.replace(":smile:",{":smile:":"ยิ้ม"}),"ยิ้ม");
 assert.equal(emoji.validKey("catJAM"),true);
 assert.equal(emoji.parseEditor("").constructor,Object,
   "blank mapping editor is valid");

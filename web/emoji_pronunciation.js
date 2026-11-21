@@ -14,6 +14,12 @@ const EMOJI=/[\p{Extended_Pictographic}\p{Regional_Indicator}\u20E3]/u;
 // lowercase prose being treated as an emote key.
 const NAMED_EMOTE=/^(?=.{2,48}$)(?=.*[A-Z])[A-Za-z][A-Za-z0-9_-]*$/;
 const WORD_EDGE=/[\p{L}\p{N}_:@#-]/u;
+const VARIATION_SELECTORS=/[\uFE0E\uFE0F]/gu;
+const SKIN_TONES=/[\u{1F3FB}-\u{1F3FF}]/gu;
+function normalizeGlyph(glyph,tones=false){
+  const plain=glyph.replace(VARIATION_SELECTORS,"");
+  return tones?plain.replace(SKIN_TONES,""):plain;
+}
 function hasTokenBoundaries(text,start,length){
   const before=start>0?String.fromCodePoint(text.codePointAt(start-(
     start>=2&&/[\uDC00-\uDFFF]/.test(text[start-1])?2:1))):"";
@@ -65,11 +71,33 @@ function replace(text,dictionary){
   if(typeof text!=="string"||!dictionary||!Object.keys(dictionary).length)return text;
   // Work on the ORIGINAL string, not serial replaceAll (avoids cascades).
   const entries=Object.entries(dictionary).sort((a,b)=>b[0].length-a[0].length);
+  // Exact Unicode emoji mappings take precedence. Otherwise, standard
+  // platform differences (emoji/text variation selectors and skin tones)
+  // resolve to the base glyph without overwriting an explicit variant.
+  const normalized=new Map(),base=new Map();
+  for(const [key,value] of entries){
+    if(!EMOJI.test(key))continue;
+    const canonical=normalizeGlyph(key);
+    if(!normalized.has(canonical))normalized.set(canonical,value);
+    const neutral=normalizeGlyph(key,true);
+    // Only a genuinely neutral configured emoji is a generic fallback.
+    // A pink/medium-tone mapped hand must not take over other skin tones.
+    if(neutral===canonical&&!base.has(neutral))base.set(neutral,value);
+  }
+  // A grapheme includes modifiers, flags, ZWJ family sequences and VS16.
+  // Never replace just the first code point of an unmapped complex emoji.
+  // Intl.Segmenter works in supported modern browsers and Node; without it
+  // the original exact-key behavior is retained.
+  const graphemes=new Map();
+  if(typeof Intl!=="undefined"&&typeof Intl.Segmenter==="function"){
+    for(const chunk of new Intl.Segmenter("und",{granularity:"grapheme"}).segment(text))
+      if(EMOJI.test(chunk.segment))graphemes.set(chunk.index,chunk.segment);
+  }
   let result="",i=0;
   while(i<text.length){
     let matched=null;
-    // Treat Discord markup as an atomic token. Never replace GGWP
-    // inside <:GGWP:id> just because a plain GGWP mapping exists.
+    // Treat Discord custom emoji markup as an atomic token. Never replace
+    // an inner bare name/Unicode fragment if no full emoji key exists.
     const discord=DISCORD_TOKEN.exec(text.slice(i));
     if(discord){
       const exact=dictionary[discord[0]];
@@ -83,17 +111,29 @@ function replace(text,dictionary){
         continue;
       }
     }
+    const grapheme=graphemes.get(i);
     if(!matched){
       for(const [key,value] of entries){
-        if(text.startsWith(key,i) &&
-           (!NAMED_EMOTE.test(key)||hasTokenBoundaries(text,i,key.length))){
-          matched={length:key.length,value};break;
-        }
+        if(!text.startsWith(key,i))continue;
+        if(NAMED_EMOTE.test(key)&&!hasTokenBoundaries(text,i,key.length))
+          continue;
+        // An emoji key must not stop in the middle of a grapheme cluster:
+        // e.g. plain 👍 cannot eat only the first code point of 👍🏽.
+        if(grapheme&&EMOJI.test(key)&&key.length<grapheme.length)
+          continue;
+        matched={length:key.length,value};break;
       }
+    }
+    if(!matched&&grapheme){
+      const canonical=normalizeGlyph(grapheme);
+      const value=normalized.get(canonical)??base.get(normalizeGlyph(grapheme,true));
+      if(value!==undefined)matched={length:grapheme.length,value};
     }
     if(matched){
       result+=" "+matched.value+" ";
       i+=matched.length;
+    }else if(grapheme){
+      result+=grapheme;i+=grapheme.length;
     }else{
       const cp=text.codePointAt(i);
       result+=String.fromCodePoint(cp);

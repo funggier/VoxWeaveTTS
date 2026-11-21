@@ -449,9 +449,9 @@ function attach({document,engines,getDefault}){
       emojiEditor=create("textarea");
       emojiEditor.id=prefix+"FeedEmojiMappings";
       emojiEditor.rows=5;emojiEditor.maxLength=8192;
-      emojiEditor.placeholder="😂 = หัวเราะ\n❤️ = หัวใจ\nGGWP = เก่งมาก\n:party_parrot: = นกเต้น";
+      emojiEditor.placeholder="😂 = หัวเราะ\n❤️ = หัวใจ\n:face-blue-smiling: = ยิ้ม\n:yt: = ยูทูบ\n:party_parrot: = นกเต้น\nGGWP = เก่งมาก";
       const note=create("small",
-        "ใส่ อีโมจิหรือชื่ออีโมจิ = คำอ่าน · สูงสุด 64 รายการ · เช่น 😂, GGWP, :party_parrot: · คำที่ไม่ได้ตั้งค่าจะคงเดิม");
+        "Unicode ของ YouTube/Discord เช่น 😂 ❤️ 👍🏽 รองรับโดยตรง · อีโมจิสำเร็จรูปของ YouTube เช่น :face-blue-smiling: และ :yt: · Discord แบบ <:name:id> / <a:name:id> ใช้ :name: = คำอ่าน หรือระบุรหัสเต็ม · รวมสูงสุด 64 รายการต่อโหมด · อีโมจิที่ไม่ได้ตั้งค่าจะคงเดิม · กฎไม่อ่าน/วลีซ้ำกำหนดเพิ่มในแท็บกฎการอ่านส่วนกลาง");
       note.className="small";
       holder.append(caption,emojiEditor,note);
       panel.appendChild(holder);

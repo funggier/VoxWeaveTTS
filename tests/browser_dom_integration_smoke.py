@@ -30,7 +30,10 @@ def main():
             '</yt-live-chat-header-renderer><yt-live-chat-item-list-renderer><div id="items">'
             '<yt-live-chat-text-message-renderer id="msg-a"><span id="author-name">'
             'Tester</span><span id="message">สวัสดีครับ <img alt="😂"> '
-            '<img alt=":face-blue-smiling:"><img alt="GGWP">แล้วนะ</span>'
+            '<img alt=":face-blue-smiling:"><img alt="GGWP">แล้วนะ '
+            '<img alt="face-blue-smiling"><img alt="yt">'
+            '<img aria-label="face-blue-smiling"><img title="yt">'
+            '<img alt="❤️"><img alt="❤️"></span>'
             '</yt-live-chat-text-message-renderer></div></yt-live-chat-item-list-renderer>'
             '<script>window.vwMenuOpens=0;window.vwOptionClicks=0;'
             'document.getElementById("label").addEventListener("click",()=>{'
@@ -158,7 +161,10 @@ def main():
                         break
                 stats = reply["result"]["result"]["value"]
                 assert stats == {"opens": 1, "clicks": 1}, stats
-                assert result["items"][0]["text"] == "สวัสดีครับ 😂 :face-blue-smiling: GGWP แล้วนะ", result
+                assert result["items"][0]["text"] == (
+                    "สวัสดีครับ 😂 :face-blue-smiling: GGWP แล้วนะ "
+                    ":face-blue-smiling: :yt: :face-blue-smiling: :yt: ❤️❤️"
+                ), result
                 assert result["items"][0]["author"] == "Tester", result
             finally:
                 ws.close()
