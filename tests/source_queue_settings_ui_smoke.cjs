@@ -15,7 +15,7 @@ const root={
     blocked_words:"",max_chars:8000,auto_read:true,
     read_history_limit:2,random_queue_enabled:true,
     random_queue_threshold:30,random_queue_keep:5,
-    continue_on_tts_error:true,prepare_ahead:true,
+    continue_on_tts_error:true,force_autoplay:false,prepare_ahead:true,
     prepare_queue_limit:3,ready_audio_queue_limit:2,speech_job_timeout_minutes:7,
   }}])),
 };
@@ -57,7 +57,7 @@ const controllers={};
   for(const [mode,prefix] of modes){
     for(const suffix of ["MaxChars","KeepRead","Save","SaveStatus",
                           "Auto","RandomEnable","RandomThreshold",
-                          "RandomKeep","Blocked","ContinueOnTtsError","PrepareAhead",
+                          "RandomKeep","Blocked","ContinueOnTtsError","ForceAutoplay","PrepareAhead",
                            "PrepareQueueLimit","ReadyAudioQueueLimit","SpeechTimeoutMinutes"]){
       assert.ok(html.includes('id="'+prefix+"Feed"+suffix+'"'),"missing "+mode+"/"+suffix);
     }
@@ -66,7 +66,7 @@ const controllers={};
     el(prefix+"FeedKeepRead").value="20";
     el(prefix+"FeedRandomThreshold").value="20";
     el(prefix+"FeedRandomKeep").value="5";
-    for(const name of ["Auto","RandomEnable","ContinueOnTtsError","PrepareAhead"])
+    for(const name of ["Auto","RandomEnable","ContinueOnTtsError","ForceAutoplay","PrepareAhead"])
       el(prefix+"Feed"+name).type="checkbox";
     controllers[mode]=browser.VoxSourceQueueUI.attach(mode,el);
   }
@@ -77,6 +77,8 @@ const controllers={};
     assert.equal(el(prefix+"FeedMaxChars").value,"8000","load "+mode);
     assert.equal(el(prefix+"FeedKeepRead").value,"2","load history "+mode);
     assert.equal(el(prefix+"FeedContinueOnTtsError").checked,true,"load error setting "+mode);
+    assert.equal(el(prefix+"FeedForceAutoplay").checked,false,"autoplay skipping defaults off "+mode);
+    assert.ok(html.includes("บังคับเล่นเสียงต่ออัตโนมัติ"));
     assert.equal(el(prefix+"FeedPrepareAhead").checked,true,"load pipeline "+mode);
     assert.equal(el(prefix+"FeedPrepareQueueLimit").value,"3");
     assert.equal(el(prefix+"FeedReadyAudioQueueLimit").value,"2");
@@ -84,6 +86,7 @@ const controllers={};
     assert.match(html,new RegExp('id="'+prefix+'FeedSpeechTimeoutMinutes"[^>]*min="1" max="60"'));
     el(prefix+"FeedKeepRead").value="3";
     el(prefix+"FeedSpeechTimeoutMinutes").value=mode==="discord"?"11":"9";
+    el(prefix+"FeedForceAutoplay").checked=mode==="tiktok";
     if(mode==="youtube_browser"){
       el(prefix+"FeedPrepareQueueLimit").value="4";
       el(prefix+"FeedReadyAudioQueueLimit").value="5";
@@ -96,6 +99,7 @@ const controllers={};
     assert.equal(root.modes[mode].settings.read_history_limit,3);
     assert.equal(root.modes[mode].settings.max_chars,8000);
     assert.equal(root.modes[mode].settings.continue_on_tts_error,true);
+    assert.equal(root.modes[mode].settings.force_autoplay,mode==="tiktok");
     assert.equal(root.modes[mode].settings.prepare_ahead,true);
     assert.equal(root.modes[mode].settings.prepare_queue_limit,
       mode==="youtube_browser"?4:3);

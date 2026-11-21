@@ -19,7 +19,7 @@ function attach(mode,el){
   if(!save||!status)return null;
   let revision=0;
   let loading=false;
-  const ids=["Blocked","MaxChars","KeepRead","Auto","RandomEnable","RandomThreshold","RandomKeep","ContinueOnTtsError","PrepareAhead","PrepareQueueLimit","ReadyAudioQueueLimit","SpeechTimeoutMinutes"];
+  const ids=["Blocked","MaxChars","KeepRead","Auto","RandomEnable","RandomThreshold","RandomKeep","ContinueOnTtsError","ForceAutoplay","PrepareAhead","PrepareQueueLimit","ReadyAudioQueueLimit","SpeechTimeoutMinutes"];
   const initial=ids.map(key=>String(get(key)?.type==="checkbox"?Boolean(get(key).checked):get(key)?.value??""));
   const dirty=()=>ids.some((key,index)=>String(get(key)?.type==="checkbox"?Boolean(get(key).checked):get(key)?.value??"")!==initial[index]);
 
@@ -44,10 +44,11 @@ function attach(mode,el){
       random_queue_threshold:int("RandomThreshold",2,100000),
       random_queue_keep:int("RandomKeep",1,99999),
       continue_on_tts_error:get("ContinueOnTtsError")?.checked===true,
+      force_autoplay:get("ForceAutoplay")?.checked===true,
       prepare_ahead:get("PrepareAhead")?.checked===true,
       prepare_queue_limit:int("PrepareQueueLimit",1,100),
       ready_audio_queue_limit:int("ReadyAudioQueueLimit",1,20),
-       speech_job_timeout_minutes:int("SpeechTimeoutMinutes",1,60),
+      speech_job_timeout_minutes:int("SpeechTimeoutMinutes",1,60),
     };
     if(settings.random_queue_keep>=settings.random_queue_threshold)
       throw Error("จำนวนข้อความที่สุ่มเก็บต้องน้อยกว่าจำนวนเริ่มสุ่มลบ");
@@ -63,6 +64,7 @@ function attach(mode,el){
     get("RandomThreshold").value=String(value.random_queue_threshold);
     get("RandomKeep").value=String(value.random_queue_keep);
     get("ContinueOnTtsError").checked=value.continue_on_tts_error===true;
+    get("ForceAutoplay").checked=value.force_autoplay===true;
     get("PrepareAhead").checked=value.prepare_ahead===true;
     get("PrepareQueueLimit").value=String(value.prepare_queue_limit??3);
     get("ReadyAudioQueueLimit").value=String(value.ready_audio_queue_limit??2);

@@ -9,7 +9,8 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const blocked=()=>Object.assign(new Error("play() was blocked by the browser"),
   {name:"NotAllowedError"});
 
-function createHarness({failFirstJob=false,denyFirstPlay=false,cancelFirstPlay=false,holdFirstJob=false}={}){
+function createHarness({failFirstJob=false,denyFirstPlay=false,denyFirstNPlays=0,
+  cancelFirstPlay=false,holdFirstJob=false}={}){
   const elements=new Map(),states=new Map(),payloads=[];
   const get=id=>{
     if(!elements.has(id)){
@@ -66,7 +67,8 @@ function createHarness({failFirstJob=false,denyFirstPlay=false,cancelFirstPlay=f
     onMessageState:(id,state)=>states.set(id,state),
     async playAudio(player){
       playAttempts++;
-      if(denyFirstPlay&&playAttempts===1)throw blocked();
+      if((denyFirstPlay&&playAttempts===1)||playAttempts<=denyFirstNPlays)
+        throw blocked();
       if(cancelFirstPlay&&playAttempts===1)return false;
       player.paused=false;
       player.ended=false;
@@ -126,6 +128,82 @@ async function testFirefoxPermissionStillPausesWithErrorContinuationEnabled(){
     await t.get("liveAutoRetry").fire("click");
     assert.equal(t.api.autoPaused,false);
     assert.equal(t.states.get("blocked"),"reading");
+  }finally{t.cleanup();}
+}
+
+async function testUnlimitedAutoplaySkipAfterManyBlocks(){
+  const t=createHarness({denyFirstNPlays:7});
+  try{
+    t.get("liveFeedForceAutoplay").checked=true;
+    for(let i=1;i<=8;i++)
+      t.api.receiveIncoming({message_id:"blocked-"+i,text:"ข้อความ"+i},true);
+    for(let i=0;i<50 && t.states.get("blocked-8")!=="reading";i++)
+      await tick();
+    assert.equal(t.api.autoPaused,false,
+      "opt-in allows unlimited skips without auto-pausing");
+    assert.equal(t.playAttempts,8,
+      "the eighth message must be attempted after seven Browser denials");
+    assert.equal(t.synthesisAttempts,8,
+      "each failed WAV is discarded and the next message rendered");
+    for(let i=1;i<=7;i++)
+      assert.equal(t.states.get("blocked-"+i),"skipped");
+    assert.equal(t.states.get("blocked-8"),"reading");
+    assert.match(t.get("liveStatus").textContent,/ข้ามเสียงที่ Browser บล็อก 7/);
+    t.audio.paused=true;
+    await t.audio.fire("ended");
+    await tick();
+    assert.equal(t.states.get("blocked-8"),"read");
+    assert.equal(t.api.pendingAuto,0);
+  }finally{t.cleanup();}
+}
+async function testAllBrowserBlockedItemsMayBeDiscarded(){
+  const t=createHarness({denyFirstNPlays:99});
+  try{
+    t.get("liveFeedForceAutoplay").checked=true;
+    for(let i=1;i<=9;i++)
+      t.api.receiveIncoming({message_id:"all-blocked-"+i,text:"ข้อความ"+i},true);
+    for(let i=0;i<60 && t.states.get("all-blocked-9")!=="skipped";i++)
+      await tick();
+    assert.equal(t.playAttempts,9,"try every message, no three-skip cap");
+    assert.equal(t.synthesisAttempts,9);
+    assert.equal(t.api.pendingAuto,0);
+    assert.equal(t.api.autoPaused,false,"queue remains live after all WAVs are blocked");
+    for(let i=1;i<=9;i++)
+      assert.equal(t.states.get("all-blocked-"+i),"skipped");
+    assert.match(t.get("liveStatus").textContent,/ข้ามเสียงที่ Browser บล็อก 9/);
+  }finally{t.cleanup();}
+}
+async function testTurningOnForceAutoplaySkipsAlreadyBlockedWav(){
+  const t=createHarness({denyFirstPlay:true});
+  try{
+    t.api.receiveIncoming({message_id:"held",text:"ถูกบล็อก"},true);
+    t.api.receiveIncoming({message_id:"later",text:"อ่านต่อ"},true);
+    await tick();
+    assert.equal(t.api.autoPaused,true);
+    assert.equal(t.states.get("held"),"queued");
+    t.get("liveFeedForceAutoplay").checked=true;
+    await t.get("liveFeedForceAutoplay").fire("change");
+    for(let i=0;i<30 && t.states.get("later")!=="reading";i++)
+      await tick();
+    assert.equal(t.api.autoPaused,false);
+    assert.equal(t.states.get("held"),"skipped");
+    assert.equal(t.states.get("later"),"reading");
+    assert.equal(t.playAttempts,2);
+    assert.match(t.get("liveStatus").textContent,/ข้ามเสียงที่ Browser บล็อก 1/);
+  }finally{t.cleanup();}
+}
+async function testForceAutoplayIsIndependentFromSpeechErrorPolicy(){
+  const t=createHarness({failFirstJob:true});
+  try{
+    t.get("liveFeedForceAutoplay").checked=true;
+    t.get("liveFeedContinueOnTtsError").checked=false;
+    t.api.receiveIncoming({message_id:"failed-synthesis",text:"ไม่มี WAV"},true);
+    t.api.receiveIncoming({message_id:"next",text:"ยังรอ"},true);
+    await tick();
+    assert.equal(t.api.autoPaused,true,
+      "browser playback policy must not hide a TTS model failure");
+    assert.equal(t.states.get("failed-synthesis"),"queued");
+    assert.equal(t.playAttempts,0);
   }finally{t.cleanup();}
 }
 
@@ -352,6 +430,10 @@ async function testResetDoesNotInterruptTranslationOrSynthesis(){
   await testResetDoesNotInterruptTranslationOrSynthesis();
   await testFirefoxDenialAndResume();
   await testFirefoxPermissionStillPausesWithErrorContinuationEnabled();
+  await testUnlimitedAutoplaySkipAfterManyBlocks();
+  await testAllBrowserBlockedItemsMayBeDiscarded();
+  await testTurningOnForceAutoplaySkipsAlreadyBlockedWav();
+  await testForceAutoplayIsIndependentFromSpeechErrorPolicy();
   await testIncomingMessagesQueueWhileFirefoxAutoplayPaused();
   await testSpeechJobFailureIsNotAutoplay();
   await testSchedulerCancelledPlayback();

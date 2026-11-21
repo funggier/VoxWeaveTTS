@@ -43,7 +43,8 @@ class SourceQueueSettingsTests(unittest.TestCase):
                 value={**DEFAULTS,"max_chars":8000,
                        "read_history_limit":2,"random_queue_enabled":True,
                        "random_queue_threshold":30,"random_queue_keep":6,
-                       "prepare_ahead":mode in {"youtube_browser","tiktok_browser"}}
+                       "prepare_ahead":mode in {"youtube_browser","tiktok_browser"},
+                       "force_autoplay":mode in {"live","tiktok"}}
                 saved=save_settings({"mode":mode,"expected_revision":0,"settings":value},
                                     path=path)
                 self.assertEqual(saved["modes"][mode]["revision"],1)
@@ -51,6 +52,8 @@ class SourceQueueSettingsTests(unittest.TestCase):
             self.assertEqual(len(read["modes"]),6)
             self.assertTrue(read["modes"]["youtube_browser"]["settings"]["prepare_ahead"])
             self.assertFalse(read["modes"]["discord"]["settings"]["prepare_ahead"])
+            self.assertTrue(read["modes"]["live"]["settings"]["force_autoplay"])
+            self.assertFalse(read["modes"]["discord"]["settings"]["force_autoplay"])
             self.assertEqual(read["modes"]["youtube_browser"]["settings"]["max_chars"],8000)
             self.assertNotIn("credential",path.read_text(encoding="utf-8"))
             self.assertNotIn("token",path.read_text(encoding="utf-8"))
@@ -71,6 +74,7 @@ class SourceQueueSettingsTests(unittest.TestCase):
                 {**DEFAULTS,"random_queue_keep":20},
                 {**DEFAULTS,"auto_read":1},
                 {**DEFAULTS,"prepare_ahead":"yes"},
+                {**DEFAULTS,"force_autoplay":"yes"},
                 {**DEFAULTS,"prepare_queue_limit":0},
                 {**DEFAULTS,"ready_audio_queue_limit":0},
                 {**DEFAULTS,"ready_audio_queue_limit":21},
@@ -168,6 +172,33 @@ class SourceQueueSettingsTests(unittest.TestCase):
                                 "settings":update},path=path)
             self.assertEqual(saved["modes"]["live"]["settings"]["speech_job_timeout_minutes"],17)
             self.assertEqual(saved["modes"]["discord"]["settings"]["speech_job_timeout_minutes"],4)
+
+    def test_previous_release_migrates_force_autoplay_disabled_without_file_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"source-queues.json"
+            saved={key:value for key,value in DEFAULTS.items()
+                   if key!="force_autoplay"}
+            saved["continue_on_tts_error"]=True
+            saved["prepare_queue_limit"]=100
+            saved["ready_audio_queue_limit"]=20
+            document={"schema_version":1,"modes":{
+                mode:{"revision":11,"settings":dict(saved)} for mode in SOURCE_MODES}}
+            path.write_text(json.dumps(document),encoding="utf-8")
+            before=path.read_bytes()
+            loaded=load_settings(path=path)
+            self.assertEqual(path.read_bytes(),before)
+            for mode in SOURCE_MODES:
+                settings=loaded["modes"][mode]["settings"]
+                self.assertIs(settings["force_autoplay"],False)
+                self.assertTrue(settings["continue_on_tts_error"])
+                self.assertEqual(settings["prepare_queue_limit"],100)
+                self.assertEqual(settings["ready_audio_queue_limit"],20)
+            updated={**loaded["modes"]["live"]["settings"],"force_autoplay":True}
+            result=save_settings({"mode":"live","expected_revision":11,
+                                  "settings":updated},path=path)
+            self.assertTrue(result["modes"]["live"]["settings"]["force_autoplay"])
+            self.assertFalse(result["modes"]["tiktok"]["settings"]["force_autoplay"])
+            self.assertEqual(result["modes"]["live"]["revision"],12)
 
     def test_corrupted_settings_do_not_silently_reset(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -28,8 +28,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
                       discarded:null,pending:null,phase:""};
   let completedReads=0, importantNotice="";
   let manualSynthesizing=false;
-  let errorSkipped=0;
+  let errorSkipped=0, browserBlockedSkipped=0;
+  // Browser permission failures are separate from translation/TTS errors.
+  // Users may explicitly choose to discard every blocked WAV indefinitely.
+  let pausedAutoplayError=null;
   const continueOnError=()=>get("FeedContinueOnTtsError")?.checked===true;
+  const forceAutoplayContinue=()=>get("FeedForceAutoplay")?.checked===true;
   function jobTimeoutMinutes(){
     const n=Number(get("FeedSpeechTimeoutMinutes")?.value);
     return Number.isInteger(n)&&n>=1&&n<=60?n:4;
@@ -107,7 +111,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       " · เสียงรอเล่น "+count("ready")+
       " · อ่านจบ "+completedReads+
       " · สุ่มลบ "+randomRemoved+
-      " · ข้ามข้อผิดพลาด "+errorSkipped,
+      " · ข้ามข้อผิดพลาด "+errorSkipped+
+      " · ข้ามเสียงที่ Browser บล็อก "+browserBlockedSkipped,
     ];
     if(importantNotice)lines.push("แจ้งเตือน: "+importantNotice);
     get("Status").textContent=lines.join("\n");
@@ -180,7 +185,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       return "Browser ยกเลิกการเริ่มเล่นเสียง ("+name+")";
     return "งานเสียงหรือการเล่นเสียงล้มเหลว: "+detail+(name?" ("+name+")":"");
   }
-  function pauseAuto(reason,{replayReady=false}={}){
+  function pauseAuto(reason,{replayReady=false,blockedError=null}={}){
+    pausedAutoplayError=blockedError;
     autoPaused=true;
     autoBusy=false;
     if(activeIncoming){
@@ -195,10 +201,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     feedback("อ่านอัตโนมัติพักชั่วคราว · "+reason+
       " · กด 'อ่านอัตโนมัติต่อ' หลังแก้ไข");
   }
-  function skipFailedJob(error,task){
-    // Only an explicitly enabled policy discards failed speech. A denied
-    // autoplay permission must pause: skipping would silently eat the LIVE
-    // backlog without producing any sound.
+  function skipFailedJob(error,task,{browserBlocked=false}={}){
+    // An explicit opt-in may discard every autoplay-blocked WAV. This does
+    // not grant playback permission: a permanently blocked browser may
+    // discard the entire LIVE backlog, exactly as the user requested.
+    pausedAutoplayError=null;
+    autoPaused=false;
     const reason=playbackFailure(error);
     if(task)cancelPrefetched(task);
     else cancelSpeechJob(jobId);
@@ -213,7 +221,9 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       error:reason,
     });
     errorSkipped++;
-    feedback("ข้ามข้อความที่ผิดพลาดแล้ว · "+reason+" · อ่านคิวถัดไป");
+    if(browserBlocked)browserBlockedSkipped++;
+    feedback((browserBlocked?"ข้ามเสียงที่ Browser บล็อกแล้ว":"ข้ามข้อความที่ผิดพลาดแล้ว")+
+      " · "+reason+" · อ่านคิวถัดไป");
     activeIncoming=null;
     activePreparedTask=null;
     autoBusy=false;
@@ -724,6 +734,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     if(!started)return false;
     if(task.cancelled||ticket!==queueEpoch)return false;
     task.stage="reading";
+    pausedAutoplayError=null;
     mark(item,"reading");
     onSpeechDiagnostic?.({message_id:item.message_id,stage:"reading",
        text:task.composedText,error:""});
@@ -770,7 +781,8 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       }
       if(!played){
         const failure=new Error("ยังเริ่มเล่นเสียงไม่ได้ (คิวหรือ Browser ยกเลิกการเล่น)");
-        if(continueOnError())skipFailedJob(failure,task);
+        if(forceAutoplayContinue())skipFailedJob(failure,task,{browserBlocked:true});
+        else if(continueOnError())skipFailedJob(failure,task);
         else{
           // Preserve generated WAV and message when error skipping is off.
           activePreparedTask=null;
@@ -780,14 +792,20 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       }
     }catch(error){
       if(ticket!==queueEpoch)return;
+      if(blockedAutoplay(error) && forceAutoplayContinue()){
+        skipFailedJob(error,task,{browserBlocked:true});
+        return;
+      }
       if(continueOnError()&&!blockedAutoplay(error)){
         skipFailedJob(error,task);
         return;
       }
       activePreparedTask=null;
       showPipeline();
-      pauseAuto(playbackFailure(error),
-        {replayReady:Boolean(lastReady&&wavUrl)});
+      pauseAuto(playbackFailure(error),{
+        replayReady:Boolean(lastReady&&wavUrl),
+        blockedError:blockedAutoplay(error)?error:null,
+      });
     }
   }
   function randomQueuePolicy(){
@@ -894,12 +912,24 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     if(get("FeedPrepareAhead").checked){fillPrefetched();pumpIncoming();}
     showPipeline();
   });
+  get("FeedForceAutoplay")?.addEventListener("change",()=>{
+    // When enabling the option *after* Firefox denied autoplay, immediately
+    // skip that retained WAV and continue the queue. Do not unpause manual
+    // stops or unrelated speech/translation errors.
+    if(forceAutoplayContinue()&&autoPaused&&pausedAutoplayError&&activeIncoming
+       &&get("FeedAuto").checked&&guard(mode)){
+      const blocked=pausedAutoplayError;
+      skipFailedJob(blocked,activePreparedTask,{browserBlocked:true});
+    }
+    renderBottomStatus();
+  });
   get("AutoRetry")?.addEventListener("click",async()=>{
     if(!get("FeedAuto").checked){
       feedback("เปิดอ่านอัตโนมัติก่อนกดลองอ่านต่อ");
       return;
     }
     autoPaused=false;
+    pausedAutoplayError=null;
     manualHolding=false;
     importantNotice="";
     feedback("กำลังลองอ่านข้อความอัตโนมัติต่อ...");
@@ -912,14 +942,21 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         const started=await playAudio(audio);
         if(ticket!==queueEpoch)return;
         if(!started){
-          pauseAuto("ยังเริ่มเล่นเสียงไม่ได้",{replayReady:true});
+          const failure=new Error("ยังเริ่มเล่นเสียงไม่ได้");
+          if(forceAutoplayContinue())skipFailedJob(failure,activePreparedTask,{browserBlocked:true});
+          else pauseAuto(failure.message,{replayReady:true});
           return;
         }
+        pausedAutoplayError=null;
         mark(activeIncoming,"reading");
         feedback("กำลังอ่านข้อความอัตโนมัติต่อ...");
       }catch(error){
         if(ticket!==queueEpoch)return;
-        pauseAuto(playbackFailure(error),{replayReady:true});
+        if(blockedAutoplay(error)&&forceAutoplayContinue())
+          skipFailedJob(error,activePreparedTask,{browserBlocked:true});
+        else pauseAuto(playbackFailure(error),{
+          replayReady:true,blockedError:blockedAutoplay(error)?error:null,
+        });
       }
       return;
     }
@@ -956,6 +993,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   });
   get("Submit").addEventListener("click",()=>submit().catch(e=>feedback(String(e.message||e))));
   get("Stop").addEventListener("click",()=>{
+    pausedAutoplayError=null;
     manualHolding=false;
     clearAutoQueue({includeActive:true});
     autoPaused=true;

@@ -27,6 +27,7 @@ DEFAULTS = {
     "random_queue_threshold": 20,
     "random_queue_keep": 5,
     "continue_on_tts_error": False,
+    "force_autoplay": False,  # opt-in skip blocked WAV and attempt next LIVE item
     "prepare_ahead": False,  # opt-in parallel AI/TTS while previous WAV plays
     "prepare_queue_limit": 3,
     "ready_audio_queue_limit": 2,
@@ -47,7 +48,8 @@ def validate_settings(raw: Any) -> dict[str, Any]:
     if (not isinstance(blocked, str) or len(blocked) > 2000
         or any(ord(ch) < 32 or ord(ch) == 127 for ch in blocked)):
         raise InputError("invalid blocked words")
-    for key in ("auto_read", "random_queue_enabled", "continue_on_tts_error", "prepare_ahead"):
+    for key in ("auto_read", "random_queue_enabled", "continue_on_tts_error",
+                "force_autoplay", "prepare_ahead"):
         if type(raw[key]) is not bool:
             raise InputError("invalid queue switch")
     for key, low, high in (
@@ -94,7 +96,7 @@ def _read(path: Path) -> dict[str, Any]:
             # Two independently added opt-in switches: migrate any subset
             # of these missing keys, while rejecting unexpected keys.
             stored = record["settings"]
-            new_switches = {"continue_on_tts_error", "prepare_ahead",
+            new_switches = {"continue_on_tts_error", "force_autoplay", "prepare_ahead",
                             "prepare_queue_limit", "ready_audio_queue_limit",
                             "speech_job_timeout_minutes"}
             if (isinstance(stored, dict)
