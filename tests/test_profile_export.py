@@ -30,7 +30,7 @@ def profile_for(mode: str) -> dict:
             "client_id": "", "client_secret": "TEST_PRIVATE_SECRET_NOT_FOR_REAL_USE",
             "redirect_uri": "http://127.0.0.1:8765",
         })
-    elif mode != "tiktok":
+    elif mode not in {"tiktok", "tiktok_browser", "youtube_browser"}:
         result["credential"] = "TEST_PRIVATE_CREDENTIAL_NOT_FOR_REAL_USE"
     return result
 
@@ -42,11 +42,15 @@ def request_for(mode: str) -> dict:
 
 class SaveDialogFilesTests(unittest.TestCase):
     def test_save_to_user_selected_folder_and_roundtrip_secrets(self):
-        for mode in ("live", "discord", "discord_client", "tiktok"):
+        for mode in ("live", "discord", "discord_client", "tiktok", "youtube_browser", "tiktok_browser"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temp:
                 target = Path(temp) / "sub folder" / "settings.json"
                 target.parent.mkdir()
                 original = request_for(mode)
+                original["profile"].update({
+                    "read_sender_name": False, "random_queue_enabled": True,
+                    "random_queue_threshold": 20, "random_queue_keep": 5,
+                })
                 dialog_calls = []
                 def choose(suggested):
                     dialog_calls.append(suggested)
@@ -85,6 +89,9 @@ class SaveDialogFilesTests(unittest.TestCase):
             {**valid, "profile": {**valid["profile"], "mode": "other"}},
             {**valid, "profile": {**valid["profile"], "extra": "PRIVATE"}},
             {**valid, "profile": {**valid["profile"], "read_sender_name": "true"}},
+            {**valid, "profile": {**valid["profile"], "random_queue_enabled": "true"}},
+            {**valid, "profile": {**valid["profile"], "random_queue_threshold": 3}},
+            {**valid, "profile": {**valid["profile"], "random_queue_keep": True}},
             {**valid, "profile": {**valid["profile"], "client_secret": "x" * 20_000}},
         ):
             with self.subTest(filename=bad["filename"]):

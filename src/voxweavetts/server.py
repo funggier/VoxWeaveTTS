@@ -1,4 +1,4 @@
-"""Loopback-only text, Engine Registry, WAV preview and job queue HTTP API."""
+"""Text, Engine Registry, WAV preview and job queue HTTP API."""
 from __future__ import annotations
 
 import json
@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 import zipfile
 
 from . import __version__
+from .network import DEFAULT_HOST, DEFAULT_PORT, NetworkAccess, NetworkSettings
 from .processing import InputError, process_text
 from .ai_pipeline import PreparedPipeline, prepare_pipeline
 from .ai_engine_registry import ai_engines
@@ -327,15 +328,53 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(key, value)
         self.end_headers()
 
-    def send_json(self, status: int, body: Any) -> None:
+    def send_json(self, status: int, body: Any, extra: dict[str, str] | None = None) -> None:
         payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
-        self._headers(status, "application/json; charset=utf-8", len(payload))
+        self._headers(status, "application/json; charset=utf-8", len(payload), extra)
         self.wfile.write(payload)
+
+    def _is_host_machine(self) -> bool:
+        return NetworkAccess.is_owner(self.client_address[0], self.connection.getsockname()[0])
+
+    def _authorize_network(self, *, post: bool = False, extension: bool = False) -> bool:
+        access = getattr(self.server, "network_access", None)
+        if access is None:
+            return True
+        host = self.headers.get("Host", "").lower().strip()
+        error = None
+        if not access.valid_host(host, self.connection.getsockname()[0], self.server.server_port):
+            status, error = 403, "use the VoxWeaveTTS IPv4 address and port"
+        elif post and not extension and (
+            self.headers.get("Origin") not in (None, f"http://{host}")
+            or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+        ):
+            status, error = 403, "same-origin request required"
+        elif not self._is_host_machine() and not access.authorized(self.headers.get("Authorization", "")):
+            status, error = 401, "VoxWeaveTTS network access code required"
+        if error is None:
+            return True
+        headers = {"WWW-Authenticate": 'Basic realm="VoxWeaveTTS"'} if status == 401 else None
+        if post:
+            self.reject_unread_post(status, {"error": error}, headers)
+        else:
+            self.send_json(status, {"error": error}, headers)
+        return False
+
+    def _same_origin_action(self, intent: str, *, host_only: bool = False) -> bool:
+        host = self.headers.get("Host", "").lower().strip()
+        local_ip = self.connection.getsockname()[0]
+        return (
+            NetworkAccess.valid_host(host, local_ip, self.server.server_port)
+            and self.headers.get("Origin", "").lower().strip() == f"http://{host}"
+            and self.headers.get("Sec-Fetch-Site") in (None, "same-origin")
+            and self.headers.get("X-VoxWeaveTTS-Intent") == intent
+            and (not host_only or self._is_host_machine())
+        )
 
     def _extension_origin_id(self) -> str | None:
         origin = self.headers.get("Origin", "")
         host = self.headers.get("Host", "").lower()
-        if host != f"127.0.0.1:{self.server.server_port}":
+        if not self.client_address[0].startswith("127.") or host != f"127.0.0.1:{self.server.server_port}":
             return None
         return extension_id_from_origin(origin)
 
@@ -363,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
             "Vary": "Origin",
         })
 
-    def reject_unread_post(self, status: int, body: Any) -> None:
+    def reject_unread_post(self, status: int, body: Any, extra: dict[str, str] | None = None) -> None:
         """Finish a small local request before returning an early HTTP error.
 
         Windows can abort an HTTP/1.0 connection before the caller receives
@@ -380,7 +419,7 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             finally:
                 self.connection.settimeout(previous_timeout)
-        self.send_json(status, body)
+        self.send_json(status, body, extra)
 
     def _subtitle_mode(self) -> str:
         parameters = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
@@ -558,6 +597,8 @@ class Handler(BaseHTTPRequestHandler):
             state.unsubscribe()
 
     def do_GET(self) -> None:
+        if not self._authorize_network():
+            return
         route = urlsplit(self.path).path
         try:
             if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/source_queue_ui.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js"}:
@@ -822,8 +863,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         route = urlsplit(self.path).path
-        if route in ("/v1/extension/pair", "/v1/extension/messages",
-                     "/v1/extension/disconnect"):
+        extension = route in ("/v1/extension/pair", "/v1/extension/messages",
+                              "/v1/extension/disconnect")
+        if not self._authorize_network(post=True, extension=extension):
+            return
+        if extension:
             extension_id = self._extension_origin_id()
             if not extension_id or self.headers.get("X-VoxWeaveTTS-Intent") != "tiktok-extension":
                 self.reject_unread_post(403, {"error": "extension origin/intent required"})
@@ -845,13 +889,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_extension_json(403, {"error": "invalid or expired extension request"})
             return
         if route == "/v1/ai/search/test":
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "test-ai-search-provider"):
+            if not self._same_origin_action("test-ai-search-provider", host_only=True):
                 self.reject_unread_post(403, {"error": "same-origin search test required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -869,13 +907,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(503, {"error": "selected search provider unavailable or no API credentials"})
             return
         if route == "/v1/ai/search-credentials":
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                    or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                    or self.headers.get("X-VoxWeaveTTS-Intent") != "save-ai-search-key"):
+            if not self._same_origin_action("save-ai-search-key", host_only=True):
                 self.reject_unread_post(403, {"error": "same-origin API key update required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -893,13 +925,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(503, {"error": "secure local credential storage unavailable"})
             return
         if route == "/v1/ollama/preload":
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "preload-ollama-model"):
+            if not self._same_origin_action("preload-ollama-model", host_only=True):
                 self.reject_unread_post(403, {"error": "same-origin preload permission required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -930,18 +956,12 @@ class Handler(BaseHTTPRequestHandler):
                      "/v1/model-packages/install-confirmed",
                      "/v1/model-packages/remove"):
             # All package actions require a same-origin local user action.
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
             intent = {
                 "/v1/model-packages/inspect-local": "inspect-model-package",
                 "/v1/model-packages/install-confirmed": "install-model-package",
                 "/v1/model-packages/remove": "remove-model-package",
             }[route]
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != intent):
+            if not self._same_origin_action(intent, host_only=True):
                 self.reject_unread_post(403, {"error": "same-origin package action required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -1012,14 +1032,8 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/v1/sources/save-profile":
             # JSON may contain a Bot Token or Client Secret. Browsers cannot
             # forge Origin or Sec-Fetch-Site; this endpoint requires same
-            # origin, loopback host, and explicit user-save intent.
-            local_origins = {f"http://{name}:{self.server.server_port}"
-                             for name in ("127.0.0.1", "localhost")}
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            if (f"http://{host}" not in local_origins or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "choose-source-profile-file"):
+            # origin on the host machine and explicit user-save intent.
+            if not self._same_origin_action("choose-source-profile-file", host_only=True):
                 self.reject_unread_post(403, {"error": "same-origin save permission required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -1043,15 +1057,8 @@ class Handler(BaseHTTPRequestHandler):
             # The translated/replaced/pronounced model input is PRIVATE.
             # Never add it to public GET job status, SSE, or subtitles. A
             # browser can retrieve it only via explicit same-origin POST.
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            origins = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in origins or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != (
-                    "inspect-tts-preview" if job_route[1] == "tts-preview"
-                    else "inspect-tts-inputs")):
+            intent = "inspect-tts-preview" if job_route[1] == "tts-preview" else "inspect-tts-inputs"
+            if not self._same_origin_action(intent):
                 self.reject_unread_post(403, {"error": "same-origin TTS input inspection required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -1072,13 +1079,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "invalid TTS input inspection request"})
             return
         if job_route is not None and job_route[1] == "ack-audio":
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            local = {f"http://{name}:{self.server.server_port}"
-                     for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in local or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "ack-staged-wav"):
+            if not self._same_origin_action("ack-staged-wav"):
                 self.reject_unread_post(403, {"error": "same-origin audio acknowledgment required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -1096,15 +1097,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "invalid audio acknowledgment"})
             return
         if job_route is not None and job_route[1] == "start-render":
-            # Only an explicitly intent-gated local browser can spend a TTS
+            # Only an explicitly intent-gated browser can spend a TTS
             # slot. Prevent cross-site pages from draining staged queues.
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            local = {f"http://{name}:{self.server.server_port}"
-                     for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in local or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "start-staged-speech-render"):
+            if not self._same_origin_action("start-staged-speech-render"):
                 self.reject_unread_post(403, {"error": "same-origin render intent required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -1213,13 +1208,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "invalid language routing JSON"})
             return
         if route == "/v1/settings/source-queues":
-            host = self.headers.get("Host", "").lower().strip()
-            origin = self.headers.get("Origin", "").lower().strip()
-            allowed = {f"http://{name}:{self.server.server_port}"
-                       for name in ("127.0.0.1", "localhost")}
-            if (f"http://{host}" not in allowed or origin != f"http://{host}"
-                or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
-                or self.headers.get("X-VoxWeaveTTS-Intent") != "save-source-queue"):
+            if not self._same_origin_action("save-source-queue"):
                 self.reject_unread_post(403, {"error": "same-origin source queue save required"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -1426,6 +1415,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": str(exc)})
             return
         if route == "/v1/settings/ai":
+            if not self._is_host_machine():
+                self.reject_unread_post(403, {"error": "AI settings must be changed on the host machine"})
+                return
             if self.headers.get("X-VoxWeaveTTS-Intent") != "save-ai-settings":
                 self.reject_unread_post(403, {"error": "missing AI settings update intent"})
                 return
@@ -1524,13 +1516,14 @@ class Handler(BaseHTTPRequestHandler):
             super().log_message(format, *args)
 
 
-def serve(port: int = 8765) -> None:
-    if not 1 <= port <= 65535:
-        raise ValueError("port must be 1..65535")
-    with ThreadingHTTPServer(("127.0.0.1", port), Handler) as server:
+def serve(port: int = DEFAULT_PORT, *, host: str = DEFAULT_HOST, access_code: str = "") -> None:
+    settings = NetworkSettings(host, port, access_code)
+    with ThreadingHTTPServer((settings.host, settings.port), Handler) as server:
+        server.network_access = NetworkAccess(settings)
         from .process_ownership import register_process
         register_process("server")
-        print(f"VoxWeaveTTS v{__version__} at http://127.0.0.1:{port}/",
+        url_host = DEFAULT_HOST if host == "0.0.0.0" else host
+        print(f"VoxWeaveTTS v{__version__} at http://{url_host}:{port}/ (bind {host})",
               flush=True)
         info = engine_info()
         print(

@@ -145,7 +145,7 @@ $notice=@(
 )
 $notice | Set-Content -LiteralPath (Join-Path $stage 'THIRD_PARTY_NOTICES.txt') -Encoding UTF8
 $exe=Join-Path $stage 'VoxWeaveTTS.exe'
-& $compiler /nologo /target:winexe /platform:x64 ("/out:"+$exe) /reference:System.Windows.Forms.dll /reference:System.Drawing.dll (Join-Path $root 'scripts\VoxWeaveTTS.Launcher.cs')
+& $compiler /nologo /target:winexe /platform:x64 ("/out:"+$exe) /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Web.Extensions.dll (Join-Path $root 'scripts\VoxWeaveTTS.Launcher.cs')
 if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $exe)) {
   throw 'Windows launcher build failed'
 }
@@ -171,7 +171,7 @@ set "XDG_CACHE_HOME=%CD%\cache"
 set "TEMP=%CD%\cache\temp"
 set "TMP=%TEMP%"
 if not exist "%TEMP%" mkdir "%TEMP%"
-"%CD%\runtime\python\python.exe" -m voxweavetts --port 8765
+"%CD%\runtime\python\python.exe" -m voxweavetts %*
 if errorlevel 1 pause
 endlocal
 '@ | Set-Content -LiteralPath (Join-Path $stage 'Start-Console.cmd') -Encoding Ascii

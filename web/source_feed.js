@@ -75,6 +75,19 @@ const EXTENSION_PHASE_NAMES=Object.freeze({
   ended:"หยุดรับข้อความแล้ว",
   stopped:"หยุดรับข้อความแล้ว",
 });
+function downloadSettingsFile(content, filename){
+  const url=root.URL.createObjectURL(new Blob([content],{type:"application/json"}));
+  const link=document.createElement("a");
+  link.href=url;
+  link.download=filename;
+  document.body.appendChild(link);
+  try{link.click();}
+  finally{
+    link.remove();
+    // Give the browser time to start the download before revoking its URL.
+    setTimeout(()=>root.URL.revokeObjectURL(url),1000);
+  }
+}
 const STATE_LABELS={
   queued:"รอประมวลผล",preparing:"กำลังแปล/แยก",prepared:"แปล/แยกแล้ว",rendering:"กำลังสร้างเสียง",ready:"เสียงพร้อมรอเล่น",reading:"กำลังอ่าน",read:"อ่านแล้ว",
   skipped:"ข้ามการอ่าน",random_removed:"สุ่มลบจากคิว",manual:"เลือกอ่านเอง",
@@ -236,6 +249,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       const safeId=data.source_id.replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,40)||"settings";
       const filename="VoxWeaveTTS-"+mode+"-"+safeId+".json";
       const content=JSON.stringify(data,null,2)+"\n";
+      const hostname=root.location?.hostname;
+      const useNativeDialog=hostname==="localhost"||/^127\.\d+\.\d+\.\d+$/.test(hostname);
+      let downloaded=false;
       if(typeof root.showSaveFilePicker==="function"){
         // Chrome: true browser Save As, with native path/filename selection.
         // Invoke the picker before the first await, preserving user activation.
@@ -251,29 +267,33 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
           try{await stream.abort?.();}catch{/* no partial write on cancel */}
           throw Error("file write failed");
         }
-      }else{
-        // Firefox does not implement showSaveFilePicker. Ask the loopback-only
-        // desktop app to open a Windows Save As dialog. No path is provided by
-        // the web page: the user chooses the destination in the native UI.
+      }else if(useNativeDialog){
+        // Firefox on loopback can use the Windows dialog on the same computer.
         const response=await fetch("/v1/sources/save-profile",{
           method:"POST",
           headers:{"Content-Type":"application/json",
                    "X-VoxWeaveTTS-Intent":"choose-source-profile-file"},
           body:JSON.stringify({filename,profile:data}),
         });
-        const status=await response.json();
-        if(!response.ok){
-          if(response.status===503)
-            throw Error("เปิดหน้าต่าง Save As ของ Windows ไม่ได้");
-          throw Error("เปิดหน้าต่างบันทึกไฟล์ไม่สำเร็จ");
+        if(response.status===503){
+          downloadSettingsFile(content,filename);
+          downloaded=true;
+        }else{
+          if(!response.ok)throw Error("native save failed");
+          const status=await response.json();
+          if(status.cancelled){
+            message("ยกเลิกการบันทึกไฟล์");
+            return null;
+          }
+          if(!status.saved)throw Error("native save was not confirmed");
         }
-        if(status.cancelled){
-          message("ยกเลิกการบันทึกไฟล์");
-          return null;
-        }
-        if(!status.saved)throw Error("ไม่ได้รับผลยืนยันการบันทึกไฟล์");
+      }else{
+        // The browser saves to the viewing device for LAN and Tailnet URLs.
+        downloadSettingsFile(content,filename);
+        downloaded=true;
       }
-      message("บันทึกไฟล์การตั้งค่าแล้ว (มีข้อมูลลับที่ไม่เข้ารหัส · เก็บไฟล์อย่างปลอดภัย)");
+      const result=downloaded?"ส่งไฟล์การตั้งค่าให้เบราว์เซอร์แล้ว":"บันทึกไฟล์การตั้งค่าแล้ว";
+      message(result+" (มีข้อมูลลับที่ไม่เข้ารหัส · เก็บไฟล์อย่างปลอดภัย)");
       return data;
     }catch(error){
       if(error?.name==="AbortError"){

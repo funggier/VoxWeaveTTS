@@ -13,7 +13,14 @@ const asFile=profile=>{
 async function verify(mode){
   const prefix=mode==="discord_client"?"discordClient":mode;
   const elements=new Map(),pickerWrites=[],requests=[],senderImports=[];
+  const browserDownloads=[],revoked=[];
+  let pendingDownload=null;
   const browser={
+    location:{hostname:"127.0.0.1"},
+    URL:{
+      createObjectURL(blob){pendingDownload=blob;return "blob:test-profile";},
+      revokeObjectURL(url){revoked.push(url);},
+    },
     async showSaveFilePicker(options){
       if(browser.cancelSave){
         const error=new Error("user cancelled");
@@ -44,12 +51,17 @@ async function verify(mode){
     return elements.get(id);
   }
   const sandbox={
-    window:browser,Number,JSON,encodeURIComponent,
-    document:{createElement(tag){
+    window:browser,Number,JSON,encodeURIComponent,Blob,
+    document:{body:{appendChild(){}},createElement(tag){
+      if(tag==="a")return {
+        click(){browserDownloads.push({filename:this.download,blob:pendingDownload});},
+        remove(){},
+      };
       return {textContent:"",className:"",children:[],events:{},
         append(...nodes){this.children.push(...nodes);},
         addEventListener(event,fn){this.events[event]=fn;}};
     }},
+    setTimeout(callback){callback();},
     setInterval(){return 23;},
     clearInterval(){},
     async fetch(path,options){
@@ -60,6 +72,7 @@ async function verify(mode){
         const body=JSON.parse(options.body);
         assert.equal(body.profile.mode,mode);
         assert.ok(body.filename.endsWith(".json"));
+        if(browser.nativeUnavailable)return {ok:false,status:503};
         return {ok:true,async json(){return {saved:!browser.cancelNative,cancelled:Boolean(browser.cancelNative)};}};
       }
       if(path==="/v1/sources/start")return {ok:true,async json(){return {mode,state:"connecting"};}};
@@ -236,6 +249,24 @@ async function verify(mode){
   browser.cancelNative=false;
   assert.equal(pickerWrites.length,count+1,
                "Firefox must not silently download to the default folder");
+  assert.equal(browserDownloads.length,0);
+  browser.nativeUnavailable=true;
+  const saved=await feed.exportSettings();
+  assert.ok(saved);
+  assert.equal(browserDownloads.length,1);
+  assert.deepEqual(JSON.parse(await browserDownloads[0].blob.text()),JSON.parse(JSON.stringify(saved)));
+  browser.nativeUnavailable=false;
+  const lastRequestCount=requests.length;
+  for(const hostname of ["192.168.1.20","100.84.6.5"]){
+    browser.location.hostname=hostname;
+    await feed.exportSettings();
+    const downloaded=browserDownloads.at(-1);
+    assert.ok(downloaded.filename.endsWith(".json"));
+    assert.deepEqual(JSON.parse(await downloaded.blob.text()),JSON.parse(JSON.stringify(saved)));
+    assert.ok(el(prefix+"FeedStatus").textContent.includes("เบราว์เซอร์"));
+  }
+  assert.equal(requests.length,lastRequestCount,"LAN and Tailnet downloads stay in the browser");
+  assert.equal(revoked.length,3);
   // If a user imports while connected, the previous feed is disconnected
   // before replacing its credential fields, without reconnecting the feed.
   await feed.start();

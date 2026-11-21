@@ -183,20 +183,6 @@ if (-not $DryRun) {
     }
 }
 
-# A localhost port can be occupied by some unrelated application: never kill
-# it solely because it listens on 8765.
-$port = @(Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue)
-if ($port.Count) {
-    $portPid = [int]$port[0].OwningProcess
-    if ($DryRun) {
-        Write-Output "[VoxWeaveTTS] Port 8765 currently bound by PID=$portPid"
-    } else {
-        Write-Warning "Port 8765 is still listening (PID $portPid). It was not killed without verified ownership."
-        if ($expanded.ContainsKey($portPid)) { $failed = $true }
-    }
-} elseif (-not $DryRun) {
-    Write-Output '[VoxWeaveTTS] Port 8765 released'
-}
 if ($failed) {
     Write-Error '[VoxWeaveTTS] Stop incomplete; one or more owned processes remain'
     exit 1

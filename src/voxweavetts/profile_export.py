@@ -1,6 +1,6 @@
 """User-initiated Windows Save As dialog for browser-compatible source exports.
 
-Called only by a loopback-only, same-origin, explicit-intent HTTP endpoint.
+Called only by a host-only, same-origin, explicit-intent HTTP endpoint.
 Never choose a file path automatically, log credentials, or expose saved paths.
 """
 from __future__ import annotations
@@ -15,10 +15,14 @@ from typing import Any, Callable
 
 MAX_PROFILE_EXPORT_BYTES = 16_384
 _SAVE_DIALOG_LOCK = threading.Lock()
-_ALLOWED_MODES = frozenset(("live", "discord", "discord_client", "tiktok"))
+_NO_CREDENTIAL_MODES = frozenset(("tiktok", "youtube_browser", "tiktok_browser"))
+_ALLOWED_MODES = _NO_CREDENTIAL_MODES | {"live", "discord", "discord_client"}
 _COMMON_FIELDS = frozenset((
     "format", "version", "mode", "source_id", "filters", "auto_read",
     "read_history_limit",
+))
+_OPTIONAL_FIELDS = frozenset((
+    "read_sender_name", "random_queue_enabled", "random_queue_threshold", "random_queue_keep",
 ))
 
 
@@ -43,25 +47,30 @@ def validate_export_payload(data: Any) -> tuple[str, str]:
         or profile.get("format") != "voxweavetts.source-settings"
         or type(profile.get("version")) is not int or profile["version"] != 1):
         raise ValueError("unsupported settings profile")
-    expected = _COMMON_FIELDS | (
-        frozenset(("client_id", "client_secret", "redirect_uri")) if mode == "discord_client"
-        else frozenset() if mode == "tiktok"
-        else frozenset(("credential",))
+    credentials = (
+        ("client_id", "client_secret", "redirect_uri") if mode == "discord_client"
+        else () if mode in _NO_CREDENTIAL_MODES else ("credential",)
     )
-    if (set(profile) not in (expected, expected | {"read_sender_name"})
-        or ("read_sender_name" in profile and type(profile["read_sender_name"]) is not bool)):
+    required = _COMMON_FIELDS | set(credentials)
+    fields = set(profile)
+    if not required <= fields <= required | _OPTIONAL_FIELDS:
         raise ValueError("invalid settings fields")
+    for key in ("read_sender_name", "random_queue_enabled"):
+        if key in profile and type(profile[key]) is not bool:
+            raise ValueError("invalid settings flags")
+    threshold = profile.get("random_queue_threshold", 20)
+    keep = profile.get("random_queue_keep", 5)
+    if type(threshold) is not int or type(keep) is not int or not 1 <= keep < threshold <= 100_000:
+        raise ValueError("invalid random queue settings")
     if not isinstance(profile.get("source_id"), str) or not isinstance(profile.get("auto_read"), bool):
         raise ValueError("invalid settings fields")
     if not isinstance(profile.get("filters"), dict):
         raise ValueError("invalid settings filters")
     if not isinstance(filename, str) or not re.fullmatch(
-        r"VoxWeaveTTS-(?:live|discord|discord_client|tiktok)-[A-Za-z0-9_-]{1,48}\.json", filename
-    ) or not filename.startswith(f"VoxWeaveTTS-{mode}-"):
+        rf"VoxWeaveTTS-{mode}-[A-Za-z0-9_-]{{1,48}}[.]json", filename
+    ):
         raise ValueError("invalid suggested filename")
-    if not all(isinstance(profile.get(k), str) for k in
-               (("client_id", "client_secret", "redirect_uri") if mode == "discord_client"
-                else () if mode == "tiktok" else ("credential",))):
+    if not all(isinstance(profile[key], str) for key in credentials):
         raise ValueError("invalid credentials")
     payload = json.dumps(profile, ensure_ascii=False, indent=2) + "\n"
     if len(payload.encode("utf-8")) > MAX_PROFILE_EXPORT_BYTES:

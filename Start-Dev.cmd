@@ -9,11 +9,11 @@ set "TEMP=%CD%\cache\temp"
 set "TMP=%TEMP%"
 if not exist "%TEMP%" mkdir "%TEMP%" >nul 2>nul
 if exist "%CD%\.venv\Scripts\python.exe" (
-    "%CD%\.venv\Scripts\python.exe" -m voxweavetts --port 8765
+    "%CD%\.venv\Scripts\python.exe" -m voxweavetts %*
 ) else if exist "%CD%\runtime\python\python.exe" (
-    "%CD%\runtime\python\python.exe" -m voxweavetts --port 8765
+    "%CD%\runtime\python\python.exe" -m voxweavetts %*
 ) else (
-    python -m voxweavetts --port 8765
+    python -m voxweavetts %*
 )
 if errorlevel 1 (
     echo.
