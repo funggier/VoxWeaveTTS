@@ -16,7 +16,7 @@ import zipfile
 
 from . import __version__
 from .processing import InputError, process_text
-from .ai_pipeline import process_pipeline
+from .ai_pipeline import PreparedPipeline, prepare_pipeline
 from .ai_engine_registry import ai_engines
 from .ai_search_secrets import key_status as ai_search_key_status, update_key as update_ai_search_key, SecretUnavailable
 from .ai_tools import search_selected_provider, ToolDenied, ToolUnavailable
@@ -78,6 +78,9 @@ GLOBAL_VOICE_SETTINGS = PROJECT_ROOT / "data" / "settings" / "global-voice.json"
 _SETTINGS_LOCK = threading.RLock()
 _COORDINATOR_LOCK = threading.Lock()
 _COORDINATOR: SpeechCoordinator | None = None
+_AI_QUEUE_SETTINGS_LOCK = threading.Lock()
+_LIVE_SPEECH_SOURCES = ("youtube-live", "youtube-live-browser", "discord",
+                        "tiktok-live", "tiktok-live-extension")
 _PLAYBACK_STATE = PlaybackHub()
 _MODE_LOCK = threading.Lock()
 _SOURCE_LOCK = threading.Lock()
@@ -188,11 +191,19 @@ def _save_global_voice(data: dict[str, Any]) -> dict[str, Any]:
         return result
 
 
+def _live_translation_limits(settings: dict[str, Any]) -> tuple[int, int]:
+    if settings.get("live_ollama_parallel_enabled"):
+        return settings["live_ollama_parallel_limit"], settings["live_ollama_parallel_minimum"]
+    return 1, 1
+
+
 def _coordinator_default() -> SpeechCoordinator:
     global _COORDINATOR
     with _COORDINATOR_LOCK:
         if _COORDINATOR is None:
+            translation_limits = _live_translation_limits(load_ai_settings()["settings"])
             _COORDINATOR = SpeechCoordinator(render_wav)
+            _COORDINATOR.set_translation_limits(*translation_limits)
         return _COORDINATOR
 
 
@@ -788,13 +799,18 @@ class Handler(BaseHTTPRequestHandler):
         return data
 
     def _text_plan(self, data: dict[str, Any], *, ai_settings: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._prepare_text_plan(data, ai_settings=ai_settings).process()
+
+    def _prepare_text_plan(
+        self, data: dict[str, Any], *, ai_settings: dict[str, Any] | None
+    ) -> PreparedPipeline:
         rules = data.get("rules")
         if rules is None:
             rules = load_text_section("rules")["value"]
         dictionary = data.get("pronunciations")
         if dictionary is None:
             dictionary = load_text_section("pronunciations")["value"]
-        return process_pipeline(
+        return prepare_pipeline(
             text=data.get("content_text", data.get("text")),
             rules=rules,
             pronunciations=dictionary,
@@ -1337,8 +1353,15 @@ class Handler(BaseHTTPRequestHandler):
                         queued_data["rules"] = load_text_section("rules")["value"]
                     if queued_data.get("pronunciations") is None:
                         queued_data["pronunciations"] = load_text_section("pronunciations")["value"]
+                    pipeline = None
+                    if (hold_for_render and data.get("source") in _LIVE_SPEECH_SOURCES
+                            and ai_settings["engine"] == "ollama"
+                            and ai_settings["operation"] == "translate"):
+                        pipeline = self._prepare_text_plan(queued_data, ai_settings=ai_settings)
+
                     def prepare():
-                        plan = self._text_plan(queued_data, ai_settings=ai_settings)
+                        plan = (pipeline.process() if pipeline is not None
+                                else self._text_plan(queued_data, ai_settings=ai_settings))
                         params = self._queue_params(queued_data, plan)
                         return plan, params
                     job = self._coordinator().submit_deferred(
@@ -1347,6 +1370,7 @@ class Handler(BaseHTTPRequestHandler):
                         voice_id=data.get("voice_id", "pending"),
                         source_message_id=data.get("source_message_id"),
                         hold_for_render=hold_for_render,
+                        live_translation=pipeline is not None and pipeline.needs_ollama_translation(),
                     )
                 else:
                     plan = self._text_plan(data, ai_settings=ai_settings)
@@ -1402,7 +1426,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 data = self._read_json()
-                self.send_json(200, save_ai_settings(data.get("settings"), data.get("expected_revision")))
+                with _AI_QUEUE_SETTINGS_LOCK:
+                    result = save_ai_settings(data.get("settings"), data.get("expected_revision"))
+                    self._coordinator().set_translation_limits(*_live_translation_limits(result["settings"]))
+                self.send_json(200, result)
             except AISettingsConflict as exc:
                 self.send_json(409, {"error": str(exc)})
             except (InputError, UnicodeDecodeError, json.JSONDecodeError, OSError, ValueError) as exc:

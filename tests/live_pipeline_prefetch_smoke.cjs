@@ -16,6 +16,8 @@ const waitFor=async(fn,description)=>{
 async function run(){
   const elements=new Map(),states=new Map(),submitted=[],played=[],cancelled=[];
   const snapshots=[];
+  const renderOrder=[],preparedFirst=new Set();
+  let releaseFirst=false;
   function el(id){
     if(!elements.has(id)){
       elements.set(id,{
@@ -53,6 +55,7 @@ async function run(){
     if(suffix==="/start-render"){
       assert.equal(options.method,"POST");
       assert.equal(options.headers["X-VoxWeaveTTS-Intent"],"start-staged-speech-render");
+      renderOrder.push(id);
       jobs.get(id).renderStarted=true;
       return {ok:true,async json(){return{speech_id:id,state:"queued"};}};
     }
@@ -71,10 +74,11 @@ async function run(){
       };}};
     }
     if(suffix==="?wait=1")return {ok:true,async json(){return{speech_id:id,state:"ready",audio:{duration_ms:250,segments:[]}};}};
-    if(suffix==="")return {ok:true,async json(){return{
-      speech_id:id,state:jobs.get(id).renderStarted?"ready":"prepared",
-      audio:jobs.get(id).renderStarted?{duration_ms:250,segments:[]}:undefined,
-    };}};
+    if(suffix==="")return {ok:true,async json(){
+      const state=jobs.get(id).renderStarted?"ready":id==="job1"&&!releaseFirst?"preparing":"prepared";
+      if(state==="prepared")preparedFirst.add(id);
+      return {speech_id:id,state,audio:state==="ready"?{duration_ms:250,segments:[]}:undefined};
+    }};
     throw Error("Unexpected path suffix "+path);
   };
   const ctrl=attach({
@@ -105,7 +109,12 @@ async function run(){
       connected:true,state:"running",phase:"ready",
       received:12,discarded:2,pending:1,
     });
+    await waitFor(()=>preparedFirst.has("job2")&&preparedFirst.has("job3"),
+      "later prepared messages return before the first translation");
+    assert.deepEqual(renderOrder,[],"a prepared later message cannot enter TTS early");
+    releaseFirst=true;
     await waitFor(()=>played.length===1,"first WAV starts");
+    assert.equal(renderOrder[0],"job1");
     const bottom=el("liveStatus").textContent;
     assert.match(bottom,/รับข้อความ: กำลังรับแชท · รับแล้ว 12 · กรอง 2 · รอรับจากต้นทาง 1/);
     assert.match(bottom,/การอ่าน: กำลังเล่นเสียง · เปิดเตรียมเสียงล่วงหน้า/);
@@ -147,6 +156,8 @@ async function run(){
     assert.deepEqual(played,["text1","text2","text3","text4","text5","text6"],
       "audio must always follow accepted chat order");
     assert.equal(ctrl.pendingAuto,0);
+    assert.deepEqual(renderOrder.slice(0,3),["job1","job2","job3"],
+      "the TTS API receives the contiguous prepared prefix in order");
     for(let i=1;i<=6;i++)assert.equal(states.get("item"+i),"read");
     // Reset must retain currently playing audio but clear future prepared
     // jobs AND raw chat. No prepared audio may leak into a later session.

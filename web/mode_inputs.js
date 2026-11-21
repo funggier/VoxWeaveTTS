@@ -23,6 +23,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   const prefetched=[]; // FIFO jobs preparing/rendering while another WAV plays
   let activePreparedTask=null;
   let submissionTail=Promise.resolve(); // preserves HTTP enqueue order
+  let renderSubmissionTail=Promise.resolve(); // preserves TTS enqueue order
   let prefetchSequence=0; // distinct source key for an explicit failed-job retry
   let sourceOverview={state:"disconnected",connected:false,received:null,
                       discarded:null,pending:null,phase:""};
@@ -557,28 +558,35 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     task.stage="rendering";
     mark(task.item,"rendering");
     showPipeline();
-    task.renderRequest=fetch("/v1/jobs/"+task.jobId+"/start-render",{
-      method:"POST",
-      headers:{"Content-Type":"application/json",
-               "X-VoxWeaveTTS-Intent":"start-staged-speech-render"},
-      body:"{}",
-    }).then(async response=>{
+    const request=renderSubmissionTail.then(async()=>{
+      if(task.cancelled)return;
+      const response=await fetch("/v1/jobs/"+task.jobId+"/start-render",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",
+                 "X-VoxWeaveTTS-Intent":"start-staged-speech-render"},
+        body:"{}",
+      });
       if(!response.ok)throw Error("ไม่สามารถเริ่มสร้างเสียงจากคิวที่เตรียมไว้");
       return response.json();
-    }).catch(error=>{task.renderError=error;});
+    });
+    task.renderRequest=request.catch(error=>{task.renderError=error;});
+    renderSubmissionTail=task.renderRequest;
   }
   function scheduleRenders(){
     if(autoPaused||manualHolding||!guard(mode))return;
     // Current FIFO head is exempt from the *waiting-audio* quota: it must
     // begin rendering even when all permitted future WAV slots are filled.
-    if(activePreparedTask?.stage==="prepared")
-      requestRender(activePreparedTask);
+    if(activePreparedTask?.stage==="preparing"&&!activePreparedTask.cancelled)return;
+    if(activePreparedTask?.stage==="prepared")requestRender(activePreparedTask);
     const max=queueLimits().ready;
     let reserved=prefetched.filter(t=>!t.cancelled&&
       (t.stage==="rendering"||t.stage==="ready")).length;
     for(const task of prefetched){
       if(reserved>=max)break;
-      if(task.stage!=="prepared"||task.cancelled)continue;
+      if(task.cancelled)continue;
+      // A later translation may finish first. Only admit the ready FIFO prefix.
+      if(task.stage==="preparing")break;
+      if(task.stage!=="prepared")continue;
       requestRender(task);
       reserved++;
     }
@@ -628,12 +636,13 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       }else if(["skipped","failed","cancelled"].includes(job.state)){
         task.stage=job.state;task.job=job;
         showPipeline();
+        scheduleRenders();
         return job;
       }
       // Bound polling and keep the JS event loop free for playback events.
       // Large read-ahead queues must not hammer /v1/jobs every 150ms per
       // item. The FIFO head remains responsive; speculative work polls slowly.
-      const interval=task===activePreparedTask?150:
+      const interval=task===activePreparedTask||task===prefetched[0]?150:
         Math.min(8000,1000+Math.ceil(prefetched.length/10)*500);
       await new Promise(resolve=>setTimeout(resolve,interval));
     }
@@ -665,7 +674,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         if(Date.now()>=deadline)throw timeoutError("คิวงานเสียงกลาง");
         await new Promise(resolve=>setTimeout(resolve,600));
       }
-      if(task.cancelled)return false;
+      if(task.cancelled&&!response?.ok)return false;
       created=await response.json();
       if(!response.ok)throw Error(created.error||"สร้างงานเสียงล่วงหน้าไม่สำเร็จ");
       task.jobId=created.speech_id;
@@ -755,7 +764,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     autoBusy=true; // remains true until the audio "ended" event
     mark(next,task?task.stage:"preparing");
     showPipeline();
-    fillPrefetched(); // prepare up to two later jobs while this one plays
+    fillPrefetched(); // keep future preparation independent of the active job
     pickedMessage=null;
     get("Text").value=next.text;
     if(task){

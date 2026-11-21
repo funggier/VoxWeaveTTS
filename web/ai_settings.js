@@ -12,6 +12,9 @@ function attach(document, fetcher){
     source_language:"aiSourceLanguage", target_language:"aiTarget",
     translation_mode:"aiTranslationMode", auto_detect:"aiAutoDetect",
     translation_bypass_validation:"aiTranslationBypassValidation",
+    live_ollama_parallel_enabled:"aiLiveOllamaParallel",
+    live_ollama_parallel_limit:"aiLiveOllamaLimit",
+    live_ollama_parallel_minimum:"aiLiveOllamaMinimum",
     priority_instructions:"aiPriority", custom_prompt:"aiPrompt",
     display_mode:"aiDisplay", timeout_seconds:"aiTimeout",
     keep_alive_minutes:"aiKeepAlive",
@@ -22,7 +25,7 @@ function attach(document, fetcher){
     tool_search_provider:"aiSearchProvider", tool_searxng_url:"aiSearxngUrl",
     tool_file_read:"aiToolFileRead", tool_max_calls:"aiToolMaxCalls"
   };
-  const booleanKeys=new Set(["enabled","auto_detect","translation_bypass_validation","allow_context_files",
+  const booleanKeys=new Set(["enabled","auto_detect","translation_bypass_validation","live_ollama_parallel_enabled","allow_context_files",
     "tool_calling_enabled","tool_web_lookup","tool_general_web_search","tool_file_read"]);
   let revision=null, lastLoaded=null, engines=[], packages=[];
   let credentials={ollama:false,tavily:false};
@@ -34,7 +37,8 @@ function attach(document, fetcher){
       const element=get(id);
       if(name==="context_files"){
         data[name]=String(element.value||"").split(/[,\r\n]+/).map(x=>x.trim()).filter(Boolean);
-      }else if(name==="timeout_seconds"||name==="keep_alive_minutes"||name==="tool_max_calls"){
+      }else if(name==="timeout_seconds"||name==="keep_alive_minutes"||name==="tool_max_calls"
+               ||name==="live_ollama_parallel_limit"||name==="live_ollama_parallel_minimum"){
         data[name]=Number(element.value);
       }else if(booleanKeys.has(name)){
         data[name]=Boolean(element.checked);
@@ -49,6 +53,8 @@ function attach(document, fetcher){
       const element=get(id);
       if(name==="context_files")element.value=(data[name]||[]).join(", ");
       else if(booleanKeys.has(name))element.checked=Boolean(data[name]);
+      else if(name==="live_ollama_parallel_limit")element.value=String(data[name]??2);
+      else if(name==="live_ollama_parallel_minimum")element.value=String(data[name]??1);
       else element.value=String(data[name]);
     }
     updateAvailability();
@@ -95,6 +101,17 @@ function attach(document, fetcher){
     get("aiTranslationMode").disabled=operation!=="translate"||unspecified;
     get("aiAutoDetect").disabled=operation!=="translate"||unspecified;
     get("aiTranslationBypassValidation").disabled=operation!=="translate";
+    const ollamaTranslation=get("aiEngine").value==="ollama"&&operation==="translate";
+    get("aiLiveOllamaParallelPanel").hidden=!ollamaTranslation;
+    get("aiLiveOllamaParallel").disabled=!ollamaTranslation;
+    const parallelDisabled=!ollamaTranslation||!get("aiLiveOllamaParallel").checked;
+    const limit=get("aiLiveOllamaLimit"), minimum=get("aiLiveOllamaMinimum");
+    limit.disabled=minimum.disabled=parallelDisabled;
+    const maximum=Number(limit.value);
+    if(Number.isInteger(maximum)&&maximum>=1&&maximum<=64){
+      minimum.max=String(maximum);
+      if(Number(minimum.value)>maximum)minimum.value=String(maximum);
+    }
     const languageNames={th:"ภาษาไทย",en:"ภาษาอังกฤษ",ja:"ภาษาญี่ปุ่น",zh:"ภาษาจีน",ko:"ภาษาเกาหลี",es:"ภาษาสเปน",fr:"ภาษาฝรั่งเศส",hi:"ภาษาฮินดี",it:"ภาษาอิตาลี",pt:"ภาษาโปรตุเกส",de:"ภาษาเยอรมัน",ru:"ภาษารัสเซีย"};
     const customTasks={unspecified:"ไม่ระบุ",translate_only:"แปลอย่างเดียว",answer_questions:"ตอบคำถามแทนการแปล",translate_question_and_answer:"แปลคำถามและตอบต่อท้าย"};
     const selectedTask=customTasks[get("aiCustomTask").value]||customTasks.unspecified;
@@ -460,6 +477,8 @@ function attach(document, fetcher){
       !root.confirm("มีการแก้ไขที่ยังไม่บันทึก ต้องการโหลดค่าที่บันทึกจริงทับหรือไม่?"))return;
     load().catch(e=>status("โหลดไม่ได้: "+String(e.message||e)));
   });
+  get("aiLiveOllamaParallel").addEventListener("change",updateAvailability);
+  get("aiLiveOllamaLimit").addEventListener("change",updateAvailability);
   get("aiToolsEnabled").addEventListener("change",updateAvailability);
   get("aiOperation").addEventListener("change",updateAvailability);
   get("aiCustomTask").addEventListener("change",updateAvailability);

@@ -4,13 +4,20 @@ No platform credentials and no downloads: heavy AI responses are simulated.
 Real Ollama and M2M100 quality are independently checked by verify_* scripts.
 """
 import json
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+from queue import Queue
+from tempfile import TemporaryDirectory
 import threading
 import time
 import unittest
+from unittest.mock import patch
+from urllib.request import Request, urlopen
 
 from voxweavetts.ai_pipeline import process_pipeline
-from voxweavetts.ai_processing import DEFAULTS, AIUnavailable, validate_settings
-from voxweavetts.processing import process_text
+from voxweavetts.ai_processing import DEFAULTS, AIUnavailable, load_settings, validate_settings
+from voxweavetts.processing import InputError, process_text
+from voxweavetts.server import Handler
 from voxweavetts.speech_coordinator import SpeechCoordinator, QueueFull, JobNotReady
 
 VOICE = {"engine_id": "test-tts", "voice_id": "test"}
@@ -101,6 +108,162 @@ class AILiveLoadTests(unittest.TestCase):
             self.assertEqual(calls,[])
         finally:
             c.close()
+
+    def test_live_ollama_overlaps_across_sources_and_bypasses_same_language(self):
+        entered = Queue()
+        release = {text: threading.Event() for text in ("first foreign", "second foreign", "tail foreign")}
+        tts_started, tts_release = threading.Event(), threading.Event()
+
+        def translate(text, *_args):
+            entered.put(text)
+            if not release[text].wait(6):
+                raise AIUnavailable("test translation was not released")
+            return "แปลแล้ว"
+
+        def renderer(plan, **args):
+            if plan["spoken_text"] == "เสียงก่อนหน้า":
+                tts_started.set()
+                tts_release.wait(6)
+            return fake_renderer(plan, **args)
+
+        c = SpeechCoordinator(renderer)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server.speech_coordinator = c
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+
+        def post(route, payload, intent):
+            request = Request(
+                base + route, data=json.dumps(payload).encode("utf-8"), method="POST",
+                headers={"Content-Type": "application/json", "X-VoxWeaveTTS-Intent": intent},
+            )
+            with urlopen(request, timeout=3) as response:
+                return json.load(response)
+
+        def submit(text, source="youtube-live", rules=None):
+            return post("/v1/jobs", {"text": text, "source": source, "hold_for_render": True,
+                                     "rules": rules or [], "pronunciations": {}},
+                        "queue-speech")["speech_id"]
+
+        def wait_prepared(job_id):
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                job = c.get(job_id)
+                if job["state"] != "preparing":
+                    self.assertEqual(job["state"], "prepared", job)
+                    return job
+                time.sleep(0.01)
+            self.fail("speech job did not reach prepared state")
+
+        try:
+            with (
+                TemporaryDirectory() as directory,
+                patch("voxweavetts.ai_processing.AI_SETTINGS_FILE", Path(directory) / "ai.json"),
+                patch("voxweavetts.ai_processing._ollama_chat", side_effect=translate),
+                patch.object(Handler, "_queue_params", return_value=VOICE),
+            ):
+                initial = load_settings()
+                enabled = settings(enabled=True, model="mock", live_ollama_parallel_enabled=True)
+                saved = post("/v1/settings/ai", {"settings": enabled,
+                             "expected_revision": initial["revision"]}, "save-ai-settings")
+                previous = c.submit(process_text("เสียงก่อนหน้า"),
+                                    engine_id=VOICE["engine_id"], voice_id=VOICE["voice_id"],
+                                    render_args=VOICE)["speech_id"]
+                self.assertTrue(tts_started.wait(3))
+                first = submit("แปลคำนี้", rules=[
+                    {"match": "แปลคำนี้", "spoken": "first foreign", "stage": "pre_ai"}
+                ])
+                self.assertEqual(entered.get(timeout=3), "first foreign",
+                                 "a single message starts when the lane is empty")
+                second = submit("second foreign", source="discord")
+                self.assertEqual(entered.get(timeout=3), "second foreign")
+                passthrough = submit("ข้อความภาษาไทย")
+                tail = submit("tail foreign")
+                self.assertEqual(wait_prepared(passthrough)["display_text"], "ข้อความภาษาไทย")
+                self.assertTrue(entered.empty(), "full translation slots keep the tail queued")
+                self.assertEqual(c.get(previous)["state"], "rendering")
+
+                release["second foreign"].set()
+                wait_prepared(second)
+                self.assertEqual(entered.get(timeout=3), "tail foreign")
+                self.assertEqual(c.get(first)["state"], "preparing")
+                post("/v1/settings/ai", {"settings": {**enabled, "live_ollama_parallel_enabled": False},
+                     "expected_revision": saved["revision"]}, "save-ai-settings")
+                self.assertEqual(c._translation_limit, 1)
+                self.assertEqual(c.get(tail)["state"], "preparing",
+                                 "already submitted translations can finish when the toggle is off")
+                release["tail foreign"].set()
+                release["first foreign"].set()
+                wait_prepared(tail)
+                wait_prepared(first)
+                self.assertTrue(entered.empty(), "passthrough never calls Ollama")
+        finally:
+            tts_release.set()
+            for event in release.values():
+                event.set()
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+            c.close()
+
+    def test_live_ollama_minimum_holds_only_for_a_short_window(self):
+        first_started, first_release = threading.Event(), threading.Event()
+        c = SpeechCoordinator(fake_renderer)
+        def first():
+            first_started.set()
+            first_release.wait(6)
+            return process_text("หนึ่ง"), VOICE
+
+        def submit(callback):
+            return c.submit_deferred(callback, source="youtube-live", hold_for_render=True,
+                                     live_translation=True)["speech_id"]
+
+        def work(event):
+            def prepare():
+                event.set()
+                return process_text("ข้อความ"), VOICE
+            return prepare
+
+        try:
+            c.set_translation_limits(4, 2)
+            submit(first)
+            self.assertTrue(first_started.wait(3), "an idle lane sends one message immediately")
+            gathered_one, gathered_two = threading.Event(), threading.Event()
+            with patch("voxweavetts.speech_coordinator.TRANSLATION_GATHER_SECONDS", 3):
+                job = submit(work(gathered_one))
+                with c._cv:
+                    self.assertIn(job, c._translation_queue)
+                self.assertFalse(gathered_one.is_set())
+                submit(work(gathered_two))
+                self.assertTrue(gathered_one.wait(1), "reaching the minimum drains the available work")
+                self.assertTrue(gathered_two.wait(1))
+
+            c.set_translation_limits(4, 4)
+            leftover = threading.Event()
+            submit(work(leftover))
+            self.assertTrue(leftover.wait(2), "short final tail flushes even while a request is active")
+            self.assertFalse(first_release.is_set())
+        finally:
+            first_release.set()
+            c.close()
+
+    def test_live_ollama_parallel_settings_validate_and_migrate(self):
+        legacy = validate_settings({"engine": "ollama"})
+        self.assertFalse(legacy["live_ollama_parallel_enabled"])
+        self.assertEqual(legacy["live_ollama_parallel_minimum"], 1)
+        saved = settings(live_ollama_parallel_enabled=True, live_ollama_parallel_limit=64,
+                         live_ollama_parallel_minimum=20)
+        self.assertEqual(saved["live_ollama_parallel_limit"], 64)
+        for invalid in (
+            {"live_ollama_parallel_enabled": 1},
+            {"live_ollama_parallel_limit": 65},
+            {"live_ollama_parallel_limit": True},
+            {"live_ollama_parallel_minimum": 3, "live_ollama_parallel_limit": 2},
+            {"live_ollama_parallel_minimum": 0},
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(InputError):
+                settings(**invalid)
 
     def test_bounded_rapid_live_submissions_cancel_without_queue_growth(self):
         held=threading.Event()

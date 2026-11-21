@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.12.7
+
+- Add opt-in concurrent Ollama translation for staged Live speech with a shared cap, a configurable pending threshold, and a bounded short-tail flush.
+- Preserve FIFO speech rendering and playback when translations complete out of order.
+- See [v0.12.7 release notes](docs/RELEASE_NOTES_v0.12.7_TH.md).
+
 ## v0.12.6
 
 - Select multiple offline v4 model packages in one Windows dialog and install each package in sequence, with per-file failure reporting.

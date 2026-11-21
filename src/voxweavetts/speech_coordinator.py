@@ -2,7 +2,8 @@
 
 The coordinator consumes an already-filtered speech plan or an optional
 asynchronous AI preparation callback, then a renderer callable. AI preparation
-and TTS rendering use separate workers with one bounded job registry. It has
+and TTS rendering use separate workers with one bounded job registry. Live
+translation can run concurrently while the client retains playback order. It has
 NO dependency on any specific model, voice package or ML framework. 'ready'
 means audio was synthesized, NOT played.
 """
@@ -25,6 +26,7 @@ MAX_JOBS = 768  # six Live modes: up to 100 prepared + 20 WAV jobs each, plus ac
 MAX_AUDIO_BYTES = 16_000_000
 MAX_TOTAL_AUDIO_BYTES = 512_000_000  # bounded global WAV cache, not per source
 JOB_TTL_SECONDS = 900
+TRANSLATION_GATHER_SECONDS = 0.15
 _TERMINAL = frozenset({"ready", "failed", "cancelled", "skipped"})
 
 
@@ -129,6 +131,11 @@ class SpeechCoordinator:
         self._jobs: dict[str, _Job] = {}
         self._queue: deque[str] = deque()
         self._prepare_queue: deque[str] = deque()
+        self._translation_queue: deque[str] = deque()
+        self._translation_workers: set[threading.Thread] = set()
+        self._translation_limit = 1
+        self._translation_minimum = 1
+        self._translation_timer: threading.Timer | None = None
         self._dedupe: dict[tuple[str, str], str] = {}
         self._audio_bytes = 0
         self._cv = threading.Condition(threading.RLock())
@@ -196,7 +203,7 @@ class SpeechCoordinator:
         job.model_inputs = None
         # Drop queued IDs as well as metadata, otherwise repeated cancellation
         # under load may accumulate unbounded stale references.
-        for pending in (self._prepare_queue, self._queue):
+        for pending in (self._prepare_queue, self._translation_queue, self._queue):
             try:
                 pending.remove(job.id)
             except ValueError:
@@ -277,6 +284,7 @@ class SpeechCoordinator:
         self, prepare: Callable[[], tuple[dict[str, Any], dict[str, Any]]], *,
         source: str, engine_id: str = "pending", voice_id: str = "pending",
         source_message_id: str | None = None, hold_for_render: bool = False,
+        live_translation: bool = False,
     ) -> dict[str, Any]:
         """Reserve stable speech ID; prepare on a separate worker.
 
@@ -316,9 +324,75 @@ class SpeechCoordinator:
             if key is not None:
                 self._dedupe[key] = job.id
             self._transition(job, "preparing")
-            self._prepare_queue.append(job.id)
+            if live_translation:
+                self._translation_queue.append(job.id)
+                self._start_translations()
+            else:
+                self._prepare_queue.append(job.id)
             self._cv.notify_all()
             return job.snapshot()
+
+    def set_translation_limits(self, limit: int, minimum: int) -> None:
+        if type(limit) is not int or type(minimum) is not int or not 1 <= minimum <= limit:
+            raise ValueError("invalid live translation limits")
+        with self._cv:
+            self._translation_limit = limit
+            self._translation_minimum = minimum
+            self._start_translations()
+
+    def _cancel_translation_timer(self) -> None:
+        if self._translation_timer is not None:
+            self._translation_timer.cancel()
+            self._translation_timer = None
+
+    def _wake_translations(self) -> None:
+        with self._cv:
+            if self._translation_timer is threading.current_thread():
+                self._translation_timer = None
+                self._start_translations()
+
+    def _start_translations(self) -> None:
+        # Called with the coordinator lock held. Count an in-flight call
+        # until it actually returns, even if the browser has cancelled it.
+        if (self._closed or not self._translation_queue
+                or len(self._translation_workers) >= self._translation_limit):
+            self._cancel_translation_timer()
+            return
+        if self._translation_workers and len(self._translation_queue) < self._translation_minimum:
+            oldest = self._jobs[self._translation_queue[0]]
+            remaining = TRANSLATION_GATHER_SECONDS - (time.monotonic() - oldest.created_mono)
+            if remaining > 0:
+                if self._translation_timer is None:
+                    timer = threading.Timer(remaining, self._wake_translations)
+                    timer.daemon = True
+                    self._translation_timer = timer
+                    timer.start()
+                return
+        # Flush an idle lane or a tail that has reached its deadline.
+        self._cancel_translation_timer()
+        while self._translation_queue and len(self._translation_workers) < self._translation_limit:
+            job = self._jobs.get(self._translation_queue.popleft())
+            if job is None or job.state != "preparing" or job.prepare is None:
+                continue
+            worker = threading.Thread(
+                target=self._work_translate, args=(job, job.prepare),
+                name="voxweavetts-live-translation", daemon=True,
+            )
+            self._translation_workers.add(worker)
+            try:
+                worker.start()
+            except RuntimeError:
+                self._translation_workers.remove(worker)
+                job.prepare = None
+                self._transition(job, "failed", error="AI speech preparation failed")
+
+    def _work_translate(self, job: _Job, callback: Callable) -> None:
+        try:
+            self._prepare_job(job, callback)
+        finally:
+            with self._cv:
+                self._translation_workers.remove(threading.current_thread())
+                self._start_translations()
 
     def _work_prepare(self) -> None:
         while True:
@@ -331,38 +405,44 @@ class SpeechCoordinator:
                 if job is None or job.state != "preparing" or job.prepare is None:
                     continue
                 callback = job.prepare
-            try:
-                plan, arguments = callback()
-                if (not isinstance(plan, dict) or not isinstance(plan.get("segments"), list)
-                        or not isinstance(arguments, dict)
-                        or not isinstance(arguments.get("engine_id"), str)
-                        or not isinstance(arguments.get("voice_id"), str)):
-                    raise ValueError("invalid prepared speech data")
-                with self._cv:
-                    if job.state != "preparing" or self._closed:
-                        continue
-                    job.plan = plan
-                    job.render_args = dict(arguments)
+            self._prepare_job(job, callback)
+
+    def _prepare_job(self, job: _Job, callback: Callable) -> None:
+        with self._cv:
+            if self._closed or job.state != "preparing":
+                return
+        try:
+            plan, arguments = callback()
+            if (not isinstance(plan, dict) or not isinstance(plan.get("segments"), list)
+                    or not isinstance(arguments, dict)
+                    or not isinstance(arguments.get("engine_id"), str)
+                    or not isinstance(arguments.get("voice_id"), str)):
+                raise ValueError("invalid prepared speech data")
+            with self._cv:
+                if job.state != "preparing" or self._closed:
+                    return
+                job.plan = plan
+                job.render_args = dict(arguments)
+                job.prepare = None
+                job.engine_id = arguments["engine_id"]
+                job.voice_id = arguments["voice_id"]
+                job.display_text = plan["display_text"]
+                if not plan.get("spoken_text", "").strip() and not any(
+                        x.get("kind") == "silence" for x in plan["segments"]):
+                    job.plan = None
+                    self._transition(job, "skipped")
+                else:
+                    self._transition(job, "prepared" if job.hold_for_render else "queued")
+                    if not job.hold_for_render:
+                        self._queue.append(job.id)
+                self._cv.notify_all()
+        except Exception:
+            # Never expose AI errors or unfiltered text from tools, models,
+            # reference files, or the original message through job events.
+            with self._cv:
+                if job.state == "preparing":
                     job.prepare = None
-                    job.engine_id = arguments["engine_id"]
-                    job.voice_id = arguments["voice_id"]
-                    job.display_text = plan["display_text"]
-                    if not plan.get("spoken_text", "").strip() and not any(
-                            x.get("kind") == "silence" for x in plan["segments"]):
-                        job.plan = None
-                        self._transition(job, "skipped")
-                    else:
-                        self._transition(job, "prepared" if job.hold_for_render else "queued")
-                        if not job.hold_for_render:
-                            self._queue.append(job.id)
-                    self._cv.notify_all()
-            except Exception:
-                # Never expose AI errors or unfiltered text from tools, models,
-                # reference files, or the original message through job events.
-                with self._cv:
-                    if job.state == "preparing":
-                        job.prepare = None
-                        self._transition(job, "failed", error="AI speech preparation failed")
+                    self._transition(job, "failed", error="AI speech preparation failed")
 
     def _work(self) -> None:
         while True:
@@ -627,7 +707,7 @@ class SpeechCoordinator:
                 job.prepare = None
                 job.timeline = None
                 job.model_inputs = None
-                for pending in (self._prepare_queue, self._queue):
+                for pending in (self._prepare_queue, self._translation_queue, self._queue):
                     try:
                         pending.remove(job.id)
                     except ValueError:
@@ -653,6 +733,9 @@ class SpeechCoordinator:
     def close(self) -> None:
         with self._cv:
             self._closed = True
+            translation_workers = tuple(self._translation_workers)
+            self._translation_queue.clear()
+            self._cancel_translation_timer()
             for job in self._jobs.values():
                 if job.state not in _TERMINAL:
                     job.plan = None
@@ -662,3 +745,6 @@ class SpeechCoordinator:
             self._cv.notify_all()
         self._thread.join(timeout=1.0)
         self._prepare_thread.join(timeout=1.0)
+        deadline = time.monotonic() + 1.0
+        for worker in translation_workers:
+            worker.join(timeout=max(0.0, deadline - time.monotonic()))

@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 AI_SETTINGS_FILE = ROOT / "data" / "settings" / "ai-processing.json"
 SETTINGS_LIMIT = 32_768
 CONTEXT_BYTES_LIMIT = 16_384
+MAX_LIVE_OLLAMA_PARALLEL = 64
 _LOCK = threading.RLock()
 
 DEFAULTS: dict[str, Any] = {
@@ -40,6 +41,9 @@ DEFAULTS: dict[str, Any] = {
     "translation_mode": "whole_message",
     "auto_detect": True,
     "translation_bypass_validation": False,
+    "live_ollama_parallel_enabled": False,
+    "live_ollama_parallel_limit": 2,
+    "live_ollama_parallel_minimum": 1,
     "priority_instructions": "",
     "custom_prompt": "",
     "display_mode": "processed",
@@ -113,8 +117,15 @@ def validate_settings(value: Any) -> dict[str, Any]:
     except ValueError as exc:
         raise InputError("Ollama address must be a local or private LAN http://IP:port") from exc
     if (type(value["enabled"]) is not bool or type(value["auto_detect"]) is not bool
-            or type(value["translation_bypass_validation"]) is not bool):
+            or type(value["translation_bypass_validation"]) is not bool
+            or type(value["live_ollama_parallel_enabled"]) is not bool):
         raise InputError("AI toggles must be booleans")
+    parallel_limit = value["live_ollama_parallel_limit"]
+    if type(parallel_limit) is not int or not 1 <= parallel_limit <= MAX_LIVE_OLLAMA_PARALLEL:
+        raise InputError(f"live_ollama_parallel_limit must be 1..{MAX_LIVE_OLLAMA_PARALLEL}")
+    minimum = value["live_ollama_parallel_minimum"]
+    if type(minimum) is not int or not 1 <= minimum <= parallel_limit:
+        raise InputError("live_ollama_parallel_minimum must be between 1 and the parallel limit")
     if type(value["allow_context_files"]) is not bool:
         raise InputError("allow_context_files must be boolean")
     for key in ("tool_calling_enabled", "tool_web_lookup", "tool_general_web_search", "tool_file_read"):
@@ -469,22 +480,19 @@ def _ollama_chat(text: str, settings: dict[str, Any], context: list[dict[str, st
         raise AIUnavailable("local Ollama request failed (model, port or timeout)") from exc
 
 
-def process_ai(text: str, settings: dict[str, Any],
-               model_call: Callable[[str, dict[str, Any], list[dict[str, str]]], str] | None = None
-               ) -> dict[str, Any]:
-    """Return AI output and status, never raw model errors or extra tool actions."""
+def _ai_passthrough_status(text: str, settings: dict[str, Any]) -> str | None:
     if not settings["enabled"]:
-        return {"text": text, "status": "disabled", "applied": False}
+        return "disabled"
     if not text.strip():
-        return {"text": text, "status": "empty", "applied": False}
+        return "empty"
     if settings["operation"] == "none":
-        return {"text": text, "status": "no_translation", "applied": False}
+        return "no_translation"
     if (settings["operation"] == "translate"
             and settings["engine"] == "m2m100"
             and settings["target_language"] == UNSPECIFIED_LANGUAGE):
         # M2M100 cannot obey a prompt to choose a target language. Treat this
         # setting as a passthrough, even when weights/runtime are unavailable.
-        return {"text": text, "status": "no_target_language", "applied": False}
+        return "no_target_language"
     explicitly_foreign_m2m = (settings["engine"] == "m2m100"
         and settings["source_language"] not in {"auto", settings["target_language"]})
     if settings["engine"] == "m2m100" and settings["source_language"] == "auto":
@@ -496,7 +504,27 @@ def process_ai(text: str, settings: dict[str, Any],
             and settings["target_language"] != UNSPECIFIED_LANGUAGE
             and not explicitly_foreign_m2m
             and not _has_foreign_script(text, settings["target_language"])):
-        return {"text": text, "status": "same_script", "applied": False}
+        return "same_script"
+    return None
+
+
+def needs_ollama_translation(text: str, settings: dict[str, Any]) -> bool:
+    if (settings["engine"] != "ollama" or settings["operation"] != "translate"
+            or _ai_passthrough_status(text, settings) is not None):
+        return False
+    target = settings["target_language"]
+    if settings["translation_mode"] == "foreign_spans" and target != UNSPECIFIED_LANGUAGE:
+        return any(_TEXT_LETTER.search(match.group()) for match in _FOREIGN_SPANS[target].finditer(text))
+    return True
+
+
+def process_ai(text: str, settings: dict[str, Any],
+               model_call: Callable[[str, dict[str, Any], list[dict[str, str]]], str] | None = None
+               ) -> dict[str, Any]:
+    """Return AI output and status, never raw model errors or extra tool actions."""
+    passthrough = _ai_passthrough_status(text, settings)
+    if passthrough is not None:
+        return {"text": text, "status": passthrough, "applied": False}
     from .ai_engine_registry import ai_engines
     try:
         # For a user-configured Ollama LAN endpoint, probing default

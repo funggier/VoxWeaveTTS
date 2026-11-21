@@ -6,10 +6,25 @@ shared rules. Source-facing display metadata remains separate from the plan.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
+from functools import partial
 from typing import Any, Callable
 
 from .processing import InputError, Rule, parse_rules, process_text, MAX_TEXT
-from .ai_processing import DEFAULTS, process_ai, validate_settings
+from .ai_processing import DEFAULTS, needs_ollama_translation, process_ai, validate_settings
+
+
+@dataclass(frozen=True)
+class PreparedPipeline:
+    text: str
+    settings: dict[str, Any]
+    finish: Callable[[dict[str, Any]], dict[str, Any]]
+
+    def needs_ollama_translation(self) -> bool:
+        return needs_ollama_translation(self.text, self.settings)
+
+    def process(self, *, model_call: Callable | None = None) -> dict[str, Any]:
+        return self.finish(process_ai(self.text, self.settings, model_call=model_call))
 
 
 def process_pipeline(
@@ -23,6 +38,23 @@ def process_pipeline(
     model_call: Callable | None = None,
     speech_language: str | None = None,
 ) -> dict[str, Any]:
+    prepared = prepare_pipeline(
+        text, source=source, rules=rules, pronunciations=pronunciations, settings=settings,
+        sender_prefix_text=sender_prefix_text, speech_language=speech_language,
+    )
+    return prepared.process(model_call=model_call)
+
+
+def prepare_pipeline(
+    text: str,
+    *,
+    source: str = "manual",
+    rules: list[dict[str, Any]] | list[Rule] | None = None,
+    pronunciations: dict[str, str] | None = None,
+    settings: dict[str, Any] | None = None,
+    sender_prefix_text: str = "",
+    speech_language: str | None = None,
+) -> PreparedPipeline:
     if not isinstance(text, str) or len(text) > MAX_TEXT:
         raise InputError("text must be a string of at most 8000 characters")
     if not isinstance(sender_prefix_text, str) or len(sender_prefix_text) > 180:
@@ -35,9 +67,21 @@ def process_pipeline(
     pre = [rule for rule in parsed if rule.stage == "pre_ai"]
     post = [rule for rule in parsed if rule.stage == "post_ai"]
     pre_plan = process_text(text, rules=pre, source=source, pronunciations={})
-    filtered = pre_plan["spoken_text"]
     config = validate_settings(DEFAULTS if settings is None else settings)
-    ai = process_ai(filtered, config, model_call=model_call)
+    return PreparedPipeline(
+        pre_plan["spoken_text"], config,
+        partial(_finish_pipeline, pre_plan=pre_plan, config=config, post=post,
+                source=source, pronunciations=pronunciations, sender=sender,
+                speech_language=speech_language),
+    )
+
+
+def _finish_pipeline(
+    ai: dict[str, Any], *, pre_plan: dict[str, Any], config: dict[str, Any],
+    post: list[Rule], source: str, pronunciations: dict[str, str] | None,
+    sender: str, speech_language: str | None,
+) -> dict[str, Any]:
+    filtered = pre_plan["spoken_text"]
     processed = ai["text"]
     # Resolve the language of the text actually reaching TTS before replacing
     # post-AI words. A Thai-only pronunciation (e.g. 555 -> ฮ่า ฮ่า ฮ่า)
