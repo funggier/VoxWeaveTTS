@@ -38,7 +38,7 @@ async function main(){
   el(prefix+"FeedKeepRead").value="20";
   el(prefix+"FeedAuto").checked=true;
   let owner="a".repeat(32);
-  const requests=[],received=[],picked=[];
+  const requests=[],received=[],picked=[],sourceSnapshots=[];
   let currentPhase="waiting_extension_pair";
   let chatRows=0;
   const sandbox={window:{},JSON,Number,document:{createElement},
@@ -77,6 +77,7 @@ async function main(){
     onMessage:(msg,auto)=>{received.push({msg,auto});return "queued";},
     onPick:item=>picked.push(item),
     onStop(){},
+    onStatus:snapshot=>sourceSnapshots.push(snapshot),
   });
   await el(prefix+"FeedStart").events.click();
   for(let i=0;i<15&&!feed.connected;i++)await new Promise(resolve=>setImmediate(resolve));
@@ -85,6 +86,8 @@ async function main(){
   assert.equal(requests[0].payload.mode,"tiktok_browser");
   assert.equal(requests[0].payload.credential,"");
   assert.match(el(prefix+"FeedStatus").textContent,/รอกรอกรหัสจับคู่/);
+  assert.ok(sourceSnapshots.some(x=>x.phase==="waiting_extension_pair"),
+    "speech footer gets pairing status, not only generic chat-ready text");
   assert.equal(el(prefix+"FeedPairingCode").value,"PAIRCODE12345678901234567890");
   assert.equal(received.length,0,"must not fabricate comments before Extension pairing");
   assert.equal(feed.connected,true,"should keep checking for changes");
@@ -94,6 +97,9 @@ async function main(){
   assert.equal(received[0].msg.text,"สวัสดีครับ");
   assert.equal(received[0].auto,true);
   assert.equal(el(prefix+"FeedStatus").textContent,"กำลังรับข้อความ");
+  assert.ok(sourceSnapshots.some(x=>x.state==="running"&&x.phase==="ready"
+    &&x.received===1&&x.pending===0),
+    "speech footer receives real Live source counters");
   assert.match(el(prefix+"FeedQueueStatus").textContent,/คิวรออ่าน/);
   assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แถวคอมเมนต์ 1/);
   assert.match(el(prefix+"FeedDomDiagnostics").textContent,/แยกข้อความได้ 1/);
@@ -108,9 +114,12 @@ async function main(){
   currentPhase="extension_disconnected";
   await feed.poll();
   assert.match(el(prefix+"FeedStatus").textContent,/ขาดการเชื่อมต่อ/);
+  assert.equal(sourceSnapshots.at(-1).state,"extension_disconnected",
+    "speech footer learns about Extension disconnection");
   await feed.stop();
   assert.equal(el(prefix+"FeedPairingCode").value,"");
   assert.equal(feed.connected,false);
+  assert.equal(sourceSnapshots.at(-1).state,"stopped");
   console.log("PASS: TikTok Extension UI pairing code, wait, message delivery and stop");
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

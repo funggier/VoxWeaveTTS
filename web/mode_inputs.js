@@ -24,6 +24,72 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   let activePreparedTask=null;
   let submissionTail=Promise.resolve(); // preserves HTTP enqueue order
   let prefetchSequence=0; // distinct source key for an explicit failed-job retry
+  let sourceOverview={state:"disconnected",connected:false,received:null,
+                      discarded:null,pending:null,phase:""};
+  let completedReads=0, importantNotice="";
+  let manualSynthesizing=false;
+  // LIVE status is a snapshot, not the last log message. In particular,
+  // connection, AI, TTS and audio playback cannot overwrite each other.
+  function setSourceStatus(snapshot){
+    if(!snapshot||typeof snapshot!=="object")return;
+    if(typeof snapshot.state==="string"){
+      const previous=sourceOverview.state;
+      sourceOverview.state=snapshot.state.slice(0,40);
+      // A new connection supersedes a previous manual stop notice.
+      if(previous==="stopped"&&sourceOverview.state==="connecting"&&
+         importantNotice.startsWith("หยุดเสียง"))importantNotice="";
+    }
+    if(typeof snapshot.connected==="boolean")
+      sourceOverview.connected=snapshot.connected;
+    if(typeof snapshot.phase==="string")
+      sourceOverview.phase=snapshot.phase.slice(0,48);
+    for(const field of ["received","discarded","pending"])
+      if(Number.isSafeInteger(snapshot[field]) && snapshot[field]>=0)
+        sourceOverview[field]=snapshot[field];
+    renderBottomStatus();
+  }
+  function renderBottomStatus(){
+    const source=sourceOverview;
+    const sourceStage=source.state==="error"?"เชื่อมต่อขัดข้อง"
+      :source.state==="retrying"?"กำลังลองเชื่อมต่อใหม่"
+      :source.state==="ended"?"ไลฟ์สิ้นสุด"
+      :source.state==="extension_disconnected"?"Extension ขาดการเชื่อมต่อ"
+      :source.phase==="comments_off"?"คอมเมนต์ถูกปิด/ไม่ปรากฏ"
+      :source.connected&&source.phase==="waiting_extension_pair"?"รอจับคู่ Extension"
+      :source.connected&&source.phase==="waiting_chat_dom"?"รอข้อมูลแชท"
+      :source.state==="connecting"?"กำลังเชื่อมต่อ"
+      :source.connected?"กำลังรับแชท"
+      :source.state==="stopped"?"หยุดรับแชท":"ยังไม่เชื่อมต่อ";
+    const jobs=[...(activePreparedTask?[activePreparedTask]:[]),...prefetched]
+      .filter(task=>!task.cancelled);
+    const count=state=>jobs.filter(task=>task.stage===state).length;
+    const activity=autoPaused?"พักคิวอ่าน"
+      :manualSynthesizing?"กำลังสร้างเสียงทดลอง"
+      :!audio.paused&&!audio.ended?"กำลังเล่นเสียง"
+      :activePreparedTask?.stage==="preparing"?"กำลังแปล/แยกข้อความ"
+      :activePreparedTask?.stage==="prepared"?"รอสร้างเสียง"
+      :activePreparedTask?.stage==="rendering"?"กำลังสร้างเสียง"
+      :activeIncoming||autoBusy?"กำลังเตรียม/สร้างเสียง"
+      :manualHolding?"รอข้อความที่เลือกอ่าน"
+      :lastReady&&wavUrl?"เสียงพร้อมเล่น":"รอข้อความใหม่";
+    const counts=source.received===null?""
+      :" · รับแล้ว "+source.received+" · กรอง "+(source.discarded??0)+
+       " · รอรับจากต้นทาง "+(source.pending??0);
+    const lines=[
+      "รับข้อความ: "+sourceStage+counts,
+      "การอ่าน: "+activity+" · "+(get("FeedPrepareAhead")?.checked
+        ?"เปิดเตรียมเสียงล่วงหน้า":"ไม่เตรียมเสียงล่วงหน้า"),
+      "คิว: แชทดิบ "+incoming.length+
+      " · กำลังแปล/แยก "+count("preparing")+
+      " · เตรียมแล้ว "+count("prepared")+
+      " · กำลังสร้างเสียง "+count("rendering")+
+      " · เสียงรอเล่น "+count("ready")+
+      " · อ่านจบ "+completedReads+
+      " · สุ่มลบ "+randomRemoved,
+    ];
+    if(importantNotice)lines.push("แจ้งเตือน: "+importantNotice);
+    get("Status").textContent=lines.join("\n");
+  }
   let autoPaused=false; // temporary playback error; never alters user preference
   let activePartialFailure=false; // pause decision applies only after the WAV actually ends
   let manualHolding=false; // manual preview may preempt, but must not erase FIFO
@@ -49,6 +115,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       autoBusy=false;
       activePartialFailure=false;
     }
+    renderBottomStatus();
   }
   function resetPending(){
     // Queue reset is intentionally NON-disruptive: the one active item can
@@ -72,7 +139,13 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       get("Subtitle").textContent=state.text;
     }
   );
-  function feedback(message){get("Status").textContent=message;}
+  function feedback(message){
+    const text=String(message||"").slice(0,280);
+    // Retain actionable failures/stop messages, not stale "WAV ready" logs.
+    importantNotice=/พักคิว|พักชั่วคราว|หยุดเสียง|ไม่ได้|ล้มเหลว|ผิดพลาด|ไม่สำเร็จ|บล็อก|กรุณา|ไม่พร้อม|ข้ามข้อความ|ยกเลิกการเล่น/.test(text)
+      ?text:"";
+    renderBottomStatus();
+  }
   function playbackFailure(error){
     const name=String(error?.name||"");
     const detail=String(error?.message||error||"ไม่ทราบสาเหตุ").slice(0,200);
@@ -164,6 +237,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   function stop({discard=false}={}){
     cancelAudio(audio);
     generation++;
+    manualSynthesizing=false;
     clock.clear();
     audio.pause();
     const old=jobId;
@@ -184,6 +258,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
     get("Submit").disabled=false;
     if(old)feedback("หยุดเสียงของโหมดนี้แล้ว · ข้อความยังอยู่");
+    renderBottomStatus();
   }
   function suspend(){
     clearAutoQueue({includeActive:true});
@@ -233,6 +308,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     });
     lastReady=null;
     get("Submit").disabled=true;
+    if(!autoPlay)manualSynthesizing=true;
     feedback("กำลังสร้างเสียงของโหมด "+mode+"...");
     try{
       const body=getSpeechPayload(text,mode);
@@ -352,13 +428,18 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         pumpIncoming();
       }
     }finally{
-      if(my===generation)get("Submit").disabled=false;
+      if(my===generation){
+        manualSynthesizing=false;
+        get("Submit").disabled=false;
+        renderBottomStatus();
+      }
     }
   }
   // The backend already has distinct AI-preparation and TTS workers. Submit
   // future jobs in FIFO order while the current WAV is playing. The browser
   // owns playback ordering: a completed future job never plays out of turn.
   function showPipeline(){
+    renderBottomStatus();
     const tasks=[...(activePreparedTask?[activePreparedTask]:[]),...prefetched];
     onPipelineState?.(tasks.filter(task=>!task.cancelled).map(task=>({
       stage:task.stage,author:task.item.author||"",inputs:task.inputs||[],
@@ -682,20 +763,29 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     if(msg.kind==="gift")return "skipped";
     if(!opts.read_comments)return "manual";
     incoming.push(msg);
+    if(!autoPaused)importantNotice="";
     reduceQueueIfNeeded();
     fillPrefetched();
     pumpIncoming();
+    renderBottomStatus();
     return "queued";
   }
+  // Browser audio controls can start/pause independently of the TTS queue.
+  // Update the operational summary from media events as well as queue events.
+  for(const event of ["play","pause"])
+    audio.addEventListener(event,renderBottomStatus);
   audio.addEventListener("ended",()=>{
     manualHolding=false;
-    const wasPartial=Boolean(activeIncoming)&&activePartialFailure;
+    const wasReadingItem=Boolean(activeIncoming);
+    const wasPartial=wasReadingItem&&activePartialFailure;
     if(activeIncoming)mark(activeIncoming,"read");
     activeIncoming=null;
     activePreparedTask=null;
     showPipeline();
     activePartialFailure=false;
     autoBusy=false;
+    if(wasReadingItem)completedReads++;
+    renderBottomStatus();
     if(wasPartial && get("FeedContinueOnTtsError")?.checked!==true){
       // Do NOT requeue a partially spoken message. Pause *after* its
       // successful WAV has played, then resume at the next FIFO item.
@@ -711,10 +801,15 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     pauseAuto("ไฟล์เสียงเล่นไม่ได้ใน Browser · ตรวจรูปแบบ WAV แล้วลองอ่านต่อ");
   });
   for(const suffix of ["FeedRandomEnable","FeedRandomThreshold","FeedRandomKeep"]){
-    get(suffix)?.addEventListener("change",()=>reduceQueueIfNeeded());
+    get(suffix)?.addEventListener("change",()=>{
+      reduceQueueIfNeeded();
+      renderBottomStatus();
+    });
   }
   get("FeedAuto").addEventListener("change",()=>{
     autoPaused=false;
+    importantNotice="";
+    renderBottomStatus();
     if(get("FeedAuto").checked){fillPrefetched();pumpIncoming();}
   });
   for(const setting of ["FeedPrepareQueueLimit","FeedReadyAudioQueueLimit"]){
@@ -735,6 +830,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     }
     autoPaused=false;
     manualHolding=false;
+    importantNotice="";
     feedback("กำลังลองอ่านข้อความอัตโนมัติต่อ...");
     if(activeIncoming && lastReady && wavUrl){
       // Must call play directly in the click handler, preserving Firefox's
@@ -784,6 +880,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
         mark(activeIncoming,"reading");
         feedback("กำลังอ่านข้อความที่พักไว้...");
       }
+      renderBottomStatus();
     }catch(error){feedback(playbackFailure(error));}
   });
   get("Submit").addEventListener("click",()=>submit().catch(e=>feedback(String(e.message||e))));
@@ -794,7 +891,9 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     stop({discard:true});
     feedback("หยุดเสียงของโหมดนี้แล้ว · ค่าอ่านอัตโนมัติยังคงเดิม กดลองอ่านต่อเมื่อพร้อม");
   });
+  renderBottomStatus();
   return {stop,suspend,resume,submit,pickMessage,receiveIncoming,clearAutoQueue,resetPending,
+          setSourceStatus,
           get autoPaused(){return autoPaused;},
           get pendingAuto(){return incoming.length;},
           get skippedOverflow(){return 0;},

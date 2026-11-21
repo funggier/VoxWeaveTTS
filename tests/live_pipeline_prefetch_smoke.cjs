@@ -101,7 +101,17 @@ async function run(){
     for(let i=1;i<=6;i++)
       assert.equal(ctrl.receiveIncoming({
         message_id:"item"+i,author:"viewer",text:"text"+i},true),"queued");
+    ctrl.setSourceStatus({
+      connected:true,state:"running",phase:"ready",
+      received:12,discarded:2,pending:1,
+    });
     await waitFor(()=>played.length===1,"first WAV starts");
+    const bottom=el("liveStatus").textContent;
+    assert.match(bottom,/รับข้อความ: กำลังรับแชท · รับแล้ว 12 · กรอง 2 · รอรับจากต้นทาง 1/);
+    assert.match(bottom,/การอ่าน: กำลังเล่นเสียง · เปิดเตรียมเสียงล่วงหน้า/);
+    assert.match(bottom,/คิว: แชทดิบ [0-9]+ · กำลังแปล\/แยก [0-9]+/);
+    assert.match(bottom,/เสียงรอเล่น [0-9]+ · อ่านจบ 0 · สุ่มลบ 0/);
+    assert.doesNotMatch(bottom,/หยุดเสียงของโหมดนี้แล้ว/);
     assert.deepEqual(submitted.slice(0,3).map(x=>x.text),["text1","text2","text3"],
       "one active WAV + two future speech jobs may be admitted");
     assert.deepEqual(played,["text1"],"only first audio may play");
@@ -133,6 +143,7 @@ async function run(){
     await end();await waitFor(()=>played.length===5,"fifth WAV");
     await end();await waitFor(()=>played.length===6,"sixth WAV");
     await end();
+    assert.match(el("liveStatus").textContent,/อ่านจบ 6/);
     assert.deepEqual(played,["text1","text2","text3","text4","text5","text6"],
       "audio must always follow accepted chat order");
     assert.equal(ctrl.pendingAuto,0);

@@ -72,6 +72,15 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 .mode-view .layout>.panel{min-height:0}
 .mode-subtitle{margin:12px 0;min-height:28px;border-radius:9px;color:#cbe1ff;white-space:pre-wrap}
 .mode-footer{padding:15px 8px}
+.live-runtime-status{
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+  line-height:1.75;
+  padding:9px 12px;
+  border:1px solid #354960;
+  border-radius:8px;
+  margin-top:12px;
+}
 @media(max-width:900px){.app-workspace{grid-template-columns:1fr}.mode-sidebar{position:static}.mode-nav{display:flex;overflow-x:auto;padding-bottom:4px}.mode-nav-button{flex:0 0 auto;width:auto!important;white-space:nowrap}.side-help{display:none}}
 @media(max-width:720px){main{padding:0 12px;margin-top:14px}.panel{padding:14px}.voice-row{gap:6px}.mode-topbar{padding:8px}}
 
@@ -242,7 +251,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ol id="youtubeBrowserFeedTtsReadItems" class="source-message-list small" aria-label="ประวัติข้อความหลังแปลที่ส่งเข้าโมเดลเสียง"></ol>
 </details>
 </details>
-<p id="youtubeBrowserStatus" class="small" role="status">พร้อมรับข้อความ</p>
+<p id="youtubeBrowserStatus" class="small live-runtime-status" role="status" aria-live="polite">พร้อมรับข้อความ</p>
 <audio id="youtubeBrowserAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="youtubeBrowserSubtitle" class="mode-subtitle" role="status"></div>
 <a id="youtubeBrowserDownload" style="display:none" download="VoxWeaveTTS-youtube-browser.wav">ดาวน์โหลด WAV</a>
@@ -328,7 +337,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ol id="liveFeedTtsReadItems" class="source-message-list small" aria-label="ประวัติข้อความหลังแปลที่ส่งเข้าโมเดลเสียง"></ol>
 </details>
 </details>
-<p id="liveStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
+<p id="liveStatus" class="small live-runtime-status" role="status" aria-live="polite">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
 <audio id="liveAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="liveSubtitle" class="mode-subtitle" role="status"></div>
 <a id="liveDownload" style="display:none" download="VoxWeaveTTS.wav">ดาวน์โหลด WAV</a>
@@ -404,7 +413,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ol id="tiktokBrowserFeedTtsReadItems" class="source-message-list small" aria-label="ประวัติข้อความหลังแปลที่ส่งเข้าโมเดลเสียง"></ol>
 </details>
 </details>
-<p id="tiktokBrowserStatus" class="small" role="status">พร้อมทดลองข้อความจาก Browser</p>
+<p id="tiktokBrowserStatus" class="small live-runtime-status" role="status" aria-live="polite">พร้อมทดลองข้อความจาก Browser</p>
 <audio id="tiktokBrowserAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="tiktokBrowserSubtitle" class="mode-subtitle" role="status"></div>
 <a id="tiktokBrowserDownload" style="display:none" download="VoxWeaveTTS-tiktok-extension.wav">ดาวน์โหลด WAV</a>
@@ -483,7 +492,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ol id="tiktokFeedTtsReadItems" class="source-message-list small" aria-label="ประวัติข้อความหลังแปลที่ส่งเข้าโมเดลเสียง"></ol>
 </details>
 </details>
-<p id="tiktokStatus" class="small" role="status">รอข้อความทดลองหรือเชื่อม TikFinity</p>
+<p id="tiktokStatus" class="small live-runtime-status" role="status" aria-live="polite">รอข้อความทดลองหรือเชื่อม TikFinity</p>
 <audio id="tiktokAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="tiktokSubtitle" class="mode-subtitle" role="status"></div>
 <a id="tiktokDownload" style="display:none" download="VoxWeaveTTS-tiktok.wav">ดาวน์โหลด WAV</a>
@@ -569,7 +578,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ol id="discordFeedTtsReadItems" class="source-message-list small" aria-label="ประวัติข้อความหลังแปลที่ส่งเข้าโมเดลเสียง"></ol>
 </details>
 </details>
-<p id="discordStatus" class="small" role="status">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
+<p id="discordStatus" class="small live-runtime-status" role="status" aria-live="polite">ยังไม่เชื่อมบริการภายนอก · พร้อมทดลองโหมดแบบ Local</p>
 <audio id="discordAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="discordSubtitle" class="mode-subtitle" role="status"></div>
 <a id="discordDownload" style="display:none" download="VoxWeaveTTS.wav">ดาวน์โหลด WAV</a>
@@ -663,7 +672,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <ol id="discordClientFeedTtsReadItems" class="source-message-list small" aria-label="ประวัติข้อความหลังแปลที่ส่งเข้าโมเดลเสียง"></ol>
 </details>
 </details>
-<p id="discordClientStatus" class="small" role="status">รอข้อความหรือพิมพ์เพื่อทดลองอ่าน</p>
+<p id="discordClientStatus" class="small live-runtime-status" role="status" aria-live="polite">รอข้อความหรือพิมพ์เพื่อทดลองอ่าน</p>
 <audio id="discordClientAudio" controls style="width:100%;display:none;margin-top:12px"></audio>
 <div id="discordClientSubtitle" class="mode-subtitle" role="status"></div>
 <a id="discordClientDownload" download="VoxWeaveTTS-discord-client.wav" style="display:none">ดาวน์โหลด WAV</a>
@@ -2540,6 +2549,7 @@ if(typeof VoxSourceFeed!=="undefined"){
       credentials:id=>modeRuntime.credentials(id),
       onConnect:id=>modeRuntime.reclaim(id),
       guard:id=>Boolean(modeRuntime?.guard(id)),
+      onStatus:snapshot=>inputMode.setSourceStatus(snapshot),
       onMessage:(entry,automatic)=>inputMode.receiveIncoming(entry,automatic),
       onPick:entry=>inputMode.pickMessage(entry),
       onReset:()=>inputMode.resetPending(),

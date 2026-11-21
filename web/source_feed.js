@@ -157,7 +157,7 @@ function subscribeSource(mode,wake){
   };
 }
 
-function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSenderPreference,onConnect}){
+function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSenderPreference,onConnect,onStatus}){
   if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
   const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
   const get=id=>el(prefix+id);
@@ -174,6 +174,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   const extensionMode=mode==="tiktok_browser";
   const platform=mode==="tiktok_browser"?"TikTok":"YouTube";
   let browserStageName="",browserStageLog=[];
+  // The speech footer receives a structured connection snapshot. Keep the
+  // compact FeedStatus for connector instructions/errors unchanged.
+  function reportSource(state,more={}){
+    onStatus?.({state,connected,...more});
+  }
   function message(text){get("FeedStatus").textContent=String(text);}
   function clearBrowserProgress(){
     if(!browserMode)return;
@@ -197,6 +202,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     // Operational counters already live in FeedQueueStatus. Avoid repeating
     // provider/Extension labels and diagnostics in the ready status line.
     message(phase==="ready"?"กำลังรับข้อความ":desc+(extra?" · "+extra:""));
+    reportSource(phase==="error"?"error":phase==="retrying"?"retrying"
+      :["stopped","ended","extension_disconnected"].includes(phase)?phase
+      :phase==="ready"?"running":"connecting",{phase});
   }
   function buildSettingsProfile(){
     const blocked=get("FeedBlocked").value;
@@ -625,6 +633,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     // Keep displayed messages as a temporary read-only history in this tab,
     // but never continue polling/autoreading after it loses mode ownership.
     message("หยุดรับข้อความแล้วเมื่อเปลี่ยนโหมด · เชื่อมต่อใหม่เพื่อรับข้อความล่าสุด");
+    reportSource("stopped",{phase:"stopped",pending:0});
   }
   function tikTokURL(value){
     // TikFinity documents this local endpoint. Never allow a user-supplied
@@ -689,6 +698,10 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     updateTikTokStatus();
   }
   function updateTikTokStatus(){
+    reportSource(connected?"running":"stopped",{
+      phase:connected?"ready":"stopped",received:wsMessages,
+      discarded:wsRejected,pending:0,
+    });
     message("TikFinity: connected · รับ "+wsMessages+" · กรอง/ซ้ำ "+wsRejected+
             " · คิวเสียง "+visible.filter(e=>e.state==="queued").length+
             " · ล้นคิว "+overflow);
@@ -701,6 +714,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     if(typeof root.WebSocket!=="function")throw Error("Browser ไม่รองรับ WebSocket");
     localSuspend();
     clearMessages();
+    reportSource("connecting",{phase:"starting_worker",received:0,discarded:0,pending:0});
     wsMessages=0;wsRejected=0;wsSequence=0;seen.clear();
     const ticket=++generation;
     get("FeedStart").disabled=true;
@@ -817,6 +831,11 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       const result=await api("drain",{...credentials(mode),limit:10});
       if(ticket!==generation||drainEpoch!==resetEpoch||resetting||!guard(mode))return;
       const status=result.status;
+      reportSource(status.state||"running",{
+        phase:status.connection_phase||status.state||"",
+        received:status.received,discarded:status.discarded,
+        pending:status.pending,
+      });
       if(Array.isArray(result.messages)){
         for(const item of result.messages){
           if(!item || typeof item.text!=="string")continue;
