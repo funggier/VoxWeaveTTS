@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 import threading
 import time
@@ -933,10 +934,22 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 payload = self._read_json(max_bytes=2048)
                 if route.endswith("/inspect-local"):
-                    if payload != {}:
-                        raise UniversalPackageError("package preview has no user parameters")
-                    from .package_install_v4 import preview
-                    self.send_json(200, preview())
+                    from .package_install_v4 import preview, preview_selected, select_batch
+
+                    if payload == {}:
+                        result = preview()
+                    elif (isinstance(payload, dict) and set(payload) == {"multiple"}
+                          and payload["multiple"] is True):
+                        result = select_batch()
+                    elif (isinstance(payload, dict)
+                          and set(payload) == {"selection_token", "index"}
+                          and isinstance(payload["selection_token"], str)
+                          and len(payload["selection_token"]) <= 128
+                          and type(payload["index"]) is int):
+                        result = preview_selected(payload["selection_token"], payload["index"])
+                    else:
+                        raise UniversalPackageError("invalid package preview request")
+                    self.send_json(200, result)
                 elif route.endswith("/install-confirmed"):
                     if (not isinstance(payload, dict)
                         or set(payload) != {"token", "accepted_rights", "acknowledged_noncommercial"}
@@ -972,6 +985,8 @@ class Handler(BaseHTTPRequestHandler):
                         return
             except ModelPackageDialogUnavailable:
                 self.send_json(503, {"error": "native file chooser is unavailable"})
+            except subprocess.TimeoutExpired:
+                self.send_json(400, {"error": "offline v4 runtime installation timed out"})
             except (UniversalPackageError, ValueError, KeyError, InputError,
                     UnicodeDecodeError, json.JSONDecodeError, TypeError):
                 self.send_json(400, {"error": "offline v4 package, rights, runtime, or checksum invalid"})

@@ -7,6 +7,15 @@ class ModelPackageDialogUnavailable(RuntimeError):
 
 
 def pick_model_file() -> str | None:
+    files = _pick_model_files(multiple=False)
+    return files[0] if files else None
+
+
+def pick_model_files() -> tuple[str, ...]:
+    return _pick_model_files(multiple=True)
+
+
+def _pick_model_files(*, multiple: bool) -> tuple[str, ...]:
     try:
         import tkinter as tk
         from tkinter import filedialog
@@ -17,11 +26,15 @@ def pick_model_file() -> str | None:
         root.withdraw()
         root.attributes("-topmost", True)
         root.update()
-        return filedialog.askopenfilename(
-            parent=root,
-            title="VoxWeaveTTS - Install Offline v4 Model Package",
-            filetypes=[("VoxWeaveTTS v4 Model Packages", "*.vwmodel")],
-        ) or None
+        options = {
+            "parent": root,
+            "title": "VoxWeaveTTS - Install Offline v4 Model Packages",
+            "filetypes": [("VoxWeaveTTS v4 Model Packages", "*.vwmodel")],
+        }
+        if multiple:
+            return root.tk.splitlist(filedialog.askopenfilenames(**options))
+        file = filedialog.askopenfilename(**options)
+        return (file,) if file else ()
     except (OSError, RuntimeError, tk.TclError) as exc:
         raise ModelPackageDialogUnavailable("Windows native model picker unavailable") from exc
     finally:

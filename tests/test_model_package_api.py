@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import threading
+import sys
 import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -10,6 +11,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from voxweavetts import universal_model_v4 as v4
 from voxweavetts.server import Handler
 from voxweavetts.package_install_v4 import preview, commit
 from test_v4_plugin_packages import fixture
@@ -120,6 +122,84 @@ class V4PackageApiTests(unittest.TestCase):
                      "acknowledged_noncommercial":False},
                     intent="install-model-package")
                 self.assertEqual(status, 400)
+
+    def test_native_batch_selection_is_ordered_and_can_skip_bad_files(self):
+        inspect_route = "/v1/model-packages/inspect-local"
+        inspect_intent = "inspect-model-package"
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            first = fixture(base / "first").rename(base / "z-first.vwmodel")
+            broken = base / "a-broken.vwmodel"
+            broken.write_bytes(b"invalid archive")
+            duplicate = base / "b-duplicate.vwmodel"
+            duplicate.write_bytes(first.read_bytes())
+            last = fixture(base / "last", package_id="demo-last-engine").rename(base / "m-last.vwmodel")
+            files = (first, broken, duplicate, last)
+            portable = base / "portable"
+
+            def install_locally(file):
+                return v4.install(file, root=portable)
+
+            with (
+                patch("voxweavetts.model_file_picker.pick_model_files",
+                      return_value=tuple(map(str, files))) as chooser,
+                patch("voxweavetts.package_install_v4.install",
+                      side_effect=install_locally) as installer,
+                patch.object(v4, "core_python", return_value=Path(sys.executable)),
+                patch.object(v4, "sys_platform", return_value="windows-x64"),
+            ):
+                code, selection = self.post(inspect_route, {"multiple": True},
+                                            intent=inspect_intent)
+                self.assertEqual(code, 200)
+                self.assertEqual(selection["files"], [file.name for file in files])
+                self.assertNotIn(str(base), json.dumps(selection))
+                chooser.assert_called_once_with()
+
+                for index, file in enumerate(files):
+                    body = {"selection_token": selection["selection_token"], "index": index}
+                    code, details = self.post(inspect_route, body, intent=inspect_intent)
+                    if file == broken:
+                        self.assertEqual(code, 400)
+                        continue
+                    self.assertEqual(code, 200)
+                    self.assertNotIn(str(base), json.dumps(details))
+                    status, result = self.post(
+                        "/v1/model-packages/install-confirmed",
+                        {"token": details["token"], "accepted_rights": True,
+                         "acknowledged_noncommercial": False},
+                        intent="install-model-package",
+                    )
+                    if file == duplicate:
+                        self.assertEqual(status, 400)
+                    else:
+                        self.assertEqual(status, 200)
+                        self.assertTrue(result["installed"])
+                    repeated, _ = self.post(inspect_route, body, intent=inspect_intent)
+                    self.assertEqual(repeated, 400)
+
+                self.assertEqual([call.args[0] for call in installer.call_args_list],
+                                 [first.resolve(), duplicate.resolve(), last.resolve()])
+                self.assertEqual(
+                    [m["package"]["id"] for m, _folder in v4.installed_packages(portable)],
+                    ["demo-future-engine", "demo-last-engine"],
+                )
+
+    def test_native_batch_cancel_and_reject_path_injection(self):
+        route = "/v1/model-packages/inspect-local"
+        intent = "inspect-model-package"
+        with patch("voxweavetts.model_file_picker.pick_model_files",
+                   return_value=()) as chooser:
+            for body in (
+                {"multiple": True, "paths": ["external.vwmodel"]},
+                {"selection_token": "unknown", "index": True},
+                {"selection_token": "unknown", "index": 0, "path": "external.vwmodel"},
+            ):
+                status, _ = self.post(route, body, intent=intent)
+                self.assertEqual(status, 400)
+            chooser.assert_not_called()
+            status, result = self.post(route, {"multiple": True}, intent=intent)
+            self.assertEqual(status, 200)
+            self.assertEqual(result, {"cancelled": True})
 
     def test_file_mutation_blocks_install(self):
         with tempfile.TemporaryDirectory() as tmp:

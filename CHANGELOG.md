@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.12.6
+
+- Select multiple offline v4 model packages in one Windows dialog and install each package in sequence, with per-file failure reporting.
+- See [v0.12.6 release notes](docs/RELEASE_NOTES_v0.12.6_TH.md).
+
 ## v0.12.5
 
 - Split the shared Rules editor, JSON import, and export by AI stage while preserving the existing revision-guarded settings file.

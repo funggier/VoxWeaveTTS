@@ -1,6 +1,6 @@
 # Universal v4-only self-contained Windows Portable. No v3 installer, assets or runtime.
 param(
-  [string]$Version='0.12.5',
+  [string]$Version='0.12.6',
   [switch]$SkipZip,
   [string]$StageDirectory='',
   [switch]$IncludeUnreleasedQaMakHam
@@ -183,7 +183,7 @@ if (@($examples | Where-Object { !$_.Name.StartsWith('v4-') }).Count -ne 0) {
 if ((Get-ChildItem $stage -Recurse -File -Filter '*.vwmodel' | Where-Object {
       $_.FullName -match 'format-v[123]|ModelPackagesV3'
     }).Count -ne 0) {throw 'Older model archives detected in v4 build'}
-if (!(Select-String -LiteralPath (Join-Path $stage 'web\index.html') -Pattern 'Universal .vwmodel v4 (' -SimpleMatch -Quiet)) {
+if (!(Select-String -LiteralPath (Join-Path $stage 'web\index.html') -Pattern 'id="modelPackageInstall"' -SimpleMatch -Quiet)) {
   throw 'V4-only package UI missing'
 }
 Write-Output ("V4_ONLY_PORTABLE_STAGE="+$stage)

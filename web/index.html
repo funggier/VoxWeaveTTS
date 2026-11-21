@@ -914,12 +914,13 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p id="aiEngineStatus" class="small" role="status">กำลังตรวจสอบ Engine...</p>
 <details style="margin:12px 0">
 <summary>รายการ AI / Translation Model Packages ที่ติดตั้งในเครื่อง</summary>
-<p class="small">เลือกใช้โมเดล M2M100 ที่ติดตั้งไว้แล้วได้ · ไม่มีปุ่มดาวน์โหลดหรือติดตั้งโมเดลจากหน้านี้ · ต้องมี Adapter/Runtime ที่รองรับ</p>
+<p class="small">เลือกไฟล์ .vwmodel v4 ได้หลายไฟล์เพื่อติดตั้งออฟไลน์ หรือเลือกใช้โมเดลแปลภาษาที่ติดตั้งไว้แล้ว</p>
 <div class="voice-grid">
 
 <button id="aiPackageInstall" type="button">ติดตั้ง AI Model Package (.vwmodel)</button>
 <button id="aiPackageRefresh" type="button">รีเฟรชรายการ</button>
 </div>
+<p id="aiPackageInstallStatus" class="small" role="status" style="white-space:pre-wrap" hidden></p>
 <p id="aiPackageStatus" class="small" role="status">กำลังโหลดรายการ...</p>
 <ul id="aiPackageList" style="padding-left:22px"></ul>
 </details>
@@ -1001,10 +1002,11 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <p class="small">ติดตั้งโมเดลและเสียงเพิ่มเติม ดูแหล่งที่มาและลิขสิทธิ์ และถอนการติดตั้งแพ็กเกจที่ไม่ต้องการได้ที่นี่</p>
 <details style="width:100%;margin:12px 0;border:1px solid #32425b;border-radius:10px;padding:12px">
 <summary>จัดการ Model Packages (ติดตั้งหลายโมเดล / หลายเสียง)</summary>
-<p class="small">เลือกไฟล์ .vwmodel แล้วติดตั้งได้ทันทีแบบออฟไลน์ · v4 รองรับ Engine ภายนอกและ Dependencies ที่มากับแพ็กเกจโดยไม่อัปเดตตัวโปรแกรม · รองรับเฉพาะแพ็กเกจ v4</p>
+<p class="small">เลือกไฟล์ .vwmodel v4 ได้หลายไฟล์ในครั้งเดียวด้วย Ctrl หรือ Shift โปรแกรมจะติดตั้งทีละไฟล์แบบออฟไลน์และสรุปผลเมื่อครบทุกไฟล์</p>
 <p class="small">การเลือกไฟล์และกดติดตั้งถือว่ายอมรับสิทธิ์และเลือกเชื่อถือโค้ด Engine ภายนอกในแพ็กเกจ v4 ซึ่งทำงานด้วยสิทธิ์ผู้ใช้ Windows · SHA-256 ตรวจความครบถ้วนของไฟล์ ไม่ได้ยืนยันความปลอดภัยหรือรับรองสิทธิ์เชิงพาณิชย์</p>
 <button type="button" id="modelPackageInstall">ติดตั้ง Model Package (.vwmodel)</button>
 <button type="button" id="modelPackageRefresh">รีเฟรชรายการโมเดล</button>
+<p id="modelPackageInstallStatus" class="small" role="status" style="white-space:pre-wrap" hidden></p>
 <p id="modelPackageStatus" class="small" role="status">กำลังโหลดแพ็กเกจ...</p>
 <ul id="modelPackageList" style="padding-left:22px"></ul>
 
@@ -1631,53 +1633,87 @@ el("modelPackageRefresh").addEventListener("click",()=>{
     el("modelPackageStatus").textContent="โหลดข้อมูลโมเดลไม่สำเร็จ";
   });
 });
-el("modelPackageInstall").addEventListener("click",async()=>{
-  const button=el("modelPackageInstall");
-  button.disabled=true;
-  el("modelPackageStatus").textContent="เลือก Universal .vwmodel v4 (ไฟล์เดียว ติดตั้งออฟไลน์)";
+const packageInstallButtons=[el("modelPackageInstall"),el("aiPackageInstall")];
+function setPackageInstallStatus(message){
+  for(const id of ["modelPackageInstallStatus","aiPackageInstallStatus"]){
+    const status=el(id);
+    status.hidden=false;
+    status.textContent=message;
+  }
+}
+async function packageInstallRequest(action,intent,body){
+  const response=await fetch("/v1/model-packages/"+action,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":intent},
+    body:JSON.stringify(body),
+  });
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||"ดำเนินการกับแพ็กเกจ .vwmodel ไม่สำเร็จ");
+  return result;
+}
+async function installModelPackages(){
+  if(packageInstallButtons[0].disabled)return;
+  for(const button of packageInstallButtons)button.disabled=true;
+  setPackageInstallStatus("เลือกไฟล์ .vwmodel v4 สำหรับติดตั้งออฟไลน์");
   try{
-    const previewResponse=await fetch("/v1/model-packages/inspect-local",{
-      method:"POST",
-      headers:{"Content-Type":"application/json",
-               "X-VoxWeaveTTS-Intent":"inspect-model-package"},
-      body:"{}",
-    });
-    const preview=await previewResponse.json();
-    if(!previewResponse.ok)throw Error(preview.error||"ไม่สามารถอ่านแพ็กเกจ .vwmodel ได้");
-    if(preview.cancelled){
-      el("modelPackageStatus").textContent="ยกเลิกการเลือกไฟล์";
+    const selection=await packageInstallRequest("inspect-local","inspect-model-package",{multiple:true});
+    if(selection.cancelled){
+      setPackageInstallStatus("ยกเลิกการเลือกไฟล์");
       return;
     }
-    // The Install click is the single user acceptance of rights and, in v4,
-    // trust of its executable engine. No extra confirmation or online check.
-    const lic=preview.license||{};
-    const nc=/BY-NC|NONCOMMERCIAL/i.test(String(lic.spdx||""));
-    el("modelPackageStatus").textContent="กำลังติดตั้ง Universal v"+
-      preview.format_version+" แบบออฟไลน์: "+preview.package.title+
-      " · License: "+String(lic.spdx||"ไม่ระบุ")+
-      (preview.contains_executable_plugin?" · มี Engine Plugin ภายนอก":"");
-    const response=await fetch("/v1/model-packages/install-confirmed",{
-      method:"POST",
-      headers:{"Content-Type":"application/json",
-               "X-VoxWeaveTTS-Intent":"install-model-package"},
-      body:JSON.stringify({token:preview.token,accepted_rights:true,
-                           acknowledged_noncommercial:nc}),
-    });
-    const result=await response.json();
-    if(!response.ok)throw Error(result.error||"ติดตั้งโมเดลไม่สำเร็จ");
-    await loadModelPackages();
-    await loadEngines();
-    modeVoiceController?.refreshEngines();
-    const engineId=result.engine_id;
-    if(engineId&&engines.some(x=>x.id===engineId&&x.assets_ready&&x.runtime_ready)){
-      el("engineSelect").value=engineId;
-      refreshSelectedEngine();
+
+    const installed=[],failed=[];
+    const files=selection.files;
+    for(const [index,filename] of files.entries()){
+      const position=(index+1)+"/"+files.length+" · "+filename;
+      try{
+        setPackageInstallStatus("กำลังตรวจแพ็กเกจ "+position);
+        const preview=await packageInstallRequest("inspect-local","inspect-model-package",{
+          selection_token:selection.selection_token,index,
+        });
+        // Choosing the files accepts their declared rights and executable plugins.
+        const license=String(preview.license?.spdx||"ไม่ระบุ");
+        const noncommercial=/BY-NC|NONCOMMERCIAL/i.test(license);
+        setPackageInstallStatus("กำลังติดตั้ง "+position+" · License: "+license+
+          (preview.contains_executable_plugin?" · มี Engine Plugin ภายนอก":""));
+        const result=await packageInstallRequest("install-confirmed","install-model-package",{
+          token:preview.token,accepted_rights:true,acknowledged_noncommercial:noncommercial,
+        });
+        installed.push({engineId:result.engine_id,license});
+      }catch(error){
+        failed.push(filename+": "+String(error.message||error));
+      }
     }
-    el("modelPackageStatus").textContent="ติดตั้ง v"+result.format_version+" และ Runtime ออฟไลน์เรียบร้อย: "+result.package_id+" · License: "+String(lic.spdx||"ไม่ระบุ");
+
+    let summary=failed.length
+      ?"ดำเนินการครบ "+files.length+" ไฟล์ · ติดตั้งสำเร็จ "+installed.length+
+        " · ติดตั้งไม่สำเร็จ "+failed.length+"\n"+failed.join("\n")
+      :"ติดตั้งสำเร็จครบ "+installed.length+" ไฟล์";
+    if(installed.length===1&&files.length===1)summary+=" · License: "+installed[0].license;
+    if(installed.length){
+      el("aiPackageRefresh").click();
+      try{
+        await loadModelPackages();
+        await loadEngines();
+        modeVoiceController?.refreshEngines();
+        const latest=installed.findLast(item=>
+          engines.some(engine=>engine.id===item.engineId&&engine.assets_ready&&engine.runtime_ready));
+        if(latest){
+          el("engineSelect").value=latest.engineId;
+          refreshSelectedEngine();
+        }
+      }catch{
+        summary+="\nอัปเดตรายการโมเดลไม่สำเร็จ กดรีเฟรชรายการเพื่อลองใหม่";
+      }
+    }
+    setPackageInstallStatus(summary);
   }catch(error){
-    el("modelPackageStatus").textContent="ติดตั้งไม่สำเร็จ: "+String(error.message||error);
-  }finally{button.disabled=false;}
-});
+    setPackageInstallStatus("เริ่มติดตั้งไม่สำเร็จ: "+String(error.message||error));
+  }finally{
+    for(const button of packageInstallButtons)button.disabled=false;
+  }
+}
+for(const button of packageInstallButtons)button.addEventListener("click",installModelPackages);
 loadModelPackages().catch(()=>{
   el("modelPackageStatus").textContent="ไม่สามารถตรวจรายการ Model Packages ได้";
 });

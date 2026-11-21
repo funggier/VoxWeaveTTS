@@ -217,11 +217,6 @@ function attach(document, fetcher){
   get("aiPackageRefresh").addEventListener("click",()=>{
     loadPackages().catch(e=>get("aiPackageStatus").textContent=String(e.message||e));
   });
-  get("aiPackageInstall").addEventListener("click",()=>{
-    const main=root.document.getElementById("modelPackageInstall");
-    if(main&&!main.disabled)main.click();
-    else status("เปิดเมนูตั้งค่า → Model Packages เพื่อเลือกไฟล์ v3");
-  });
   function serverAddressNeedsSave(){
     return lastLoaded!==null &&
       get("aiOllamaBaseUrl").value.trim()!==JSON.parse(lastLoaded).ollama_base_url;

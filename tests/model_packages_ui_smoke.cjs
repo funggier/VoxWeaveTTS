@@ -1,11 +1,12 @@
-// Universal v4 one-click model manager: no extra rights popup, offline
-// local chooser, engine refresh, NC rights shown, and safe removal.
+// Universal v4 offline install: ordered file selection, partial failure,
+// final status in both panels, NC rights shown, and safe removal.
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const vm=require("node:vm");
 const html=fs.readFileSync("web/index.html","utf8");
 for(const id of ["modelPackageInstall","modelPackageRefresh","modelPackageList",
-                 "modelPackageStatus","voiceSelect","engineSelect"]){
+                 "modelPackageStatus","modelPackageInstallStatus","aiPackageInstall",
+                 "aiPackageInstallStatus","voiceSelect","engineSelect"]){
   assert.ok(html.includes('id="'+id+'"'),"missing UI "+id);
 }
 const start=html.indexOf("async function loadModelPackages(){");
@@ -34,38 +35,57 @@ const create=(tag)=>({
   append(...nodes){this.children.push(...nodes);},
   replaceChildren(){this.children=[];},
   addEventListener(name,fn){this.events[name]=fn;},
+  click(){return this.events.click?.();}
 });
 function el(id){if(!elements.has(id))elements.set(id,create("div"));return elements.get(id);}
 let confirmReplies=[];
-let previewLicense="Apache-2.0";
-let previewCancelled=false;
+let selection=[
+  {name:"alternative.vwmodel",license:"Apache-2.0",engine:packages[1].engine_id},
+];
+const attempted=[];
+let engineRefreshes=0,aiRefreshes=0;
+el("aiPackageRefresh").addEventListener("click",()=>aiRefreshes++);
 const scope={
   el,modeVoiceController:null,
   window:{confirm(message){confirmNotices.push(message);return confirmReplies.length?confirmReplies.shift():true;}},
   document:{createElement:create},
   engines:packages.map(x=>({id:x.engine_id,assets_ready:true,runtime_ready:true})),
-  loadEngines:async()=>{},refreshSelectedEngine:()=>{},
+  loadEngines:async()=>{engineRefreshes++;},refreshSelectedEngine:()=>{},
   fetch:async(path,opts)=>{
     requests.push({path,opts});
     if(path==="/v1/model-packages")return {ok:true,async json(){return {packages};}};
     if(path==="/v1/model-packages/inspect-local"){
       assert.equal(opts.headers["X-VoxWeaveTTS-Intent"],"inspect-model-package");
-      assert.equal(opts.body,"{}");
-      return {ok:true,async json(){return previewCancelled?{cancelled:true}:{
-        cancelled:false,token:"one-time-token",offline:true,format_version:4,contains_executable_plugin:true,
-        package:{id:"vachana-alt",title:"Alternative",version:"2.0.0"},
-        license:{spdx:previewLicense,attribution:"Fixture model",review_status:"hold"},
+      const body=JSON.parse(opts.body);
+      if(body.multiple){
+        assert.deepEqual(body,{multiple:true});
+        return {ok:true,async json(){return selection.length
+          ?{cancelled:false,selection_token:"native-selection",files:selection.map(x=>x.name)}
+          :{cancelled:true};}};
+      }
+      assert.deepEqual(body,{selection_token:"native-selection",index:body.index});
+      const item=selection[body.index];
+      attempted.push("inspect "+item.name);
+      assert.equal(el("modelPackageInstall").disabled,true);
+      assert.equal(el("aiPackageInstall").disabled,true);
+      if(item.invalid)return {ok:false,async json(){return {error:"bad package"};}};
+      return {ok:true,async json(){return {
+        token:"install-"+body.index,contains_executable_plugin:true,license:{spdx:item.license},
       };}};
     }
     if(path==="/v1/model-packages/install-confirmed"){
       assert.equal(opts.headers["X-VoxWeaveTTS-Intent"],"install-model-package");
       const body=JSON.parse(opts.body);
-      assert.equal(body.token,"one-time-token");
-      assert.equal(body.accepted_rights,true);
-      assert.equal(body.acknowledged_noncommercial,/BY-NC|NONCOMMERCIAL/i.test(previewLicense));
-      assert.equal(Object.hasOwn(body,"path"),false);
-      return {ok:true,async json(){return {installed:true,format_version:4,package_id:"vachana-alt",
-          engine_id:"model-vachana-alt-2_0_0",version:"2.0.0"};}};
+      const index=Number(body.token.replace("install-",""));
+      const item=selection[index];
+      attempted.push("install "+item.name);
+      assert.deepEqual(body,{
+        token:"install-"+index,
+        accepted_rights:true,
+        acknowledged_noncommercial:/BY-NC|NONCOMMERCIAL/i.test(item.license),
+      });
+      if(item.failure)return {ok:false,async json(){return {error:"offline runtime unavailable"};}};
+      return {ok:true,async json(){return {installed:true,engine_id:item.engine};}};
     }
     if(path==="/v1/model-packages/remove"){
       assert.equal(opts.headers["X-VoxWeaveTTS-Intent"],"remove-model-package");
@@ -91,24 +111,45 @@ vm.runInContext(source,scope);
   assert.ok(item.children[1].textContent.includes("พร้อมใช้งาน"));
   assert.ok(!html.includes("innerHTML=item.title"));
 
-  await el("modelPackageInstall").events.click();
-  assert.equal(el("engineSelect").value,"model-vachana-alt-2_0_0");
-  assert.equal(requests.filter(x=>x.path.endsWith("/inspect-local")).length,1);
-  assert.equal(requests.filter(x=>x.path.endsWith("/install-confirmed")).length,1);
+  const installStatus=el("modelPackageInstallStatus");
+  await el("modelPackageInstall").click();
+  assert.equal(el("engineSelect").value,packages[1].engine_id);
+  assert.ok(installStatus.textContent.includes("ติดตั้งสำเร็จครบ 1 ไฟล์"));
+  assert.ok(installStatus.textContent.includes("Apache-2.0"));
   assert.equal(confirmNotices.length,0,"install must not show a second confirmation");
-  assert.ok(el("modelPackageStatus").textContent.includes("Apache-2.0"));
 
-  previewLicense="CC-BY-NC-4.0";
-  const installedBefore=requests.filter(x=>x.path.endsWith("/install-confirmed")).length;
-  await el("modelPackageInstall").events.click();
-  assert.equal(requests.filter(x=>x.path.endsWith("/install-confirmed")).length,installedBefore+1);
-  assert.ok(el("modelPackageStatus").textContent.includes("CC-BY-NC-4.0"));
-  assert.equal(confirmNotices.length,0);
+  selection=[
+    {name:"z-first.vwmodel",license:"CC-BY-NC-4.0",engine:packages[1].engine_id},
+    {name:"a-broken.vwmodel",invalid:true},
+    {name:"c-duplicate.vwmodel",failure:true},
+    {name:"m-last.vwmodel",license:"MIT",engine:packages[0].engine_id},
+  ];
+  attempted.length=0;
+  await el("aiPackageInstall").click();
+  assert.deepEqual(attempted,[
+    "inspect z-first.vwmodel","install z-first.vwmodel",
+    "inspect a-broken.vwmodel",
+    "inspect c-duplicate.vwmodel","install c-duplicate.vwmodel",
+    "inspect m-last.vwmodel","install m-last.vwmodel",
+  ]);
+  assert.match(installStatus.textContent,/ติดตั้งสำเร็จ 2 · ติดตั้งไม่สำเร็จ 2/);
+  assert.match(installStatus.textContent,/a-broken\.vwmodel: bad package/);
+  assert.match(installStatus.textContent,/c-duplicate\.vwmodel: offline runtime unavailable/);
+  assert.equal(el("aiPackageInstallStatus").textContent,installStatus.textContent);
+  assert.equal(el("engineSelect").value,packages[0].engine_id);
+  assert.equal(engineRefreshes,2,"refresh engines once per successful selection");
+  assert.equal(aiRefreshes,2,"refresh installed AI models once per successful selection");
 
-  previewCancelled=true;
-  await el("modelPackageInstall").events.click();
-  assert.ok(el("modelPackageStatus").textContent.includes("ยกเลิก"));
-  assert.equal(requests.filter(x=>x.path.endsWith("/install-confirmed")).length,installedBefore+1);
+  selection=[{name:"unreadable.vwmodel",invalid:true}];
+  await el("modelPackageInstall").click();
+  assert.match(installStatus.textContent,/ติดตั้งสำเร็จ 0 · ติดตั้งไม่สำเร็จ 1/);
+  assert.equal(engineRefreshes,2);
+
+  selection=[];
+  await el("modelPackageInstall").click();
+  assert.equal(installStatus.textContent,"ยกเลิกการเลือกไฟล์");
+  assert.equal(el("modelPackageInstall").disabled,false);
+  assert.equal(el("aiPackageInstall").disabled,false);
 
   await item.children[3].events.click();
   assert.equal(packages.length,1);
@@ -116,5 +157,5 @@ vm.runInContext(source,scope);
   assert.equal(el("modelPackageList").children.length,1);
   assert.ok(requests.some(x=>x.path==="/v1/model-packages/remove"));
   assert.equal(confirmNotices.length,1,"only destructive uninstall asks confirmation");
-  console.log("PASS: v4 one-click offline install, NC attribution, cancel, engine selection, safe uninstall");
+  console.log("PASS: v4 sequential batch install, partial failure, NC rights, cancel and safe removal");
 })().catch(e=>{console.error(e);process.exitCode=1;});

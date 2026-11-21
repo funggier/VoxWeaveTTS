@@ -19,7 +19,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from build_vwmodel_v4 import build
 
 
-def fixture(base: Path, *, kind: str = "python", harmful_wheel: bool = False):
+def fixture(base: Path, *, kind: str = "python", harmful_wheel: bool = False,
+            package_id: str = "demo-future-engine"):
     src = base / "source"
     (src / "plugin").mkdir(parents=True)
     (src / "assets").mkdir()
@@ -43,7 +44,7 @@ def fixture(base: Path, *, kind: str = "python", harmful_wheel: bool = False):
             archive.writestr("fixture-1.0.0.dist-info/WHEEL", "Wheel-Version: 1.0")
         wheels.append("runtime/wheels/" + wheel)
     spec = {
-        "package": {"id": "demo-future-engine", "version": "1.0.0", "kind": "tts",
+        "package": {"id": package_id, "version": "1.0.0", "kind": "tts",
                     "title": "Future engine", "languages": ["en"]},
         "engine": {"protocol": 1, "entrypoint": (
             "plugin/worker.py" if kind == "python" else "plugin/worker.exe"),

@@ -1,9 +1,8 @@
 """Single-click installation of *only* Universal .vwmodel format v4.
 
-The user selects the file and clicks Install once; that action is acceptance
-of its declared rights and its executable worker. No online license check,
-second dialog, or arbitrary caller-supplied paths. The archive is rehashed
-immediately before installation to catch changes since selection.
+The local picker supplies the paths authorized by the Install action. Each
+archive is previewed and rehashed before installation to detect changes since
+its preview.
 """
 from __future__ import annotations
 
@@ -18,6 +17,8 @@ from .universal_model_v4 import V4PackageError, inspect_archive, install
 _LOCK = threading.RLock()
 _PLANS: dict[str, dict] = {}
 _TTL_SECONDS = 900
+_SELECTIONS: dict[str, tuple[float, dict[int, str]]] = {}
+_SELECTION_IDLE_SECONDS = 3600
 
 
 def _sha256(path: Path) -> str:
@@ -31,6 +32,49 @@ def preview(choose_file=None) -> dict:
     selected = (choose_file or pick_model_file)()
     if not selected:
         return {"cancelled": True}
+    return _preview_file(selected)
+
+
+def select_batch() -> dict:
+    from .model_file_picker import pick_model_files
+
+    selected = pick_model_files()
+    if not selected:
+        return {"cancelled": True}
+    token = secrets.token_urlsafe(30)
+    with _LOCK:
+        now = time.monotonic()
+        for key, (expires, _) in tuple(_SELECTIONS.items()):
+            if expires <= now:
+                del _SELECTIONS[key]
+        if len(_SELECTIONS) >= 8:
+            raise V4PackageError("another model package selection is pending")
+        _SELECTIONS[token] = (now + _SELECTION_IDLE_SECONDS, dict(enumerate(selected)))
+    return {
+        "cancelled": False,
+        "selection_token": token,
+        "files": [Path(file).name for file in selected],
+    }
+
+
+def preview_selected(selection_token: str, index: int) -> dict:
+    with _LOCK:
+        now = time.monotonic()
+        expires, remaining = _SELECTIONS.get(selection_token, (0, {}))
+        if expires <= now:
+            _SELECTIONS.pop(selection_token, None)
+            raise V4PackageError("package selection expired; choose the files again")
+        selected = remaining.pop(index, None)
+        if selected is None:
+            raise V4PackageError("package selection has no pending file at this index")
+        if remaining:
+            _SELECTIONS[selection_token] = (now + _SELECTION_IDLE_SECONDS, remaining)
+        else:
+            del _SELECTIONS[selection_token]
+    return _preview_file(selected)
+
+
+def _preview_file(selected: Path | str) -> dict:
     file = Path(selected).resolve(strict=True)
     if file.is_symlink() or not file.is_file():
         raise V4PackageError("choose a local .vwmodel v4 file")
