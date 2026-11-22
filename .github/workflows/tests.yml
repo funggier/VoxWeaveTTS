@@ -26,12 +26,16 @@ jobs:
       - name: Install test-only audit and signature dependencies
         shell: pwsh
         run: |
-          python -m pip install --disable-pip-version-check "packaging>=24,<27" "cryptography>=46,<48"
+          python -m pip install --disable-pip-version-check "packaging>=24,<27" "cryptography>=46,<48" "pytest>=8,<10"
       - name: Universal v4-only Python regression tests
         shell: pwsh
         run: |
           $env:PYTHONPATH = Join-Path (Get-Location) 'src'
           python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Exercise parametrized HTTP/LAN regressions, not just import them.
+          python -m pytest -q tests/test_network_settings_http.py tests/test_remote_network.py tests/test_computer_runtime_http.py tests/test_computer_runtime_live.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   json-editor:
     runs-on: windows-latest
     steps:
