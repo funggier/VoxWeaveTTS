@@ -14,6 +14,7 @@ const MODES=Object.freeze([
   {id:"youtube_browser",label:"YouTube LIVE (Browser)"},
   {id:"discord",label:"Discord"},
   {id:"discord_client",label:"Discord Client"},
+  {id:"stt_api",label:"VoxWeaveSTT (API)"},
   {id:"queue",label:"คิวและ Subtitle"},
   {id:"rules",label:"คำอ่านและกฎ"},
   {id:"language_routes",label:"โมเดลเสียงตามภาษา"},

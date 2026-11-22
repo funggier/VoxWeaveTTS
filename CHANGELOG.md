@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.12.14 — VoxWeaveSTT (API)
+
+- Add a dedicated VoxWeaveSTT API workspace with editable IP/port and explicit Connect/Stop.
+- Read finalized transcript events through the existing STT HTTP API, preserving sequence, ignoring old finals and preventing duplicate speech.
+- Support opt-in paired HTTPS LAN access with pinned certificate fingerprint; retain STT as a separate independently running product.
+- Route incoming text through existing TTS Core source processing, per-mode voice profiles, translation/AI, speech queue and subtitles.
+- Preserve the v0.12.13 Core-owned playback and source Stop semantics; reduce repeated browser source-mode lookup logic.
+- See [release notes](docs/RELEASE_NOTES_v0.12.14_TH.md).
+
+
 ## v0.12.13 — Core-first Live Control & Reliable Stop
 
 - New installs default to computer-owned TTS and playback; saved Browser mode remains available explicitly.

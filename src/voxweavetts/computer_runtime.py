@@ -33,6 +33,7 @@ SOURCE_NAMES = {
     "tiktok": "tiktok-live-core",
     "discord": "discord",
     "discord_client": "discord-client",
+    "stt_api": "voxweave-stt",
 }
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "data" / "settings" / "runtime-control.json"
 
@@ -303,6 +304,7 @@ class ComputerRuntime:
             "tiktok-live-extension": "tiktok_browser",
             "tiktok-live-core": "tiktok",
             "discord-client": "discord_client",
+            "voxweave-stt": "stt_api",
         }.get(job.get("source"), job.get("source") or "studio")
 
     def stop_source(self, mode: str, *, stop_input: bool = True) -> dict[str, Any]:

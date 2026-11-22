@@ -84,7 +84,7 @@ _COORDINATOR: SpeechCoordinator | None = None
 _AI_QUEUE_SETTINGS_LOCK = threading.Lock()
 _LIVE_SPEECH_SOURCES = ("youtube-live", "youtube-live-browser", "discord",
                         "discord-client", "tiktok-live", "tiktok-live-core",
-                        "tiktok-live-extension")
+                        "tiktok-live-extension", "voxweave-stt")
 _PLAYBACK_STATE = PlaybackHub()
 _MODE_LOCK = threading.Lock()
 _SOURCE_LOCK = threading.Lock()
@@ -1508,13 +1508,15 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = self._read_json()
                 computer_mode = self._runtime().mode() == "computer"
+                selected_mode = data.get("mode")
+                keep_receiver = computer_mode or selected_mode == "stt_api"
                 activated = self._mode_state().activate(
                     data.get("mode"), self._playback_state(),
-                    preserve_existing=computer_mode,
+                    preserve_existing=keep_receiver,
                 )
-                if not computer_mode:
+                if not keep_receiver:
                     # Browser mode retains prior exclusive tab ownership.
-                    self._source_manager().stop_mode(data.get("mode"))
+                    self._source_manager().stop_mode(selected_mode)
                 self.send_json(200, activated)
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})

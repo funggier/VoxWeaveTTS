@@ -49,7 +49,7 @@ class SourceQueueSettingsTests(unittest.TestCase):
                                     path=path)
                 self.assertEqual(saved["modes"][mode]["revision"],1)
             read=load_settings(path=path)
-            self.assertEqual(len(read["modes"]),6)
+            self.assertEqual(len(read["modes"]),7)
             self.assertTrue(read["modes"]["youtube_browser"]["settings"]["prepare_ahead"])
             self.assertFalse(read["modes"]["discord"]["settings"]["prepare_ahead"])
             self.assertTrue(read["modes"]["live"]["settings"]["force_autoplay"])

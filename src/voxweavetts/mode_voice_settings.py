@@ -21,10 +21,10 @@ from .voice_controls import validate_controls
 ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_PATH = ROOT / "data" / "settings" / "mode-voices.json"
 VOICE_MODES = frozenset(("studio", "reader", "queue", "live", "youtube_browser", "tiktok", "tiktok_browser",
-                         "discord", "discord_client"))
+                         "discord", "discord_client", "stt_api"))
 AUDIO_POLICIES = frozenset(("serial", "overlap"))
 SENDER_MODES = frozenset(("live", "youtube_browser", "tiktok", "tiktok_browser",
-                          "discord", "discord_client"))
+                          "discord", "discord_client", "stt_api"))
 SPEECH_FORMAT_KEYS = frozenset(("sender_prefix", "separator", "gift_separator", "read_comments",
                                "read_gifts", "read_levels", "read_ranks",
                                "read_badges", "read_gift_count", "read_name_emojis", "read_name_at",

@@ -22,6 +22,7 @@ from .discord_client_rpc import DiscordClientRPCAdapter
 from .youtube_browser import YouTubeBrowserAdapter
 from .tiktok_extension import TikTokExtensionAdapter, ExtensionBridgeError
 from .tikfinity_core import TikFinityCoreAdapter
+from .stt_api_source import VoxWeaveSTTAdapter
 from .source_adapters import (
     DiscordChannelAdapter, PollResult, SourceFailure, SourceMessage,
     YouTubeLiveAdapter,
@@ -76,8 +77,8 @@ class _Session:
             "temporary_credentials": True,
             "runtime_auto_read": self.runtime_auto_read,
             **({"transport": self.adapter.transport}
-               if self.mode in ("live", "youtube_browser", "tiktok_browser", "tiktok") and getattr(self.adapter, "transport", None)
-               in ("streamList", "polling", "browser-dom", "extension", "local-websocket") else {}),
+               if self.mode in ("live", "youtube_browser", "tiktok_browser", "tiktok", "stt_api") and getattr(self.adapter, "transport", None)
+               in ("streamList", "polling", "browser-dom", "extension", "local-websocket", "stt-final-api") else {}),
             **({"dom_diagnostics": self.adapter.diagnostics}
                if self.mode == "tiktok_browser"
                and isinstance(getattr(self.adapter, "diagnostics", None), dict)
@@ -89,7 +90,7 @@ class _Session:
                and isinstance(getattr(self.adapter, "page_visibility", None), str)
                else {}),
             **({"connection_phase": self.adapter.phase}
-               if self.mode in ("discord_client", "youtube_browser", "tiktok_browser")
+               if self.mode in ("discord_client", "youtube_browser", "tiktok_browser", "stt_api")
                and isinstance(getattr(self.adapter, "phase", None), str)
                else {}),
             **({"failed_phase": self.adapter.failed_phase}
@@ -106,7 +107,8 @@ class SourceManager:
                  client_factory: Callable[..., Any] = DiscordClientRPCAdapter,
                  browser_factory: Callable[..., Any] = YouTubeBrowserAdapter,
                  tiktok_browser_factory: Callable[..., Any] = TikTokExtensionAdapter,
-                 tikfinity_factory: Callable[..., Any] = TikFinityCoreAdapter):
+                 tikfinity_factory: Callable[..., Any] = TikFinityCoreAdapter,
+                 stt_factory: Callable[..., Any] = VoxWeaveSTTAdapter):
         self._lock = threading.RLock()
         self._changed = threading.Condition(self._lock)
         self._revisions: dict[str, int] = {}
@@ -119,6 +121,7 @@ class SourceManager:
         self._browser_factory = browser_factory
         self._tiktok_browser_factory = tiktok_browser_factory
         self._tikfinity_factory = tikfinity_factory
+        self._stt_factory = stt_factory
 
     @staticmethod
     def _validate_policy(value: object) -> tuple[tuple[str, ...], int]:
@@ -145,15 +148,15 @@ class SourceManager:
         text = message.text
         if not 1 <= len(text) <= session.max_chars:
             return False
-        if URL_PATTERN.search(text) or "@everyone" in text.lower() or "@here" in text.lower():
+        if session.mode != "stt_api" and (URL_PATTERN.search(text) or "@everyone" in text.lower() or "@here" in text.lower()):
             return False
-        if text.startswith(("!", "/")):
+        if session.mode != "stt_api" and text.startswith(("!", "/")):
             return False
         folded = text.casefold()
         return not any(blocked in folded for blocked in session.block_words)
 
     def _authorized(self, mode: Any, token: Any, mode_state: ModeState) -> None:
-        if mode not in ("live", "youtube_browser", "tiktok_browser", "tiktok", "discord", "discord_client") or not mode_state.is_owner(mode, token):
+        if mode not in ("live", "youtube_browser", "tiktok_browser", "tiktok", "discord", "discord_client", "stt_api") or not mode_state.is_owner(mode, token):
             raise ModeConflict("source monitor requires the active mode owner token")
 
     def start(self, data: dict[str, Any], mode_state: ModeState) -> dict[str, Any]:
@@ -163,7 +166,7 @@ class SourceManager:
         self._authorized(mode, token, mode_state)
         source_id = data.get("source_id")
         secret = data.get("credential")
-        if mode not in ("discord_client", "youtube_browser", "tiktok_browser", "tiktok") and (secret is None or secret == ""):
+        if mode not in ("discord_client", "youtube_browser", "tiktok_browser", "tiktok", "stt_api") and (secret is None or secret == ""):
             variable = ("VOXWEAVE_YOUTUBE_API_KEY" if mode == "live"
                         else "VOXWEAVE_DISCORD_BOT_TOKEN")
             secret = os.environ.get(variable, "")
@@ -181,6 +184,8 @@ class SourceManager:
             adapter = self._tikfinity_factory(source_id)
         elif mode == "discord":
             adapter = self._discord_factory(source_id, secret)
+        elif mode == "stt_api":
+            adapter = self._stt_factory(source_id, secret)
         else:
             adapter = self._client_factory(source_id, secret)
         session = _Session(
@@ -317,7 +322,7 @@ class SourceManager:
 
     def _all_wake_snapshot_unlocked(self) -> dict[str, Any]:
         modes = ("live", "youtube_browser", "tiktok_browser",
-                 "tiktok", "discord", "discord_client")
+                 "tiktok", "discord", "discord_client", "stt_api")
         return {"mode": "all", "revision": self._global_revision,
                 "sources": [self._wake_snapshot_unlocked(mode) for mode in modes]}
 
@@ -341,7 +346,7 @@ class SourceManager:
 
     def wake_snapshot(self, mode: str) -> dict[str, Any]:
         if mode not in ("live", "youtube_browser", "tiktok_browser",
-                        "tiktok", "discord", "discord_client"):
+                        "tiktok", "discord", "discord_client", "stt_api"):
             raise InputError("unsupported source watcher mode")
         with self._changed:
             return self._wake_snapshot_unlocked(mode)
@@ -354,7 +359,7 @@ class SourceManager:
         notification. The token-authenticated POST /drain remains authoritative.
         """
         if mode not in ("live", "youtube_browser", "tiktok_browser",
-                        "tiktok", "discord", "discord_client"):
+                        "tiktok", "discord", "discord_client", "stt_api"):
             raise InputError("unsupported source watcher mode")
         if type(previous_revision) is not int or previous_revision < 0:
             raise InputError("invalid source watcher revision")
@@ -369,7 +374,7 @@ class SourceManager:
             return current if current["revision"] != previous_revision else None
 
     def status(self, mode: str) -> dict[str, Any]:
-        if mode not in ("live", "youtube_browser", "tiktok_browser", "tiktok", "discord", "discord_client"):
+        if mode not in ("live", "youtube_browser", "tiktok_browser", "tiktok", "discord", "discord_client", "stt_api"):
             raise InputError("unsupported source mode")
         with self._lock:
             s = self._sessions.get(mode)
@@ -476,6 +481,8 @@ class SourceManager:
                         session.info = "Browser extension/DOM bridge connected"
                     elif session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList":
                         session.info = "YouTube streamList connected"
+                    elif session.mode == "stt_api":
+                        session.info = getattr(session.adapter, "info", "STT API connected")
                     else:
                         session.info = "official API connected"
                     if session.mode == "tiktok_browser" and session.state == "connecting":
@@ -530,7 +537,7 @@ class SourceManager:
                         delay = min(1.0, max(0.1, batch.delay_seconds))
                     elif session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList":
                         delay = 0.0
-                    elif session.mode == "discord_client":
+                    elif session.mode in ("discord_client", "stt_api"):
                         delay = min(2, max(0.1, batch.delay_seconds))
                     else:
                         delay = min(3600, max(5, batch.delay_seconds))

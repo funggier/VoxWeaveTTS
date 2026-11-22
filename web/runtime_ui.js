@@ -126,7 +126,8 @@ function apply(data){
   const labels={
     live:"YouTube API",youtube_browser:"YouTube Browser",
     tiktok_browser:"TikTok Extension",discord:"Discord",
-    discord_client:"Discord Client",tiktok:"TikFinity Core"
+    discord_client:"Discord Client",tiktok:"TikFinity Core",
+    stt_api:"VoxWeaveSTT (API)"
   };
   sources.textContent="แหล่งข้อความ: "+Object.entries(data.sources||{}).map(
     ([key,value])=>(labels[key]||key)+" "+(value.state||"idle")+

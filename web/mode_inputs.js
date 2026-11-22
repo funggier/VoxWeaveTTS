@@ -59,8 +59,8 @@ function watchStagedJob(id){
 function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageState,
                  onSpeechDiagnostic,onSpeechModelInputs,onPipelineState,
                  playAudio=async audio=>{await audio.play();return true;},cancelAudio=()=>{}}){
-  if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("unknown source mode");
-  const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
+  if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok","stt_api"].includes(mode))throw Error("unknown source mode");
+  const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode==="stt_api"?"sttApi":mode;
   const get=id=>el(prefix+id);
   const Emoji=root.VoxEmojiPronunciation ||
     (typeof require==="function"?require("./emoji_pronunciation.js"):null);
@@ -437,7 +437,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       diagnosticText=body.text;
       diagnosticId=sender?.message_id??messageId;
       diagnose("preparing");
-      body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":mode==="tiktok_browser"?"tiktok-live-extension":"discord";
+      body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":mode==="tiktok_browser"?"tiktok-live-extension":mode==="stt_api"?"voxweave-stt":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
         method:"POST",
@@ -572,7 +572,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     payload.sender_prefix_text=parts.sender_prefix_text;
     payload.source=mode==="live"?"youtube-live":mode==="youtube_browser"
       ?"youtube-live-browser":mode==="tiktok"?"tiktok-live"
-      :mode==="tiktok_browser"?"tiktok-live-extension":"discord";
+      :mode==="tiktok_browser"?"tiktok-live-extension":mode==="stt_api"?"voxweave-stt":"discord";
     if(item.message_id!=null)
       payload.source_message_id=mode+"-"+String(item.message_id).slice(0,90)+
         (sequence===null?"":"-p"+sequence);

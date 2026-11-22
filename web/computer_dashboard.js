@@ -11,7 +11,8 @@ const MODES=Object.freeze({
   tiktok_browser:"tiktokBrowser",
   tiktok:"tiktok",
   discord:"discord",
-  discord_client:"discordClient"
+  discord_client:"discordClient",
+  stt_api:"sttApi"
 });
 const labels=Object.freeze({
   queued:"รอเข้า TTS",preparing:"กำลังเตรียมข้อความ/แปล",

@@ -84,7 +84,8 @@ async function test(){
   assert.match(html,/<h2>YouTube LIVE \(API\)<\/h2>/);
   assert.match(html,/<h2>YouTube LIVE \(Browser\)<\/h2>/);
   const modes=sandbox.window.VoxWorkspaceModes.MODES;
-  assert.equal(modes.length,12);
+  assert.equal(modes.length,13);
+  assert.ok(modes.some(item=>item.id==='stt_api'));
   assert.match(html,/data-mode-target="language_routes"[^>]*>โมเดลเสียงตามภาษา</);
   assert.match(html,/data-mode-view="language_routes"[^>]*hidden/);
   assert.equal((html.match(/id="languageRoutingPanel"/g)||[]).length,1);

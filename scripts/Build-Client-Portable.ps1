@@ -1,6 +1,6 @@
 # Build the independent, model-free Windows Remote Client ZIP.
 param(
-    [string]$Version = '0.12.13',
+    [string]$Version = '0.12.14',
     [switch]$SkipZip,
     [string]$StageDirectory = ''
 )

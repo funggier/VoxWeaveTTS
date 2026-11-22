@@ -53,7 +53,7 @@ class WorkspaceMarkupTests(unittest.TestCase):
         parser.close()
         self.assertEqual(parser.errors,[])
         self.assertEqual(parser.stack,[])
-        expected={"studio","reader","youtube_browser","live","tiktok","tiktok_browser","discord","discord_client","queue","rules","language_routes","settings"}
+        expected={"studio","reader","youtube_browser","live","tiktok","tiktok_browser","discord","discord_client","stt_api","queue","rules","language_routes","settings"}
         self.assertEqual(set(parser.mode_counts),expected)
         self.assertEqual(set(parser.nav_counts),expected)
         self.assertTrue(all(value==1 for value in parser.mode_counts.values()))

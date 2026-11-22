@@ -408,7 +408,7 @@ class ManagerTests(unittest.TestCase):
     def test_all_source_wake_stream_has_single_revision_and_no_private_messages(self):
         before=self.manager.wake_all_snapshot()
         self.assertEqual(before["mode"],"all")
-        self.assertEqual(len(before["sources"]),6)
+        self.assertEqual(len(before["sources"]),7)
         self.assertEqual(set(before),{"mode","revision","sources"})
         self.assertIsNone(self.manager.watch_all(before["revision"],timeout=.01))
         base={"mode":"live","mode_token":self.owner["mode_token"],
@@ -418,7 +418,7 @@ class ManagerTests(unittest.TestCase):
         self.assertGreater(changed["revision"],before["revision"])
         self.assertEqual({s["mode"] for s in changed["sources"]},
                          {"live","youtube_browser","tiktok_browser",
-                          "tiktok","discord","discord_client"})
+                          "tiktok","discord","discord_client","stt_api"})
         self.assertNotIn("mode_token",str(changed))
         self.assertNotIn("test_api_key",str(changed))
         self.assertNotIn("messages",str(changed))
@@ -580,7 +580,7 @@ class SourceHTTPTests(unittest.TestCase):
         self.assertTrue(packet[1].startswith("event: source"))
         content=json.loads(packet[2][6:])
         self.assertEqual(content["mode"],"all")
-        self.assertEqual(len(content["sources"]),6)
+        self.assertEqual(len(content["sources"]),7)
         self.assertNotIn("credential","".join(packet))
         self.assertNotIn("mode_token","".join(packet))
 

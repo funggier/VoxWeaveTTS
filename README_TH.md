@@ -1,5 +1,8 @@
 # VoxWeaveTTS
 
+**v0.12.14 — VoxWeaveSTT (API):** เพิ่มโหมดรับข้อความที่ถอดเสียงเสร็จจาก VoxWeaveSTT ผ่าน IP/Port ใช้กฎ การแปลและคิวเสียงของ Core เดิม รองรับ HTTPS LAN ที่จับคู่และตรวจ SHA-256 Fingerprint ไม่ต้องอัปเดต STT Core เพื่อใช้งานบนเครื่องเดียวกัน ดู [คู่มือเชื่อมต่อ](docs/STT_API_MODE_TH.md) และ [รายละเอียดรุ่นนี้](docs/RELEASE_NOTES_v0.12.14_TH.md)
+
+
 **v0.12.13 — Core-first Live Control & Reliable Stop:** การติดตั้งใหม่ใช้ Core รับข้อความ/แปล/สร้างเสียง/เล่นเสียงเป็นค่าเริ่มต้น; Browser ทำหน้าที่ควบคุมและแสดงสถานะล่าสุด รองรับการกด **หยุดเสียงและพักคิว** หรือหยุด Source แยกโหมดจริง มีตัวรับ TikFinity localhost WebSocket ใน Core ที่ไม่ต้องเปิดหน้า Browser ค้างไว้ ขณะที่ YouTube/TikTok DOM ยังต้องใช้ Browser/Extension เป็นตัวจับข้อมูล ดู [คู่มือสถานะ Core ผ่าน Browser](docs/COMPUTER_BROWSER_STATUS_TH.md) และ [คำสั่งหยุด/ตั้งค่า Core](docs/RUNTIME_API_LIVE_TH.md)
 
 
@@ -9,7 +12,7 @@
 
 **v0.12.11 — Core ทำงานบนคอมต่อเนื่อง + ถ่ายทอดสดเสียงสด + Client Portable แยก** เลือกเสียงออกลำโพง/USB DAC หรือ Live Browser, เล่นซ้ำผ่าน API, ตั้ง IP/Port และ Username/Password สำหรับ LAN (ขั้นต่ำ 4 ตัวอักษร) โดยคงฟีเจอร์ V4 เดิมทั้งหมด ดู [บันทึก Release v0.12.11](docs/RELEASE_NOTES_v0.12.11_TH.md), [คู่มือ Server/Client](docs/REMOTE_CONTROL_CLIENT_TH.md) และ [ดาวน์โหลดโมเดลทั้ง 7 ตัว](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4)
 
-**Windows Portable TTS Studio v0.12.13 — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.14 — Universal .vwmodel v4 เท่านั้น**
 
 **อ่านแชทเมื่อแท็บอยู่เบื้องหลัง (v0.12.10)** เซิร์ฟเวอร์แจ้งสถานะงานเสียงล่วงหน้า และเล่นเสียงผ่าน HTTP บน LAN หรือ Tailnet ได้ ดู [บันทึกรีลีส](docs/RELEASE_NOTES_v0.12.10_TH.md)
 

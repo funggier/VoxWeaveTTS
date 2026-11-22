@@ -17,7 +17,7 @@ from .processing import InputError
 ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_FILE = ROOT / "data" / "settings" / "source-queues.json"
 SOURCE_MODES = ("live", "youtube_browser", "tiktok", "tiktok_browser",
-                "discord", "discord_client")
+                "discord", "discord_client", "stt_api")
 DEFAULTS = {
     "blocked_words": "",
     "max_chars": 240,
@@ -71,7 +71,7 @@ def validate_settings(raw: Any) -> dict[str, Any]:
 
 def _empty() -> dict[str, Any]:
     return {"schema_version": 1,
-            "modes": {mode: {"revision": 0, "settings": dict(DEFAULTS)}
+            "modes": {mode: {"revision": 0, "settings": dict(DEFAULTS, max_chars=8000) if mode == "stt_api" else dict(DEFAULTS)}
                       for mode in SOURCE_MODES}}
 
 
@@ -84,9 +84,12 @@ def _read(path: Path) -> dict[str, Any]:
         data = json.loads(path.read_text(encoding="utf-8"))
         if (not isinstance(data, dict) or set(data) != {"schema_version", "modes"}
             or data["schema_version"] != 1 or not isinstance(data["modes"], dict)
-            or set(data["modes"]) != set(SOURCE_MODES)):
+            or not set(data["modes"]) <= set(SOURCE_MODES)):
             raise ValueError("invalid queue settings structure")
         for mode in SOURCE_MODES:
+            if mode not in data["modes"]:
+                data["modes"][mode] = {"revision": 0,
+                    "settings": dict(DEFAULTS, max_chars=8000) if mode == "stt_api" else dict(DEFAULTS)}
             record = data["modes"][mode]
             if (not isinstance(record, dict)
                 or set(record) != {"revision", "settings"}

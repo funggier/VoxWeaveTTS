@@ -15,7 +15,8 @@ const MAX_SETTINGS_BYTES=16384;
 const SETTINGS_KEYS=new Set(["format","version","mode","source_id",
                              "filters","auto_read","read_sender_name","read_history_limit",
                              "credential","client_id","client_secret","redirect_uri",
-                             "random_queue_enabled","random_queue_threshold","random_queue_keep"]);
+                             "random_queue_enabled","random_queue_threshold","random_queue_keep",
+                             "stt_port","stt_secure","stt_fingerprint"]);
 function isRecord(value){
   return value!==null && typeof value==="object" && !Array.isArray(value);
 }
@@ -45,6 +46,12 @@ function validateSettingsProfile(value,mode){
      || !(value.read_history_limit==="" || (Number.isInteger(value.read_history_limit)
           && value.read_history_limit>=0 && value.read_history_limit<=MAX_READ_KEEP)))
     throw Error("ค่าคิวเสียงหรือจำนวนประวัติไม่ถูกต้อง");
+  if(mode==="stt_api"){
+    if(!Number.isInteger(value.stt_port)||value.stt_port<1||value.stt_port>65535
+      ||typeof value.stt_secure!=="boolean"||typeof value.stt_fingerprint!=="string"
+      ||value.stt_fingerprint.length>100 || value.credential!=="")
+      throw Error("ไฟล์ตั้งค่า VoxWeaveSTT ไม่ถูกต้อง");
+  }
   if(mode==="discord_client"){
     if(typeof value.client_id!=="string" || value.client_id.length>200
        || typeof value.client_secret!=="string" || value.client_secret.length>2048
@@ -140,7 +147,7 @@ function subscribeSource(mode,wake){
       stream.addEventListener("source",event=>{
         let data;
         try{data=JSON.parse(event.data);}catch{return;}
-        if(data?.mode!=="all"||!Array.isArray(data.sources)||data.sources.length>5)return;
+        if(data?.mode!=="all"||!Array.isArray(data.sources)||data.sources.length>7)return;
         const now=Date.now();
         for(const signal of data.sources){
           const listener=sourceListeners.get(signal?.mode);
@@ -171,8 +178,8 @@ function subscribeSource(mode,wake){
 }
 
 function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSenderPreference,onConnect,onStatus}){
-  if(!["live","youtube_browser","tiktok_browser","discord","discord_client","tiktok"].includes(mode))throw Error("invalid source mode");
-  const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode;
+  if(!["live","youtube_browser","tiktok_browser","discord","discord_client","stt_api","tiktok"].includes(mode))throw Error("invalid source mode");
+  const prefix=mode==="discord_client"?"discordClient":mode==="youtube_browser"?"youtubeBrowser":mode==="tiktok_browser"?"tiktokBrowser":mode==="stt_api"?"sttApi":mode;
   const get=id=>el(prefix+id);
   let timer=null, generation=0, connected=false, inFlight=false;
   let resetEpoch=0, resetting=false;
@@ -236,7 +243,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       random_queue_keep:String(get("FeedRandomKeep")?.value??"").trim()===""
         ?5:Number(get("FeedRandomKeep").value),
     };
-    if(mode==="discord_client"){
+    if(mode==="stt_api"){
+      data.stt_port=Number(get("FeedPort").value);
+      data.stt_secure=Boolean(get("FeedSecure").checked);
+      data.stt_fingerprint=get("FeedFingerprint").value.trim();
+      data.credential="";
+    }else if(mode==="discord_client"){
       data.client_id=get("FeedAppId").value;
       data.client_secret=get("FeedAppSecret").value;
       data.redirect_uri=get("FeedRedirect").value;
@@ -329,7 +341,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
         }
       }
       get("FeedKeepRead").value=String(data.read_history_limit);
-      if(mode==="discord_client"){
+      if(mode==="stt_api"){
+        get("FeedPort").value=String(data.stt_port);
+        get("FeedSecure").checked=data.stt_secure;
+        get("FeedFingerprint").value=data.stt_fingerprint;
+        get("FeedCredential").value="";
+      }else if(mode==="discord_client"){
         get("FeedAppId").value=data.client_id;
         get("FeedRedirect").value=data.redirect_uri;
         get("FeedAppSecret").value=data.client_secret;
@@ -830,10 +847,20 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     if(mode==="tiktok")
       return root.VoxOutputMode?.current==="computer"
         ?startTikFinityCore():startTikTok();
-    const channelId=get("FeedSourceId").value.trim();
+    const rawSource=get("FeedSourceId").value.trim();
+    let channelId=rawSource;
+    if(mode==="stt_api"){
+      const port=Number(get("FeedPort").value);
+      if(!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(rawSource) && rawSource!=="localhost")
+        throw Error("กรุณาระบุ IPv4 ของ STT Server");
+      if(!Number.isInteger(port)||port<1||port>65535)throw Error("Port ต้องอยู่ระหว่าง 1–65535");
+      channelId=(get("FeedSecure").checked?"https://":"http://")+rawSource+":"+port;
+    }
     if(browserMode&&!channelId)
       throw Error("กรุณาใส่ "+(mode==="tiktok_browser"?"TikTok Username หรือ URL ของ LIVE":"YouTube Video ID หรือ URL ของ LIVE")+" ก่อนกดเชื่อมต่อ");
-    const temporaryCredential=mode==="discord_client" ? {
+    const temporaryCredential=mode==="stt_api" ? (get("FeedSecure").checked
+      ?{pin:get("FeedCredential").value.trim(),fingerprint:get("FeedFingerprint").value.trim()}
+      :"") : mode==="discord_client" ? {
       client_id:get("FeedAppId").value.trim(),
       client_secret:get("FeedAppSecret").value.trim(),
       redirect_uri:get("FeedRedirect").value.trim(),
@@ -867,7 +894,8 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
         filters:{blocked_words:blocked,max_chars:maxChars},
         runtime_auto_read:Boolean(get("FeedAuto").checked),
       });
-      if(mode==="discord_client")get("FeedAppSecret").value="";
+      if(mode==="stt_api")get("FeedCredential").value="";
+      else if(mode==="discord_client")get("FeedAppSecret").value="";
       else if(!browserMode)get("FeedCredential").value=""; // clear DOM secret as soon as accepted
       if(ticket!==generation||!guard(mode))return;
       connected=true;
@@ -1001,11 +1029,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
           get("FeedDomDiagnostics").textContent=desc;
         }
       }else{
-      const phase=status.failed_phase && status.state==="error"
+      const phase=mode==="stt_api" ? (status.connection_phase==="waiting_session" ? " · รอ STT เริ่มถอดเสียง" : status.connection_phase==="ready" ? " · กำลังรับข้อความ STT" : "")
+        : status.failed_phase && status.state==="error"
         ? " · ผิดพลาดที่ "+(RPC_PHASE_NAMES[status.failed_phase]||"ขั้นตอน Discord RPC")
         : status.connection_phase ? " · "+(RPC_PHASE_NAMES[status.connection_phase]||"กำลังตรวจสอบสถานะ Discord RPC") : "";
       message(
-        (browserMode?"Browser: ":"API: ")+status.state+phase+
+        (mode==="stt_api"?"VoxWeaveSTT API: ":(browserMode?"Browser: ":"API: "))+status.state+phase+
         " · รับ "+(status.received||0)+
         " · กรอง/ล้นคิว "+(status.discarded||0)+
         " · รออ่าน "+(status.pending||0)+
@@ -1190,7 +1219,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
        !existing.source_id||!guard(mode)||connected)return;
     const ticket=++generation;
     connected=true;
-    get("FeedSourceId").value=existing.source_id;
+    if(mode==="stt_api"){
+      const target=new URL(existing.source_id);
+      get("FeedSourceId").value=target.hostname;
+      get("FeedPort").value=String(target.port);
+      get("FeedSecure").checked=target.protocol==="https:";
+    }else get("FeedSourceId").value=existing.source_id;
     if(typeof existing.runtime_auto_read==="boolean")
       get("FeedAuto").checked=existing.runtime_auto_read;
     get("FeedStart").disabled=true;

@@ -7,9 +7,9 @@ const VOICE_MODES=Object.freeze([
   ["studio","สร้างเสียง"],["reader","อ่านเอกสาร"],["queue","คิวและ Subtitle"],
   ["live","YouTube LIVE (API)"],["youtube_browser","YouTube LIVE (Browser)"],["tiktok","TikTok LIVE (TikFinity)"],
   ["tiktok_browser","TikTok LIVE (Extension)"],
-  ["discord","Discord"],["discord_client","Discord Client"],
+  ["discord","Discord"],["discord_client","Discord Client"],["stt_api","VoxWeaveSTT (API)"],
 ]);
-const SENDER_MODES=["live","youtube_browser","tiktok","tiktok_browser","discord","discord_client"];
+const SENDER_MODES=["live","youtube_browser","tiktok","tiktok_browser","discord","discord_client","stt_api"];
 const Emoji=root.VoxEmojiPronunciation ||
   (typeof require==="function"?require("./emoji_pronunciation.js"):null);
 const DEFAULT_FORMAT=Object.freeze({
@@ -25,7 +25,7 @@ const FORMAT_BOOL_LABELS=[
 function sourcePrefix(mode){
   return mode==="discord_client"?"discordClient":
     mode==="youtube_browser"?"youtubeBrowser":
-    mode==="tiktok_browser"?"tiktokBrowser":mode;
+    mode==="tiktok_browser"?"tiktokBrowser":mode==="stt_api"?"sttApi":mode;
 }
 const TUNING=[
   ["speed","ความเร็วในการอ่าน",0.60,5.00,1,"×"],

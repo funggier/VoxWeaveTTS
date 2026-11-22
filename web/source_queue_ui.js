@@ -4,10 +4,10 @@
  */
 (function(root){
 "use strict";
-const MODES=("live youtube_browser tiktok_browser tiktok discord discord_client").split(" ");
+const MODES=("live youtube_browser tiktok_browser tiktok discord discord_client stt_api").split(" ");
 const prefix={
   youtube_browser:"youtubeBrowser",tiktok_browser:"tiktokBrowser",
-  discord_client:"discordClient",
+  discord_client:"discordClient",stt_api:"sttApi",
 };
 const API="/v1/settings/source-queues";
 
