@@ -5,6 +5,9 @@
 - New installs default to computer-owned TTS and playback; saved Browser mode remains available explicitly.
 - Browser refresh is read-only: restores server mode, stages, temporary history, version and pause state without activating workspaces or running automatic text/translation tests.
 - Global Stop Audio pauses Core dispatch and playback until explicit Resume. Per-source Stop disconnects that source and cancels its queued/active Core jobs without affecting other modes; stop works after Browser refresh.
+- Close the stop-vs-HTTP-acceptance race: late accepted speech is cancelled, source Stop discards only that source, and global Pause preserves not-yet-admitted messages until an explicit Resume. A delayed audio backend cannot mark cancelled playback as a completed read.
+- TikFinity temporary TCP/WebSocket disconnects now allow Core reconnection without restarting the Browser; an explicit user Stop permanently disables reconnect for that session.
+- Opening a Browser never activates any workspace automatically, even if Core status is temporarily unreachable; a user gesture is required to claim control.
 - Move TikFinity localhost WebSocket capture into Core without additional external Python dependencies, including strict loopback validation and safe shutdown; Browser WebSocket remains an explicit fallback.
 - Add authenticated, same-origin Core dashboard/stop endpoints, server-owned source status, bounded history and cursor-triggered UI refresh without an extra dashboard loop.
 

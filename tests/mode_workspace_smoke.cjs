@@ -99,6 +99,8 @@ async function test(){
   });
   app.startMonitor();
   await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(activations.length,0,"reopening Browser must not claim any Core workspace");
+  await app.select("studio"); // explicit selection owns the workspace
   const first=app.credentials("studio");
   await app.select("live");
   const youTube=app.credentials("live");
