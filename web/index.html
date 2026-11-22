@@ -362,7 +362,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </details>
 <details class="source-connector" style="margin:14px 0" open>
 <summary>รับข้อความจาก VoxWeaveSTT API</summary>
-<p class="small">เครื่องเดียวกันใช้ IP 127.0.0.1 และ Port 8766 ตามค่าเริ่มต้น · เมื่อเชื่อมต่อจะรับเฉพาะผลถอดเสียงใหม่ · หยุดรับได้โดยไม่หยุด STT</p>
+<p class="small"><strong>ใช้งานบนเครื่องเดียวกัน (แนะนำ):</strong> ใช้ IP <code>127.0.0.1</code> · Port <code>8766</code> แล้วกดเชื่อมต่อ STT ได้เลย <strong>ไม่ต้องใช้ PIN หรือ SHA-256 Fingerprint</strong> แม้เปิดหน้าเว็บควบคุม TTS จากอีกเครื่องก็ตาม หาก STT Server กับ TTS Server รันบนเครื่องเดียวกัน · รับเฉพาะข้อความที่ถอดใหม่หลังเชื่อมต่อ</p>
 <div class="voice-grid">
 <div><label for="sttApiFeedSourceId">STT Server IP</label>
 <input type="text" id="sttApiFeedSourceId" value="127.0.0.1" autocomplete="off" placeholder="127.0.0.1"></div>
@@ -370,12 +370,12 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <input type="number" id="sttApiFeedPort" min="1" max="65535" step="1" value="8766"></div>
 </div>
 <details class="source-connector" style="margin:8px 0">
-<summary>เชื่อม STT ผ่าน LAN (HTTPS พร้อมการจับคู่)</summary>
-<p class="small">เปิด HTTPS LAN ที่โปรแกรม STT ก่อน · ระบุ IP/Port ของ LAN Gateway (ปกติ 8768) · ต้องใช้ PIN และ SHA-256 Fingerprint ของ Server · จะไม่ยอมรับ Certificate ที่ไม่ตรง</p>
+<summary>ใช้ STT Server คนละเครื่อง (HTTPS LAN · ตั้งค่าขั้นสูง)</summary>
+<p class="small"><strong>SHA-256 Fingerprint เอาจากไหน?</strong> ที่เครื่อง STT เปิดโปรแกรม <strong>VoxWeaveSTT Server → เมนู LAN → เปิด HTTPS LAN (ต้องยืนยัน)</strong> จะมีหน้าต่างแสดง URL, PIN 8 หลัก และ <strong>SHA-256 ของใบรับรอง</strong> จากนั้นเปิดหน้าเว็บ VoxWeaveSTT ที่เครื่อง STT → <strong>ตั้งค่า / API → ข้อมูลเชื่อมต่อและใบรับรอง → คัดลอก Fingerprint</strong> (รองรับตั้งแต่ STT v0.1.1) หรือคัดลอกจากหน้าต่าง STT Server ก็ได้ แล้วใส่ด้านล่าง พร้อมเปลี่ยน IP/Port ข้างบนให้ตรงกับ URL (โดยทั่วไป Port 8768) · PIN ใช้ครั้งเดียวและหมดอายุใน 5 นาที กด “ออกรหัสจับคู่ใหม่” ที่ STT เมื่อหมดอายุ · <strong>ไม่ใช่ SHA-256 ของไฟล์ ZIP ที่ดาวน์โหลด</strong></p>
 <label style="display:flex;gap:8px;align-items:center"><input id="sttApiFeedSecure" type="checkbox" style="width:auto"> ใช้ HTTPS LAN</label>
 <div class="voice-grid">
 <div><label for="sttApiFeedCredential">รหัสจับคู่ STT (PIN 8 หลัก · ไม่บันทึก)</label><input id="sttApiFeedCredential" type="password" autocomplete="new-password" placeholder="PIN จาก STT Server"></div>
-<div><label for="sttApiFeedFingerprint">SHA-256 Certificate Fingerprint</label><input id="sttApiFeedFingerprint" type="text" autocomplete="off" placeholder="SHA-256 64 ตัวอักษร"></div>
+<div><label for="sttApiFeedFingerprint">SHA-256 Fingerprint (คัดลอกจากหน้าเว็บ STT → ตั้งค่า / API)</label><input id="sttApiFeedFingerprint" type="text" autocomplete="off" placeholder="วาง Fingerprint จาก STT Server (64 ตัวอักษร)"></div>
 </div>
 </details>
 <details class="source-connector" style="margin:10px 0"><summary>ตัวกรอง · คิวอ่าน · การเตรียมเสียงล่วงหน้า</summary>

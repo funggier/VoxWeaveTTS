@@ -195,7 +195,10 @@ class VoxWeaveSTTAdapter:
             text = event.get("text")
             segment = event.get("segment_id")
             revision = event.get("revision", 0)
-            if (event.get("session_id") != session or type(sequence) is not int
+            # STT /api/sessions/<id>/events uses the transcription job ID,
+            # whereas each transcript.final carries its audio capture ID.
+            # Validate the capture ID but never require equality with job ID.
+            if (not isinstance(event.get("session_id"), str) or not 1 <= len(event["session_id"]) <= 128 or type(sequence) is not int
                 or sequence <= expected or not isinstance(text, str)
                 or not isinstance(segment, str) or len(segment) > 160
                 or type(revision) is not int or revision < 0):

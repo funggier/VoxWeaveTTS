@@ -1,5 +1,7 @@
 # Changelog
 
+## v0.12.15 — Fix VoxWeaveSTT live Final transcript events`n`n- Fix the API contract: the transcription job ID and audio capture session ID are intentionally different; checking equality rejected real transcripts.`n- Preserve strict sequence and segment/revision validation with distinct capture session IDs.`n- Simplify local and paired HTTPS LAN certificate fingerprint instructions.`n- See [release notes](docs/RELEASE_NOTES_v0.12.15_TH.md).
+
 ## v0.12.14 — VoxWeaveSTT (API)
 
 - Add a dedicated VoxWeaveSTT API workspace with editable IP/port and explicit Connect/Stop.

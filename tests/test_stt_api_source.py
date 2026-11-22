@@ -31,7 +31,7 @@ class STTMock(ThreadingHTTPServer):
         assert sid
         sequence = len(self.events[sid]) + 1
         self.events[sid].append({
-            "type": "transcript.final", "session_id": sid,
+            "type": "transcript.final", "session_id": "capture-" + sid,
             "source_id": "mic", "segment_id": segment or str(sequence),
             "revision": 0, "api_sequence": sequence, "text": text,
         })

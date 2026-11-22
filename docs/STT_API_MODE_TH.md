@@ -14,9 +14,11 @@ VoxWeaveTTS มีโหมด **VoxWeaveSTT (API)** เป็นแหล่ง
 
 ถ้า STT ยังไม่เริ่ม Session, TTS จะรอ Session ใหม่โดยไม่อ่านข้อความเก่า ณ เวลาที่กดเชื่อมต่อ หาก STT หยุด Session จะพยายามเก็บ Final ที่ flush เมื่อหยุดด้วย
 
+**เครื่องเดียวกันไม่ต้องเปิด HTTPS LAN ไม่ต้องใช้ PIN หรือ SHA-256 Fingerprint** แม้คุณเปิดหน้าเว็บควบคุม TTS จากเครื่องอื่น แต่ STT และ TTS Core รันอยู่ในเครื่องเดียวกัน ให้ใช้ `127.0.0.1:8766` ตามปกติ
+
 ## LAN (ต้องเปิดใช้เอง)
 
-VoxWeaveSTT มี HTTPS LAN Gateway แยกจาก HTTP loopback ปกติ ให้เปิดบริการที่ STT ก่อน แล้วกรอก IP/Port ของ Gateway (ปกติ Port 8768) ใน TTS กา **ใช้ HTTPS LAN**, กรอก **PIN 8 หลัก** และ **SHA-256 Certificate Fingerprint** ของ STT
+VoxWeaveSTT มี HTTPS LAN Gateway แยกจาก HTTP loopback ปกติ ใช้เฉพาะกรณี **STT Core อยู่คนละเครื่องกับ TTS Core**: เปิดหน้าต่าง **VoxWeaveSTT Server → LAN → เปิด HTTPS LAN (ต้องยืนยัน)** บนเครื่อง STT ก่อน หน้าต่างจะขึ้น URL, **PIN 8 หลัก** และ **SHA-256 ของใบรับรอง** สามารถคัดลอก SHA-256 ได้จากหน้าเว็บ STT (ตั้งแต่ STT v0.1.1) → **ตั้งค่า / API → ข้อมูลเชื่อมต่อและใบรับรอง → คัดลอก Fingerprint** หรือจากหน้าต่าง Server เดิม (ไม่ใช่ SHA256SUMS ของไฟล์ ZIP) แล้วกรอก IP/Port ตาม URL ของ LAN Gateway (ปกติ Port 8768) ใน TTS กา **ใช้ HTTPS LAN** และกรอก PIN/Fingerprint จาก STT
 
 TTS ปักหมุด Certificate Fingerprint ก่อนส่ง PIN หรือ Cookie, ใช้ Cookie จับคู่ในหน่วยความจำ และปฏิเสธ HTTP ที่ไม่ใช่ 127.0.0.1 ไม่เปิดให้ใช้ IP ภายนอกสาธารณะและไม่ยอมรับ TLS ที่ Fingerprint ไม่ตรง
 
