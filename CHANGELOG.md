@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Core-first Live control
+## v0.12.13 — Core-first Live Control & Reliable Stop
 
 - New installs default to computer-owned TTS and playback; saved Browser mode remains available explicitly.
 - Browser refresh is read-only: restores server mode, stages, temporary history, version and pause state without activating workspaces or running automatic text/translation tests.
