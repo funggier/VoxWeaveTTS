@@ -159,6 +159,7 @@ class ComputerRuntime:
         self._playback_paused = False
         self._stopped_sources: set[str] = set()
         self._source_generations = {name: 0 for name in SOURCE_NAMES}
+        self._dispatch_generation = 0
         self._seen: set[str] = set()
         self._pending_messages: deque[tuple[str, dict[str, Any]]] = deque()
         # Server-owned, bounded diagnostic history survives Browser refreshes.
@@ -204,6 +205,7 @@ class ComputerRuntime:
                     self._seen.update(j.get("speech_id") for j in self.coordinator.list())
                     self._playback_paused = False
                 self._mode = mode
+                self._dispatch_generation += 1
                 self._revision += 1
                 if mode == "browser":
                     self._stop_audio.set()
@@ -266,6 +268,7 @@ class ComputerRuntime:
         """
         with self._lock:
             self._playback_paused = True
+            self._dispatch_generation += 1
             self._replays.clear()
             self._stop_audio.set()
             self._revision += 1
@@ -657,7 +660,7 @@ class ComputerRuntime:
                 limit=min(4, headroom - len(self._pending_messages))
             ):
                 with self._lock:
-                    if self._playback_paused or mode in self._stopped_sources:
+                    if mode in self._stopped_sources:
                         continue
                     self._pending_messages.append((mode, msg))
                     self._recent_messages[mode].append({
@@ -678,29 +681,41 @@ class ComputerRuntime:
                     self._pending_messages.popleft()
                     continue
                 generation = self._source_generations[mode]
+                dispatch_generation = self._dispatch_generation
             admitted = self._enqueue_via_api(mode, msg)
             with self._lock:
-                invalidated = (
+                source_stopped = (
                     generation != self._source_generations[mode]
                     or mode in self._stopped_sources
                 )
-                if self._pending_messages and self._pending_messages[0][1] is msg:
-                    if admitted or invalidated:
-                        self._pending_messages.popleft()
-                if invalidated:
+                dispatch_stopped = (
+                    dispatch_generation != self._dispatch_generation
+                    or self._playback_paused or self._mode != "computer"
+                )
+                # A STOP during the HTTP admission must not slip a new
+                # translation or WAV into playback. Source STOP drops the
+                # message; global Pause retains it for deliberate resume.
+                if source_stopped or dispatch_stopped:
                     if isinstance(admitted, str) and admitted not in ("failed", "skipped"):
                         try:
                             self.coordinator.cancel(admitted)
                         except (JobMissing, ValueError, KeyError):
                             pass
                         self._seen.add(admitted)
-                    for record in self._recent_messages[mode]:
-                        if record.get("message_id") == str(msg.get("message_id", ""))[:128]:
-                            record["outcome"] = "stopped"
-                    self._recent_revision += 1
+                    if source_stopped:
+                        if self._pending_messages and self._pending_messages[0][1] is msg:
+                            self._pending_messages.popleft()
+                        for record in self._recent_messages[mode]:
+                            if record.get("message_id") == str(msg.get("message_id", ""))[:128]:
+                                record["outcome"] = "stopped"
+                        self._recent_revision += 1
+                    if dispatch_stopped:
+                        break
                     continue
                 if not admitted:
                     break
+                if self._pending_messages and self._pending_messages[0][1] is msg:
+                    self._pending_messages.popleft()
                 for record in reversed(self._recent_messages[mode]):
                     if record["message_id"] == str(msg.get("message_id", ""))[:128] and not record["speech_id"]:
                         if admitted == "skipped":
@@ -769,6 +784,9 @@ class ComputerRuntime:
                         wav, duration_ms, self._stop_audio,
                         lambda position: report("progress", position), target
                     )
+            # STOP takes precedence even if a slow output backend reports
+            # success after the Core cancellation event was set.
+            finished = bool(finished and not self._stop_audio.is_set())
             report("ended" if finished else "stopped",
                    duration_ms if finished else 0)
             actual_model_inputs = (

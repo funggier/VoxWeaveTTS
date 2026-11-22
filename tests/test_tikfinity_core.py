@@ -142,6 +142,82 @@ def test_tikfinity_core_websocket_connects_receives_and_stops(monkeypatch):
     assert seen["error"] is None
 
 
+def test_tikfinity_remote_close_reconnects_but_explicit_stop_does_not(monkeypatch):
+    """A transient peer-close must not permanently disable the Core source."""
+    from voxweavetts.source_adapters import SourceFailure
+
+    class FakeSocket:
+        def __init__(self):
+            self.closed = False
+
+        def shutdown(self, how):
+            pass
+
+        def close(self):
+            self.closed = True
+
+        def recv(self, size):
+            raise socket.timeout()
+
+    adapter = TikFinityCoreAdapter("ws://127.0.0.1:21213")
+    old = FakeSocket()
+    adapter._socket = old
+    adapter._buffer.extend(b"\x01\x02")
+    with pytest.raises(SourceFailure) as exc:
+        adapter._decode_frame((True, 0x8, b""))
+    assert not exc.value.fatal
+    assert old.closed
+    assert adapter._socket is None
+    assert not adapter._closed
+    assert not adapter._buffer
+    connected = []
+
+    def connect():
+        connected.append(True)
+        adapter._socket = FakeSocket()
+        adapter._buffer = bytearray(frame(
+            0x1, json.dumps({"event":"chat","data":{
+                "comment":"Recovered", "nickname":"Tester",
+                "messageUuid":"reconnected-1",
+            }}).encode("utf-8")
+        ))
+
+    monkeypatch.setattr(adapter, "_connect", connect)
+    recovered = adapter.poll()
+    assert connected
+    assert len(recovered.messages) == 1
+    assert recovered.messages[0].text == "Recovered"
+    adapter.close()
+    assert adapter._closed
+    with pytest.raises(SourceFailure) as stopped:
+        adapter.poll()
+    assert stopped.value.fatal
+    assert len(connected) == 1, "explicit stop must never reconnect"
+
+
+def test_tikfinity_tcp_socket_drop_does_not_mark_source_stopped(monkeypatch):
+    from voxweavetts.source_adapters import SourceFailure
+
+    class Disconnected:
+        def recv(self, _size):
+            return b""
+
+        def shutdown(self, how):
+            pass
+
+        def close(self):
+            pass
+
+    adapter = TikFinityCoreAdapter("ws://localhost:21213")
+    adapter._socket = Disconnected()
+    with pytest.raises(SourceFailure) as error:
+        adapter.poll()
+    assert not error.value.fatal
+    assert adapter._socket is None
+    assert not adapter._closed
+    adapter.close()
+
+
 def test_source_manager_owns_tikfinity_queue_without_browser(tmp_path):
     from voxweavetts.source_adapters import PollResult, SourceMessage
     from collections import deque

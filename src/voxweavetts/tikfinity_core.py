@@ -93,11 +93,18 @@ class TikFinityCoreAdapter:
         self._cancel = event
 
     def close(self) -> None:
+        """User-requested stop: permanently disable reconnect for this adapter."""
         with self._lock:
             self._closed = True
+        self._drop_connection()
+
+    def _drop_connection(self) -> None:
+        """Temporary TCP/WS disconnect: reconnect remains allowed if running."""
+        with self._lock:
             sock, self._socket = self._socket, None
             self._buffer.clear()
             self._fragment.clear()
+            self._fragmenting = False
         if sock:
             try:
                 sock.shutdown(socket.SHUT_RDWR)
@@ -207,7 +214,7 @@ class TikFinityCoreAdapter:
     def _decode_frame(self, frame: tuple[bool, int, bytes]) -> SourceMessage | None:
         fin, opcode, payload = frame
         if opcode == 0x8:
-            self.close()
+            self._drop_connection()
             raise SourceFailure("TikFinity Desktop disconnected", retry_after=5)
         if opcode == 0x9:
             self._send_frame(0xA, payload)
@@ -257,7 +264,7 @@ class TikFinityCoreAdapter:
             try:
                 data = self._socket.recv(8192) if self._socket else b""
                 if not data:
-                    self.close()
+                    self._drop_connection()
                     raise SourceFailure("TikFinity Desktop disconnected", retry_after=5)
                 self._buffer.extend(data)
                 if len(self._buffer) > MAX_WS_BUFFER:
@@ -265,6 +272,8 @@ class TikFinityCoreAdapter:
             except socket.timeout:
                 break
             except OSError:
-                self.close()
+                self._drop_connection()
+                if self._closed or self._cancel.is_set():
+                    raise SourceFailure("TikFinity source stopped", fatal=True) from None
                 raise SourceFailure("TikFinity Desktop disconnected", retry_after=5) from None
         return PollResult(tuple(messages), 0.15)

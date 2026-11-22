@@ -164,6 +164,106 @@ def test_stop_during_source_submission_cancels_late_job(tmp_path):
     assert not core._pending_messages
 
 
+def test_pause_during_source_submission_keeps_message_for_explicit_resume(tmp_path):
+    """Late HTTP 202 must be cancelled, and source chat retained, not lost."""
+    jobs = [{"speech_id": "late-pause", "source": "youtube-live",
+             "state": "preparing"}]
+    coordinator = FakeCoordinator(jobs)
+    sources = FakeSources()
+    core = make_core(tmp_path, coordinator=coordinator, sources=sources)
+    sources.pending = [("live", {"message_id": "pause-1", "text": "keep me"})]
+    entered, proceed = threading.Event(), threading.Event()
+
+    def submit(mode, msg):
+        entered.set()
+        assert proceed.wait(3)
+        return "late-pause"
+
+    core._enqueue_via_api = submit
+    worker = threading.Thread(target=core._drain_sources)
+    worker.start()
+    try:
+        assert entered.wait(2)
+        result = core.stop_audio()
+        assert result["playback_paused"]
+    finally:
+        proceed.set()
+        worker.join(3)
+    assert not worker.is_alive()
+    assert coordinator.cancelled == ["late-pause"]
+    assert len(core._pending_messages) == 1
+    assert core._pending_messages[0][1]["message_id"] == "pause-1"
+    assert core._recent_messages["live"][0].get("outcome") is None
+    core.resume_audio()
+    # The retained message can be admitted after explicit resume.
+    core._enqueue_via_api = lambda *_: "resumed-job"
+    core._drain_sources()
+    assert not core._pending_messages
+
+
+def test_pause_after_source_take_does_not_drop_unaccepted_message(tmp_path):
+    """Race: the global stop arrives while SourceManager's take is returning."""
+    core = make_core(tmp_path)
+
+    class PausingSources(FakeSources):
+        def take_for_runtime(self, limit):
+            taken = super().take_for_runtime(limit)
+            core.stop_audio()
+            return taken
+
+    source = PausingSources()
+    source.pending = [("live", {"message_id": "pause-2", "text": "still here"})]
+    core.sources = source
+    core._enqueue_via_api = lambda *_: pytest.fail("paused Core cannot submit")
+    core._drain_sources()
+    assert len(core._pending_messages) == 1
+    assert core._pending_messages[0][1]["message_id"] == "pause-2"
+    assert core.snapshot()["playback_paused"]
+
+
+def test_stopping_source_does_not_resume_automatically_on_snapshot(tmp_path):
+    core = make_core(tmp_path)
+    core.stop_source("live")
+    assert "live" in core.snapshot()["stopped_sources"]
+    assert core.dashboard()["mode"] == "computer"
+    assert "live" in core.snapshot()["stopped_sources"]
+    core.resume_audio()
+    assert "live" in core.snapshot()["stopped_sources"]
+    core.resume_source("live")
+    assert "live" not in core.snapshot()["stopped_sources"]
+
+
+def test_backend_success_after_stop_is_not_counted_as_completed(tmp_path):
+    """A slow DAC must not turn a user Stop into a successful read event."""
+    class StubbornOutput:
+        def play(self, wav, duration, stop, progress, output):
+            stop.set()
+            return True
+
+    from voxweavetts.computer_runtime import ComputerRuntime
+
+    class RecordingPlayback:
+        def __init__(self):
+            self.events = []
+
+        def report(self, packet, **kwargs):
+            self.events.append(packet["event"])
+
+    playback = RecordingPlayback()
+    core = ComputerRuntime(
+        port=8775, coordinator=FakeCoordinator(), source_manager=FakeSources(),
+        playback_state=playback, output=StubbornOutput(),
+        mode_path=tmp_path / "runtime-control.json", initial_mode="computer")
+    output = core._play_audio(b"not decoded by fake output", {
+        "speech_id": "stop-while-output-returns-success",
+        "audio": {"duration_ms": 200}
+    }, "studio")
+    assert output is False or output is None
+    assert core.snapshot()["completed"] == 0
+    assert core.snapshot()["last_completed_speech_id"] is None
+    assert playback.events == ["start", "stopped"]
+
+
 def test_browser_can_stop_core_source_after_refresh_and_resume_only_by_request(tmp_path):
     coordinator = FakeCoordinator([
         {"speech_id": "job1", "source": "youtube-live", "state": "ready"}])
