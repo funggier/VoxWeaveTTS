@@ -1,10 +1,12 @@
 # VoxWeaveTTS
 
+**v0.12.12 — ซ่อมเสียงไม่ออกจาก USB DAC และคิวแปล/TTS + ปรับ Web Control ผ่าน LAN** ปรับ Sample Rate, Mono/Stereo และบัฟเฟอร์เสียงได้บน Browser โดย Auto รองรับการแปลงเสียงไปยัง Sample Rate ของอุปกรณ์จริง เพิ่ม Backpressure ลดคิวสะสม และแสดง URL สำหรับเข้า Web Control ชัดเจนแยกจาก Live Listener / Remote Client ดู [รายละเอียด Release v0.12.12](docs/RELEASE_NOTES_v0.12.12_TH.md) และ [โมเดล V4 ทั้ง 7 แพ็กเกจ](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4)
+
 **การเชื่อมต่อ LAN แบบเข้าใจง่าย:** ใช้ Browser ควบคุม Server ได้โดยตรงผ่าน IP/Port ของ Launcher (เช่น `http://192.168.1.165:8775/`) ไม่ต้องเปิด Remote Desktop Client API ดู [คู่มือแยก Web Control / Live Audio / Remote Client](docs/LAN_CONNECTIONS_TH.md) สำหรับการตั้งค่าทั้ง 3 แบบ
 
 **v0.12.11 — Core ทำงานบนคอมต่อเนื่อง + ถ่ายทอดสดเสียงสด + Client Portable แยก** เลือกเสียงออกลำโพง/USB DAC หรือ Live Browser, เล่นซ้ำผ่าน API, ตั้ง IP/Port และ Username/Password สำหรับ LAN (ขั้นต่ำ 4 ตัวอักษร) โดยคงฟีเจอร์ V4 เดิมทั้งหมด ดู [บันทึก Release v0.12.11](docs/RELEASE_NOTES_v0.12.11_TH.md), [คู่มือ Server/Client](docs/REMOTE_CONTROL_CLIENT_TH.md) และ [ดาวน์โหลดโมเดลทั้ง 7 ตัว](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4)
 
-**Windows Portable TTS Studio v0.12.11 — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.12 — Universal .vwmodel v4 เท่านั้น**
 
 **อ่านแชทเมื่อแท็บอยู่เบื้องหลัง (v0.12.10)** เซิร์ฟเวอร์แจ้งสถานะงานเสียงล่วงหน้า และเล่นเสียงผ่าน HTTP บน LAN หรือ Tailnet ได้ ดู [บันทึกรีลีส](docs/RELEASE_NOTES_v0.12.10_TH.md)
 
@@ -73,7 +75,7 @@ VoxWeaveTTS เป็นโปรแกรมอ่านข้อความ�
 ใช้ PowerShell บน Windows และ Python Environment ของโปรเจกต์:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.11 -StageDirectory dist\release-v0.12.11\VoxWeaveTTS
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.12 -StageDirectory dist\release-v0.12.12\VoxWeaveTTS
 .\dist\release-v0.12.10\VoxWeaveTTS\runtime\python\python.exe -X utf8 scripts\verify_v4_core_only_stage.py --stage dist\release-v0.12.10\VoxWeaveTTS
 .\.venv\Scripts\python.exe -X utf8 scripts\verify_v4_core_release_model_compatibility.py --stage dist\release-v0.12.10\VoxWeaveTTS
 ```

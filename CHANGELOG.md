@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.12.12
+
+- Fix Windows WASAPI/USB DAC playback at devices that reject a TTS WAV's native sample rate; automatically negotiate an accepted output sample rate, resample PCM16 audio, and expose actual output format/diagnostic errors.
+- Add Browser Settings controls for sample rate (Auto or manual), Mono/Stereo and stream buffer (20/50/100/200 ms); settings persist in portable data/settings/runtime-control.json.
+- Apply bounded backpressure to computer-owned Live TTS/translation admissions, honor saved Live queue quotas, preserve FIFO and avoid launching all staged renders together; improve short Ollama batch collection.
+- Clarify three separate LAN connections in the Browser UI: Web Control (Launcher-selected IP/port), Live Audio Listener, and optional Desktop Remote Client API. Add copyable Browser URL, active listening status, independent controls, and Thai setup guide.
+- Keep the standalone Desktop Client behavior unchanged; continue publishing separate model-free Client ZIP for packaging compatibility.
+- See [v0.12.12 release notes](docs/RELEASE_NOTES_v0.12.12_TH.md); seven V4 model packs remain available in [model release](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4).
+
+
 ## v0.12.11
 
 - Run the TTS source queue and playback on the Server independently of open UI windows; select browser-owned legacy playback when desired.

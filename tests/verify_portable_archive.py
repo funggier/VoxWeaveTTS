@@ -1,4 +1,4 @@
-"""VoxWeaveTTS v0.12.11 v4 Core-only ZIP release verification.
+"""VoxWeaveTTS v0.12.12 v4 Core-only ZIP release verification.
 
 CRC, safe paths, zero model weights/runtimes, no private files, isolated
 extraction, HTTP API, YouTube transport, the optional MIT demo tone,
@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = os.getenv("VOXWEAVE_PORTABLE_VERSION", "0.12.11")
+VERSION = os.getenv("VOXWEAVE_PORTABLE_VERSION", "0.12.12")
 ARCHIVE = ROOT / "dist" / f"VoxWeaveTTS-v{VERSION}-portable.zip"
 DEMO = ROOT / "dist" / f"VoxWeaveTTS-v{VERSION}-v4-demo-tone.vwmodel"
 SAPI = ROOT / "dist" / "VoxWeaveTTS-Windows-SAPI-Desktop-v1.0.0-format-v4.vwmodel"
