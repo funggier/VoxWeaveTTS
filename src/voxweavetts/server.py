@@ -211,6 +211,39 @@ def _coordinator_default() -> SpeechCoordinator:
             _COORDINATOR.set_translation_limits(*translation_limits)
         return _COORDINATOR
 
+def browser_network_overview(settings: NetworkSettings, bind_host: str,
+                             port: int, connection_ip: str,
+                             suggested_lan_ip: str) -> dict[str, Any]:
+    """Return non-secret Web control connection information.
+
+    A machine bound to 0.0.0.0 may have several NICs, so locally inferred
+    LAN URLs are suggestions, never confirmed remotely reachable endpoints.
+    """
+    loopback_only = bind_host.startswith("127.")
+    if loopback_only:
+        address = bind_host
+        mode = "loopback_only"
+        estimate = False
+    elif bind_host == "0.0.0.0":
+        mode = "all_ipv4"
+        if connection_ip != "127.0.0.1" and not connection_ip.startswith("127."):
+            address = connection_ip
+            estimate = False
+        else:
+            address = suggested_lan_ip
+            estimate = True
+    else:
+        mode = "lan_ipv4"
+        address = bind_host
+        estimate = False
+    return {
+        "bind_host": bind_host, "port": port,
+        "username": settings.username, "lan_enabled": not loopback_only,
+        "login_required_for_remote": not loopback_only,
+        "bind_mode": mode, "url": f"http://{address}:{port}/",
+        "url_is_estimate": estimate,
+    }
+
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "VoxWeaveTTS/0.4"
@@ -745,6 +778,35 @@ class Handler(BaseHTTPRequestHandler):
                 })
             elif route == "/v1/sources/stream":
                 self._stream_sources()
+            elif route == "/v1/network/overview":
+                from .listener_gateway import local_ip
+                main = getattr(self.server, "network_settings", None)
+                if main is None:
+                    main = NetworkSettings(
+                        self.server.server_address[0], self.server.server_port,
+                    )
+                listener = getattr(self.server, "listening_gateway", None)
+                remote = getattr(self.server, "remote_gateway", None)
+                web = browser_network_overview(
+                    main, self.server.server_address[0],
+                    self.server.server_port,
+                    self.connection.getsockname()[0], local_ip(),
+                )
+                self.send_json(200, {
+                    "web": web,
+                    "listener": {
+                        "running": bool(listener and listener.server),
+                        "port": listener.port if listener else None,
+                        "bind_host": listener.host if listener else None,
+                        "error": listener.error if listener else None,
+                    },
+                    "remote": {
+                        "enabled": bool(remote and remote.server),
+                        "port": remote.port if remote else None,
+                        "bind_host": remote.host if remote else None,
+                        "error": remote.error if remote else None,
+                    },
+                })
             elif route == "/v1/network/settings":
                 if not self._is_host_machine():
                     self.send_json(403, {"error": "network settings require server-local control"})
@@ -1235,16 +1297,23 @@ class Handler(BaseHTTPRequestHandler):
                 self.reject_unread_post(415, {"error": "network settings require JSON"})
                 return
             try:
-                updated = save_network(self._read_json(max_bytes=4096))
+                options = self._read_json(max_bytes=4096)
+                if not isinstance(options, dict):
+                    raise InputError("network settings must be an object")
+                if any(options.get(key) == self.server.server_port for key in
+                       ("control_port", "listener_port")):
+                    raise InputError("Remote Client and Live Audio ports must differ from the active Web Control port")
+                updated = save_network(options)
                 self.send_json(200, {**public_network(updated), "restart_required": True})
             except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
             except OSError:
                 self.send_json(500, {"error": "could not save network configuration"})
             return
-        if route in {"/v1/runtime/mode", "/v1/runtime/output", "/v1/runtime/replay", "/v1/runtime/playback"}:
+        if route in {"/v1/runtime/mode", "/v1/runtime/output", "/v1/runtime/audio", "/v1/runtime/replay", "/v1/runtime/playback"}:
             intent = ("set-runtime-mode" if route.endswith("/mode") else
                       "set-runtime-output" if route.endswith("/output") else
+                      "set-runtime-audio" if route.endswith("/audio") else
                       "replay-computer-audio" if route.endswith("/replay") else
                       "control-computer-playback")
             if self.headers.get("X-VoxWeaveTTS-Intent") != intent:
@@ -1263,6 +1332,8 @@ class Handler(BaseHTTPRequestHandler):
                     if set(body) != {"output"}:
                         raise InputError("output field required")
                     self.send_json(200, self._runtime().configure_output(body["output"]))
+                elif route.endswith("/audio"):
+                    self.send_json(200, self._runtime().configure_audio(body))
                 elif route.endswith("/replay"):
                     if body:
                         raise InputError("replay does not accept parameters")
@@ -1452,6 +1523,14 @@ class Handler(BaseHTTPRequestHandler):
                 hold_for_render = data.get("hold_for_render", False)
                 if type(hold_for_render) is not bool:
                     raise InputError("hold_for_render must be boolean")
+                runtime = getattr(self.server, "runtime_control", None)
+                if (runtime is not None and runtime.mode() == "computer"
+                        and data.get("source") in _LIVE_SPEECH_SOURCES):
+                    # Browser remains a controller, Core owns Live admission.
+                    # Never flood the deferred AI / render queue to 768 jobs.
+                    if runtime.outstanding_jobs() >= runtime.max_outstanding_jobs():
+                        raise QueueFull("computer Live speech backlog is at capacity")
+                    hold_for_render = True
                 ai_settings = load_ai_settings()["settings"]
                 should_prepare = (
                     ai_settings["enabled"] and ai_settings["operation"] != "none"
@@ -1649,6 +1728,7 @@ def serve(port: int = DEFAULT_PORT, *, host: str = DEFAULT_HOST, access_code: st
     settings = NetworkSettings(host, port, access_code, username)
     with ThreadingHTTPServer((settings.host, settings.port), Handler) as server:
         server.network_access = NetworkAccess(settings)
+        server.network_settings = settings
         from .process_ownership import register_process
         register_process("server")
         # Server owns the worker; UI/browser lifetimes never own speech playback.

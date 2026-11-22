@@ -1,4 +1,7 @@
-// VoxWeaveTTS Server - examples of portable settings.
+// VoxWeaveTTS — Live Audio Listener and OPTIONAL Remote Desktop Client settings.
+// IMPORTANT: Browser Web Control uses DIFFERENT settings in the Launcher
+// (data/network.json). Changing api_port below does NOT change the URL or
+// port used for opening Web Control from a phone or another computer.
 // These are DOCUMENTATION examples (.jsonc), not the active configuration.
 // Configure from Web UI > ตั้งค่า > การเชื่อมต่อ Server / Client ผ่าน LAN.
 // On Save, the actual settings are stored at data/settings/network.json.
@@ -7,7 +10,7 @@
 
 // ----------------------------------------------------------------------
 // A) Same computer only (remote desktop API disabled).
-//    Web UI & Desktop UI access http://127.0.0.1:8765
+//    Main Web UI IP/Port is configured independently in VoxWeaveTTS.exe.
 //    Listening gateway is separately configurable.
 // ----------------------------------------------------------------------
 {
@@ -22,12 +25,13 @@
 
 // ----------------------------------------------------------------------
 // B) Server on a trusted private LAN (192.168.1.165 as an example).
-//    Client connects to 192.168.1.165:8776, username voxweave,
+//    Standalone Desktop Client (NOT Browser) uses 192.168.1.165:8776,
+//    username voxweave,
 //    and the password you SET IN THE SERVER UI (4–128 characters).
 //    Password is stored only as a salted hash, not in this file.
 // ----------------------------------------------------------------------
 {
-  "api_port": 8765,              // Main Core API stays at 127.0.0.1
+  "api_port": 8765,              // Internal compatibility value; NOT the Web Control port
   "listener_host": "192.168.1.165",
   "listener_port": 8766,
   "remote_enabled": true,
@@ -54,7 +58,8 @@
 // ----------------------------------------------------------------------
 // D) Alternate ports (no overlaps allowed).
 //    Useful when 8765 or 8776 is already occupied.
-//    Client selects 192.168.1.165:9888, not the Core port 9876.
+//    Standalone Desktop Client selects 192.168.1.165:9888.
+//    The Browser Web Control port is instead set in the Server Launcher.
 // ----------------------------------------------------------------------
 {
   "api_port": 9876,

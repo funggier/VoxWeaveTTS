@@ -18,7 +18,8 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from .processing import InputError
-from .audio_devices import WindowsDeviceOutput, available_outputs
+from .audio_devices import (WindowsDeviceOutput, available_outputs,
+                            DEFAULT_AUDIO_SETTINGS, validate_audio_settings)
 from .live_audio import LiveAudioHub
 
 RUNTIME_MODES = ("browser", "computer")
@@ -51,7 +52,16 @@ def read_output(path: Path = CONFIG_PATH) -> str:
         return OUTPUT_DEFAULT
 
 
-def persist_mode(mode: str, path: Path = CONFIG_PATH, *, output: str | None = None) -> None:
+def read_audio_settings(path: Path = CONFIG_PATH) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return validate_audio_settings(data.get("audio_settings", DEFAULT_AUDIO_SETTINGS))
+    except (OSError, ValueError, KeyError, TypeError):
+        return dict(DEFAULT_AUDIO_SETTINGS)
+
+
+def persist_mode(mode: str, path: Path = CONFIG_PATH, *, output: str | None = None,
+                 audio_settings: dict[str, Any] | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
@@ -60,7 +70,13 @@ def persist_mode(mode: str, path: Path = CONFIG_PATH, *, output: str | None = No
             suffix=".tmp", delete=False
         ) as stream:
             temporary = Path(stream.name)
-            json.dump({"mode": mode, "output": output or read_output(path)}, stream)
+            json.dump({
+                "mode": mode, "output": output or read_output(path),
+                "audio_settings": validate_audio_settings(
+                    audio_settings if audio_settings is not None
+                    else read_audio_settings(path)
+                ),
+            }, stream)
             stream.write("\n")
         os.replace(temporary, path)
     finally:
@@ -132,6 +148,7 @@ class ComputerRuntime:
         self.output = output or WindowsDeviceOutput()
         self.audio_hub = LiveAudioHub()
         self._output_id = read_output(mode_path)
+        self._audio_settings = read_audio_settings(mode_path)
         self._mode = initial_mode if initial_mode in RUNTIME_MODES else read_mode(mode_path)
         self._lock = threading.RLock()
         self._changed = threading.Event()
@@ -149,6 +166,8 @@ class ComputerRuntime:
         self._failed = 0
         self._revision = 0
         self._thread: threading.Thread | None = None
+        self._job_limit_cache = 8
+        self._job_limit_refreshed = 0.0
 
     def start(self) -> None:
         with self._lock:
@@ -168,7 +187,8 @@ class ComputerRuntime:
             raise InputError("mode must be browser or computer")
         with self._lock:
             if mode != self._mode:
-                persist_mode(mode, self.mode_path, output=self._output_id)
+                persist_mode(mode, self.mode_path, output=self._output_id,
+                             audio_settings=self._audio_settings)
                 if mode == "computer":
                     self._seen.update(j.get("speech_id") for j in self.coordinator.list())
                 self._mode = mode
@@ -187,9 +207,24 @@ class ComputerRuntime:
             raise InputError("output device is not available")
         with self._lock:
             if output != self._output_id:
-                persist_mode(self._mode, self.mode_path, output=output)
+                persist_mode(self._mode, self.mode_path, output=output,
+                             audio_settings=self._audio_settings)
                 self._output_id = output
                 self._stop_audio.set()
+                self._revision += 1
+                self._changed.set()
+        return self.snapshot()
+
+    def configure_audio(self, settings: Any) -> dict[str, Any]:
+        try:
+            options = validate_audio_settings(settings)
+        except ValueError as exc:
+            raise InputError(str(exc)) from exc
+        with self._lock:
+            if options != self._audio_settings:
+                persist_mode(self._mode, self.mode_path, output=self._output_id,
+                             audio_settings=options)
+                self._audio_settings = options
                 self._revision += 1
                 self._changed.set()
         return self.snapshot()
@@ -221,6 +256,12 @@ class ComputerRuntime:
             return {
                 "mode": self._mode,
                 "output": self._output_id,
+                "audio_settings": dict(self._audio_settings),
+                "actual_audio_format": (
+                    dict(self.output.last_format)
+                    if isinstance(self.output, WindowsDeviceOutput)
+                    and self.output.last_format is not None else None
+                ),
                 "available_outputs": available_outputs() + [
                     {"id": OUTPUT_LIVE, "label": "Live broadcast to browser", "api": "network"}],
                 "listeners": self.audio_hub.count,
@@ -229,6 +270,8 @@ class ComputerRuntime:
                 "active_speech_id": self._active_id,
                 "active_workspace": self._active_workspace,
                 "pending_source_messages": len(self._pending_messages),
+                "job_states": self.job_counts(),
+                "max_outstanding_jobs": self.max_outstanding_jobs(),
                 "last_completed_speech_id": self._last_completed,
                 "completed": self._completed,
                 "failed": self._failed,
@@ -238,6 +281,41 @@ class ComputerRuntime:
                 "sources": {name: self.sources.status(name)
                             for name in SOURCE_NAMES},
             }
+
+    def max_outstanding_jobs(self) -> int:
+        """Bound computer Live admissions to saved prepare/ready queue limits."""
+        now = time.monotonic()
+        if now - self._job_limit_refreshed >= 3.0:
+            try:
+                from .source_queue_settings import load_settings
+                records = load_settings()["modes"]
+                capacities = [
+                    records[mode]["settings"]["prepare_queue_limit"]
+                    + records[mode]["settings"]["ready_audio_queue_limit"]
+                    for mode in SOURCE_NAMES if mode in records
+                ]
+                self._job_limit_cache = max(6, min(48, max(capacities, default=8)))
+            except (OSError, ValueError, KeyError, TypeError):
+                self._job_limit_cache = 8
+            self._job_limit_refreshed = now
+        return self._job_limit_cache
+
+    def job_counts(self) -> dict[str, int]:
+        counts = {key: 0 for key in (
+            "preparing", "prepared", "queued", "rendering", "ready",
+            "failed", "skipped", "cancelled",
+        )}
+        for job in self.coordinator.list():
+            name = job.get("state")
+            if name in counts:
+                if name != "ready" or job.get("speech_id") not in self._seen:
+                    counts[name] += 1
+        return counts
+
+    def outstanding_jobs(self) -> int:
+        counts = self.job_counts()
+        return sum(counts[key] for key in
+                   ("preparing", "prepared", "queued", "rendering", "ready"))
 
     def shutdown(self) -> None:
         self._shutdown.set()
@@ -270,6 +348,7 @@ class ComputerRuntime:
                                   for key in sorted(words, key=len, reverse=True)))
             return pattern.sub(lambda match: words[match.group(0)], text)
         content = say_emojis(msg["text"])
+        sender_prefix_text = ""
         author = msg.get("author", "") if preferences.get("sender_names", {}).get(mode, False) else ""
         if author:
             author = " ".join(author.split())[:80]
@@ -278,12 +357,17 @@ class ComputerRuntime:
             if author:
                 prefix = options["sender_prefix"]
                 name = (prefix + " " if prefix and not author.startswith(prefix) else "") + say_emojis(author)
-                content = " ".join(part for part in (name, options["separator"], content) if part)
+                sender_prefix_text = " ".join(
+                    part for part in (name, options["separator"]) if part
+                )
         data = {
-            "text": content,
+            "text": " ".join(part for part in (sender_prefix_text, content) if part),
+            "content_text": content,
+            "sender_prefix_text": sender_prefix_text,
             "source": SOURCE_NAMES[mode],
             "mode": mode,
             "source_message_id": message_id[:128] or None,
+            "hold_for_render": True,
         }
         voice = preferences.get("modes", {}).get(mode)
         if voice:
@@ -313,12 +397,16 @@ class ComputerRuntime:
             return False
 
     def _drain_sources(self) -> None:
-        if len(self._pending_messages) < 100:
+        # Backpressure at the source boundary: no silent message deletion.
+        headroom = self.max_outstanding_jobs() - self.outstanding_jobs()
+        if headroom <= 0:
+            return
+        if len(self._pending_messages) < headroom:
             for mode, msg in self.sources.take_for_runtime(
-                limit=min(10, 100 - len(self._pending_messages))
+                limit=min(4, headroom - len(self._pending_messages))
             ):
                 self._pending_messages.append((mode, msg))
-        for _ in range(min(8, len(self._pending_messages))):
+        for _ in range(min(headroom, len(self._pending_messages))):
             mode, msg = self._pending_messages[0]
             if not self._enqueue_via_api(mode, msg):
                 break
@@ -371,10 +459,17 @@ class ComputerRuntime:
                     wav, self._stop_audio, lambda position: report("progress", position)
                 )
             else:
-                finished = self.output.play(
-                    wav, duration_ms, self._stop_audio,
-                    lambda position: report("progress", position), target
-                )
+                if isinstance(self.output, WindowsDeviceOutput):
+                    finished = self.output.play(
+                        wav, duration_ms, self._stop_audio,
+                        lambda position: report("progress", position), target,
+                        settings=dict(self._audio_settings),
+                    )
+                else:
+                    finished = self.output.play(
+                        wav, duration_ms, self._stop_audio,
+                        lambda position: report("progress", position), target
+                    )
             report("ended" if finished else "stopped",
                    duration_ms if finished else 0)
             with self._lock:
@@ -382,11 +477,16 @@ class ComputerRuntime:
                     self._completed += 1
                     self._last_completed = speech_id
                     self._last_audio = (wav, job)
-        except Exception:
+        except Exception as exc:
             report("stopped", 0)
+            # Show the device-format failure without ever exposing raw chat.
+            detail = str(exc).replace("\r", " ").replace("\n", " ")[:190]
             with self._lock:
                 self._failed += 1
-                self._last_error = "Computer audio output is unavailable"
+                self._last_error = (
+                    "Audio output error: " + type(exc).__name__
+                    + (": " + detail if detail else "")
+                )
         finally:
             with self._lock:
                 self._active_id = None
@@ -418,16 +518,21 @@ class ComputerRuntime:
                             continue
                         state = job.get("state")
                         if state == "prepared":
+                            # Stage one FIFO speech at a time; no WAV burst.
                             try:
                                 self.coordinator.start_render(job_id)
                             except Exception:
                                 pass
+                            break
                         elif state == "ready":
                             self._seen.add(job_id)
                             self._play_job(job)
                             break
                         elif state in {"failed", "skipped", "cancelled"}:
                             self._seen.add(job_id)
+                        elif state in {"preparing", "queued", "rendering"}:
+                            # Preserve FIFO even if a newer AI job finishes first.
+                            break
                     # Bound tracking to the in-memory job collection.
                     if len(self._seen) > 1000:
                         known = {j.get("speech_id") for j in self.coordinator.list()}

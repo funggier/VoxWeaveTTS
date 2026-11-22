@@ -1,163 +1,333 @@
-/* Both the browser and any desktop client control one server-owned runtime.
- * The choice is intentionally exposed only on the Settings page. */
+/* Browser is the control surface. Core owns Live TTS and Windows audio. */
 (function(root){
 "use strict";
-let current="browser", lastRevision=-1, busy=false;
-const select=document.getElementById("runtimeExecutionMode");
-const status=document.getElementById("runtimeControlStatus");
-const sources=document.getElementById("runtimeSourcesStatus");
-const stop=document.getElementById("runtimeStopComputer");
-const replay=document.getElementById("runtimeReplayComputer");
-const output=document.getElementById("runtimeAudioOutput");
-const listenLink=document.getElementById("runtimeListenLink");
-const listenHint=document.getElementById("runtimeListenHint");
+
+const el=id=>document.getElementById(id);
+const select=el("runtimeExecutionMode");
+if(!select)return;
+const status=el("runtimeControlStatus");
+const sources=el("runtimeSourcesStatus");
+const stop=el("runtimeStopComputer");
+const replay=el("runtimeReplayComputer");
+const output=el("runtimeAudioOutput");
+const sampleRate=el("runtimeAudioSampleRate");
+const channels=el("runtimeAudioChannels");
+const bufferMs=el("runtimeAudioBufferMs");
+const saveAudio=el("runtimeAudioSave");
+const audioStatus=el("runtimeAudioStatus");
+const listenLink=el("runtimeListenLink");
+const listenHint=el("runtimeListenHint");
+let current="browser";
+let busy=false;
+let refreshing=false;
 const allAudios=()=>document.querySelectorAll("audio");
-const api=async(path,body,intent)=>{
+root.VoxOutputMode={current};
+
+async function api(path,body,intent){
   const response=await fetch(path,{
-    method:"POST",headers:{"Content-Type":"application/json",
-                          "X-VoxWeaveTTS-Intent":intent},
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":intent},
     body:JSON.stringify(body),cache:"no-store"
   });
   const result=await response.json();
-  if(!response.ok)throw Error(result.error||"Runtime API failed");
+  if(!response.ok)throw Error(result.error||"Runtime API request failed");
   return result;
-};
+}
+function number(value){
+  return Number(value||0).toLocaleString("th-TH");
+}
 function apply(data){
   if(!data||!["browser","computer"].includes(data.mode))return;
   const changed=current!==data.mode;
   current=data.mode;
   root.VoxOutputMode.current=current;
-  if(changed && current==="computer"){
-    for(const audio of allAudios())audio.pause();
+  if(changed&&current==="computer"){
+    for(const item of allAudios())item.pause();
   }
   if(document.activeElement!==select)select.value=current;
-  const outputDevices=Array.isArray(data.available_outputs)?data.available_outputs:[];
-  if(outputDevices.length && (output.options.length!==outputDevices.length ||
-       [...output.options].some((entry,i)=>entry.value!==outputDevices[i].id))){
-    output.replaceChildren(...outputDevices.map(device=>{
+  const devices=Array.isArray(data.available_outputs)?data.available_outputs:[];
+  if(devices.length&&(
+    output.options.length!==devices.length||
+    [...output.options].some((item,index)=>item.value!==devices[index].id)
+  )){
+    output.replaceChildren(...devices.map(device=>{
       const item=document.createElement("option");
-      item.value=device.id;item.textContent=device.label;return item;
+      const native=device.native_rate?" ("+number(device.native_rate)+" Hz)":"";
+      item.value=device.id;
+      item.textContent=device.label+native;
+      return item;
     }));
   }
   if(document.activeElement!==output)output.value=data.output||"default";
   output.disabled=current!=="computer";
+  const audio=data.audio_settings||{};
+  for(const [control,value] of [
+    [sampleRate,audio.sample_rate],[channels,audio.channels],[bufferMs,audio.buffer_ms]
+  ]){
+    if(control&&value!==undefined&&document.activeElement!==control)
+      control.value=String(value);
+  }
+  if(audioStatus){
+    const f=data.actual_audio_format;
+    audioStatus.textContent=f
+      ?"รูปแบบที่อุปกรณ์ใช้จริง: "+number(f.sample_rate)+" Hz / "+
+        f.channels+" ช่อง / "+f.buffer_ms+" ms (WAV "+number(f.source_rate)+" Hz)"
+      :"รูปแบบเสียงที่เลือกจะมีผลเมื่อเล่น WAV ครั้งถัดไป";
+  }
   if(data.listen_url){
     listenLink.href=data.listen_url;
     listenLink.hidden=false;
     listenHint.textContent=data.output==="live"
-      ?"· เลือกเปิดรับฟังเสียงสดในโทรศัพท์ · เชื่อมต่อ "+(data.listeners||0)+" เครื่อง"
-      :"· เปลี่ยนปลายทางเสียงเป็นถ่ายทอดสดเพื่อฟังในโทรศัพท์";
+      ?"กำลังส่งเสียงไปยัง Browser · ผู้ฟัง "+number(data.listeners)+" ราย"
+      :"เปลี่ยนปลายทางเสียงเป็น Live Broadcast เพื่อใช้การฟังบนโทรศัพท์";
   }else{
     listenLink.hidden=true;
-    listenHint.textContent="· ตัวรับฟัง LAN ไม่พร้อม ("+(data.listen_error||"unknown")+")";
+    listenHint.textContent="บริการ Live Listener ยังไม่พร้อม: "+(data.listen_error||"unknown");
   }
-  if(lastRevision!==data.revision || changed){
-    lastRevision=data.revision;
-  }
-  status.textContent=(current==="computer"
-    ?"ทำงานบนคอมพิวเตอร์ · ปิดหน้าเว็บได้"
-    :"ทำงานผ่านเว็บแบบเดิม · การเล่นเสียงขึ้นกับหน้าเว็บ")+
-    " · "+(data.worker_running?"API และ Worker พร้อม":"Worker ไม่ทำงาน")+
-    " · "+(data.audio_state==="playing"?"กำลังเล่นเสียง":"ไม่มีเสียงกำลังเล่น")+
-    " · รอรับข้อความ "+(data.pending_source_messages||0)+
-    " · อ่านจบ "+(data.completed||0)+
-    " · ผิดพลาด "+(data.failed||0)+
-    (data.last_error?" · "+data.last_error:"");
-  const names={live:"YouTube API",youtube_browser:"YouTube Browser",
+  const counts=data.job_states||{};
+  const processing=(counts.preparing||0)+(counts.prepared||0);
+  const synthesis=(counts.queued||0)+(counts.rendering||0);
+  const waiting=(counts.ready||0);
+  const cap=number(data.max_outstanding_jobs||0);
+  status.textContent=
+    (current==="computer"?"Core ประมวลผลเสียงในเครื่อง":"Browser รับผิดชอบการเล่นเสียง")+
+    " · "+(data.worker_running?"Worker ทำงาน":"Worker หยุด")+
+    " · "+(data.audio_state==="playing"?"กำลังเล่นเสียง":"ยังไม่ได้เล่นเสียง")+
+    " · เตรียม/แปล "+number(processing)+
+    " · สร้างเสียง "+number(synthesis)+
+    " · พร้อมเล่น "+number(waiting)+
+    " · ขีดจำกัด "+cap+
+    " · แชทรอดึง "+number(data.pending_source_messages)+
+    " · อ่านจบ "+number(data.completed)+
+    " · ผิดพลาด "+number(data.failed)+
+    (data.last_error?" · ข้อผิดพลาดล่าสุด: "+data.last_error:"");
+  const labels={
+    live:"YouTube API",youtube_browser:"YouTube Browser",
     tiktok_browser:"TikTok Extension",discord:"Discord",
-    discord_client:"Discord Client"};
-  sources.textContent="ต้นทาง: "+Object.entries(data.sources||{}).map(([key,value])=>
-    (names[key]||key)+" "+(value.state||"idle")+" ("+(value.pending||0)+" รอรับ)"
+    discord_client:"Discord Client"
+  };
+  sources.textContent="แหล่งข้อความ: "+Object.entries(data.sources||{}).map(
+    ([key,value])=>(labels[key]||key)+" "+(value.state||"idle")+
+      " (รอ "+number(value.pending)+" ข้อความ)"
   ).join(" · ");
   stop.disabled=current!=="computer";
-  replay.disabled=current!=="computer" || !data.last_completed_speech_id;
+  replay.disabled=current!=="computer"||!data.last_completed_speech_id;
 }
 async function refresh(){
-  if(busy)return;
+  if(busy||refreshing)return;
+  refreshing=true;
   try{
-    const res=await fetch("/v1/runtime/state",{cache:"no-store"});
-    if(!res.ok)throw Error("Cannot read computer runtime state");
-    apply(await res.json());
+    const response=await fetch("/v1/runtime/state",{cache:"no-store"});
+    if(!response.ok)throw Error("HTTP "+response.status);
+    apply(await response.json());
   }catch(error){
-    status.textContent="เชื่อมต่อ Runtime API ไม่สำเร็จ: "+String(error.message||error);
+    status.textContent="อ่านสถานะ Core ไม่สำเร็จ: "+String(error.message||error);
+  }finally{refreshing=false;}
+}
+async function setValue(action,body,intent,errorLabel){
+  busy=true;
+  try{
+    apply(await api(action,body,intent));
+    return true;
+  }catch(error){
+    status.textContent=errorLabel+": "+String(error.message||error);
+    return false;
+  }finally{
+    busy=false;
   }
 }
 select.addEventListener("change",async()=>{
-  busy=true;select.disabled=true;
-  try{
-    apply(await api("/v1/runtime/mode",{mode:select.value},"set-runtime-mode"));
-  }catch(error){
-    status.textContent="เปลี่ยนรูปแบบการทำงานไม่สำเร็จ: "+String(error.message||error);
-    select.value=current;
-  }finally{busy=false;select.disabled=false;}
+  select.disabled=true;
+  const success=await setValue("/v1/runtime/mode",
+    {mode:select.value},"set-runtime-mode","เปลี่ยนโหมดไม่สำเร็จ");
+  if(!success)select.value=current;
+  select.disabled=false;
+  await refresh();
 });
 output.addEventListener("change",async()=>{
-  busy=true;output.disabled=true;
-  try{
-    apply(await api("/v1/runtime/output",{output:output.value},"set-runtime-output"));
-    await refresh();
-  }catch(error){status.textContent="เลือกปลายทางไม่สำเร็จ: "+String(error.message||error);}
-  finally{busy=false;output.disabled=current!=="computer";}
+  output.disabled=true;
+  await setValue("/v1/runtime/output",
+    {output:output.value},"set-runtime-output","เปลี่ยนอุปกรณ์เสียงไม่สำเร็จ");
+  output.disabled=current!=="computer";
+  await refresh();
+});
+saveAudio?.addEventListener("click",async()=>{
+  saveAudio.disabled=true;
+  const options={
+    sample_rate:sampleRate.value==="auto"?"auto":Number(sampleRate.value),
+    channels:channels.value==="auto"?"auto":Number(channels.value),
+    buffer_ms:Number(bufferMs.value),
+  };
+  const ok=await setValue("/v1/runtime/audio",options,
+    "set-runtime-audio","ตั้งค่ารูปแบบเสียงไม่สำเร็จ");
+  if(ok&&audioStatus)audioStatus.textContent="บันทึกแล้ว — ใช้กับ WAV ครั้งถัดไป";
+  saveAudio.disabled=false;
 });
 replay.addEventListener("click",async()=>{
-  try{
-    await api("/v1/runtime/replay",{},"replay-computer-audio");
-    await refresh();
-  }catch(error){status.textContent="เล่นซ้ำไม่สำเร็จ: "+String(error.message||error);}
+  await setValue("/v1/runtime/replay",{},"replay-computer-audio","เล่นซ้ำไม่สำเร็จ");
+  await refresh();
 });
 stop.addEventListener("click",async()=>{
-  try{apply(await api("/v1/runtime/playback",{action:"stop"},"control-computer-playback"));}
-  catch(error){status.textContent=String(error.message||error);}
+  await setValue("/v1/runtime/playback",{action:"stop"},
+    "control-computer-playback","หยุดเสียงไม่สำเร็จ");
 });
 document.addEventListener("play",event=>{
   if(current==="computer"&&event.target?.tagName==="AUDIO")
     event.target.pause();
 },true);
-root.VoxOutputMode={current};
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden)refresh();
+});
+root.addEventListener?.("focus",refresh);
 refresh();
 root.setInterval(refresh,1500);
-const networkIds=["ApiPort","ListenerHost","ListenerPort","RemoteEnabled","ControlHost",
-                  "ControlPort","Username"];
-const networkKeys=["api_port","listener_host","listener_port","remote_enabled",
-                   "control_host","control_port","username"];
-const networkStatus=document.getElementById("networkStatus");
-function useNetwork(data){
-  for(let i=0;i<networkIds.length;i++){
-    const node=document.getElementById("network"+networkIds[i]);
-    if(!node)continue;
-    if(node.type==="checkbox")node.checked=Boolean(data[networkKeys[i]]);
-    else node.value=data[networkKeys[i]]??"";
+
+/* Three distinct connections: browser control, listen-only browser and
+ * optional separate Desktop Remote Client API. Never suggest the Remote
+ * Client port is required for controlling the Server from a browser.
+ */
+const node=id=>document.getElementById(id);
+const webStatus=node("networkWebState");
+const webBind=node("networkWebBind");
+const webUsername=node("networkWebUsername");
+const webLink=node("networkBrowserUrl");
+const webNotice=node("networkBrowserNotice");
+const webCopy=node("networkCopyBrowserUrl");
+const listenerState=node("networkListenerState");
+const remoteState=node("networkRemoteState");
+const listenerSaveStatus=node("networkListenerSaveStatus");
+const remoteSaveStatus=node("networkStatus");
+
+let lastBrowserUrl="";
+function displayOverview(payload){
+  const web=payload?.web||{};
+  const listener=payload?.listener||{};
+  const remote=payload?.remote||{};
+  if(web.port&&web.bind_host){
+    webBind.textContent=web.bind_host+":"+web.port;
+    webUsername.textContent=web.username||"voxweave";
+    const local=web.bind_mode==="loopback_only";
+    webStatus.textContent=local
+      ?"เฉพาะเครื่อง Server — ยังไม่เปิดรับ Browser จาก LAN"
+      :web.bind_mode==="all_ipv4"
+        ?"เปิดรับบนทุก IPv4 (0.0.0.0)"
+        :"เปิดรับบน IPv4 ที่เลือก";
+    const suggested=String(web.url||"");
+    const hasLanAddress=!local && suggested &&
+      !/^http:\/\/127\./.test(suggested);
+    lastBrowserUrl=hasLanAddress?suggested:"";
+    webLink.hidden=!hasLanAddress;
+    webCopy.disabled=!hasLanAddress;
+    if(hasLanAddress){
+      webLink.href=suggested;
+      webLink.textContent=suggested;
+    }
+    webNotice.textContent=local
+      ?"หากต้องการควบคุมผ่าน LAN ให้เปิด VoxWeaveTTS.exe บน Server แล้วเลือก LAN หรือ All IPv4 กำหนด IP/Port และกด Apply & Restart"
+      :!hasLanAddress
+        ?"Server เปิดรับ IPv4 แล้ว แต่ตรวจ IP ของ LAN ไม่ได้ โปรดดู ipconfig บนเครื่อง Server และเปิด http://<IP ของ Server>:"+web.port+"/ จากอุปกรณ์อื่น"
+      :web.url_is_estimate
+        ?"URL ด้านบนเป็น IP ที่ระบบประมาณจากเครือข่ายของ Server โปรดตรวจ IP จริงด้วย ipconfig และอนุญาตพอร์ตนี้ใน Windows Firewall"
+        :"เปิด URL ด้านบนจากเครื่องอื่นใน LAN แล้วเข้าสู่ระบบด้วย Username และ Password ที่ตั้งใน Launcher (ตรวจ Firewall หากเข้าไม่ได้)";
   }
-  if(data.password_configured)
-    networkStatus.textContent="ตั้งรหัสผ่านแล้ว · พร้อมเปิด LAN Control เมื่อเริ่ม Core ใหม่";
-  else
-    networkStatus.textContent="ยังไม่ตั้งรหัสผ่าน · กรุณาตั้งรหัสอย่างน้อย 4 ตัวอักษรก่อนเปิด LAN Control";
+  listenerState.textContent=listener.running
+    ?"Live Audio Listener: เปิดรับที่ "+listener.bind_host+":"+listener.port+
+      " (ใช้ลิงก์พร้อมโทเคนด้านบน ไม่ใช่ URL ของ Web Control)"
+    :listener.error
+      ?"Live Audio Listener เริ่มไม่ได้: "+listener.error
+      :"Live Audio Listener: ยังไม่เปิดบริการ";
+  remoteState.textContent=remote.enabled
+    ?"Remote Desktop Client API: เปิดรับที่ "+remote.bind_host+":"+remote.port+
+      " (ไม่ใช่พอร์ตสำหรับเปิด Browser)"
+    :remote.error
+      ?"Remote Desktop Client API เริ่มไม่ได้: "+remote.error
+      :"Remote Desktop Client API: ปิดอยู่ — ไม่กระทบการควบคุมผ่าน Browser";
+}
+async function readOverview(){
+  try{
+    const response=await fetch("/v1/network/overview",{cache:"no-store"});
+    const data=await response.json();
+    if(!response.ok)throw Error(data.error||"HTTP "+response.status);
+    displayOverview(data);
+  }catch(error){
+    webStatus.textContent="ตรวจสถานะการเชื่อมต่อไม่สำเร็จ: "+String(error.message||error);
+  }
+}
+webCopy?.addEventListener("click",async()=>{
+  if(!lastBrowserUrl)return;
+  try{
+    await navigator.clipboard.writeText(lastBrowserUrl);
+    webNotice.textContent="คัดลอก URL สำหรับเปิด Browser จากเครื่องอื่นแล้ว: "+lastBrowserUrl;
+  }catch{
+    webNotice.textContent="คัดลอกอัตโนมัติไม่ได้ กรุณาเลือกข้อความ URL แล้วกด Ctrl+C";
+  }
+});
+const networkFields=[
+  ["ListenerHost","listener_host"],["ListenerPort","listener_port"],
+  ["RemoteEnabled","remote_enabled"],["ControlHost","control_host"],
+  ["ControlPort","control_port"],["Username","username"]
+];
+function displayNetwork(data){
+  for(const [id,key] of networkFields){
+    const input=node("network"+id);
+    if(!input)continue;
+    if(input.type==="checkbox")input.checked=Boolean(data[key]);
+    else input.value=data[key]??"";
+  }
+  remoteSaveStatus.textContent=data.password_configured
+    ?"รหัส Remote Client ตั้งค่าแล้ว (เก็บเป็นแฮชบน Server)"
+    :"ยังไม่ได้ตั้งรหัส Remote Client — หากจะเปิด Remote API ต้องตั้งรหัสขั้นต่ำ 4 ตัวอักษร";
+  listenerSaveStatus.textContent="กำลังแสดงค่าที่บันทึกไว้ หากเพิ่งเปลี่ยนต้องเริ่ม Core ใหม่";
 }
 async function readNetwork(){
   try{
-    const res=await fetch("/v1/network/settings",{cache:"no-store"});
-    const data=await res.json();
-    if(!res.ok)throw Error(data.error||"Unable to read network settings");
-    useNetwork(data);
-  }catch(err){networkStatus.textContent="อ่านการตั้งค่า LAN ไม่สำเร็จ: "+err.message;}
-}
-document.getElementById("networkSave").addEventListener("click",async()=>{
-  const button=document.getElementById("networkSave");
-  const payload={};
-  for(let i=0;i<networkIds.length;i++){
-    const node=document.getElementById("network"+networkIds[i]);
-    payload[networkKeys[i]]=node.type==="checkbox"?node.checked:
-      node.type==="number"?Number(node.value):node.value.trim();
+    const response=await fetch("/v1/network/settings",{cache:"no-store"});
+    const data=await response.json();
+    if(!response.ok){
+      if(response.status===403){
+        throw Error("การแก้ค่า Live Listener และ Remote Client ต้องเปิดหน้าเว็บบนเครื่อง Server");
+      }
+      throw Error(data.error||"HTTP "+response.status);
+    }
+    displayNetwork(data);
+  }catch(error){
+    remoteSaveStatus.textContent=String(error.message||error);
+    listenerSaveStatus.textContent=String(error.message||error);
+    node("networkSave").disabled=true;
+    node("networkListenerSave").disabled=true;
   }
-  const password=document.getElementById("networkPassword");
-  if(password.value)payload.password=password.value;
+}
+async function savePartial(body,button,feedback){
   button.disabled=true;
   try{
-    await api("/v1/network/settings",payload,"save-network-settings");
-    password.value="";
-    networkStatus.textContent="บันทึกแล้ว · กรุณาปิดและเริ่ม Core ใหม่เพื่อให้ IP / Port / Username / Password มีผล";
-  }catch(err){networkStatus.textContent="บันทึกไม่สำเร็จ: "+err.message;}
-  finally{button.disabled=false;}
+    await api("/v1/network/settings",body,"save-network-settings");
+    await readNetwork();
+    feedback.textContent="บันทึกแล้ว — ต้องเริ่ม Core ใหม่จึงจะใช้ IP/Port หรือบัญชีใหม่ได้";
+  }catch(error){
+    feedback.textContent="บันทึกไม่สำเร็จ: "+String(error.message||error);
+  }finally{
+    button.disabled=false;
+  }
+}
+node("networkListenerSave")?.addEventListener("click",async()=>{
+  await savePartial({
+    listener_host:node("networkListenerHost").value.trim(),
+    listener_port:Number(node("networkListenerPort").value)
+  },node("networkListenerSave"),listenerSaveStatus);
 });
+node("networkSave")?.addEventListener("click",async()=>{
+  const payload={
+    remote_enabled:node("networkRemoteEnabled").checked,
+    control_host:node("networkControlHost").value.trim(),
+    control_port:Number(node("networkControlPort").value),
+    username:node("networkUsername").value.trim(),
+  };
+  const password=node("networkPassword");
+  if(password.value)payload.password=password.value;
+  await savePartial(payload,node("networkSave"),remoteSaveStatus);
+  password.value="";
+});
+readOverview();
 readNetwork();
+root.setInterval(readOverview,10000);
 })(window);

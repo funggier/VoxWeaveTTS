@@ -59,6 +59,23 @@ def test_runtime_http_settings_replay_and_security(tmp_path):
                     "set-runtime-mode")[1]["mode"] == "computer"
         assert post("/v1/runtime/output", {"output": "live"},
                     "set-runtime-output")[1]["output"] == "live"
+        audio = {"sample_rate": 192000, "channels": 2, "buffer_ms": 100}
+        assert post("/v1/runtime/audio", audio,
+                    "set-runtime-audio")[1]["audio_settings"] == audio
+        assert get("/v1/runtime/state")[1]["audio_settings"] == audio
+        assert json.loads(runtime.mode_path.read_text())["audio_settings"] == audio
+        try:
+            post("/v1/runtime/audio", {"sample_rate": 4000, "channels": 2,
+                                        "buffer_ms": 100},
+                 "set-runtime-audio")
+            assert False, "out of range rate was accepted"
+        except HTTPError as exc:
+            assert exc.code == 400
+        try:
+            post("/v1/runtime/audio", audio, "wrong-intent")
+            assert False, "missing audio intent was accepted"
+        except HTTPError as exc:
+            assert exc.code == 403
         assert read_mode(runtime.mode_path) == "computer"
         assert read_output(runtime.mode_path) == "live"
         try:

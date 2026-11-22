@@ -1,5 +1,7 @@
 # ตั้ง IP และพอร์ตบน Windows Portable
 
+**หน้านี้อธิบาย IP/Port สำหรับ Web Control ที่เปิดผ่าน Browser** ซึ่งเป็นคนละส่วนกับ Remote Desktop Client API และ Live Audio Listener อ่าน [คู่มือการเชื่อมต่อผ่าน LAN ทั้งสามรูปแบบ](LAN_CONNECTIONS_TH.md) เพื่อดูตัวอย่างและวิธีแยกพอร์ต/บัญชี
+
 เปิด **VoxWeaveTTS.exe** แล้วเลือกเครือข่าย กรอก **IPv4 address** และ **Port** (1–65535) จากนั้นกด **Apply & Restart** โปรแกรมจะจดจำค่าใน `data/network.json` ภายในโฟลเดอร์ Portable
 
 | ตัวเลือก | IP ที่โปรแกรมรับการเชื่อมต่อ | ตัวอย่าง URL |

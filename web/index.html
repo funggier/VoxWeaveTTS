@@ -900,30 +900,98 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <button id="runtimeReplayComputer" type="button" disabled>เล่นซ้ำเสียงล่าสุดผ่าน API</button>
 <button id="runtimeStopComputer" type="button" disabled>หยุดเสียงบนคอมพิวเตอร์</button>
 </div>
+<div class="voice-grid" style="margin-top:12px">
+  <div>
+    <label for="runtimeAudioSampleRate">Sample Rate (Hz)</label>
+    <select id="runtimeAudioSampleRate" aria-label="อัตราสุ่มสัญญาณเสียง">
+      <option value="auto">อัตโนมัติ — ตรวจจากอุปกรณ์</option>
+      <option value="16000">16,000 Hz</option>
+      <option value="22050">22,050 Hz</option>
+      <option value="24000">24,000 Hz</option>
+      <option value="32000">32,000 Hz</option>
+      <option value="44100">44,100 Hz</option>
+      <option value="48000">48,000 Hz</option>
+      <option value="88200">88,200 Hz</option>
+      <option value="96000">96,000 Hz</option>
+      <option value="176400">176,400 Hz</option>
+      <option value="192000">192,000 Hz</option>
+    </select>
+  </div>
+  <div>
+    <label for="runtimeAudioChannels">ช่องเสียง</label>
+    <select id="runtimeAudioChannels" aria-label="จำนวนช่องเสียง">
+      <option value="auto">อัตโนมัติ</option>
+      <option value="1">Mono (1 ช่อง)</option>
+      <option value="2">Stereo (2 ช่อง)</option>
+    </select>
+  </div>
+  <div>
+    <label for="runtimeAudioBufferMs">บัฟเฟอร์ส่งเสียง</label>
+    <select id="runtimeAudioBufferMs" aria-label="ขนาดบัฟเฟอร์เสียง">
+      <option value="20">20 ms</option>
+      <option value="50">50 ms</option>
+      <option value="100">100 ms</option>
+      <option value="200">200 ms</option>
+    </select>
+  </div>
+  <button type="button" id="runtimeAudioSave">บันทึกรูปแบบเสียง</button>
+</div>
+<p class="small" id="runtimeAudioStatus" role="status">กำลังตรวจสอบอุปกรณ์เสียง...</p>
+<p class="small">อัตโนมัติจะลอง Sample Rate ของโมเดลก่อน และปรับไปใช้อัตราที่อุปกรณ์รองรับ (เช่น USB DAC 192,000 Hz / Stereo) โดยไม่แก้ไฟล์ต้นฉบับ การบังคับค่าเองอาจทำให้เปิดเสียงไม่ได้หากอุปกรณ์ไม่รองรับ ค่าที่บันทึกมีผลกับเสียงถัดไปจากลำโพง/USB DAC ของ Windows (ไม่เปลี่ยนอัตราเสียงของ Live Browser)</p>
 <p class="small" id="runtimeControlStatus" role="status">กำลังอ่านสถานะจาก API...</p>
 <p class="small" id="runtimeSourcesStatus" role="status"></p>
-<p class="small">ลิงก์รับฟังเสียงสดบนเครือข่ายเดียวกัน: <a id="runtimeListenLink" rel="noopener noreferrer" href="#" target="_blank" hidden>เปิดหน้า Live Listener</a>
-<span id="runtimeListenHint">กำลังตรวจสอบเครือข่าย...</span></p>
+
 <p class="small">การทำงานในเครื่องต้องเปิดโปรเซส VoxWeaveTTS บนคอมพิวเตอร์ค้างไว้ ส่วนแหล่งข้อมูลที่อาศัยหน้าเว็บหรือ Extension ภายนอกยังต้องให้ตัวรับข้อมูลนั้นทำงานอยู่</p>
 <hr style="border:0;border-top:1px solid #32425b;margin:20px 0">
-<h2>การเชื่อมต่อ Server / Client ผ่าน LAN</h2>
-<p class="small">ตั้งค่าบนเครื่อง Server เท่านั้น · Client อื่นใช้ IP + Port + Username + Password · ปิด LAN Control เป็นค่าเริ่มต้น</p>
-<label><input type="checkbox" id="networkRemoteEnabled"> เปิดรับคำสั่งจาก Client ผ่าน LAN</label>
-<div class="voice-grid" style="margin-top:10px">
-<div><label for="networkControlHost">Server IP (0.0.0.0 = ทุกการ์ดเครือข่าย)</label><input id="networkControlHost" type="text" value="0.0.0.0" maxlength="45" placeholder="192.168.1.165"></div>
-<div><label for="networkControlPort">Control Port</label><input id="networkControlPort" type="number" min="1" max="65535" value="8776"></div>
-<div><label for="networkUsername">Username</label><input id="networkUsername" type="text" maxlength="32" value="voxweave" autocomplete="username"></div>
-<div><label for="networkPassword">Password (ขั้นต่ำ 4 ตัวอักษร)</label><input id="networkPassword" type="password" minlength="4" maxlength="128" placeholder="เว้นว่างเพื่อคงรหัสเดิม" autocomplete="new-password"></div>
-</div>
-<details style="margin:10px 0"><summary>ตั้งค่าเพิ่มเติม (API ภายในเครื่อง / ถ่ายทอดสด)</summary>
-<div class="voice-grid" style="margin-top:10px">
-<div><label for="networkApiPort">Core API Port (แก้จาก Launcher)</label><input type="number" id="networkApiPort" min="1" max="65535" value="8765" readonly></div>
-<div><label for="networkListenerHost">Live Audio IP</label><input type="text" id="networkListenerHost" maxlength="45" value="0.0.0.0"></div>
-<div><label for="networkListenerPort">Live Audio Port</label><input type="number" id="networkListenerPort" min="1" max="65535" value="8766"></div>
-</div></details>
-<button type="button" id="networkSave">บันทึกการเชื่อมต่อ</button>
-<p class="small" id="networkStatus" role="status">กำลังอ่านค่าตั้งค่า...</p>
-<p class="small">ต้องเริ่ม Core ใหม่เพื่อใช้ IP/Port/บัญชีที่เปลี่ยน · Password เก็บเป็นแฮชภายในโฟลเดอร์ Server และไม่ส่งกลับผ่าน API · ใช้เฉพาะ LAN/VPN ส่วนตัว (HTTP ไม่เข้ารหัส)</p>
+<section id="networkBrowserSection" aria-labelledby="networkBrowserHeading">
+  <h2 id="networkBrowserHeading">1. ควบคุม Server ผ่าน Browser ใน LAN (ใช้งานหลัก)</h2>
+  <p class="small">เปิดหน้าต่างควบคุมทั้งหมดผ่าน Browser ในคอมพิวเตอร์หรือโทรศัพท์ที่อยู่เครือข่ายเดียวกัน โดยใช้ IP/Port ของ <strong>Web Server หลัก</strong> ไม่ต้องเปิด Remote Desktop Client API</p>
+  <div class="voice-grid" style="margin:12px 0">
+    <div><label>สถานะการเข้าถึง</label><p id="networkWebState" role="status">กำลังตรวจสอบ Server...</p></div>
+    <div><label>IP / Port ที่ Server เปิดรับอยู่</label><p><code id="networkWebBind">กำลังตรวจสอบ...</code></p></div>
+    <div><label>Username สำหรับเว็บ</label><p><code id="networkWebUsername">กำลังตรวจสอบ...</code></p></div>
+  </div>
+  <p><strong>ลิงก์สำหรับเปิดจากเครื่องอื่น:</strong> <a id="networkBrowserUrl" href="#" rel="noopener noreferrer" target="_blank" hidden></a>
+    <button type="button" id="networkCopyBrowserUrl" disabled>คัดลอก URL</button>
+  </p>
+  <p class="small" id="networkBrowserNotice" role="status">กำลังตรวจสอบที่อยู่ LAN...</p>
+  <p class="small"><strong>เปลี่ยน IP / Port / Username / Password ของเว็บหลัก:</strong> ไปที่เครื่อง Server → เปิด <code>VoxWeaveTTS.exe</code> → เลือก <strong>LAN</strong> หรือ <strong>All IPv4</strong> → กำหนด IP, Port, Username, Password → กด <strong>Apply &amp; Restart</strong> (ไฟล์ <code>data/network.json</code>) การบันทึกค่าในส่วน Remote Client ด้านล่างจะไม่เปลี่ยนพอร์ตของเว็บหลัก</p>
+</section>
+<hr style="border:0;border-top:1px solid #32425b;margin:20px 0">
+<section id="networkListenSection" aria-labelledby="networkListenHeading">
+  <h2 id="networkListenHeading">2. Browser รับฟังเสียงสด (Live Audio Listener)</h2>
+  <p class="small">ใช้เปิดรับเสียงสดบนโทรศัพท์หรือคอมพิวเตอร์อีกเครื่อง ไม่ใช่หน้าควบคุม Server; ต้องเลือกปลายทางเสียงเป็น <strong>Live Broadcast</strong> และแตะปุ่มเปิดรับเสียงบนอุปกรณ์ผู้ฟัง</p>
+  <p>ลิงก์รับฟังเสียงสด: <a id="runtimeListenLink" rel="noopener noreferrer" href="#" target="_blank" hidden>เปิด Live Listener</a>
+    <span id="runtimeListenHint" class="small">กำลังตรวจสอบ Listener...</span>
+  </p>
+  <p id="networkListenerState" class="small" role="status">กำลังตรวจสอบพอร์ตเสียงสด...</p>
+  <details style="margin-top:10px">
+    <summary>กำหนด IP / Port ของ Live Audio Listener (ขั้นสูง)</summary>
+    <div class="voice-grid" style="margin-top:10px">
+      <div><label for="networkListenerHost">IP ที่เปิดรับเสียงสด (0.0.0.0 = ทุกเครือข่าย)</label><input type="text" id="networkListenerHost" maxlength="45" value="0.0.0.0"></div>
+      <div><label for="networkListenerPort">Live Audio Port</label><input type="number" id="networkListenerPort" min="1" max="65535" value="8766"></div>
+      <button id="networkListenerSave" type="button">บันทึก Live Audio IP / Port</button>
+    </div>
+    <p class="small" id="networkListenerSaveStatus" role="status"></p>
+    <p class="small">ตั้งค่าบนเครื่อง Server เท่านั้น · ต้องเริ่ม Core ใหม่เพื่อให้ IP/Port ใหม่มีผล · ใช้ HTTP ใน LAN/VPN ที่เชื่อถือได้</p>
+  </details>
+</section>
+<hr style="border:0;border-top:1px solid #32425b;margin:20px 0">
+<details id="networkRemoteSection">
+  <summary><strong>3. Remote Desktop Client API — ตัวเลือกขั้นสูง (พักการพัฒนาต่อ)</strong></summary>
+  <p class="small">ใช้สำหรับโปรแกรม <code>VoxWeaveTTS-Client.exe</code> ที่ติดตั้งแยกบนคอมพิวเตอร์อีกเครื่อง <strong>ไม่ใช่การเชื่อมต่อจาก Browser</strong> และไม่จำเป็นสำหรับการใช้เว็บควบคุมผ่าน LAN</p>
+  <p id="networkRemoteState" class="small" role="status">กำลังตรวจสอบ Remote API...</p>
+  <label><input type="checkbox" id="networkRemoteEnabled"> เปิด Remote Desktop Client API (แยกจาก Web Control)</label>
+  <div class="voice-grid" style="margin-top:10px">
+    <div><label for="networkControlHost">IP ที่เปิดรับ Client (0.0.0.0 = ทุกเครือข่าย)</label><input id="networkControlHost" type="text" value="0.0.0.0" maxlength="45" placeholder="192.168.1.165"></div>
+    <div><label for="networkControlPort">Remote Client Port (ไม่ใช่พอร์ตเว็บ)</label><input id="networkControlPort" type="number" min="1" max="65535" value="8776"></div>
+    <div><label for="networkUsername">Username สำหรับ Remote Client</label><input id="networkUsername" type="text" maxlength="32" value="voxweave" autocomplete="username"></div>
+    <div><label for="networkPassword">Password สำหรับ Remote Client (ขั้นต่ำ 4 ตัวอักษร)</label><input id="networkPassword" type="password" minlength="4" maxlength="128" placeholder="ปล่อยว่างเพื่อคงรหัสเดิม" autocomplete="new-password"></div>
+  </div>
+  <button type="button" id="networkSave">บันทึก Remote Client</button>
+  <p class="small" id="networkStatus" role="status">กำลังอ่านการตั้งค่า Remote Client...</p>
+  <p class="small"><strong>บัญชี Remote Client เป็นคนละชุดกับบัญชี Browser ของ Launcher</strong> แม้ตั้งชื่อเหมือนกันก็ไม่ใช่รหัสชุดเดียวกัน ต้องเริ่ม Core ใหม่เพื่อให้การเปิดพอร์ตหรือการเปลี่ยนบัญชีมีผล ใช้เฉพาะ LAN/VPN ที่เชื่อถือได้ ไม่ควรเปิดพอร์ตนี้ออก Internet</p>
+</details>
 <hr style="border:0;border-top:1px solid #32425b;margin:20px 0">
 
 <h2>AI Processing &amp; Translation — ตั้งค่ากลางทุกโหมด</h2>

@@ -1,48 +1,38 @@
-# VoxWeaveTTS — Server / Remote Client (LAN)
+# VoxWeaveTTS — Remote Desktop Client API (ตัวเลือกขั้นสูง)
 
-## ไฟล์ตัวอย่าง (มีคอมเมนต์อธิบาย)
+**ส่วนนี้สำหรับโปรแกรม `VoxWeaveTTS-Client.exe` เท่านั้น** ไม่ใช่สำหรับการเปิดเว็บควบคุมจากโทรศัพท์หรือคอมพิวเตอร์เครื่องอื่น
 
-- Server: `config/network.examples.jsonc` แสดงตัวอย่างเครื่องเดียว, LAN, รับทุก NIC และเปลี่ยน Port
-- Client: `config/client-connection.examples.jsonc` แสดงตัวอย่างเชื่อมต่อเครื่องเดียว, เครื่องอื่น และ Custom Port
+หากต้องการใช้ **Browser ควบคุม Server ผ่าน LAN** ให้เปิด IP/Port ของ **Web Control** จาก Launcher (`VoxWeaveTTS.exe`) เช่น `http://192.168.1.165:8775/` **ไม่จำเป็นต้องเปิด Remote Desktop Client API** ดู [คู่มือ LAN ทั้ง 3 ช่องทาง](LAN_CONNECTIONS_TH.md)
 
-ไฟล์ `.jsonc` เป็นตัวอย่างสำหรับอ่าน **ไม่ใช่ไฟล์ตั้งค่าที่โปรแกรมอ่านจริง** เพราะ JSON มาตรฐานไม่รองรับคอมเมนต์ ให้กรอกในหน้า **ตั้งค่า** ตามตัวอย่าง แล้วโปรแกรมจะบันทึกค่าเป็น JSON ที่ถูกต้องให้อัตโนมัติ โดยไม่เก็บ Password ของ Client และไม่เก็บ Password แบบ plaintext บน Server
+การพัฒนา Remote Desktop Client แยกพักไว้ก่อน เพื่อเน้นการทำงานของ Core และ Browser Control แต่ยังเก็บการตั้งค่าที่มีอยู่ไว้สำหรับอนาคต
 
-## วิธีใช้งานแบบง่าย
+## การตั้งค่าที่เกี่ยวข้อง (อย่าสับสนระหว่างสองชุด)
 
-เครื่องที่มี VoxWeaveTTS Server เป็นเครื่องสร้างเสียงและจัดการคิวทั้งหมด ส่วน VoxWeaveTTS Client ที่นำไปเปิดเครื่องอื่นเป็นเพียงหน้าต่างส่งคำสั่งและดูสถานะผ่าน API **ไม่ต้องลง TTS Engine และไม่ต้องติดตั้งโมเดลบน Client**
+| ส่วน | ตั้งค่า | เก็บที่ | ตัวอย่าง |
+|---|---|---|---|
+| **Web Control (Browser)** | ใน Launcher บนเครื่อง Server | `data/network.json` | `192.168.1.165:8775` |
+| **Live Audio Listener** | แท็บ **ตั้งค่า → Browser รับฟังเสียงสด** | `data/settings/network.json` | `192.168.1.165:8766` |
+| **Remote Desktop Client API** | แท็บ **ตั้งค่า → Remote Desktop Client API (ขั้นสูง)** | `data/settings/network.json` | `192.168.1.165:8776` |
 
-1. เครื่อง **Server**: เปิด `VoxWeaveTTS.exe` แล้วเข้าแท็บ **ตั้งค่า** → **การเชื่อมต่อ Server / Client ผ่าน LAN**
-2. ติ๊ก **เปิดรับคำสั่งจาก Client ผ่าน LAN** เลือก Server IP ที่เครื่องนี้ใช้งาน เช่น `192.168.1.165` หรือ `0.0.0.0` (ทุกการ์ดเครือข่าย) และ Control Port เช่น `8776`
-3. Username เริ่มต้นคือ `voxweave` สามารถเปลี่ยนได้ ตั้ง Password ความยาว **4–128 ตัวอักษร** แล้วกด **บันทึกการเชื่อมต่อ**
-4. **ปิดและเปิด Core ใหม่** เพื่อให้การเปลี่ยน IP, Port, Username หรือ Password มีผล
-5. เครื่องอื่นใน LAN: แตกไฟล์ `VoxWeaveTTS-Client-*-portable.zip` แล้วเปิด `VoxWeaveTTS-Client.exe` หรือ `Start-Client.cmd`
-6. กรอก Server IP, **Control Port**, Username และ Password แล้วกด **เชื่อมต่อ Server** ใช้ปุ่มส่งข้อความ, เปลี่ยนปลายทางเสียง, เล่นซ้ำ หรือหยุดเสียงได้โดยส่งคำสั่งไปยัง Core บน Server
+Username/Password สำหรับ **Web Control** ตั้งใน Launcher ส่วน Username/Password สำหรับ **Remote Desktop Client API** ตั้งแยกในหัวข้อขั้นสูง แม้ตั้งชื่อผู้ใช้เหมือนกัน ก็เป็นบัญชีคนละชุด
 
-### พอร์ต (เปลี่ยนได้ทุกช่องในแท็บตั้งค่า)
+พอร์ตทั้งสามช่องทางเปลี่ยนได้ แต่ต้องไม่ใช้หมายเลขซ้ำกัน ค่าตัวอย่างในคู่มือไม่ใช่พอร์ตบังคับ
 
-| พอร์ตเริ่มต้น | ใช้สำหรับ | เข้าถึง |
-|---|---|---|
-| 8765 | Main Core API / Web UI | เฉพาะเครื่อง Server (`127.0.0.1`) |
-| 8766 | Live Audio Listener บน Browser/โทรศัพท์ | LAN/IP ที่กำหนด |
-| 8776 | Remote Desktop Client API (username/password) | LAN/IP ที่กำหนดหลังเปิดใช้งาน |
+## การเปิดใช้ Remote Desktop Client API เฉพาะเมื่อจำเป็น
 
-**ห้ามใช้หมายเลขพอร์ตซ้ำ**; เปลี่ยนทุกพอร์ตได้ตั้งแต่ 1–65535. การเปลี่ยน Core API Port จะอัปเดตการเปิดโปรแกรมใน `VoxWeaveTTS.exe`, `Start-Console.cmd` และ `Start-Desktop.cmd` เมื่อเปิด Core รอบใหม่
+1. เปิด Web Control **บนเครื่อง Server** → **ตั้งค่า** → ขยาย **Remote Desktop Client API — ตัวเลือกขั้นสูง**
+2. เปิด **Remote Desktop Client API** แล้วกำหนด IP ที่เปิดรับ (เช่น `192.168.1.165` หรือ `0.0.0.0`) และพอร์ตสำหรับ Client (เช่น `8776`)
+3. ตั้ง Username และ Password อย่างน้อย 4 ตัวอักษร แล้วกด **บันทึก Remote Client**
+4. เริ่ม Core ใหม่ แล้วตรวจสถานะว่าพอร์ต Remote Client เปิดรับอยู่จริง
+5. บนเครื่อง Client แยก เปิด `VoxWeaveTTS-Client.exe` แล้วกรอก **Server IP + Remote Client Port + Username + Password** ของส่วน Remote API นี้ ไม่ใช่พอร์ต Web Control
 
-### การตั้งค่าและข้อมูลส่วนตัว
+การปิดหน้าต่าง Client ไม่ทำให้ Core บน Server หยุด และเครื่อง Client ไม่จำเป็นต้องติดตั้งโมเดลหรือ TTS Engine
 
-- Server บันทึกการเชื่อมต่อที่ `data/settings/network.json` (พาธสัมพันธ์กับโฟลเดอร์ Server) ไม่อ้างอิงไดรฟ์เดิม
-- Username เป็นชื่อผู้ควบคุม (ค่าเริ่มต้น `voxweave`) **ไม่ใช่ชื่อแอป**
-- Password จะเก็บบน Server เป็น PBKDF2-SHA256 แบบสุ่ม salt (ไม่เก็บรหัสผ่านจริง ไม่คืนแฮชผ่าน API)
-- Client เก็บเพียง IP, Port, Username ที่ `data/client-connection.json`, **ไม่เก็บ Password ลงไฟล์**
-- Remote Control Gateway อนุญาตเฉพาะคำสั่งดูสถานะงาน/คิว, สร้างเสียง, เล่นซ้ำ, หยุดเสียง, เปลี่ยนโหมดและอุปกรณ์เสียงเท่านั้น ไม่เปิดหน้า Model Packages, ข้อมูลบัญชี, ตั้งค่าลับ หรือดาวน์โหลด WAV
-- Live Audio Listener ที่พอร์ต 8766 ยังคงส่ง PCM16 เป็นชิ้นสด ไม่ใช่ไฟล์เสียงย้อนหลัง
-- การปิด Remote Client ไม่หยุด Core ที่ Server
+## การเก็บข้อมูลและตัวอย่าง
 
-**ความปลอดภัย:** พอร์ต Remote Control ใช้ HTTP Basic Authentication บน LAN จึงไม่เข้ารหัส Username/Password ระหว่างส่งข้อมูล โปรดใช้เฉพาะ LAN ที่ไว้ใจได้หรือ VPN ที่ปลอดภัย **ห้ามเปิดพอร์ต 8776 ออกอินเทอร์เน็ตโดยตรง** การลดรหัสขั้นต่ำเหลือ 4 ตัวอักษรเพิ่มความเสี่ยงจากการเดารหัส จึงควรใช้รหัสยาวขึ้นเมื่อใช้งานจริง
+- `config/network.examples.jsonc` แสดงตัวอย่าง Live Audio Listener และ Remote Desktop Client API พร้อมคอมเมนต์ **ไม่ใช่ไฟล์ตั้งค่าจริง**
+- `config/client-connection.examples.jsonc` แสดงตัวอย่างโปรแกรม Client เฉพาะทาง
+- Password ของ Remote Desktop Client API เก็บบน Server เป็นแฮช PBKDF2-SHA256; Client ไม่บันทึก Password ไว้ในไฟล์
+- การตั้งค่าทั้งหมดเป็นไฟล์สัมพัทธ์ภายในโฟลเดอร์ Portable รองรับการย้ายไดรฟ์หรือย้ายโฟลเดอร์
 
-### การบรรจุแพ็กเกจ
-
-- Server ZIP: `VoxWeaveTTS-v<version>-portable.zip` (Core/Web/Desktop/Engine package management)
-- Client ZIP: `VoxWeaveTTS-Client-v<version>-portable.zip` (Python/Tk UI + API Client เท่านั้น)
-- ทั้งสอง ZIP รองรับ Relocatable: ย้ายโฟลเดอร์ได้โดยไม่มีพาธไดรฟ์ตายตัว; Client ไม่มี TTS Engine/Model/PortAudio
-- สร้าง Client ZIP ด้วย `powershell -ExecutionPolicy Bypass -File scripts/Build-Client-Portable.ps1`
+**ความปลอดภัย:** Remote API ส่ง Username/Password ผ่าน HTTP Basic ใน LAN จึงควรใช้เฉพาะ LAN/VPN ที่เชื่อถือได้ อย่าเปิดพอร์ต Remote Client ออกอินเทอร์เน็ตโดยตรง และควรใช้รหัสที่แข็งแรงกว่าขั้นต่ำ 4 ตัวอักษร

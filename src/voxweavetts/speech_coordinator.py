@@ -412,7 +412,12 @@ class SpeechCoordinator:
             if len(batch) == self._translation_limit:
                 break
         remaining = TRANSLATION_GATHER_SECONDS - (time.monotonic() - first.created_mono)
-        if len(batch) < self._translation_minimum and not split_required and remaining > 0:
+        # A 150 ms coalescing window also helps minimum=1 when batching is
+        # enabled: otherwise every Live message launches a separate Ollama
+        # request, even with a configured batch limit of 10 or more.
+        gather_minimum = max(self._translation_minimum,
+                             2 if self._translation_limit > 1 else 1)
+        if len(batch) < gather_minimum and not split_required and remaining > 0:
             if self._translation_timer is None:
                 timer = threading.Timer(remaining, self._wake_translations)
                 timer.daemon = True

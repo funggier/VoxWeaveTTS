@@ -57,6 +57,9 @@ def test_network_settings_api_local_only_and_secret_not_returned(monkeypatch, tm
         assert "password" not in result and "password_hash" not in result
         assert "abcd" not in settings.read_text(encoding="utf-8")
         assert get()["control_port"] == 9878
+        with pytest.raises(HTTPError) as port_error:
+            post({"listener_port": local.server_port})
+        assert port_error.value.code == 400
         with pytest.raises(HTTPError) as error:
             post({**values, "password": "abc"})
         assert error.value.code == 400

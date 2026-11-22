@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**การเชื่อมต่อ LAN แบบเข้าใจง่าย:** ใช้ Browser ควบคุม Server ได้โดยตรงผ่าน IP/Port ของ Launcher (เช่น `http://192.168.1.165:8775/`) ไม่ต้องเปิด Remote Desktop Client API ดู [คู่มือแยก Web Control / Live Audio / Remote Client](docs/LAN_CONNECTIONS_TH.md) สำหรับการตั้งค่าทั้ง 3 แบบ
+
 **v0.12.11 — Core ทำงานบนคอมต่อเนื่อง + ถ่ายทอดสดเสียงสด + Client Portable แยก** เลือกเสียงออกลำโพง/USB DAC หรือ Live Browser, เล่นซ้ำผ่าน API, ตั้ง IP/Port และ Username/Password สำหรับ LAN (ขั้นต่ำ 4 ตัวอักษร) โดยคงฟีเจอร์ V4 เดิมทั้งหมด ดู [บันทึก Release v0.12.11](docs/RELEASE_NOTES_v0.12.11_TH.md), [คู่มือ Server/Client](docs/REMOTE_CONTROL_CLIENT_TH.md) และ [ดาวน์โหลดโมเดลทั้ง 7 ตัว](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4)
 
 **Windows Portable TTS Studio v0.12.11 — Universal .vwmodel v4 เท่านั้น**
