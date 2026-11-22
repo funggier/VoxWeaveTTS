@@ -27,7 +27,7 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
   const activating=new Set();
   const lastObservedRevisions=new Map();
   let active="studio", revision=0, serial=Promise.resolve(), stopped=false;
-  let channel=null, monitor=null, modeStream=null;
+  let channel=null, monitor=null, modeStream=null, monitoring=false;
   const broadcastName="VoxWeaveTTS-workspace-owner-v1";
 
   function render(){
@@ -141,11 +141,13 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
     }
     if(typeof root.setInterval==="function"){
       monitor=root.setInterval(async()=>{
-        if(owners.size===0)return;
+        if(owners.size===0||modeStream?.readyState===1||monitoring)return;
+        monitoring=true;
         try{
           const r=await fetch("/v1/modes/state",{cache:"no-store"});
           if(r.ok)observe(await r.json());
         }catch{/* server checks ownership when a source reports */}
+        finally{monitoring=false;}
       },pollMs);
     }
     document.addEventListener("play",event=>{

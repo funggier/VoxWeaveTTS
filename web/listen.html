@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="th">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VoxWeaveTTS | Live Listener</title>
+<style>
+:root{font-family:system-ui,"Segoe UI",sans-serif;color:#ecf2fa;background:#101b2c}
+*{box-sizing:border-box}body{margin:0;padding:30px 14px}
+main{max-width:620px;margin:0 auto;background:#17263a;border:1px solid #3e546d;border-radius:18px;padding:25px}
+h1{font-size:24px;margin:0 0 8px}p{line-height:1.7}
+button{background:#95cfff;border:0;border-radius:11px;padding:13px 18px;color:#122238;font-weight:700;font-size:15px;margin:6px 7px 6px 0}
+button:disabled{opacity:.5}button.secondary{background:#354b65;color:#eaf1ff}
+#status{padding:12px;background:#0f1d30;border-radius:9px;white-space:pre-wrap;overflow-wrap:anywhere}
+.note{font-size:13px;color:#a7bcd4}
+</style></head>
+<body>
+<main><h1>VoxWeaveTTS — ถ่ายทอดสดเสียง</h1>
+<p>รับฟังเสียงที่กำลังส่งจากโปรแกรมบนคอมพิวเตอร์แบบสด ไม่ดาวน์โหลดไฟล์เสียง ไม่ย้อนคิว และไม่เก็บเสียงในเบราว์เซอร์</p>
+<button id="connect">เปิดรับฟังเสียงสด</button>
+<button id="disconnect" disabled class="secondary">หยุดรับฟัง</button>
+<div>
+<button id="replay" class="secondary" disabled>เล่นซ้ำเสียงล่าสุด (สั่งผ่าน API)</button>
+<button id="stop" class="secondary" disabled>หยุดเสียงที่ส่งจากคอม</button>
+</div>
+<p id="status" role="status">ยังไม่ได้เชื่อมต่อ</p>
+<p class="note">เสียงจะออกจากอุปกรณ์เสียงที่โทรศัพท์เลือกในระบบ การรับเสียงสดจำเป็นต้องเปิดหน้านี้ไว้ การพักหน้าเว็บหรือล็อกหน้าจออาจทำให้เบราว์เซอร์หยุดเสียงได้ตามข้อจำกัดของระบบ</p>
+</main>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const token=new URLSearchParams(location.hash.slice(1)).get("token")||"";
+const auth={"Authorization":"Bearer "+token};
+let context=null,controller=null,connected=false,nextAt=0,queued=new Set(),recent="";
+function message(text){$("status").textContent=text;}
+function clearScheduled(){
+  for(const source of queued){try{source.stop();}catch{}}
+  queued.clear();nextAt=0;
+}
+function renderPCM(packet){
+  if(!context||context.state!=="running")return;
+  const rate=Number(packet.sample_rate);
+  if(!Number.isInteger(rate)||rate<8000||rate>96000||
+     typeof packet.data!=="string"||packet.data.length>800000)return;
+  let bytes;
+  try{bytes=atob(packet.data);}catch{return;}
+  if(bytes.length<2||bytes.length%2)return;
+  const count=bytes.length/2;
+  const buffer=context.createBuffer(1,count,rate);
+  const float=buffer.getChannelData(0);
+  for(let i=0;i<count;i++){
+    const n=bytes.charCodeAt(i*2)|(bytes.charCodeAt(i*2+1)<<8);
+    float[i]=(n>=32768?n-65536:n)/32768;
+  }
+  const source=context.createBufferSource();
+  source.buffer=buffer;source.connect(context.destination);
+  source.onended=()=>queued.delete(source);
+  // A short playout buffer absorbs LAN jitter without accumulating delay.
+  const now=context.currentTime;
+  if(nextAt<now+0.10||nextAt>now+0.7) {
+    clearScheduled();
+    nextAt=now+0.20;
+  }
+  source.start(nextAt);
+  queued.add(source);
+  nextAt+=buffer.duration;
+}
+async function listen(){
+  if(!token){message("ไม่มีรหัสเชื่อมต่อ โปรดเปิดผ่านลิงก์ผู้ฟังจากหน้า ตั้งค่า ของโปรแกรม");return;}
+  if(connected)return;
+  try {
+    context=context||new (window.AudioContext||window.webkitAudioContext)();
+    await context.resume();
+    if(context.state!=="running")throw Error("เบราว์เซอร์ยังไม่อนุญาตให้เล่นเสียง");
+    controller=new AbortController();
+    const response=await fetch("/v1/live/stream",{
+      headers:auth,signal:controller.signal,cache:"no-store"
+    });
+    if(!response.ok||!response.body)throw Error("เชื่อมต่อสตรีมไม่ได้ ("+response.status+")");
+    connected=true;
+    $("connect").disabled=true;$("disconnect").disabled=false;
+    $("replay").disabled=false;$("stop").disabled=false;
+    message("เชื่อมต่อแล้ว · กำลังรับเสียงสด");
+    const reader=response.body.getReader();
+    const decoder=new TextDecoder();
+    let pending="";
+    while(connected){
+      const {value,done}=await reader.read();
+      if(done)break;
+      pending+=decoder.decode(value,{stream:true});
+      // SSE messages are intentionally bounded; discard malformed data.
+      if(pending.length>2000000){pending="";continue;}
+      let cut;
+      while((cut=pending.indexOf("\n\n"))>=0){
+        const block=pending.slice(0,cut);pending=pending.slice(cut+2);
+        const line=block.split("\n").find(line=>line.startsWith("data: "));
+        if(!line)continue;
+        try{
+          const packet=JSON.parse(line.slice(6));
+          if(packet.event==="pcm")renderPCM(packet);
+          else if(packet.event==="stop"||packet.event==="reset")clearScheduled();
+          else if(packet.event==="begin")message("กำลังถ่ายทอดเสียงสด");
+          else if(packet.event==="end")message("เชื่อมต่ออยู่ · รอเสียงถัดไป");
+        }catch{/* ignore incomplete event */}
+      }
+    }
+    if(connected)throw Error("การเชื่อมต่อถูกตัด โปรดเปิดรับฟังอีกครั้ง");
+  }catch(error){
+    if(connected||error.name!=="AbortError")message(String(error.message||error));
+  }finally{
+    connected=false;
+    $("connect").disabled=false;$("disconnect").disabled=true;
+    $("replay").disabled=true;$("stop").disabled=true;
+  }
+}
+function disconnect(){
+  connected=false;controller?.abort();controller=null;
+  clearScheduled();
+  context?.suspend().catch(()=>{});
+  message("หยุดรับฟังแล้ว");
+}
+async function control(path){
+  const res=await fetch(path,{method:"POST",headers:{...auth,"Content-Type":"application/json"},
+    body:"{}",cache:"no-store"});
+  const body=await res.json();
+  if(!res.ok)throw Error(body.error||"คำสั่ง API ไม่สำเร็จ");
+  message(path.endsWith("replay")?"ส่งคำสั่งเล่นซ้ำไปยังโปรแกรมแล้ว":"ส่งคำสั่งหยุดเสียงแล้ว");
+}
+$("connect").addEventListener("click",listen);
+$("disconnect").addEventListener("click",disconnect);
+$("replay").addEventListener("click",()=>control("/v1/live/replay").catch(e=>message(e.message)));
+$("stop").addEventListener("click",()=>control("/v1/live/stop").catch(e=>message(e.message)));
+window.addEventListener("pagehide",disconnect);
+if(!token)message("เปิดลิงก์ผู้ฟังจากแท็บ ตั้งค่า บนคอมพิวเตอร์เพื่อรับสิทธิ์เชื่อมต่อ");
+</script></body></html>

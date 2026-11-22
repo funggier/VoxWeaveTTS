@@ -12,7 +12,8 @@ def main() -> None:
     args = parser.parse_args()
     try:
         settings = load_network_settings(args.host, args.port)
-        serve(settings.port, host=settings.host, access_code=settings.access_code)
+        serve(settings.port, host=settings.host, access_code=settings.access_code,
+              username=settings.username)
     except (ValueError, OSError) as error:
         parser.exit(1, f"VoxWeaveTTS: {error}\n")
 

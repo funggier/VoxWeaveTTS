@@ -1,6 +1,6 @@
 # Universal v4-only self-contained Windows Portable. No v3 installer, assets or runtime.
 param(
-  [string]$Version='0.12.10',
+  [string]$Version='0.12.11',
   [switch]$SkipZip,
   [string]$StageDirectory='',
   [switch]$IncludeUnreleasedQaMakHam
@@ -61,6 +61,7 @@ Copy-Tree (Join-Path $root 'src') (Join-Path $stage 'src') @(
 Copy-Tree (Join-Path $root 'web') (Join-Path $stage 'web')
 Copy-Tree (Join-Path $root 'extensions') (Join-Path $stage 'extensions') -skipDirs @('engine-providers')
 Copy-Tree (Join-Path $root 'docs') (Join-Path $stage 'docs') @('*v3*','*V3*','*v2*','*V2*')
+Copy-Tree (Join-Path $root 'config') (Join-Path $stage 'config')
 Copy-Tree (Join-Path $root 'examples') (Join-Path $stage 'examples')
 # Preserve unmodified license texts for the actual embedded uv.exe binary.
 Copy-Tree (Join-Path $root 'third_party_licenses') (Join-Path $stage 'third_party_licenses')
@@ -89,7 +90,10 @@ New-Item -ItemType Directory -Force -Path $coreSite | Out-Null
 foreach ($pattern in @('packaging','packaging-*.dist-info',
                       'grpc','grpcio-*.dist-info',
                       'google','protobuf-*.dist-info',
-                      'typing_extensions.py','typing_extensions-*.dist-info')) {
+                      'typing_extensions.py','typing_extensions-*.dist-info',
+                      'sounddevice.py','_sounddevice.py','sounddevice-*.dist-info',
+                      '_sounddevice_data','cffi','cffi-*.dist-info',
+                      '_cffi_backend*.pyd','pycparser','pycparser-*.dist-info')) {
   $hits=@(Get-ChildItem -LiteralPath $site -Filter $pattern -Force)
   if ($hits.Count -ne 1) {throw ('Core dependency not uniquely present: '+$pattern)}
   $src=$hits[0].FullName
@@ -97,7 +101,7 @@ foreach ($pattern in @('packaging','packaging-*.dist-info',
   if ($hits[0].PSIsContainer) { Copy-Tree $src $dest }
   else { Copy-Item -LiteralPath $src -Destination $dest -Force }
 }
-& (Join-Path $runtime 'python.exe') -X utf8 -c 'import packaging,grpc,typing_extensions;from google import protobuf;assert packaging.__version__ and grpc.__version__ and protobuf.__version__'
+& (Join-Path $runtime 'python.exe') -X utf8 -c 'import packaging,grpc,typing_extensions,sounddevice,cffi,pycparser;from google import protobuf;assert packaging.__version__ and grpc.__version__ and protobuf.__version__'
 if ($LASTEXITCODE -eq 0) { Write-Output 'CORE_DEPENDENCIES_READY' }
 if ($LASTEXITCODE -ne 0) {throw 'Minimal v4 Core dependencies are incomplete'}
 foreach ($dir in @('presets','models\packages','models\recovery-packages',
@@ -138,6 +142,10 @@ $notice=@(
   "protobuf 7.36.2: BSD-3-Clause - see runtime/python/Lib/site-packages/protobuf-7.36.2.dist-info/LICENSE",
   "packaging 26.3: Apache-2.0 OR BSD-2-Clause - see runtime/python/Lib/site-packages/packaging-26.3.dist-info/licenses/",
   "typing_extensions 4.16.0: PSF-2.0 - see runtime/python/Lib/site-packages/typing_extensions-4.16.0.dist-info/licenses/",
+  "sounddevice 0.5.3: MIT; see runtime/python/Lib/site-packages/sounddevice-0.5.3.dist-info/licenses/LICENSE",
+  "cffi 2.1.1: MIT; see runtime/python/Lib/site-packages/cffi-2.1.1.dist-info/licenses/LICENSE",
+  "pycparser 3.12: BSD-3-Clause; see runtime/python/Lib/site-packages/pycparser-3.12.dist-info/licenses/LICENSE",
+  "PortAudio bundled in sounddevice: MIT; see runtime/python/Lib/site-packages/_sounddevice_data/README.md",
   "The v4 Core includes NO model weights, training datasets, model runtime wheels, or QA model assets.",
   "Users obtain v4 .vwmodel packages separately; the Core validates and installs them offline.",
   "Model author/license claims are not assurances of independent redistribution rights.",
@@ -151,6 +159,7 @@ if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $exe)) {
 }
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'scripts') | Out-Null
 Copy-Item (Join-Path $root 'Stop-VoxWeaveTTS.cmd') (Join-Path $stage 'Stop-VoxWeaveTTS.cmd') -Force
+Copy-Item (Join-Path $root 'Start-Desktop.cmd') (Join-Path $stage 'Start-Desktop.cmd') -Force
 Copy-Item (Join-Path $root 'scripts\Stop-VoxWeaveTTS.ps1') (Join-Path $stage 'scripts\Stop-VoxWeaveTTS.ps1') -Force
 Copy-Item (Join-Path $root 'scripts\Check-Portable.ps1') (Join-Path $stage 'scripts\Check-Portable.ps1') -Force
 @'
@@ -211,5 +220,10 @@ if (!$SkipZip) {
   }
   Write-Output ("V4_PORTABLE_ZIP="+$zip)
   Write-Output ("V4_PORTABLE_ZIP_SHA256="+(Get-FileHash $zip -Algorithm SHA256).Hash)
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Build-Client-Portable.ps1') -Version $Version
+  $clientZip = Join-Path $root ("dist\VoxWeaveTTS-Client-v{0}-portable.zip" -f $Version)
+  if ($LASTEXITCODE -ne 0 -or !(Test-Path $clientZip)) {throw 'Missing matching Client Portable ZIP'}
+  Write-Output ("V4_CLIENT_PORTABLE_ZIP="+$clientZip)
+  Write-Output ("V4_CLIENT_PORTABLE_ZIP_SHA256="+(Get-FileHash $clientZip -Algorithm SHA256).Hash)
 }
 $global:LASTEXITCODE=0

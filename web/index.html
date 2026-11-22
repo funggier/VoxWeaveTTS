@@ -883,6 +883,49 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div>
 </div>
 <div class="mode-view" data-mode-view="settings" hidden><section class="panel" style="margin-top:18px">
+<h2>รูปแบบการทำงานของโปรแกรม</h2>
+<p class="small">ตัวประมวลผลและ API ทำงานอยู่ในคอมพิวเตอร์ทั้งสองโหมด เลือกได้ว่าจะให้เครื่องคอมพิวเตอร์จัดการคิวและเล่นเสียงเอง หรือให้หน้าเว็บจัดการเหมือนเดิม การตั้งค่านี้ใช้ร่วมกันทุกหน้าและบันทึกไว้ในโปรแกรม</p>
+<div class="voice-grid">
+<div><label for="runtimeExecutionMode">รูปแบบการทำงาน</label>
+<select id="runtimeExecutionMode" aria-label="รูปแบบการทำงาน">
+<option value="browser">ทำงานผ่านเว็บ (รูปแบบเดิม)</option>
+<option value="computer">ทำงานในเครื่องคอมพิวเตอร์ (ปิดเว็บได้)</option>
+
+</select></div>
+<div><label for="runtimeAudioOutput">ส่งเสียงออกทาง</label>
+<select id="runtimeAudioOutput" aria-label="อุปกรณ์เสียงปลายทาง">
+<option value="default">อุปกรณ์เริ่มต้นของ Windows</option>
+<option value="live">ถ่ายทอดสดผ่านหน้าเว็บ (โทรศัพท์/คอมอีกเครื่อง)</option>
+</select></div>
+<button id="runtimeReplayComputer" type="button" disabled>เล่นซ้ำเสียงล่าสุดผ่าน API</button>
+<button id="runtimeStopComputer" type="button" disabled>หยุดเสียงบนคอมพิวเตอร์</button>
+</div>
+<p class="small" id="runtimeControlStatus" role="status">กำลังอ่านสถานะจาก API...</p>
+<p class="small" id="runtimeSourcesStatus" role="status"></p>
+<p class="small">ลิงก์รับฟังเสียงสดบนเครือข่ายเดียวกัน: <a id="runtimeListenLink" rel="noopener noreferrer" href="#" target="_blank" hidden>เปิดหน้า Live Listener</a>
+<span id="runtimeListenHint">กำลังตรวจสอบเครือข่าย...</span></p>
+<p class="small">การทำงานในเครื่องต้องเปิดโปรเซส VoxWeaveTTS บนคอมพิวเตอร์ค้างไว้ ส่วนแหล่งข้อมูลที่อาศัยหน้าเว็บหรือ Extension ภายนอกยังต้องให้ตัวรับข้อมูลนั้นทำงานอยู่</p>
+<hr style="border:0;border-top:1px solid #32425b;margin:20px 0">
+<h2>การเชื่อมต่อ Server / Client ผ่าน LAN</h2>
+<p class="small">ตั้งค่าบนเครื่อง Server เท่านั้น · Client อื่นใช้ IP + Port + Username + Password · ปิด LAN Control เป็นค่าเริ่มต้น</p>
+<label><input type="checkbox" id="networkRemoteEnabled"> เปิดรับคำสั่งจาก Client ผ่าน LAN</label>
+<div class="voice-grid" style="margin-top:10px">
+<div><label for="networkControlHost">Server IP (0.0.0.0 = ทุกการ์ดเครือข่าย)</label><input id="networkControlHost" type="text" value="0.0.0.0" maxlength="45" placeholder="192.168.1.165"></div>
+<div><label for="networkControlPort">Control Port</label><input id="networkControlPort" type="number" min="1" max="65535" value="8776"></div>
+<div><label for="networkUsername">Username</label><input id="networkUsername" type="text" maxlength="32" value="voxweave" autocomplete="username"></div>
+<div><label for="networkPassword">Password (ขั้นต่ำ 4 ตัวอักษร)</label><input id="networkPassword" type="password" minlength="4" maxlength="128" placeholder="เว้นว่างเพื่อคงรหัสเดิม" autocomplete="new-password"></div>
+</div>
+<details style="margin:10px 0"><summary>ตั้งค่าเพิ่มเติม (API ภายในเครื่อง / ถ่ายทอดสด)</summary>
+<div class="voice-grid" style="margin-top:10px">
+<div><label for="networkApiPort">Core API Port (แก้จาก Launcher)</label><input type="number" id="networkApiPort" min="1" max="65535" value="8765" readonly></div>
+<div><label for="networkListenerHost">Live Audio IP</label><input type="text" id="networkListenerHost" maxlength="45" value="0.0.0.0"></div>
+<div><label for="networkListenerPort">Live Audio Port</label><input type="number" id="networkListenerPort" min="1" max="65535" value="8766"></div>
+</div></details>
+<button type="button" id="networkSave">บันทึกการเชื่อมต่อ</button>
+<p class="small" id="networkStatus" role="status">กำลังอ่านค่าตั้งค่า...</p>
+<p class="small">ต้องเริ่ม Core ใหม่เพื่อใช้ IP/Port/บัญชีที่เปลี่ยน · Password เก็บเป็นแฮชภายในโฟลเดอร์ Server และไม่ส่งกลับผ่าน API · ใช้เฉพาะ LAN/VPN ส่วนตัว (HTTP ไม่เข้ารหัส)</p>
+<hr style="border:0;border-top:1px solid #32425b;margin:20px 0">
+
 <h2>AI Processing &amp; Translation — ตั้งค่ากลางทุกโหมด</h2>
 <p class="small">ค่าเริ่มต้นปิด ไม่กระทบระบบอ่านเดิม · ใช้โมเดลภายในเครื่องเท่านั้น · โมเดลที่ยังไม่พร้อมจะแจ้งสถานะจริง</p>
 <label><input id="aiEnabled" type="checkbox"> เปิดใช้งาน AI Processing สำหรับงานเสียงใหม่ทุกโหมด</label>
@@ -1090,6 +1133,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </div></div>
 </main>
 <script src="/audio_scheduler.js"></script>
+<script src="/runtime_ui.js"></script>
 <script src="/emoji_pronunciation.js"></script>
 <script src="/rule_quick_add.js"></script>
 <script src="/ai_settings.js"></script>
@@ -2704,6 +2748,12 @@ if(typeof VoxWorkspaceModes!=="undefined"){
   modeRuntime=VoxWorkspaceModes.attach({
     document,
     stopLocal:suspendAllPlayback,
+    onActive:mode=>{
+      const feeds={live:liveFeed,youtube_browser:youtubeBrowserFeed,
+        tiktok_browser:tiktokBrowserFeed,discord:discordFeed,
+        discord_client:discordClientFeed};
+      feeds[mode]?.reconnectExisting?.().catch(()=>{});
+    },
     onLostMode:mode=>{
       const streams={live:[liveFeed,liveMode],youtube_browser:[youtubeBrowserFeed,youtubeBrowserMode],
          tiktok_browser:[tiktokBrowserFeed,tiktokBrowserMode],discord:[discordFeed,discordMode],

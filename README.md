@@ -1,6 +1,8 @@
 # VoxWeaveTTS
 
-**Windows Portable TTS Studio v0.12.10 — Universal .vwmodel v4 only**
+**v0.12.11 — Computer-owned TTS runtime, live PCM LAN streaming and independent Remote Client ZIP.** Choose Windows speaker/USB DAC/Live Browser output; replay and stop via the central API; keep processing after closing control windows; configure IP/port and LAN username/password (minimum 4 characters). See [Thai release notes](docs/RELEASE_NOTES_v0.12.11_TH.md), [Server/Client guide](docs/REMOTE_CONTROL_CLIENT_TH.md), and the [seven V4 model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4).
+
+**Windows Portable TTS Studio v0.12.11 — Universal .vwmodel v4 only**
 
 **Background Live playback (v0.12.10).** Server events wake the staged queue in hidden tabs. Playback session IDs work on HTTP LAN and Tailnet. See the [release notes](docs/RELEASE_NOTES_v0.12.10_TH.md).
 
@@ -49,7 +51,7 @@ The [v4 examples](examples/README_TH.md) cover Python plugin workers (with or wi
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 scripts\build_vwmodel_v4.py --source examples\v4-demo-tone --spec examples\v4-demo-tone\spec.json --output cache\demo-tone-v4.vwmodel
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.10 -StageDirectory dist\release-v0.12.10\VoxWeaveTTS
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Build-Portable.ps1 -Version 0.12.11 -StageDirectory dist\release-v0.12.11\VoxWeaveTTS
 ```
 
 Public Core builds require **no QA archives** and never ship models. An isolated **private QA-only** stage may opt into MakHam with `-SkipZip -IncludeUnreleasedQaMakHam`; the builder blocks ZIP publishing of that option. See [v0.12.10 release notes](docs/RELEASE_NOTES_v0.12.10_TH.md).

@@ -613,6 +613,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       headers:{"Content-Type":"application/json","X-VoxWeaveTTS-Intent":{
         start:"start-live-source",stop:"stop-live-source",
         drain:"drain-live-source",reset:"reset-live-source-queue",
+        "runtime-options":"update-runtime-source-options",
       }[operation]},
       body:JSON.stringify(body),
     });
@@ -817,6 +818,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
         ...credentials(mode),source_id:channelId,
         credential:temporaryCredential,
         filters:{blocked_words:blocked,max_chars:maxChars},
+        runtime_auto_read:Boolean(get("FeedAuto").checked),
       });
       if(mode==="discord_client")get("FeedAppSecret").value="";
       else if(!browserMode)get("FeedCredential").value=""; // clear DOM secret as soon as accepted
@@ -1092,13 +1094,45 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   document.addEventListener?.("visibilitychange",()=>{
     if(!document.hidden)wake();
   });
+  async function reconnectExisting(){
+    if(connected||mode==="tiktok"||!guard(mode))return;
+    const response=await fetch("/v1/runtime/state",{cache:"no-store"});
+    if(!response.ok)return;
+    const runtime=await response.json();
+    if(runtime.mode!=="computer")return;
+    const state=await fetch("/v1/sources/status?mode="+encodeURIComponent(mode),
+                            {cache:"no-store"});
+    if(!state.ok)return;
+    const existing=await state.json();
+    if(!["running","connecting","retrying"].includes(existing.state)||
+       !existing.source_id||!guard(mode)||connected)return;
+    const ticket=++generation;
+    connected=true;
+    get("FeedSourceId").value=existing.source_id;
+    if(typeof existing.runtime_auto_read==="boolean")
+      get("FeedAuto").checked=existing.runtime_auto_read;
+    get("FeedStart").disabled=true;
+    get("FeedStop").disabled=false;
+    openSourceStream(ticket);
+    timer=setInterval(()=>{
+      if(!streamSubscription||!sharedSourceStream||
+         sharedSourceStream.readyState!==1)wake();
+    },1200);
+    wake();
+  }
+  get("FeedAuto").addEventListener("input",()=>{
+    if(!connected || mode==="tiktok" || !guard(mode))return;
+    api("runtime-options",{...credentials(mode),
+      runtime_auto_read:Boolean(get("FeedAuto").checked)
+    }).catch(error=>message(String(error.message||error)));
+  });
   get("FeedStop").disabled=true;
   get("FeedKeepRead").addEventListener("input",()=>{
     prune();render();trimSpokenHistory();trimModelHistory();
   });
   root.VoxSourceQueueUI?.attach(mode,el);
   renderSummary();
-  return {start,stop,poll,resetPending,suspend:localSuspend,setMessageState,setPipelineQueues,setSpeechDiagnostic,setSpeechModelInputs,exportSettings,importSettings,
+  return {start,stop,poll,resetPending,reconnectExisting,suspend:localSuspend,setMessageState,setPipelineQueues,setSpeechDiagnostic,setSpeechModelInputs,exportSettings,importSettings,
           get connected(){return connected;},get visible(){return visible.slice();}};
 }
 root.VoxSourceFeed={attach};

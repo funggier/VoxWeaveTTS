@@ -1,4 +1,4 @@
-"""VoxWeaveTTS v0.12.4 v4 Core-only ZIP release verification.
+"""VoxWeaveTTS v0.12.11 v4 Core-only ZIP release verification.
 
 CRC, safe paths, zero model weights/runtimes, no private files, isolated
 extraction, HTTP API, YouTube transport, the optional MIT demo tone,
@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = os.getenv("VOXWEAVE_PORTABLE_VERSION", "0.12.4")
+VERSION = os.getenv("VOXWEAVE_PORTABLE_VERSION", "0.12.11")
 ARCHIVE = ROOT / "dist" / f"VoxWeaveTTS-v{VERSION}-portable.zip"
 DEMO = ROOT / "dist" / f"VoxWeaveTTS-v{VERSION}-v4-demo-tone.vwmodel"
 SAPI = ROOT / "dist" / "VoxWeaveTTS-Windows-SAPI-Desktop-v1.0.0-format-v4.vwmodel"
@@ -74,7 +74,7 @@ with zipfile.ZipFile(ARCHIVE) as zip_in:
     site = "VoxWeaveTTS/runtime/python/Lib/site-packages/"
     dist_infos = sorted(name for name in entries
                         if name.startswith(site) and name.endswith(".dist-info/METADATA"))
-    if len(dist_infos) != 4:
+    if len(dist_infos) != 7:
         raise AssertionError("Core ZIP included unapproved Python dependency")
     print("CORE_ONLY_ZIP_CONTENTS_PASS", len(files), flush=True)
     with tempfile.TemporaryDirectory(dir=ARCHIVE.parent,

@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voxweavetts"
-version = "0.12.10"
+version = "0.12.11"
 description = "Thai-first modular TTS with engine-neutral TXT/Markdown reader, speech queue and local WAV API."
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{name = "funggier"}]
 readme = "README.md"
-dependencies = []
+dependencies = ["sounddevice>=0.5,<0.6; sys_platform == 'win32'"]
 
 [project.optional-dependencies]
 signed-providers = ["cryptography>=46,<48"]

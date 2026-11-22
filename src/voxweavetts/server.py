@@ -46,6 +46,8 @@ from .text_settings import load_all as load_text_settings, load_section as load_
 from .reading_progress import load_position, save_position, clear_position, ProgressConflict
 from .playback_state import PlaybackState, PlaybackConflict, StreamFull
 from .playback_hub import PlaybackHub
+from .computer_runtime import ComputerRuntime
+from .network_config import load_network, save_network, public_network
 from .mode_state import ModeState, ModeConflict, MODES
 from .source_manager import SourceManager, SourceStreamFull
 from .tiktok_extension import extension_id_from_origin, ExtensionBridgeError
@@ -85,6 +87,7 @@ _LIVE_SPEECH_SOURCES = ("youtube-live", "youtube-live-browser", "discord",
 _PLAYBACK_STATE = PlaybackHub()
 _MODE_LOCK = threading.Lock()
 _SOURCE_LOCK = threading.Lock()
+_RUNTIME_LOCK = threading.RLock()
 _JOB_WAIT_LIMIT = threading.BoundedSemaphore(12)
 _STAGED_STREAM_LIMIT = threading.BoundedSemaphore(12)
 
@@ -236,6 +239,20 @@ class Handler(BaseHTTPRequestHandler):
                 source = SourceManager()
                 self.server.source_manager = source
             return source
+
+    def _runtime(self) -> ComputerRuntime:
+        with _RUNTIME_LOCK:
+            runtime = getattr(self.server, "runtime_control", None)
+            if runtime is None:
+                local_host = getattr(self.server, "runtime_self_host", "127.0.0.1")
+                runtime = ComputerRuntime(
+                    port=self.server.server_port, host=local_host,
+                    coordinator=self._coordinator(), source_manager=self._source_manager(),
+                    playback_state=self._playback_state()
+                )
+                self.server.runtime_control = runtime
+                runtime.start()
+            return runtime
 
     @staticmethod
     def _job_route(route: str) -> tuple[str, str] | None:
@@ -637,8 +654,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/source_queue_ui.js", "/audio_scheduler.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js"}:
-                name = ("audio_scheduler.js" if route == "/audio_scheduler.js" else
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/source_queue_ui.js", "/audio_scheduler.js", "/runtime_ui.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js"}:
+                name = ("runtime_ui.js" if route == "/runtime_ui.js" else
+                        "audio_scheduler.js" if route == "/audio_scheduler.js" else
                         "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
                         "emoji_pronunciation.js" if route == "/emoji_pronunciation.js" else
                         "rule_quick_add.js" if route == "/rule_quick_add.js" else
@@ -727,6 +745,18 @@ class Handler(BaseHTTPRequestHandler):
                 })
             elif route == "/v1/sources/stream":
                 self._stream_sources()
+            elif route == "/v1/network/settings":
+                if not self._is_host_machine():
+                    self.send_json(403, {"error": "network settings require server-local control"})
+                else:
+                    self.send_json(200, {**public_network(load_network()),
+                                         "api_port": self.server.server_port})
+            elif route == "/v1/runtime/state":
+                data = self._runtime().snapshot()
+                gateway = getattr(self.server, "listening_gateway", None)
+                data["listen_url"] = gateway.url if gateway and gateway.server else None
+                data["listen_error"] = gateway.error if gateway else "not_started"
+                self.send_json(200, data)
             elif route == "/v1/sources/status":
                 params = parse_qs(urlsplit(self.path).query)
                 mode = params.get("mode", [""])[0]
@@ -1197,12 +1227,64 @@ class Handler(BaseHTTPRequestHandler):
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
             return
-        if route in {"/v1/sources/start", "/v1/sources/stop", "/v1/sources/drain", "/v1/sources/reset"}:
+        if route == "/v1/network/settings":
+            if not self._is_host_machine() or not self._same_origin_action("save-network-settings", host_only=True):
+                self.reject_unread_post(403, {"error": "local network settings permission required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "network settings require JSON"})
+                return
+            try:
+                updated = save_network(self._read_json(max_bytes=4096))
+                self.send_json(200, {**public_network(updated), "restart_required": True})
+            except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            except OSError:
+                self.send_json(500, {"error": "could not save network configuration"})
+            return
+        if route in {"/v1/runtime/mode", "/v1/runtime/output", "/v1/runtime/replay", "/v1/runtime/playback"}:
+            intent = ("set-runtime-mode" if route.endswith("/mode") else
+                      "set-runtime-output" if route.endswith("/output") else
+                      "replay-computer-audio" if route.endswith("/replay") else
+                      "control-computer-playback")
+            if self.headers.get("X-VoxWeaveTTS-Intent") != intent:
+                self.reject_unread_post(403, {"error": "explicit runtime control intent required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "runtime control requires JSON"})
+                return
+            try:
+                body = self._read_json(max_bytes=512)
+                if route.endswith("/mode"):
+                    if set(body) != {"mode"}:
+                        raise InputError("mode field required")
+                    self.send_json(200, self._runtime().configure(body["mode"]))
+                elif route.endswith("/output"):
+                    if set(body) != {"output"}:
+                        raise InputError("output field required")
+                    self.send_json(200, self._runtime().configure_output(body["output"]))
+                elif route.endswith("/replay"):
+                    if body:
+                        raise InputError("replay does not accept parameters")
+                    self.send_json(202, self._runtime().replay_latest())
+                else:
+                    if body != {"action": "stop"}:
+                        raise InputError("playback action must be stop")
+                    self.send_json(200, self._runtime().stop_audio())
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            except ValueError as exc:
+                self.send_json(409, {"error": str(exc)})
+            except OSError:
+                self.send_json(500, {"error": "runtime control could not be saved"})
+            return
+        if route in {"/v1/sources/start", "/v1/sources/stop", "/v1/sources/drain", "/v1/sources/reset", "/v1/sources/runtime-options"}:
             intent = {
                 "/v1/sources/start": "start-live-source",
                 "/v1/sources/stop": "stop-live-source",
                 "/v1/sources/drain": "drain-live-source",
                 "/v1/sources/reset": "reset-live-source-queue",
+                "/v1/sources/runtime-options": "update-runtime-source-options",
             }[route]
             if self.headers.get("X-VoxWeaveTTS-Intent") != intent:
                 self.reject_unread_post(403, {"error": "missing source operation intent"})
@@ -1221,8 +1303,14 @@ class Handler(BaseHTTPRequestHandler):
                     result = sources.stop(data, self._mode_state())
                 elif route.endswith("/reset"):
                     result = sources.reset_pending(data, self._mode_state())
+                elif route.endswith("/runtime-options"):
+                    result = sources.set_runtime_auto_read(data, self._mode_state())
                 else:
-                    result = sources.drain(data, self._mode_state())
+                    if self._runtime().mode() == "computer":
+                        sources._authorized(data.get("mode"), data.get("mode_token"), self._mode_state())
+                        result = {"messages": [], "status": sources.status(data.get("mode"))}
+                    else:
+                        result = sources.drain(data, self._mode_state())
                 self.send_json(200, result)
             except ModeConflict as exc:
                 self.send_json(409, {"error": str(exc)})
@@ -1302,12 +1390,14 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 data = self._read_json()
+                computer_mode = self._runtime().mode() == "computer"
                 activated = self._mode_state().activate(
-                    data.get("mode"), self._playback_state()
+                    data.get("mode"), self._playback_state(),
+                    preserve_existing=computer_mode,
                 )
-                # A different tab claiming this specific workspace revokes
-                # only its old source. Other modes keep receiving messages.
-                self._source_manager().stop_mode(data.get("mode"))
+                if not computer_mode:
+                    # Browser mode retains prior exclusive tab ownership.
+                    self._source_manager().stop_mode(data.get("mode"))
                 self.send_json(200, activated)
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
@@ -1554,12 +1644,48 @@ class Handler(BaseHTTPRequestHandler):
             super().log_message(format, *args)
 
 
-def serve(port: int = DEFAULT_PORT, *, host: str = DEFAULT_HOST, access_code: str = "") -> None:
-    settings = NetworkSettings(host, port, access_code)
+def serve(port: int = DEFAULT_PORT, *, host: str = DEFAULT_HOST, access_code: str = "",
+          username: str = "voxweave") -> None:
+    settings = NetworkSettings(host, port, access_code, username)
     with ThreadingHTTPServer((settings.host, settings.port), Handler) as server:
         server.network_access = NetworkAccess(settings)
         from .process_ownership import register_process
         register_process("server")
+        # Server owns the worker; UI/browser lifetimes never own speech playback.
+        local_host = DEFAULT_HOST if host == "0.0.0.0" else host
+        server.runtime_self_host = local_host
+        runtime = ComputerRuntime(
+            port=port, host=local_host, coordinator=_coordinator_default(),
+            source_manager=SourceManager(), playback_state=_PLAYBACK_STATE,
+        )
+        server.runtime_control = runtime
+        server.source_manager = runtime.sources
+        runtime.start()
+        from .listener_gateway import ListeningGateway
+        from .remote_gateway import RemoteControlGateway
+        lan = load_network()
+        listener = ListeningGateway(
+            runtime, port=int(os.environ.get("VOXWEAVE_LISTEN_PORT", lan["listener_port"])),
+            host=lan["listener_host"],
+        )
+        listener.start()
+        server.listening_gateway = listener
+        remote = None
+        if lan["remote_enabled"]:
+            remote = RemoteControlGateway(
+                lan["control_host"], lan["control_port"],
+                port, lan["username"], lan["password_hash"], local_host=local_host,
+            )
+            remote.start()
+            if remote.server:
+                print(f"Remote controller: {lan['control_host']}:{lan['control_port']}", flush=True)
+            else:
+                print(f"Remote controller bind error: {remote.error}", flush=True)
+        server.remote_gateway = remote
+        if listener.server:
+            print(f"Live listening endpoint: {listener.url.split('#')[0]}", flush=True)
+        else:
+            print(f"Live listening gateway error: {listener.error}", flush=True)
         url_host = DEFAULT_HOST if host == "0.0.0.0" else host
         print(f"VoxWeaveTTS v{__version__} at http://{url_host}:{port}/ (bind {host})",
               flush=True)
@@ -1576,6 +1702,9 @@ def serve(port: int = DEFAULT_PORT, *, host: str = DEFAULT_HOST, access_code: st
             print("\nStopping VoxWeaveTTS.")
         finally:
             global _COORDINATOR
+            getattr(server, "runtime_control", None) and server.runtime_control.shutdown()
+            getattr(server, "listening_gateway", None) and server.listening_gateway.close()
+            getattr(server, "remote_gateway", None) and server.remote_gateway.close()
             getattr(server, "source_manager", None) and server.source_manager.stop_all()
             with _COORDINATOR_LOCK:
                 if _COORDINATOR is not None:

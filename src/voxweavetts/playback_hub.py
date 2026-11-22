@@ -29,12 +29,13 @@ class PlaybackHub:
         self._last_mode: str | None = None
 
     def report(self, data: dict[str, Any], *, ready_job: dict[str, Any] | None = None,
-               workspace: str) -> dict[str, Any]:
+               workspace: str,
+               clock_basis: str = "browser_html_media_current_time_reported") -> dict[str, Any]:
         if not isinstance(workspace, str) or not workspace:
             raise InputError("workspace required for playback report")
         with self._changed:
             state = self._states.setdefault(workspace, PlaybackState())
-            state.report(data, ready_job=ready_job)
+            state.report(data, ready_job=ready_job, clock_basis=clock_basis)
             self._revisions[workspace] = state.snapshot()["revision"]
             self._last_mode = workspace
             self._updated[workspace] = time.monotonic()

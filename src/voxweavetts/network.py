@@ -21,6 +21,7 @@ class NetworkSettings:
     host: str = DEFAULT_HOST
     port: int = DEFAULT_PORT
     access_code: str = field(default="", repr=False)
+    username: str = NETWORK_USERNAME
 
     def __post_init__(self) -> None:
         if not isinstance(self.host, str):
@@ -35,9 +36,12 @@ class NetworkSettings:
             raise ValueError("port must be 1..65535")
         if not isinstance(self.access_code, str) or (
             (self.access_code or not address.is_loopback)
-            and not re.fullmatch(r"[!-~]{16,128}", self.access_code)
+            and not re.fullmatch(r"[!-~]{4,128}", self.access_code)
         ):
-            raise ValueError("network access requires a code of 16..128 printable ASCII characters")
+            raise ValueError("network access requires a code of 4..128 printable ASCII characters")
+
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,31}", self.username):
+            raise ValueError("username must be 1..32 letters, digits, underscore, dot or dash")
 
 
 def load_network_settings(
@@ -56,6 +60,7 @@ def load_network_settings(
         host if host is not None else settings.get("host", DEFAULT_HOST),
         port if port is not None else settings.get("port", DEFAULT_PORT),
         os.environ.get("VOXWEAVETTS_NETWORK_PASSWORD", settings.get("access_code", "")),
+        os.environ.get("VOXWEAVETTS_NETWORK_USERNAME", settings.get("username", NETWORK_USERNAME)),
     )
 
 
@@ -63,7 +68,7 @@ class NetworkAccess:
     """Use the actual connection address and a per-installation access code."""
 
     def __init__(self, settings: NetworkSettings):
-        credentials = f"{NETWORK_USERNAME}:{settings.access_code}".encode("ascii")
+        credentials = f"{settings.username}:{settings.access_code}".encode("ascii")
         self._authorization = b"Basic " + base64.b64encode(credentials)
 
     @staticmethod

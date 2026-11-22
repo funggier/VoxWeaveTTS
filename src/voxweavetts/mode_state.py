@@ -42,10 +42,15 @@ class ModeState:
                 "modes": list(MODES),
             }
 
-    def activate(self, mode: Any, playback_state: Any) -> dict[str, Any]:
+    def activate(self, mode: Any, playback_state: Any, *, preserve_existing: bool = False) -> dict[str, Any]:
         if not isinstance(mode, str) or mode not in MODES:
             raise InputError("unknown workspace mode")
         with self._lock:
+            if preserve_existing and mode in self._tokens:
+                # Computer-owned sessions outlive GUI clients. Reopening a UI
+                # must not revoke a connected source just to show its state.
+                self._active = mode
+                return {**self.snapshot(), "mode_token": self._tokens[mode]}
             self._revision += 1
             self._active = mode
             self._tokens[mode] = secrets.token_hex(16)

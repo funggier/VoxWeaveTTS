@@ -32,6 +32,9 @@ function attach({audios=[],policy="serial",onPolicyChange}={}){
     audio.addEventListener("pause",()=>clear(audio));
     audio.addEventListener("error",()=>clear(audio));
     audio.addEventListener("play",()=>{
+      if(root.VoxOutputMode?.current==="computer"){
+        audio.pause();return;
+      }
       if(current==="serial" && busy(audio)){
         // User pressed native media controls while another mode was playing.
         // Pause this player and enqueue it rather than interrupting the other.
@@ -44,6 +47,8 @@ function attach({audios=[],policy="serial",onPolicyChange}={}){
     });
   }
   async function start(audio){
+    if(root.VoxOutputMode?.current==="computer")
+      throw Error("Computer mode plays audio on the local machine through API");
     reserved.add(audio);
     try{
       await audio.play();

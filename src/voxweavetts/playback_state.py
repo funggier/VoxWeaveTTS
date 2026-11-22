@@ -35,6 +35,7 @@ class _Session:
     state: str
     position_ms: int
     updated_mono: float
+    clock_basis: str = "browser_html_media_current_time_reported"
 
 
 class StreamFull(Exception):
@@ -142,7 +143,8 @@ class PlaybackState:
         cues = validate_manual_cues(clean, audio.get("manual_cues", []))
         return clean, duration, engine_id, cues
 
-    def report(self, data: dict[str, Any], *, ready_job: dict[str, Any] | None = None) -> dict[str, Any]:
+    def report(self, data: dict[str, Any], *, ready_job: dict[str, Any] | None = None,
+               clock_basis: str = "browser_html_media_current_time_reported") -> dict[str, Any]:
         session_id, speech_id, event, sequence, position = self._validate_event(data)
         with self._lock:
             if event == "start":
@@ -158,7 +160,7 @@ class PlaybackState:
                     session_id=session_id, speech_id=speech_id, engine_id=engine_id,
                     segments=cues, manual_cues=manual_cues, duration_ms=duration, sequence=sequence,
                     state="playing", position_ms=min(position, duration),
-                    updated_mono=time.monotonic(),
+                    updated_mono=time.monotonic(), clock_basis=clock_basis,
                 )
             else:
                 current = self._active
@@ -237,7 +239,7 @@ class PlaybackState:
             "subtitle_precision": self._subtitle_precision(mode, session.segments, session.manual_cues),
             "subtitle": "" if stale else self._cue(session, mode),
             "stale": stale,
-            "clock_basis": "browser_html_media_current_time_reported",
+            "clock_basis": session.clock_basis,
         }
 
     def snapshot(self, mode: str = MODE_SEGMENT) -> dict[str, Any]:

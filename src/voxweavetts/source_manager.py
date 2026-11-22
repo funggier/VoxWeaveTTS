@@ -44,6 +44,7 @@ class _Session:
     adapter: Any
     block_words: tuple[str, ...]
     max_chars: int
+    runtime_auto_read: bool = True
     pending: deque[SourceMessage] = field(default_factory=deque)
     ids: deque[str] = field(default_factory=lambda: deque(maxlen=MAX_SEEN))
     seen: set[str] = field(default_factory=set)
@@ -69,6 +70,7 @@ class _Session:
             "polls": self.polls,
             "next_poll_seconds": self.next_poll_seconds,
             "temporary_credentials": True,
+            "runtime_auto_read": self.runtime_auto_read,
             **({"transport": self.adapter.transport}
                if self.mode in ("live", "youtube_browser", "tiktok_browser") and getattr(self.adapter, "transport", None)
                in ("streamList", "polling", "browser-dom", "extension") else {}),
@@ -160,6 +162,9 @@ class SourceManager:
                         else "VOXWEAVE_DISCORD_BOT_TOKEN")
             secret = os.environ.get(variable, "")
         blocked, max_chars = self._validate_policy(data.get("filters"))
+        runtime_auto_read = data.get("runtime_auto_read", True)
+        if type(runtime_auto_read) is not bool:
+            raise InputError("runtime_auto_read must be boolean")
         if mode == "live":
             adapter = self._youtube_factory(source_id, secret)
         elif mode == "youtube_browser":
@@ -172,6 +177,7 @@ class SourceManager:
             adapter = self._client_factory(source_id, secret)
         session = _Session(
             mode, token, source_id.strip(), adapter, blocked, max_chars,
+            runtime_auto_read=runtime_auto_read,
         )
         if hasattr(adapter, "set_cancel"):
             adapter.set_cancel(session.cancelled)
@@ -364,6 +370,42 @@ class SourceManager:
                         "received": 0, "discarded": 0, "duplicates": 0,
                         "temporary_credentials": True}
             return s.public()
+
+    def set_runtime_auto_read(self, data: dict[str, Any], mode_state: ModeState) -> dict[str, Any]:
+        mode, token = data.get("mode"), data.get("mode_token")
+        self._authorized(mode, token, mode_state)
+        enabled = data.get("runtime_auto_read")
+        if type(enabled) is not bool:
+            raise InputError("runtime_auto_read must be boolean")
+        with self._lock:
+            session = self._sessions.get(mode)
+            if session is None or session.owner_token != token:
+                raise ModeConflict("source monitor is not running in this workspace")
+            session.runtime_auto_read = enabled
+            self._notify_unlocked(mode)
+            return session.public()
+
+    def take_for_runtime(self, limit: int = 10) -> list[tuple[str, dict[str, Any]]]:
+        """Server-owned consumer. Never expose this un-tokened operation via HTTP."""
+        if not 1 <= limit <= 20:
+            raise ValueError("invalid internal runtime drain limit")
+        with self._lock:
+            messages: list[tuple[str, dict[str, Any]]] = []
+            # A hot YouTube source must not starve an independent Discord queue.
+            # Take one message from each active source per pass, preserving FIFO
+            # within each source and bounding work under the same mutex.
+            active = [(mode, session) for mode, session in self._sessions.items()
+                      if session.runtime_auto_read and session.pending]
+            while active and len(messages) < limit:
+                remaining = []
+                for mode, session in active:
+                    if len(messages) >= limit:
+                        break
+                    messages.append((mode, session.pending.popleft().public()))
+                    if session.pending:
+                        remaining.append((mode, session))
+                active = remaining
+            return messages
 
     def drain(self, data: dict[str, Any], mode_state: ModeState) -> dict[str, Any]:
         mode, token = data.get("mode"), data.get("mode_token")

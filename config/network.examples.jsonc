@@ -1,0 +1,71 @@
+// VoxWeaveTTS Server - examples of portable settings.
+// These are DOCUMENTATION examples (.jsonc), not the active configuration.
+// Configure from Web UI > ตั้งค่า > การเชื่อมต่อ Server / Client ผ่าน LAN.
+// On Save, the actual settings are stored at data/settings/network.json.
+// Never put a plaintext password or a commented JSONC file at that location.
+// After saving, restart the Server to apply IP/Port/username/password.
+
+// ----------------------------------------------------------------------
+// A) Same computer only (remote desktop API disabled).
+//    Web UI & Desktop UI access http://127.0.0.1:8765
+//    Listening gateway is separately configurable.
+// ----------------------------------------------------------------------
+{
+  "api_port": 8765,            // Local Core/API port
+  "listener_host": "127.0.0.1", // Listener only on this PC
+  "listener_port": 8766,       // Live Audio streaming port
+  "remote_enabled": false,     // Remote control disabled
+  "control_host": "127.0.0.1",
+  "control_port": 8776,
+  "username": "voxweave"       // No LAN password needed while disabled
+}
+
+// ----------------------------------------------------------------------
+// B) Server on a trusted private LAN (192.168.1.165 as an example).
+//    Client connects to 192.168.1.165:8776, username voxweave,
+//    and the password you SET IN THE SERVER UI (4–128 characters).
+//    Password is stored only as a salted hash, not in this file.
+// ----------------------------------------------------------------------
+{
+  "api_port": 8765,              // Main Core API stays at 127.0.0.1
+  "listener_host": "192.168.1.165",
+  "listener_port": 8766,
+  "remote_enabled": true,
+  "control_host": "192.168.1.165",
+  "control_port": 8776,
+  "username": "voxweave"
+}
+
+// ----------------------------------------------------------------------
+// C) Multiple NICs or unknown LAN IP: bind 0.0.0.0.
+//    0.0.0.0 is a *SERVER BIND* address, not a Client target.
+//    The Client must enter the server's actual 192.168.x.x address.
+// ----------------------------------------------------------------------
+{
+  "api_port": 8765,
+  "listener_host": "0.0.0.0",
+  "listener_port": 8766,
+  "remote_enabled": true,
+  "control_host": "0.0.0.0",
+  "control_port": 8776,
+  "username": "my_user"
+}
+
+// ----------------------------------------------------------------------
+// D) Alternate ports (no overlaps allowed).
+//    Useful when 8765 or 8776 is already occupied.
+//    Client selects 192.168.1.165:9888, not the Core port 9876.
+// ----------------------------------------------------------------------
+{
+  "api_port": 9876,
+  "listener_host": "0.0.0.0",
+  "listener_port": 9887,
+  "remote_enabled": true,
+  "control_host": "192.168.1.165",
+  "control_port": 9888,
+  "username": "studio_pc"
+}
+
+// Security: Remote Control currently uses HTTP Basic on LAN.
+// Do NOT port-forward control_port to the public Internet.
+// For access outside the LAN, use a trusted VPN and a stronger password.

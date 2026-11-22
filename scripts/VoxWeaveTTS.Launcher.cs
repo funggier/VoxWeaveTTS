@@ -11,6 +11,7 @@ using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+using System.Text.RegularExpressions;
 
 internal sealed class VoxWeaveLauncher : Form
 {
@@ -20,18 +21,23 @@ internal sealed class VoxWeaveLauncher : Form
     private string listenIp = "127.0.0.1";
     private int listenPort = 8765;
     private string accessCode = "";
+    private string networkUsername = "voxweave";
     private readonly ComboBox networkMode = new ComboBox();
     private readonly ComboBox address = new ComboBox();
     private readonly NumericUpDown port = new NumericUpDown();
     private readonly TextBox code = new TextBox();
+    private readonly TextBox user = new TextBox();
     private readonly JavaScriptSerializer serializer = new JavaScriptSerializer();
     private Process server;
     private readonly Timer timer = new Timer();
     private readonly Label status = new Label();
     private readonly Button open = new Button();
     private readonly Button overlay = new Button();
+    private readonly Button desktop = new Button();
+    private readonly Button closeUi = new Button();
     private readonly Button exit = new Button();
     private bool opened = false;
+    private bool stopRequested = false;
     private int checks = 0;
 
     public VoxWeaveLauncher()
@@ -39,7 +45,7 @@ internal sealed class VoxWeaveLauncher : Form
         root = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         settingsPath = Path.Combine(root, "data", "network.json");
         Text = "VoxWeaveTTS — Windows Portable";
-        ClientSize = new Size(595, 342);
+        ClientSize = new Size(595, 405);
         AutoScaleMode = AutoScaleMode.Font;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -86,9 +92,13 @@ internal sealed class VoxWeaveLauncher : Form
         port.Value = 8765;
         Controls.Add(port);
 
-        Controls.Add(new Label { Text = "Network login (user: voxweave)", Location = new Point(26, 210), AutoSize = true });
-        code.SetBounds(26, 233, 386, 28);
-        code.ReadOnly = true;
+        Controls.Add(new Label { Text = "Username", Location = new Point(26, 210), AutoSize = true });
+        user.SetBounds(26, 233, 158, 28);
+        user.Text = "voxweave";
+        Controls.Add(user);
+        Controls.Add(new Label { Text = "Password (min 4 characters)", Location = new Point(196, 210), AutoSize = true });
+        code.SetBounds(196, 233, 216, 28);
+        code.UseSystemPasswordChar = false; // Show the saved LAN credential to owner
         Controls.Add(code);
         Button apply = new Button { Text = "Apply && Restart" };
         apply.SetBounds(423, 231, 146, 32);
@@ -107,10 +117,19 @@ internal sealed class VoxWeaveLauncher : Form
         overlay.Click += delegate { OpenUrl(url + "overlay"); };
         Controls.Add(overlay);
 
-        exit.Text = "Stop && Exit";
+        exit.Text = "Stop Core && Exit";
         exit.SetBounds(382, 281, 187, 37);
-        exit.Click += delegate { Close(); };
+        exit.Click += delegate { stopRequested = true; Close(); };
         Controls.Add(exit);
+        desktop.Text = "Open Desktop UI";
+        desktop.SetBounds(26, 331, 264, 36);
+        desktop.Enabled = false;
+        desktop.Click += delegate { OpenDesktop(); };
+        Controls.Add(desktop);
+        closeUi.Text = "Close UI (Keep Core)";
+        closeUi.SetBounds(306, 331, 263, 36);
+        closeUi.Click += delegate { Close(); };
+        Controls.Add(closeUi);
 
         networkMode.SelectedIndex = 0;
         timer.Interval = 600;
@@ -120,7 +139,11 @@ internal sealed class VoxWeaveLauncher : Form
             try { ReadSettings(); StartServer(); }
             catch { status.Text = "Invalid data/network.json. Enter an IPv4 address and port, then Apply."; }
         };
-        FormClosing += delegate { StopServer(); };
+        FormClosing += delegate {
+            timer.Stop();
+            if (stopRequested) StopServer();
+            else if (server != null) server.Dispose();
+        };
     }
 
     private sealed class AddressChoice
@@ -175,6 +198,7 @@ internal sealed class VoxWeaveLauncher : Form
             listenIp = (string)settings["host"];
             listenPort = (int)settings["port"];
             if (settings.ContainsKey("access_code")) accessCode = (string)settings["access_code"];
+            if (settings.ContainsKey("username")) networkUsername = (string)settings["username"];
         }
         ValidateAddress(listenIp, listenPort);
         if ((!IsLoopback(listenIp) || accessCode.Length > 0) && !ValidAccessCode(accessCode))
@@ -185,6 +209,7 @@ internal sealed class VoxWeaveLauncher : Form
         address.Text = listenIp;
         port.Value = listenPort;
         code.Text = IsLoopback(listenIp) ? "" : accessCode;
+        user.Text = networkUsername;
     }
 
     private static bool IsLoopback(string ip)
@@ -194,7 +219,7 @@ internal sealed class VoxWeaveLauncher : Form
 
     private static bool ValidAccessCode(string value)
     {
-        if (String.IsNullOrEmpty(value) || value.Length < 16 || value.Length > 128) return false;
+        if (String.IsNullOrEmpty(value) || value.Length < 4 || value.Length > 128) return false;
         foreach (char c in value)
             if (c < '!' || c > '~') return false;
         return true;
@@ -224,10 +249,16 @@ internal sealed class VoxWeaveLauncher : Form
         try
         {
             ValidateAddress(selectedIp, selectedPort);
-            string password = accessCode;
-            if (!IsLoopback(selectedIp) && !ValidAccessCode(password)) password = GenerateAccessCode();
+            string username = user.Text.Trim();
+            if (!Regex.IsMatch(username, @"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,31}$"))
+                throw new FormatException("Username must contain 1..32 letters, digits, _, . or -.");
+            string password = code.Text.Trim();
+            if (!IsLoopback(selectedIp) && String.IsNullOrEmpty(password))
+                password = GenerateAccessCode();
+            if ((!IsLoopback(selectedIp) || password.Length > 0) && !ValidAccessCode(password))
+                throw new FormatException("Password must contain 4..128 printable ASCII characters.");
             var settings = new Dictionary<string, object> {
-                {"host", selectedIp}, {"port", selectedPort}, {"access_code", password}
+                {"host", selectedIp}, {"port", selectedPort}, {"access_code", password}, {"username", username}
             };
             Directory.CreateDirectory(Path.GetDirectoryName(settingsPath));
             string next = settingsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -243,6 +274,8 @@ internal sealed class VoxWeaveLauncher : Form
             listenIp = selectedIp;
             listenPort = selectedPort;
             accessCode = password;
+            networkUsername = username;
+            user.Text = networkUsername;
             code.Text = IsLoopback(listenIp) ? "" : accessCode;
             StartServer();
         }
@@ -294,6 +327,7 @@ internal sealed class VoxWeaveLauncher : Form
         opened = false;
         open.Enabled = false;
         overlay.Enabled = false;
+        desktop.Enabled = false;
         string python = Path.Combine(root, @"runtime\python\python.exe");
         if (!File.Exists(python) || !File.Exists(Path.Combine(root, @"src\voxweavetts\server.py")))
         {
@@ -302,7 +336,16 @@ internal sealed class VoxWeaveLauncher : Form
         }
         if (PortInUse())
         {
-            status.Text = url + " is already in use. Choose a different port.";
+            if (HealthReady())
+            {
+                status.Text = "Connected to existing VoxWeaveTTS Core at " + url;
+                open.Enabled = true;
+                overlay.Enabled = true;
+                desktop.Enabled = true;
+                exit.Enabled = false; // Do not stop a process owned by another launcher.
+                return;
+            }
+            status.Text = url + " is used by another service.";
             return;
         }
         try
@@ -317,6 +360,7 @@ internal sealed class VoxWeaveLauncher : Form
             info.FileName = python;
             info.Arguments = "-m voxweavetts --host " + listenIp + " --port " + listenPort;
             info.EnvironmentVariables["VOXWEAVETTS_NETWORK_PASSWORD"] = accessCode;
+            info.EnvironmentVariables["VOXWEAVETTS_NETWORK_USERNAME"] = networkUsername;
             info.WorkingDirectory = root;
             info.UseShellExecute = false;
             info.CreateNoWindow = true;
@@ -354,13 +398,48 @@ internal sealed class VoxWeaveLauncher : Form
             status.Text = "Listening at " + url;
             open.Enabled = true;
             overlay.Enabled = true;
-            if (!opened) { opened = true; OpenUrl(url); }
+            desktop.Enabled = true;
+            if (!opened && ShouldAutoOpenWeb()) { opened = true; OpenUrl(url); }
             return;
         }
         if (checks > 60)
         {
             timer.Stop();
             status.Text = "Server startup timed out. Check the IP and Windows firewall.";
+        }
+    }
+
+    private bool ShouldAutoOpenWeb()
+    {
+        try
+        {
+            string settings = Path.Combine(root, @"data\settings\runtime-control.json");
+            if (File.Exists(settings) && Regex.IsMatch(File.ReadAllText(settings), @"""mode""\s*:\s*""computer"""))
+                return false;
+        }
+        catch {}
+        return true; // Legacy browser mode on first launch.
+    }
+
+    private void OpenDesktop()
+    {
+        try
+        {
+            string python = Path.Combine(root, @"runtime\python\pythonw.exe");
+            ProcessStartInfo info = new ProcessStartInfo();
+            info.FileName = python;
+            info.Arguments = "-m voxweavetts.desktop_ui --port " + listenPort;
+            info.WorkingDirectory = root;
+            info.UseShellExecute = false;
+            info.CreateNoWindow = true;
+            info.EnvironmentVariables["PYTHONPATH"] = Path.Combine(root, "src");
+            info.EnvironmentVariables["PYTHONNOUSERSITE"] = "1";
+            info.EnvironmentVariables["PYTHONDONTWRITEBYTECODE"] = "1";
+            Process.Start(info);
+        }
+        catch
+        {
+            MessageBox.Show("Could not open local Desktop UI.", "VoxWeaveTTS");
         }
     }
 

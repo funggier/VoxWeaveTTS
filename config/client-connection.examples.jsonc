@@ -1,0 +1,17 @@
+// VoxWeaveTTS standalone Client examples (.jsonc documentation only).
+// Set these values directly in VoxWeaveTTS-Client.exe.
+// Actual Client preferences are saved to data/client-connection.json.
+// The Password is NEVER written to this file and must be entered on connection.
+
+// A) Server on the same PC (remote gateway must be enabled):
+{"host":"127.0.0.1","port":8776,"username":"voxweave"}
+
+// B) Server on another computer in the same trusted LAN:
+{"host":"192.168.1.165","port":8776,"username":"voxweave"}
+
+// C) Server configured to use a custom control port:
+{"host":"192.168.1.165","port":9888,"username":"studio_pc"}
+
+// Do not enter 0.0.0.0 as the Client host: it is only a server bind address.
+// Do not enter the Core API port (8765) or the Live Audio port (8766).
+// Do not save Password in this file. Use Client UI to enter it per session.

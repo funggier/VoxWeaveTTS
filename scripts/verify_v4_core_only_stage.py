@@ -32,9 +32,10 @@ def verify(stage: Path, demo: Path | None = None, sapi: Path | None = None) -> d
     assert all(not (stage / "src/voxweavetts" / x).exists() for x in forbidden)
     site = stage / "runtime/python/Lib/site-packages"
     dist_info = sorted(p.name for p in site.glob("*.dist-info"))
-    assert len(dist_info) == 4, "unreviewed Python dependency leaked into public Core"
+    assert len(dist_info) == 7, "unreviewed Python dependency leaked into public Core"
     assert all(any(p.startswith(needle + "-") for needle in
-                   ("grpcio", "protobuf", "packaging", "typing_extensions"))
+                   ("grpcio", "protobuf", "packaging", "typing_extensions",
+                    "sounddevice", "cffi", "pycparser"))
                for p in dist_info)
     assert not any((site / x).exists() for x in (
         "torch", "numpy", "scipy", "onnxruntime", "vachanatts", "gensim", "soundfile",
@@ -52,6 +53,8 @@ def verify(stage: Path, demo: Path | None = None, sapi: Path | None = None) -> d
     from packaging.version import Version
     assert Version("4.0") > Version("3.0")
     assert grpc.__version__ and protobuf.__version__
+    import sounddevice
+    assert sounddevice.__version__
     assert len(_wire_types()) == 2
     assert not installed_packages(stage)
     default = engine_info()

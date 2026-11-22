@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.12.11
+
+- Run the TTS source queue and playback on the Server independently of open UI windows; select browser-owned legacy playback when desired.
+- Select Windows default output, named WASAPI speaker/USB DAC, or live PCM audio broadcast to LAN browser clients.
+- Provide independent model-free Remote Client ZIP with configurable IP, control port, username and password.
+- Keep the existing Web LAN networking in the Windows Portable launcher; allow configurable username and 4–128 character access code.
+- Add commented Server/Client configuration examples, isolated LAN control gateway and API replay/stop controls.
+- Model packs remain on the original seven-model V4 release; see [v0.12.11 notes](docs/RELEASE_NOTES_v0.12.11_TH.md).
+
+
 ## v0.12.10
 
 - Wake staged Live jobs through a shared server event stream so background browser timers do not drive the connected queue.
