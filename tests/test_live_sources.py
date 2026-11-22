@@ -408,7 +408,7 @@ class ManagerTests(unittest.TestCase):
     def test_all_source_wake_stream_has_single_revision_and_no_private_messages(self):
         before=self.manager.wake_all_snapshot()
         self.assertEqual(before["mode"],"all")
-        self.assertEqual(len(before["sources"]),5)
+        self.assertEqual(len(before["sources"]),6)
         self.assertEqual(set(before),{"mode","revision","sources"})
         self.assertIsNone(self.manager.watch_all(before["revision"],timeout=.01))
         base={"mode":"live","mode_token":self.owner["mode_token"],
@@ -418,7 +418,7 @@ class ManagerTests(unittest.TestCase):
         self.assertGreater(changed["revision"],before["revision"])
         self.assertEqual({s["mode"] for s in changed["sources"]},
                          {"live","youtube_browser","tiktok_browser",
-                          "discord","discord_client"})
+                          "tiktok","discord","discord_client"})
         self.assertNotIn("mode_token",str(changed))
         self.assertNotIn("test_api_key",str(changed))
         self.assertNotIn("messages",str(changed))
@@ -552,6 +552,8 @@ class SourceHTTPTests(unittest.TestCase):
         cls.server.mode_state=ModeState()
         cls.server.playback_state=PlaybackState()
         cls.server.source_manager=SourceManager(youtube_factory=FakeReadyAdapter)
+        from types import SimpleNamespace
+        cls.server.runtime_control=SimpleNamespace(mode=lambda: "browser")
         cls.thread=threading.Thread(target=cls.server.serve_forever,daemon=True)
         cls.thread.start()
         cls.base=f"http://127.0.0.1:{cls.server.server_port}"
@@ -578,7 +580,7 @@ class SourceHTTPTests(unittest.TestCase):
         self.assertTrue(packet[1].startswith("event: source"))
         content=json.loads(packet[2][6:])
         self.assertEqual(content["mode"],"all")
-        self.assertEqual(len(content["sources"]),5)
+        self.assertEqual(len(content["sources"]),6)
         self.assertNotIn("credential","".join(packet))
         self.assertNotIn("mode_token","".join(packet))
 

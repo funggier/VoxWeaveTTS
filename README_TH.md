@@ -1,5 +1,8 @@
 # VoxWeaveTTS
 
+**สถานะพัฒนา Core-first (ยังไม่เผยแพร่เป็น Release ใหม่):** การติดตั้งใหม่ใช้ Core รับข้อความ/แปล/สร้างเสียง/เล่นเสียงเป็นค่าเริ่มต้น; Browser ทำหน้าที่ควบคุมและแสดงสถานะล่าสุด รองรับการกด **หยุดเสียงและพักคิว** หรือหยุด Source แยกโหมดจริง มีตัวรับ TikFinity localhost WebSocket ใน Core ที่ไม่ต้องเปิดหน้า Browser ค้างไว้ ขณะที่ YouTube/TikTok DOM ยังต้องใช้ Browser/Extension เป็นตัวจับข้อมูล ดู [คู่มือสถานะ Core ผ่าน Browser](docs/COMPUTER_BROWSER_STATUS_TH.md) และ [คำสั่งหยุด/ตั้งค่า Core](docs/RUNTIME_API_LIVE_TH.md)
+
+
 **v0.12.12 — ซ่อมเสียงไม่ออกจาก USB DAC และคิวแปล/TTS + ปรับ Web Control ผ่าน LAN** ปรับ Sample Rate, Mono/Stereo และบัฟเฟอร์เสียงได้บน Browser โดย Auto รองรับการแปลงเสียงไปยัง Sample Rate ของอุปกรณ์จริง เพิ่ม Backpressure ลดคิวสะสม และแสดง URL สำหรับเข้า Web Control ชัดเจนแยกจาก Live Listener / Remote Client ดู [รายละเอียด Release v0.12.12](docs/RELEASE_NOTES_v0.12.12_TH.md) และ [โมเดล V4 ทั้ง 7 แพ็กเกจ](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4)
 
 **การเชื่อมต่อ LAN แบบเข้าใจง่าย:** ใช้ Browser ควบคุม Server ได้โดยตรงผ่าน IP/Port ของ Launcher (เช่น `http://192.168.1.165:8775/`) ไม่ต้องเปิด Remote Desktop Client API ดู [คู่มือแยก Web Control / Live Audio / Remote Client](docs/LAN_CONNECTIONS_TH.md) สำหรับการตั้งค่าทั้ง 3 แบบ

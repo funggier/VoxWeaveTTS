@@ -164,7 +164,33 @@ function attach({document,stopLocal,onLostMode,onActive,onError,onAudioPlay,poll
     get("modeGlobalSettings")?.addEventListener("click",
       ()=>select("settings").catch(()=>{}));
     render();
-    select("studio").catch(()=>{});
+    // A refreshed/new Browser must not activate Studio and revoke the
+    // Server's actual active workspace. Restore the visible Core mode from
+    // read-only state; claim ownership only on an explicit user selection.
+    (async()=>{
+      try{
+        let runtime=root.VoxLastRuntimeSnapshot;
+        if(!runtime){
+          const response=await fetch("/v1/runtime/state",{cache:"no-store"});
+          if(response.ok)runtime=await response.json();
+        }
+        if(runtime?.mode==="computer"){
+          const response=await fetch("/v1/modes/state",{cache:"no-store"});
+          if(response.ok){
+            const state=await response.json();
+            observe(state);
+            if(!stopped&&valid.has(state.active_mode)){
+              active=state.active_mode;
+              render();
+              get("modeOwnerStatus").textContent=
+                "กำลังแสดงสถานะ Core Server · คลิกแท็บนี้เพื่อรับสิทธิ์ควบคุม";
+              return;
+            }
+          }
+        }
+      }catch{/* If the Core cannot be inspected, use the legacy studio UI. */}
+      if(!stopped)select("studio").catch(()=>{});
+    })();
   }
   function dispose(){
     stopped=true;

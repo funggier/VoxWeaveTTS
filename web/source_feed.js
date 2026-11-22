@@ -359,6 +359,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     });
   }
   function renderSummary(){
+    if(root.VoxOutputMode?.current==="computer")return;
     const queued=visible.filter(x=>x.state==="queued").length;
     const reading=visible.filter(x=>["preparing","prepared","rendering","ready","reading"].includes(x.state)).length;
     const read=visible.filter(x=>x.state==="read").length;
@@ -381,6 +382,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     renderSummary();
   }
   function render(){
+    if(root.VoxOutputMode?.current==="computer")return;
     const area=get("FeedItems");
     area.replaceChildren();
     // Keep the entire pending queue in memory, but draw a small window.
@@ -427,6 +429,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     renderSummary();
   }
   function renderSpokenHistory(){
+    if(root.VoxOutputMode?.current==="computer")return;
     const area=get("FeedReadItems");
     if(!area)return;
     area.replaceChildren();
@@ -442,6 +445,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     renderSpokenHistory();
   }
   function renderModelHistory(){
+    if(root.VoxOutputMode?.current==="computer")return;
     const area=get("FeedTtsReadItems");
     if(!area)return;
     area.replaceChildren();
@@ -503,6 +507,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   // text is the actual composed speech request (including sender header),
   // never just whatever happens to be in the latest chat input at this time.
   function setSpeechDiagnostic(record){
+    if(root.VoxOutputMode?.current==="computer")return;
     if(!record||typeof record!=="object")return;
     if(!["preparing","ready","reading","failed","skipped","read"].includes(record.stage))return;
     const text=String(record.text||"").slice(0,9000);
@@ -526,6 +531,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   // Explicit local pipeline view. Never show raw incoming chat as the
   // *translated* text: that field is populated only by private TTS inspection.
   function setPipelineQueues(snapshot){
+    if(root.VoxOutputMode?.current==="computer")return;
     if(!Array.isArray(snapshot))return;
     // Show only five previews to bound DOM while counting every admitted job.
     // Up to 100 future text-only tasks can be held without DOM growth.
@@ -774,6 +780,45 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       throw Error("เชื่อม TikFinity ไม่สำเร็จ");
     }
   }
+  async function startTikFinityCore(){
+    // TikFinity Desktop runs on the same machine as Core. Browser only
+    // requests a connection; Core owns WebSocket, queue, AI and audio.
+    const endpoint=tikTokURL(get("FeedSourceId").value);
+    const maxChars=Number(get("FeedMaxChars").value);
+    if(!Number.isInteger(maxChars)||maxChars<20||maxChars>8000)
+      throw Error("กำหนดความยาวข้อความ 20–8000 ตัวอักษร");
+    localSuspend();
+    clearMessages();
+    const ticket=++generation;
+    get("FeedStart").disabled=true;
+    try{
+      if(onConnect)await onConnect(mode);
+      if(ticket!==generation||!guard(mode))return;
+      const filters={
+        blocked_words:get("FeedBlocked").value.split(",").map(x=>x.trim()).filter(Boolean),
+        max_chars:maxChars
+      };
+      const result=await api("start",{
+        ...credentials(mode),source_id:endpoint,credential:"",
+        filters,runtime_auto_read:Boolean(get("FeedAuto").checked)
+      });
+      if(ticket!==generation||!guard(mode))return;
+      connected=true;
+      get("FeedStop").disabled=false;
+      message("Core เชื่อมต่อ TikFinity Desktop บน localhost:21213 · "+
+              "รับข้อความและสร้างเสียงโดย Server");
+      openSourceStream(ticket);
+      await poll();
+      return result;
+    }catch(error){
+      if(ticket===generation){
+        connected=false;
+        get("FeedStart").disabled=false;
+        message("Core เชื่อมต่อ TikFinity ไม่สำเร็จ: "+String(error.message||error));
+      }
+      throw error;
+    }
+  }
   async function start(){
     if(browserMode){
       if(extensionMode)get("FeedPairingCode").value="";
@@ -782,7 +827,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     }
     if(!guard(mode) && (mode==="tiktok" || !onConnect))
       throw Error("กรุณาเปิดโหมดนี้ก่อนเชื่อมต่อ");
-    if(mode==="tiktok")return startTikTok();
+    if(mode==="tiktok")
+      return root.VoxOutputMode?.current==="computer"
+        ?startTikFinityCore():startTikTok();
     const channelId=get("FeedSourceId").value.trim();
     if(browserMode&&!channelId)
       throw Error("กรุณาใส่ "+(mode==="tiktok_browser"?"TikTok Username หรือ URL ของ LIVE":"YouTube Video ID หรือ URL ของ LIVE")+" ก่อนกดเชื่อมต่อ");
@@ -856,7 +903,17 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     const drainEpoch=resetEpoch;
     inFlight=true;
     try{
-      const result=await api("drain",{...credentials(mode),limit:10});
+      // Core owns the source drain. Browser observes status but never steals chats.
+      const computerOwned=root.VoxOutputMode?.current==="computer";
+      let result;
+      if(computerOwned){
+        const response=await fetch("/v1/sources/status?mode="+encodeURIComponent(mode),
+                                   {cache:"no-store"});
+        if(!response.ok)throw Error("Core source status HTTP "+response.status);
+        result={status:await response.json(),messages:[]};
+      }else{
+        result=await api("drain",{...credentials(mode),limit:10});
+      }
       if(ticket!==generation||drainEpoch!==resetEpoch||resetting||!guard(mode))return;
       const status=result.status;
       reportSource(status.state||"running",{
@@ -885,7 +942,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       render();
       // A source may be producing faster than a single 10-message drain.
       // Continue immediately without waiting for a throttled timer or SSE.
-      if(status.pending>0)pendingWake=true;
+      if(status.pending>0&&!computerOwned)pendingWake=true;
       if(browserMode){
         const browserPhase=status.state==="error"?"error"
           :status.state==="retrying"?"retrying"
@@ -1030,6 +1087,30 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     }
   }
   async function stop(){
+    // In Computer mode, stopping is a Core operation even after the tab was
+    // refreshed and no previous Browser-owned workspace token is available.
+    if(root.VoxOutputMode?.current==="computer"){
+      const button=get("FeedStop");
+      button.disabled=true;
+      try{
+        const response=await fetch("/v1/runtime/source/stop",{
+          method:"POST",cache:"no-store",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":"stop-core-source"},
+          body:JSON.stringify({mode})
+        });
+        const result=await response.json();
+        if(!response.ok)throw Error(result.error||"Core stop HTTP "+response.status);
+        localSuspend();
+        message("Core หยุดรับข้อความและยกเลิกงานเสียงค้างของโหมดนี้แล้ว · "+
+                Number(result.cancelled_jobs||0)+" งาน");
+        return;
+      }catch(error){
+        button.disabled=false;
+        message("คำสั่งหยุด Core ไม่สำเร็จ: "+String(error.message||error));
+        throw error;
+      }
+    }
     if(mode==="tiktok"){
       localSuspend();
       message("หยุดรับคอมเมนต์ TikTok LIVE แล้ว");
@@ -1095,11 +1176,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     if(!document.hidden)wake();
   });
   async function reconnectExisting(){
-    if(connected||mode==="tiktok"||!guard(mode))return;
+    if(connected||(mode==="tiktok"&&root.VoxOutputMode?.current!=="computer")||!guard(mode))return;
     const response=await fetch("/v1/runtime/state",{cache:"no-store"});
     if(!response.ok)return;
     const runtime=await response.json();
     if(runtime.mode!=="computer")return;
+    if(root.VoxOutputMode)root.VoxOutputMode.current="computer";
     const state=await fetch("/v1/sources/status?mode="+encodeURIComponent(mode),
                             {cache:"no-store"});
     if(!state.ok)return;
@@ -1133,6 +1215,16 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   root.VoxSourceQueueUI?.attach(mode,el);
   renderSummary();
   return {start,stop,poll,resetPending,reconnectExisting,suspend:localSuspend,setMessageState,setPipelineQueues,setSpeechDiagnostic,setSpeechModelInputs,exportSettings,importSettings,
+          refreshBrowserView(){
+            render();renderSpokenHistory();renderModelHistory();renderSummary();
+            setPipelineQueues(pipelineQueues);
+            if(currentSpeech)setSpeechDiagnostic(currentSpeech);
+            else{
+              const status=get("FeedCurrentStatus"),body=get("FeedCurrentText");
+              if(status)status.textContent="ยังไม่มีงานสร้างเสียงใน Browser";
+              if(body)body.textContent="";
+            }
+          },
           get connected(){return connected;},get visible(){return visible.slice();}};
 }
 root.VoxSourceFeed={attach};

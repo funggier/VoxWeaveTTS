@@ -14,14 +14,14 @@
 เปิดแท็บ **ตั้งค่า** (Web UI) หรือแท็บ **ตั้งค่า** (Desktop UI) แล้วเลือก:
 
 1. **รูปแบบการทำงาน**
-   - `browser`: โหมดเดิม ผู้ใช้เปิด Web UI ที่ควบคุมการเล่นเสียง ผ่าน HTMLMediaElement
-   - `computer`: Core รับและสร้างเสียง/เล่นบนเครื่องเอง แม้ไม่มี Web UI เปิดอยู่
+   - `computer`: **ค่าเริ่มต้นของการติดตั้งใหม่** Core รับแชท จัดคิว แปล สร้างเสียง เล่นเสียง และเก็บสถานะเอง ไม่ต้องเปิด Browser ค้างไว้
+   - `browser`: โหมดสำรองเมื่อจำเป็นต้องเล่นเสียงผ่าน HTMLMediaElement ของ Browser โดยผู้ใช้เลือกเอง ค่าที่ผู้ใช้เคยบันทึกไว้จะยังคงเดิม
 2. **ส่งเสียงออกทาง**
    - `default`: Windows default output
    - `wasapi:<ชื่ออุปกรณ์>`: Windows speaker / USB DAC / headphone endpoint ที่มีอยู่จริง; ตรวจพบชื่อใหม่จากเครื่องทุกครั้ง ไม่บันทึก index อุปกรณ์
    - `live`: ส่ง PCM16 สดให้ผู้ฟังผ่านเบราว์เซอร์ทาง LAN และ **ไม่เล่นเสียงซ้ำ** ออกจากลำโพงคอม
 
-ในโหมด `computer`, คลิก **เล่นซ้ำเสียงล่าสุดผ่าน API** เพื่อเริ่มเล่นเสียงที่ Core เก็บไว้ในหน่วยความจำอีกครั้งที่ปลายทางที่เลือก ปุ่ม **หยุดเสียง** ก็สั่ง Core ผ่าน API เดียวกัน
+ในโหมด `computer`, คลิก **เล่นซ้ำเสียงล่าสุดผ่าน API** เพื่อเริ่มเล่นเสียงที่ Core เก็บไว้ในหน่วยความจำอีกครั้งที่ปลายทางที่เลือก ปุ่ม **หยุดเสียงและพักคิว Core** จะหยุดเสียงปัจจุบันทันทีที่สตรีมตรวจพบสัญญาณ และไม่ส่งงานต่อจนกด **อ่านอัตโนมัติต่อ** ส่วนปุ่ม **หยุดรับข้อความ** ของ Live แต่ละโหมดจะหยุด Source Worker, ล้างคิวที่ยังรอ และยกเลิกงานแปล/TTS ที่ค้างเฉพาะโหมดนั้นใน Core โดยไม่กระทบโหมดอื่น
 
 ### API หลัก
 
@@ -31,11 +31,13 @@
 | POST | `/v1/runtime/mode` | `{"mode":"browser"|"computer"}` / intent `set-runtime-mode` |
 | POST | `/v1/runtime/output` | `{"output":"default"|"live"|"wasapi:..."}` / intent `set-runtime-output` |
 | POST | `/v1/runtime/replay` | `{}` / intent `replay-computer-audio` |
-| POST | `/v1/runtime/playback` | `{"action":"stop"}` / intent `control-computer-playback` |
+| POST | `/v1/runtime/playback` | `{"action":"stop"|"resume"}` / intent `control-computer-playback` — พักคิว/อ่านต่อเมื่อสั่งชัดเจน |
+| POST | `/v1/runtime/source/stop` | `{"mode":"live"|"youtube_browser"|"tiktok"|"tiktok_browser"|"discord"|"discord_client"}` / intent `stop-core-source` — หยุดเฉพาะ Source และงานเสียงของโหมดนั้น (ต้องเป็น Same Origin) |
+| POST | `/v1/runtime/dashboard` | `{}` / intent `inspect-runtime-dashboard` — ดูสถานะจริงของ Core แบบอ่านอย่างเดียว (ต้องเป็น Same Origin) |
 | POST | `/v1/jobs` | สั่งสร้างเสียงด้วย API คิวงานเดิม / intent `queue-speech` |
 | GET | `/v1/playback/state` | สถานะ subtitle/playback จาก Core |
 
-บนช่องทาง LAN (`8766`) อนุญาตเฉพาะ `GET /listen`, `GET /v1/live/stream`, `GET /v1/live/status`, `POST /v1/live/replay` และ `POST /v1/live/stop`. ยกเว้นหน้า `/listen` ทุก endpoint ต้องส่ง `Authorization: Bearer <token>`. หน้าเว็บอ่าน token จาก URL fragment และส่งเป็น header; ไม่ใส่ใน URL query เพื่อไม่ติด access log. ส่วน API หลักยัง bind เฉพาะ `127.0.0.1` (loopback) เหมือนเดิม
+บนช่องทาง LAN (`8766`) อนุญาตเฉพาะ `GET /listen`, `GET /v1/live/stream`, `GET /v1/live/status`, `POST /v1/live/replay` และ `POST /v1/live/stop`. ยกเว้นหน้า `/listen` ทุก endpoint ต้องส่ง `Authorization: Bearer <token>`. หน้าเว็บอ่าน token จาก URL fragment และส่งเป็น header; ไม่ใส่ใน URL query เพื่อไม่ติด access log. ส่วน Web Control และ API หลักเปิดรับตาม IP/Port ที่ Launcher ตั้งไว้ (Local, LAN หรือ All IPv4) โดยเป็นบริการแยกจาก Live Listener
 
 ### ความหมายของคำว่า Live
 
@@ -56,5 +58,6 @@ Live ในระบบนี้หมายถึงส่งกรอบ PCM16
 - โทรศัพท์ต้องอยู่ LAN เดียวกันกับคอม (หรือ VPN ที่ผู้ใช้ตั้งค่าเอง), เปิดพอร์ต 8766 ให้ถึงคอมบนเครือข่ายที่ไว้ใจได้; ไม่แนะนำเปิดพอร์ตนี้ออกอินเทอร์เน็ต เนื่องจากเป็น HTTP ไม่เข้ารหัส
 - ลิงก์ผู้ฟังมี Bearer token ของการรัน Core ครั้งนั้น ผู้ได้ลิงก์สามารถรับเสียงสดและสั่งเล่นซ้ำ/หยุดเสียงได้ จึงควรเก็บเป็นส่วนตัว
 - โทรศัพท์ต้องเปิดหน้า `listen` ไว้; มือถือบางเครื่องจะพักการทำงานเมื่อล็อกจอ/สลับแอปตามนโยบายพลังงานของเบราว์เซอร์
-- แหล่งที่ต้องใช้ Chrome extension หรือ browser DOM ขึ้นกับหน้าต่างรับแชทที่เกี่ยวข้องต่อไป; การปิด Web UI ควบคุมไม่ได้ปิด source worker ที่รันบน Python
+- แหล่งที่ต้องใช้ Chrome extension หรือ browser DOM ยังคงต้องเปิดแท็บบนแพลตฟอร์มเพื่อจับข้อความ; หลังส่งเหตุการณ์เข้า Core แล้วการจัดคิว แปล และสร้างเสียงไม่ขึ้นกับแท็บ Web Control
+- TikFinity Desktop เชื่อมผ่าน `ws://127.0.0.1:21213/` บน **เครื่อง Server** โดย Core เป็นผู้รับ WebSocket ในโหมด Computer; ไม่เปิดรับการเชื่อมต่อ WebSocket ไปยัง Host ภายนอก
 - ขณะนี้ live output ส่ง TTS ใหม่เป็นกรอบ PCM16 mono จาก Core โดยเลือกปลายทางหลักได้ครั้งละหนึ่งแบบ; นี่ไม่ใช่ระบบ broadcast เสียงทุกอย่างจากระบบปฏิบัติการ

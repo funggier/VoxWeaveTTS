@@ -202,6 +202,8 @@ class HTTPBridgeTests(unittest.TestCase):
         cls.server.mode_state = ModeState()
         cls.server.playback_state = PlaybackState()
         cls.server.source_manager = SourceManager()
+        from types import SimpleNamespace
+        cls.server.runtime_control = SimpleNamespace(mode=lambda: "browser")
         cls.thread = threading.Thread(target=cls.server.serve_forever,daemon=True)
         cls.thread.start()
         cls.base = f"http://127.0.0.1:{cls.server.server_port}"

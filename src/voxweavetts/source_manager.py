@@ -1,8 +1,10 @@
-"""Independent opt-in YouTube/Discord source monitors per workspace.
+"""Independent Core-owned YouTube/Discord/TikFinity source monitors.
 
-Credentials never leave this manager through status, logs or exceptions.
-Backend polling is read-only. Browser playback (with a real HTMLMediaElement)
-remains the sole authority for the unified OBS subtitle clock.
+The manager owns connections and bounded input previews across Browser
+refreshes; it does not generate speech or play audio itself. In Computer mode
+CoreRuntime is the only message consumer. Browser/Extension code is used only
+when a platform requires access to a live DOM or an explicit Browser fallback.
+Credentials are never returned through public status, logs or wake streams.
 """
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ import os
 import re
 import threading
 from collections import deque
+from itertools import islice
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -18,6 +21,7 @@ from .processing import InputError
 from .discord_client_rpc import DiscordClientRPCAdapter
 from .youtube_browser import YouTubeBrowserAdapter
 from .tiktok_extension import TikTokExtensionAdapter, ExtensionBridgeError
+from .tikfinity_core import TikFinityCoreAdapter
 from .source_adapters import (
     DiscordChannelAdapter, PollResult, SourceFailure, SourceMessage,
     YouTubeLiveAdapter,
@@ -72,8 +76,8 @@ class _Session:
             "temporary_credentials": True,
             "runtime_auto_read": self.runtime_auto_read,
             **({"transport": self.adapter.transport}
-               if self.mode in ("live", "youtube_browser", "tiktok_browser") and getattr(self.adapter, "transport", None)
-               in ("streamList", "polling", "browser-dom", "extension") else {}),
+               if self.mode in ("live", "youtube_browser", "tiktok_browser", "tiktok") and getattr(self.adapter, "transport", None)
+               in ("streamList", "polling", "browser-dom", "extension", "local-websocket") else {}),
             **({"dom_diagnostics": self.adapter.diagnostics}
                if self.mode == "tiktok_browser"
                and isinstance(getattr(self.adapter, "diagnostics", None), dict)
@@ -101,7 +105,8 @@ class SourceManager:
                  discord_factory: Callable[..., Any] = DiscordChannelAdapter,
                  client_factory: Callable[..., Any] = DiscordClientRPCAdapter,
                  browser_factory: Callable[..., Any] = YouTubeBrowserAdapter,
-                 tiktok_browser_factory: Callable[..., Any] = TikTokExtensionAdapter):
+                 tiktok_browser_factory: Callable[..., Any] = TikTokExtensionAdapter,
+                 tikfinity_factory: Callable[..., Any] = TikFinityCoreAdapter):
         self._lock = threading.RLock()
         self._changed = threading.Condition(self._lock)
         self._revisions: dict[str, int] = {}
@@ -113,6 +118,7 @@ class SourceManager:
         self._client_factory = client_factory
         self._browser_factory = browser_factory
         self._tiktok_browser_factory = tiktok_browser_factory
+        self._tikfinity_factory = tikfinity_factory
 
     @staticmethod
     def _validate_policy(value: object) -> tuple[tuple[str, ...], int]:
@@ -147,7 +153,7 @@ class SourceManager:
         return not any(blocked in folded for blocked in session.block_words)
 
     def _authorized(self, mode: Any, token: Any, mode_state: ModeState) -> None:
-        if mode not in ("live", "youtube_browser", "tiktok_browser", "discord", "discord_client") or not mode_state.is_owner(mode, token):
+        if mode not in ("live", "youtube_browser", "tiktok_browser", "tiktok", "discord", "discord_client") or not mode_state.is_owner(mode, token):
             raise ModeConflict("source monitor requires the active mode owner token")
 
     def start(self, data: dict[str, Any], mode_state: ModeState) -> dict[str, Any]:
@@ -157,7 +163,7 @@ class SourceManager:
         self._authorized(mode, token, mode_state)
         source_id = data.get("source_id")
         secret = data.get("credential")
-        if mode not in ("discord_client", "youtube_browser", "tiktok_browser") and (secret is None or secret == ""):
+        if mode not in ("discord_client", "youtube_browser", "tiktok_browser", "tiktok") and (secret is None or secret == ""):
             variable = ("VOXWEAVE_YOUTUBE_API_KEY" if mode == "live"
                         else "VOXWEAVE_DISCORD_BOT_TOKEN")
             secret = os.environ.get(variable, "")
@@ -171,6 +177,8 @@ class SourceManager:
             adapter = self._browser_factory(source_id)
         elif mode == "tiktok_browser":
             adapter = self._tiktok_browser_factory(source_id)
+        elif mode == "tiktok":
+            adapter = self._tikfinity_factory(source_id)
         elif mode == "discord":
             adapter = self._discord_factory(source_id, secret)
         else:
@@ -309,7 +317,7 @@ class SourceManager:
 
     def _all_wake_snapshot_unlocked(self) -> dict[str, Any]:
         modes = ("live", "youtube_browser", "tiktok_browser",
-                 "discord", "discord_client")
+                 "tiktok", "discord", "discord_client")
         return {"mode": "all", "revision": self._global_revision,
                 "sources": [self._wake_snapshot_unlocked(mode) for mode in modes]}
 
@@ -333,7 +341,7 @@ class SourceManager:
 
     def wake_snapshot(self, mode: str) -> dict[str, Any]:
         if mode not in ("live", "youtube_browser", "tiktok_browser",
-                        "discord", "discord_client"):
+                        "tiktok", "discord", "discord_client"):
             raise InputError("unsupported source watcher mode")
         with self._changed:
             return self._wake_snapshot_unlocked(mode)
@@ -346,7 +354,7 @@ class SourceManager:
         notification. The token-authenticated POST /drain remains authoritative.
         """
         if mode not in ("live", "youtube_browser", "tiktok_browser",
-                        "discord", "discord_client"):
+                        "tiktok", "discord", "discord_client"):
             raise InputError("unsupported source watcher mode")
         if type(previous_revision) is not int or previous_revision < 0:
             raise InputError("invalid source watcher revision")
@@ -361,8 +369,8 @@ class SourceManager:
             return current if current["revision"] != previous_revision else None
 
     def status(self, mode: str) -> dict[str, Any]:
-        if mode not in ("live", "youtube_browser", "tiktok_browser", "discord", "discord_client"):
-            raise InputError("source mode must be live, youtube_browser, tiktok_browser, discord or discord_client")
+        if mode not in ("live", "youtube_browser", "tiktok_browser", "tiktok", "discord", "discord_client"):
+            raise InputError("unsupported source mode")
         with self._lock:
             s = self._sessions.get(mode)
             if s is None:
@@ -384,6 +392,25 @@ class SourceManager:
             session.runtime_auto_read = enabled
             self._notify_unlocked(mode)
             return session.public()
+
+    def preview_for_runtime(self, mode: str, limit: int = 5) -> dict[str, Any]:
+        """Private, read-only queue preview for the Core-owned Browser dashboard.
+
+        Never expose this through public GET status or unauthenticated SSE:
+        message content can only be requested by the same-origin, intent-gated
+        diagnostic endpoint on the main Server.
+        """
+        if mode not in ("live", "youtube_browser", "tiktok_browser",
+                        "tiktok", "discord", "discord_client"):
+            raise InputError("invalid runtime source mode")
+        if not 1 <= limit <= 5:
+            raise ValueError("invalid preview limit")
+        with self._lock:
+            session = self._sessions.get(mode)
+            if session is None:
+                return {"count": 0, "items": []}
+            return {"count": len(session.pending),
+                    "items": [msg.public() for msg in islice(session.pending, limit)]}
 
     def take_for_runtime(self, limit: int = 10) -> list[tuple[str, dict[str, Any]]]:
         """Server-owned consumer. Never expose this un-tokened operation via HTTP."""
@@ -441,13 +468,16 @@ class SourceManager:
                     session.state = ("connecting" if session.mode in ("youtube_browser", "tiktok_browser")
                                      and not getattr(session.adapter, "dom_ready", True)
                                      else "running")
-                    session.info = ("Discord Desktop RPC subscribed to selected room"
-                                    if session.mode == "discord_client"
-                                    else ("Browser connection active"
-                                          if session.mode in ("youtube_browser", "tiktok_browser")
-                                          else ("YouTube streamList connected"
-                                                if session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList"
-                                                else "official API connected")))
+                    if session.mode == "discord_client":
+                        session.info = "Discord Desktop RPC subscribed to selected room"
+                    elif session.mode == "tiktok":
+                        session.info = "TikFinity Desktop local WebSocket connected to Core"
+                    elif session.mode in ("youtube_browser", "tiktok_browser"):
+                        session.info = "Browser extension/DOM bridge connected"
+                    elif session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList":
+                        session.info = "YouTube streamList connected"
+                    else:
+                        session.info = "official API connected"
                     if session.mode == "tiktok_browser" and session.state == "connecting":
                         phase = getattr(session.adapter, "phase", "")
                         session.info = {
@@ -494,13 +524,16 @@ class SourceManager:
                         session.next_poll_seconds = 0
                         self._notify_unlocked(session.mode)
                         break
-                    delay = (min(5, max(0.5, batch.delay_seconds))
-                             if session.mode in ("youtube_browser", "tiktok_browser") else
-                             (0.0 if session.mode == "live" and
-                             getattr(session.adapter, "transport", "") == "streamList"
-                             else (min(2, max(.1, batch.delay_seconds))
-                                   if session.mode == "discord_client"
-                                   else min(3600, max(5, batch.delay_seconds)))))
+                    if session.mode in ("youtube_browser", "tiktok_browser"):
+                        delay = min(5, max(0.5, batch.delay_seconds))
+                    elif session.mode == "tiktok":
+                        delay = min(1.0, max(0.1, batch.delay_seconds))
+                    elif session.mode == "live" and getattr(session.adapter, "transport", "") == "streamList":
+                        delay = 0.0
+                    elif session.mode == "discord_client":
+                        delay = min(2, max(0.1, batch.delay_seconds))
+                    else:
+                        delay = min(3600, max(5, batch.delay_seconds))
                     session.next_poll_seconds = delay
                     phase = str(getattr(session.adapter, "phase", ""))[:90]
                     after = (session.state, session.received,

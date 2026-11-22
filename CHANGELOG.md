@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Core-first Live control
+
+- New installs default to computer-owned TTS and playback; saved Browser mode remains available explicitly.
+- Browser refresh is read-only: restores server mode, stages, temporary history, version and pause state without activating workspaces or running automatic text/translation tests.
+- Global Stop Audio pauses Core dispatch and playback until explicit Resume. Per-source Stop disconnects that source and cancels its queued/active Core jobs without affecting other modes; stop works after Browser refresh.
+- Move TikFinity localhost WebSocket capture into Core without additional external Python dependencies, including strict loopback validation and safe shutdown; Browser WebSocket remains an explicit fallback.
+- Add authenticated, same-origin Core dashboard/stop endpoints, server-owned source status, bounded history and cursor-triggered UI refresh without an extra dashboard loop.
+
+
 ## v0.12.12
 
 - Fix Windows WASAPI/USB DAC playback at devices that reject a TTS WAV's native sample rate; automatically negotiate an accepted output sample rate, resample PCM16 audio, and expose actual output format/diagnostic errors.

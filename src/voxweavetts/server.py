@@ -83,7 +83,8 @@ _COORDINATOR_LOCK = threading.Lock()
 _COORDINATOR: SpeechCoordinator | None = None
 _AI_QUEUE_SETTINGS_LOCK = threading.Lock()
 _LIVE_SPEECH_SOURCES = ("youtube-live", "youtube-live-browser", "discord",
-                        "tiktok-live", "tiktok-live-extension")
+                        "discord-client", "tiktok-live", "tiktok-live-core",
+                        "tiktok-live-extension")
 _PLAYBACK_STATE = PlaybackHub()
 _MODE_LOCK = threading.Lock()
 _SOURCE_LOCK = threading.Lock()
@@ -687,8 +688,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         route = urlsplit(self.path).path
         try:
-            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/source_queue_ui.js", "/audio_scheduler.js", "/runtime_ui.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js"}:
-                name = ("runtime_ui.js" if route == "/runtime_ui.js" else
+            if route in {"/", "/index.html", "/overlay", "/overlay.html", "/playback_clock.js", "/manual_alignment.js", "/waveform_editor.js", "/mode_workspace.js", "/mode_inputs.js", "/source_feed.js", "/source_queue_ui.js", "/audio_scheduler.js", "/runtime_ui.js", "/computer_dashboard.js", "/mode_voice_settings.js", "/emoji_pronunciation.js", "/rule_quick_add.js", "/ai_settings.js", "/language_routes.js"}:
+                name = ("computer_dashboard.js" if route == "/computer_dashboard.js" else
+                        "runtime_ui.js" if route == "/runtime_ui.js" else
                         "audio_scheduler.js" if route == "/audio_scheduler.js" else
                         "mode_voice_settings.js" if route == "/mode_voice_settings.js" else
                         "emoji_pronunciation.js" if route == "/emoji_pronunciation.js" else
@@ -815,6 +817,7 @@ class Handler(BaseHTTPRequestHandler):
                                          "api_port": self.server.server_port})
             elif route == "/v1/runtime/state":
                 data = self._runtime().snapshot()
+                data["version"] = __version__
                 gateway = getattr(self.server, "listening_gateway", None)
                 data["listen_url"] = gateway.url if gateway and gateway.server else None
                 data["listen_error"] = gateway.error if gateway else "not_started"
@@ -1310,6 +1313,43 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 self.send_json(500, {"error": "could not save network configuration"})
             return
+        if route == "/v1/runtime/dashboard":
+            # Private per-source chat and post-translation TTS text. GET status
+            # and SSE remain metadata-only; this POST is read-only and cannot
+            # drain the SourceManager, create jobs or trigger audio playback.
+            if not self._same_origin_action("inspect-runtime-dashboard"):
+                self.reject_unread_post(
+                    403, {"error": "same-origin dashboard inspection required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "dashboard inspection requires JSON"})
+                return
+            try:
+                body = self._read_json(max_bytes=64)
+                if body:
+                    raise InputError("dashboard inspection takes no parameters")
+                self.send_json(200, self._runtime().dashboard())
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"error": "invalid dashboard inspection request"})
+            return
+        if route == "/v1/runtime/source/stop":
+            if self._runtime().mode() != "computer":
+                self.reject_unread_post(409, {"error": "Core source stop requires computer mode"})
+                return
+            if not self._same_origin_action("stop-core-source"):
+                self.reject_unread_post(403, {"error": "same-origin stop intent required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "stop requires application/json"})
+                return
+            try:
+                body = self._read_json(max_bytes=100)
+                if set(body) != {"mode"}:
+                    raise InputError("mode required")
+                self.send_json(200, self._runtime().stop_source(body["mode"]))
+            except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
         if route in {"/v1/runtime/mode", "/v1/runtime/output", "/v1/runtime/audio", "/v1/runtime/replay", "/v1/runtime/playback"}:
             intent = ("set-runtime-mode" if route.endswith("/mode") else
                       "set-runtime-output" if route.endswith("/output") else
@@ -1339,9 +1379,11 @@ class Handler(BaseHTTPRequestHandler):
                         raise InputError("replay does not accept parameters")
                     self.send_json(202, self._runtime().replay_latest())
                 else:
-                    if body != {"action": "stop"}:
-                        raise InputError("playback action must be stop")
-                    self.send_json(200, self._runtime().stop_audio())
+                    if body not in ({"action": "stop"}, {"action": "resume"}):
+                        raise InputError("playback action must be stop or resume")
+                    self.send_json(200, self._runtime().stop_audio()
+                                   if body["action"] == "stop"
+                                   else self._runtime().resume_audio())
             except (InputError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self.send_json(400, {"error": str(exc)})
             except ValueError as exc:
@@ -1370,8 +1412,12 @@ class Handler(BaseHTTPRequestHandler):
                 sources = self._source_manager()
                 if route.endswith("/start"):
                     result = sources.start(data, self._mode_state())
+                    if self._runtime().mode() == "computer":
+                        self._runtime().resume_source(data["mode"])
                 elif route.endswith("/stop"):
                     result = sources.stop(data, self._mode_state())
+                    if self._runtime().mode() == "computer":
+                        self._runtime().stop_source(data["mode"], stop_input=False)
                 elif route.endswith("/reset"):
                     result = sources.reset_pending(data, self._mode_state())
                 elif route.endswith("/runtime-options"):

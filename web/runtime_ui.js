@@ -8,6 +8,7 @@ if(!select)return;
 const status=el("runtimeControlStatus");
 const sources=el("runtimeSourcesStatus");
 const stop=el("runtimeStopComputer");
+const resume=el("runtimeResumeComputer");
 const replay=el("runtimeReplayComputer");
 const output=el("runtimeAudioOutput");
 const sampleRate=el("runtimeAudioSampleRate");
@@ -17,7 +18,7 @@ const saveAudio=el("runtimeAudioSave");
 const audioStatus=el("runtimeAudioStatus");
 const listenLink=el("runtimeListenLink");
 const listenHint=el("runtimeListenHint");
-let current="browser";
+let current="computer"; // Core-first until the authoritative Server state arrives
 let busy=false;
 let refreshing=false;
 const allAudios=()=>document.querySelectorAll("audio");
@@ -41,6 +42,26 @@ function apply(data){
   const changed=current!==data.mode;
   current=data.mode;
   root.VoxOutputMode.current=current;
+  root.VoxLastRuntimeSnapshot=data;
+  root.VoxCoreDashboard?.onRuntimeState(data);
+  const version=el("appVersion");
+  if(version&&data.version)version.textContent="VoxWeaveTTS v"+data.version;
+  const global=el("runtimeGlobalStatus");
+  if(global){
+    const c=data.job_states||{};
+    const waiting=Number(c.preparing||0)+Number(c.prepared||0);
+    global.textContent=current==="computer"
+      ?"Core: ทำงานบนคอม · "+
+        (data.playback_paused?"พักคิวตามคำสั่งหยุด"
+          :data.audio_state==="playing"
+          ?"กำลังอ่าน "+(data.active_workspace||"งานเสียง")
+          :"รอรายการ")+
+        " · แปล/เตรียม "+waiting+
+        " · สร้างเสียง "+Number(c.rendering||0)+
+        " · รอเล่น "+Number(c.ready||0)
+      :"Browser: การสร้าง/เล่นเสียงอยู่ในแท็บที่เปิด · "+
+        "ประวัติงานที่เก็บเฉพาะ Browser อาจหายเมื่อรีเฟรช";
+  }
   if(changed&&current==="computer"){
     for(const item of allAudios())item.pause();
   }
@@ -92,7 +113,8 @@ function apply(data){
   status.textContent=
     (current==="computer"?"Core ประมวลผลเสียงในเครื่อง":"Browser รับผิดชอบการเล่นเสียง")+
     " · "+(data.worker_running?"Worker ทำงาน":"Worker หยุด")+
-    " · "+(data.audio_state==="playing"?"กำลังเล่นเสียง":"ยังไม่ได้เล่นเสียง")+
+    " · "+(data.playback_paused?"หยุดเสียงแล้ว · พักคิวจนกดอ่านอัตโนมัติต่อ"
+      :data.audio_state==="playing"?"กำลังเล่นเสียง":"ยังไม่ได้เล่นเสียง")+
     " · เตรียม/แปล "+number(processing)+
     " · สร้างเสียง "+number(synthesis)+
     " · พร้อมเล่น "+number(waiting)+
@@ -104,14 +126,15 @@ function apply(data){
   const labels={
     live:"YouTube API",youtube_browser:"YouTube Browser",
     tiktok_browser:"TikTok Extension",discord:"Discord",
-    discord_client:"Discord Client"
+    discord_client:"Discord Client",tiktok:"TikFinity Core"
   };
   sources.textContent="แหล่งข้อความ: "+Object.entries(data.sources||{}).map(
     ([key,value])=>(labels[key]||key)+" "+(value.state||"idle")+
       " (รอ "+number(value.pending)+" ข้อความ)"
   ).join(" · ");
-  stop.disabled=current!=="computer";
-  replay.disabled=current!=="computer"||!data.last_completed_speech_id;
+  stop.disabled=current!=="computer"||Boolean(data.playback_paused);
+  if(resume)resume.disabled=current!=="computer"||!data.playback_paused;
+  replay.disabled=current!=="computer"||Boolean(data.playback_paused)||!data.last_completed_speech_id;
 }
 async function refresh(){
   if(busy||refreshing)return;
@@ -122,6 +145,9 @@ async function refresh(){
     apply(await response.json());
   }catch(error){
     status.textContent="อ่านสถานะ Core ไม่สำเร็จ: "+String(error.message||error);
+    root.VoxCoreDashboard?.onRuntimeError(error);
+    const global=el("runtimeGlobalStatus");
+    if(global)global.textContent="Core: ติดต่อ Server ไม่สำเร็จ · ข้อมูลอาจไม่เป็นปัจจุบัน";
   }finally{refreshing=false;}
 }
 async function setValue(action,body,intent,errorLabel){
@@ -170,6 +196,10 @@ replay.addEventListener("click",async()=>{
 stop.addEventListener("click",async()=>{
   await setValue("/v1/runtime/playback",{action:"stop"},
     "control-computer-playback","หยุดเสียงไม่สำเร็จ");
+});
+resume?.addEventListener("click",async()=>{
+  await setValue("/v1/runtime/playback",{action:"resume"},
+    "control-computer-playback","อ่านต่อไม่สำเร็จ");
 });
 document.addEventListener("play",event=>{
   if(current==="computer"&&event.target?.tagName==="AUDIO")

@@ -99,7 +99,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </head>
 <body>
 <main>
-<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Concurrent Workspaces · Per-channel Voices</div></div><div class="pill">Local Studio 0.5.2</div></header>
+<header><div><h1>VoxWeaveTTS</h1><div class="sub">Thai speech studio · Concurrent Workspaces · Per-channel Voices</div></div><div class="pill" id="appVersion">VoxWeaveTTS · กำลังอ่านเวอร์ชัน...</div></header>
 <div class="notice"><strong>โหมดการทำงาน:</strong> แต่ละช่องทางรับข้อความและเล่นเสียงได้พร้อมกัน แม้สลับแท็บ · Engine/Voice/Speed/DSP แยกตามช่องทางได้ ส่วน Rules/Pronunciations ยังคงใช้ร่วมกัน · ต้องกดเชื่อมต่อ Live/Discord เอง</div>
 <div class="app-workspace">
 <aside class="mode-sidebar" aria-label="โหมดการทำงาน">
@@ -127,6 +127,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
     <option value="overlap">เล่นพร้อมกัน (เสียงซ้อนได้)</option>
   </select>
   <span id="audioPolicyStatus" class="small" role="status"></span>
+  <span id="runtimeGlobalStatus" class="small" role="status">กำลังตรวจสถานะ Core...</span>
   <span id="modeOwnerStatus" class="small" role="status">กำลังเชื่อมระบบโหมด...</span>
 
   <a href="/overlay" target="_blank" rel="noopener noreferrer">OBS Overlay</a>
@@ -889,7 +890,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <div><label for="runtimeExecutionMode">รูปแบบการทำงาน</label>
 <select id="runtimeExecutionMode" aria-label="รูปแบบการทำงาน">
 <option value="browser">ทำงานผ่านเว็บ (รูปแบบเดิม)</option>
-<option value="computer">ทำงานในเครื่องคอมพิวเตอร์ (ปิดเว็บได้)</option>
+<option value="computer" selected>ทำงานในเครื่องคอมพิวเตอร์ (ปิดเว็บได้)</option>
 
 </select></div>
 <div><label for="runtimeAudioOutput">ส่งเสียงออกทาง</label>
@@ -898,7 +899,8 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <option value="live">ถ่ายทอดสดผ่านหน้าเว็บ (โทรศัพท์/คอมอีกเครื่อง)</option>
 </select></div>
 <button id="runtimeReplayComputer" type="button" disabled>เล่นซ้ำเสียงล่าสุดผ่าน API</button>
-<button id="runtimeStopComputer" type="button" disabled>หยุดเสียงบนคอมพิวเตอร์</button>
+<button id="runtimeResumeComputer" type="button" disabled>อ่านอัตโนมัติต่อ</button>
+<button id="runtimeStopComputer" type="button" disabled>หยุดเสียงและพักคิว Core</button>
 </div>
 <div class="voice-grid" style="margin-top:12px">
   <div>
@@ -1212,6 +1214,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <script src="/mode_inputs.js"></script>
 <script src="/source_queue_ui.js"></script>
 <script src="/source_feed.js"></script>
+<script src="/computer_dashboard.js"></script>
 <script src="/playback_clock.js"></script>
 <script src="/waveform_editor.js"></script>
 <script src="/manual_alignment.js"></script>
@@ -2812,6 +2815,15 @@ if(typeof VoxSourceFeed!=="undefined"){
     else discordClientFeed=feed;
   }
 }
+if(typeof VoxCoreDashboard!=="undefined"){
+  // One shared, read-only Core snapshot fan-out for every Live workspace.
+  // No additional interval is created; runtime_ui.js is the wake-up source.
+  VoxCoreDashboard.init({feeds:{
+    live:liveFeed,youtube_browser:youtubeBrowserFeed,
+    tiktok_browser:tiktokBrowserFeed,discord:discordFeed,
+    discord_client:discordClientFeed,tiktok:tiktokFeed
+  }});
+}
 if(typeof VoxWorkspaceModes!=="undefined"){
   modeRuntime=VoxWorkspaceModes.attach({
     document,
@@ -2839,7 +2851,8 @@ if(typeof VoxWorkspaceModes!=="undefined"){
   modeRuntime.startMonitor();
 }
 
-el("run").click();
+// Text/translation test runs only when the user explicitly clicks ทดลองประมวลผลข้อความ.
+// Opening or refreshing the Browser never invokes this potentially costly request.
 </script>
 </body>
 </html>

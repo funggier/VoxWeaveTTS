@@ -52,6 +52,9 @@ const sandbox={
   },
   document,Promise,JSON,Number,
   async fetch(path,options){
+    if(path==="/v1/runtime/state")return {
+      ok:true,async json(){return {mode:"browser"};}
+    };
     if(path==="/v1/modes/state")return{
       ok:true,async json(){return {revision,mode_revisions:modeRevisions,active_mode:active};},
     };
