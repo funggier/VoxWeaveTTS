@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.12.17 — Editable language routes and strict manual audio
+
+- Allow updating assigned Thai/English model and voice without deleting route or losing per-language tuning.
+- Refresh installed Universal v4 voice options after a model package installation and report which per-mode language routing configuration overrides the default.
+- Manual output rate/channels are binding; reject unsupported formats or WinMM fallback without silent override. Auto remains adaptive.
+- Show chosen audio settings, source WAV rate and actual last-played device format without displaying stale formats after an output change.
+- Verify real installed Wayu Paxa Edge speed affects generated audio; distribute no NC model weights.
+- [Thai release notes](docs/RELEASE_NOTES_v0.12.17_TH.md) and [audio/route guide](docs/AUDIO_ROUTE_OUTPUT_TH.md).
+
+
 ## v0.12.16 — Browser-first live status and Core controls
 
 - Fix the Core dashboard response when VoxWeaveSTT (API) source is present, so source status for all Live modes loads after browser refresh.

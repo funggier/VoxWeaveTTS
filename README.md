@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**v0.12.17 — Thai/English voice routing and strict manual output:** Edit existing language routes without deleting saved tuning, refresh newly installed Universal v4 voices, and enforce manually selected Sample Rate/Channels. [Release notes](docs/RELEASE_NOTES_v0.12.17_TH.md) · [Audio guide](docs/AUDIO_ROUTE_OUTPUT_TH.md).
+
 **Core Live status and Browser controls:** Core reports real incoming, preparation/translation, synthesis, playback and queue stages for every Live source including STT. Connect/Stop/Auto-read/Reset controls resynchronize after refresh without a second Browser worker. [Core status guide](docs/CORE_STATUS_CONTROLS_TH.md).
 
 **Browser-first direction:** VoxWeaveTTS and VoxWeaveSTT prioritize Core-owned tasks and browser web control. VoxWeaveSTT-Client development is on hold; STT v0.1.2 adds localhost LAN management and optional HTTPS Browser account login. [Architecture note](docs/BROWSER_FIRST_STT_TTS_TH.md).
@@ -17,7 +19,7 @@
 
 **v0.12.11 — Computer-owned TTS runtime, live PCM LAN streaming and independent Remote Client ZIP.** Choose Windows speaker/USB DAC/Live Browser output; replay and stop via the central API; keep processing after closing control windows; configure IP/port and LAN username/password (minimum 4 characters). See [Thai release notes](docs/RELEASE_NOTES_v0.12.11_TH.md), [Server/Client guide](docs/REMOTE_CONTROL_CLIENT_TH.md), and the [seven V4 model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4).
 
-**Windows Portable TTS Studio v0.12.16 — Universal .vwmodel v4 only**
+**Windows Portable TTS Studio v0.12.17 — Universal .vwmodel v4 only**
 
 **Background Live playback (v0.12.10).** Server events wake the staged queue in hidden tabs. Playback session IDs work on HTTP LAN and Tailnet. See the [release notes](docs/RELEASE_NOTES_v0.12.10_TH.md).
 

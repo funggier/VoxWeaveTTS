@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**v0.12.17 — ปรับปรุงการเลือกเสียง Wayu และ Sample Rate:** แก้ไข Engine/เสียงของภาษาไทยที่กำหนดไว้แล้วโดยไม่ต้องลบรายการเดิม พร้อมบังคับ Sample Rate/Channels ตามที่เลือกแบบ Manual และแสดงค่า Output ที่ใช้งานจริง ดู [บันทึก Release](docs/RELEASE_NOTES_v0.12.17_TH.md) · [คู่มือเสียง](docs/AUDIO_ROUTE_OUTPUT_TH.md)
+
 **สถานะและปุ่มควบคุมจาก Core:** แก้การแสดงข้อความรับ/แปล/สร้างเสียง/เล่นจริงของทุกโหมด LIVE รวม STT และการซิงก์ปุ่มเชื่อมต่อ หยุด อ่านอัตโนมัติ และล้างคิวหลัง Refresh โดยไม่เพิ่ม Browser Worker หรือ Poller ดู [คู่มือสถานะ Core](docs/CORE_STATUS_CONTROLS_TH.md)
 
 **ทิศทาง Browser-first:** VoxWeaveTTS และ VoxWeaveSTT จะเน้น Core เป็นผู้ทำงานจริง และใช้ Web UI เป็นหน้าควบคุมหลัก พักการพัฒนา VoxWeaveSTT-Client ก่อน โดย STT v0.1.2 รองรับการจัดการ HTTPS LAN ผ่านหน้าเว็บ Local และล็อกอิน Remote Browser ด้วยบัญชีใน .cmd ดู [คู่มือร่วม](docs/BROWSER_FIRST_STT_TTS_TH.md)
@@ -20,7 +22,7 @@
 
 **v0.12.11 — Core ทำงานบนคอมต่อเนื่อง + ถ่ายทอดสดเสียงสด + Client Portable แยก** เลือกเสียงออกลำโพง/USB DAC หรือ Live Browser, เล่นซ้ำผ่าน API, ตั้ง IP/Port และ Username/Password สำหรับ LAN (ขั้นต่ำ 4 ตัวอักษร) โดยคงฟีเจอร์ V4 เดิมทั้งหมด ดู [บันทึก Release v0.12.11](docs/RELEASE_NOTES_v0.12.11_TH.md), [คู่มือ Server/Client](docs/REMOTE_CONTROL_CLIENT_TH.md) และ [ดาวน์โหลดโมเดลทั้ง 7 ตัว](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4)
 
-**Windows Portable TTS Studio v0.12.16 — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.17 — Universal .vwmodel v4 เท่านั้น**
 
 **อ่านแชทเมื่อแท็บอยู่เบื้องหลัง (v0.12.10)** เซิร์ฟเวอร์แจ้งสถานะงานเสียงล่วงหน้า และเล่นเสียงผ่าน HTTP บน LAN หรือ Tailnet ได้ ดู [บันทึกรีลีส](docs/RELEASE_NOTES_v0.12.10_TH.md)
 
