@@ -1,6 +1,21 @@
 # Changelog
 
-## v0.12.15 — Fix VoxWeaveSTT live Final transcript events`n`n- Fix the API contract: the transcription job ID and audio capture session ID are intentionally different; checking equality rejected real transcripts.`n- Preserve strict sequence and segment/revision validation with distinct capture session IDs.`n- Simplify local and paired HTTPS LAN certificate fingerprint instructions.`n- See [release notes](docs/RELEASE_NOTES_v0.12.15_TH.md).
+## v0.12.16 — Browser-first live status and Core controls
+
+- Fix the Core dashboard response when VoxWeaveSTT (API) source is present, so source status for all Live modes loads after browser refresh.
+- Report real incoming, translation/preparation, speech synthesis, active playback, completed reads and errors from Core; prioritize the currently active job over old queued items.
+- Synchronize Connect/Stop, automatic reading, source IP/port and Reset control states from authoritative Core snapshots instead of stale browser-owned state.
+- Add same-origin, explicit-intent Core actions for auto-read and resetting unadmitted source messages, with race-safe cancellation so reset messages cannot appear later.
+- Preserve admitted translation, audio and active playback during source-queue reset, and keep browser refresh read-only.
+- Add regression tests and [Thai Core status/control guide](docs/CORE_STATUS_CONTROLS_TH.md); continue distributing the same unmodified optional Remote Client without new features.
+- The public Windows Portable Core still includes no model weights or unapproved v4 model packages.
+
+## v0.12.15 — Fix VoxWeaveSTT live Final transcript events
+
+- Fix the API contract: the transcription job ID and audio capture session ID are intentionally different; checking equality rejected real transcripts.
+- Preserve strict sequence and segment/revision validation with distinct capture session IDs.
+- Simplify local and paired HTTPS LAN certificate fingerprint instructions.
+- See [release notes](docs/RELEASE_NOTES_v0.12.15_TH.md).
 
 ## v0.12.14 — VoxWeaveSTT (API)
 

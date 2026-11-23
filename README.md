@@ -4,6 +4,8 @@
 
 **Browser-first direction:** VoxWeaveTTS and VoxWeaveSTT prioritize Core-owned tasks and browser web control. VoxWeaveSTT-Client development is on hold; STT v0.1.2 adds localhost LAN management and optional HTTPS Browser account login. [Architecture note](docs/BROWSER_FIRST_STT_TTS_TH.md).
 
+**v0.12.16 — Core status and browser controls:** Live-source, translation, synthesis and playback states are now sourced from Core, including STT; Connect/Stop/Auto-read/Reset controls resync after refresh without duplicate workers. [Release notes](docs/RELEASE_NOTES_v0.12.16_TH.md).
+
 **v0.12.15 — Fix STT API final transcript reception:** The API job/session ID differs from the audio capture session ID. Update validation and clarify local or paired HTTPS LAN. [Release notes](docs/RELEASE_NOTES_v0.12.15_TH.md).
 
 **v0.12.14 — VoxWeaveSTT (API):** New STT final-transcript workspace with IP/Port connection, optional pinned HTTPS LAN pairing, and reuse of the existing Core translation, voice routes, speech queues and subtitles. See the [STT API guide](docs/STT_API_MODE_TH.md) and [release notes](docs/RELEASE_NOTES_v0.12.14_TH.md).
@@ -15,7 +17,7 @@
 
 **v0.12.11 — Computer-owned TTS runtime, live PCM LAN streaming and independent Remote Client ZIP.** Choose Windows speaker/USB DAC/Live Browser output; replay and stop via the central API; keep processing after closing control windows; configure IP/port and LAN username/password (minimum 4 characters). See [Thai release notes](docs/RELEASE_NOTES_v0.12.11_TH.md), [Server/Client guide](docs/REMOTE_CONTROL_CLIENT_TH.md), and the [seven V4 model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4).
 
-**Windows Portable TTS Studio v0.12.15 — Universal .vwmodel v4 only**
+**Windows Portable TTS Studio v0.12.16 — Universal .vwmodel v4 only**
 
 **Background Live playback (v0.12.10).** Server events wake the staged queue in hidden tabs. Playback session IDs work on HTTP LAN and Tailnet. See the [release notes](docs/RELEASE_NOTES_v0.12.10_TH.md).
 
