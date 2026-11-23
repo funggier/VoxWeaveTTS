@@ -79,7 +79,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
   let prefetchSequence=0; // distinct source key for an explicit failed-job retry
   let sourceOverview={state:"disconnected",connected:false,received:null,
                       discarded:null,pending:null,phase:""};
-  let completedReads=0, importantNotice="";
+  let completedReads=0,displayedCount=0,importantNotice="";
   let manualSynthesizing=false;
   let errorSkipped=0, browserBlockedSkipped=0;
   // Browser permission failures are separate from translation/TTS errors.
@@ -163,6 +163,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       " · กำลังสร้างเสียง "+count("rendering")+
       " · เสียงรอเล่น "+count("ready")+
       " · อ่านจบ "+completedReads+
+      " · แสดงข้อความไม่สร้างเสียง "+displayedCount+
       " · สุ่มลบ "+randomRemoved+
       " · ข้ามข้อผิดพลาด "+errorSkipped+
       " · ข้ามเสียงที่ Browser บล็อก "+browserBlockedSkipped,
@@ -437,7 +438,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       diagnosticText=body.text;
       diagnosticId=sender?.message_id??messageId;
       diagnose("preparing");
-      body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":mode==="tiktok_browser"?"tiktok-live-extension":mode==="stt_api"?"voxweave-stt":"discord";
+      body.source=mode==="live"?"youtube-live":mode==="youtube_browser"?"youtube-live-browser":mode==="tiktok"?"tiktok-live":mode==="tiktok_browser"?"tiktok-live-extension":mode==="stt_api"?"voxweave-stt":mode==="discord_client"?"discord-client":"discord";
       if(messageId!==null)body.source_message_id=mode+"-"+String(messageId).slice(0,100);
       const request=await fetch("/v1/jobs",{
         method:"POST",
@@ -516,6 +517,12 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           }
           return true;
         }
+        if(job.state==="displayed"){
+          onSpeechDiagnostic?.({message_id:diagnosticId,stage:"displayed",
+            text:String(job.display_text||""),error:""});
+          feedback("แสดงข้อความหลังประมวลผลแล้ว · ไม่สร้างเสียง");
+          return "displayed";
+        }
         if(job.state==="skipped"){
           diagnose("skipped");
           feedback("ข้ามข้อความนี้ตามกฎกรองหรือการตั้งค่า AI · ไม่ส่งเข้า TTS");
@@ -572,7 +579,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     payload.sender_prefix_text=parts.sender_prefix_text;
     payload.source=mode==="live"?"youtube-live":mode==="youtube_browser"
       ?"youtube-live-browser":mode==="tiktok"?"tiktok-live"
-      :mode==="tiktok_browser"?"tiktok-live-extension":mode==="stt_api"?"voxweave-stt":"discord";
+      :mode==="tiktok_browser"?"tiktok-live-extension":mode==="stt_api"?"voxweave-stt":mode==="discord_client"?"discord-client":"discord";
     if(item.message_id!=null)
       payload.source_message_id=mode+"-"+String(item.message_id).slice(0,90)+
         (sequence===null?"":"-p"+sequence);
@@ -689,7 +696,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
           fillPrefetched();
           scheduleRenders();
           return job;
-        }else if(["skipped","failed","cancelled"].includes(job.state)){
+        }else if(["displayed","skipped","failed","cancelled"].includes(job.state)){
           task.stage=job.state;task.job=job;
           showPipeline();
           scheduleRenders();
@@ -771,6 +778,11 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
     const job=await task.promise;
     if(task.cancelled||ticket!==queueEpoch||!guard(mode))return false;
     if(!job)return false;
+    if(job.state==="displayed"){
+      onSpeechDiagnostic?.({message_id:item.message_id,stage:"displayed",
+        text:String(job.display_text||""),error:""});
+      return "displayed";
+    }
     if(job.state==="skipped")return "skipped";
     if(job.state==="failed"&&job.error==="all_tts_chunks_failed"
         &&get("FeedContinueOnTtsError")?.checked===true)return "all_failed";
@@ -844,6 +856,16 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       const played=task?await consumePrefetched(task,ticket)
         :await submit({autoPlay:true,messageId:next.message_id});
       if(ticket!==queueEpoch)return; // stop/mode switch cancelled this job
+      if(played==="displayed"){
+        displayedCount++;
+        mark(next,"displayed");
+        activeIncoming=null;
+        activePreparedTask=null;
+        showPipeline();
+        autoBusy=false;
+        pumpIncoming();
+        return;
+      }
       if(played==="skipped" || played==="all_failed"){
         if(played==="all_failed")errorSkipped++;
         mark(next,"skipped");

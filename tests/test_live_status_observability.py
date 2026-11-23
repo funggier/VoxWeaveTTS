@@ -124,7 +124,7 @@ def test_currently_reading_stt_is_not_hidden_behind_old_pending_jobs(tmp_path):
 
         # The active workspace is STT, not "studio". Per-source STOP should
         # therefore be able to target its current playback.
-        runtime._play_audio = lambda _wav, _job, workspace: workspace
+        runtime._play_audio = lambda _wav, _job, workspace, **_kwargs: workspace
         assert runtime._play_job(jobs.jobs[-1]) == "stt_api"
     finally:
         sources.stop_all()

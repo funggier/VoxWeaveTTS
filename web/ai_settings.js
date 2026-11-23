@@ -25,6 +25,12 @@ function attach(document, fetcher){
     tool_search_provider:"aiSearchProvider", tool_searxng_url:"aiSearxngUrl",
     tool_file_read:"aiToolFileRead", tool_max_calls:"aiToolMaxCalls"
   };
+  const noSpeechModes=Object.freeze({
+    live:"aiNoSpeechLive",youtube_browser:"aiNoSpeechYoutubeBrowser",
+    tiktok:"aiNoSpeechTiktok",tiktok_browser:"aiNoSpeechTiktokBrowser",
+    discord:"aiNoSpeechDiscord",discord_client:"aiNoSpeechDiscordClient",
+    stt_api:"aiNoSpeechSttApi",
+  });
   const booleanKeys=new Set(["enabled","auto_detect","translation_bypass_validation","live_ollama_parallel_enabled","allow_context_files",
     "tool_calling_enabled","tool_web_lookup","tool_general_web_search","tool_file_read"]);
   let revision=null, lastLoaded=null, engines=[], packages=[];
@@ -46,6 +52,8 @@ function attach(document, fetcher){
         data[name]=String(element.value);
       }
     }
+    data.no_speech_modes=Object.entries(noSpeechModes)
+      .filter(([,id])=>get(id)?.checked===true).map(([mode])=>mode);
     if(data.engine!=="ollama"||data.operation==="none")data.tool_calling_enabled=false;
     return data;
   }
@@ -57,6 +65,10 @@ function attach(document, fetcher){
       else if(name==="live_ollama_parallel_limit")element.value=String(data[name]??2);
       else if(name==="live_ollama_parallel_minimum")element.value=String(data[name]??1);
       else element.value=String(data[name]);
+    }
+    for(const [mode,id] of Object.entries(noSpeechModes)){
+      const control=get(id);
+      if(control)control.checked=(data.no_speech_modes||[]).includes(mode);
     }
     updateAvailability();
   }
@@ -462,7 +474,7 @@ function attach(document, fetcher){
     });
     revision=data.revision;
     lastLoaded=JSON.stringify(data.settings);
-    status("บันทึกการตั้งค่า AI ส่วนกลางแล้ว; มีผลกับงานเสียงใหม่");
+    status("บันทึก AI และตัวเลือกไม่สร้างเสียงแล้ว · มีผลกับข้อความใหม่ในแต่ละโหมด");
     if(value.engine==="ollama")
       checkOllama().catch(e=>get("aiOllamaStatus").textContent=String(e.message||e));
   }
@@ -503,7 +515,7 @@ function attach(document, fetcher){
       },null,2);
     }catch(e){output.textContent="ไม่สำเร็จ: "+String(e.message||e);}
   });
-  for(const id of Object.values(fields)){
+  for(const id of [...Object.values(fields),...Object.values(noSpeechModes)]){
     const element=get(id);
     element?.addEventListener?.("input",()=>{status("มีการแก้ไขที่ยังไม่ได้บันทึก");});
   }

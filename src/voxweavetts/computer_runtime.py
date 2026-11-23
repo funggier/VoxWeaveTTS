@@ -319,12 +319,19 @@ class ComputerRuntime:
         return self.sources.set_core_auto_read(mode, enabled)
 
     def reset_source_pending(self, mode: str) -> dict[str, Any]:
-        """Explicitly clear source-input backlog only, never active TTS jobs."""
+        """Clear this source's waiting messages and accepted TTS backlog.
+
+        Unlike Stop, Reset does not disconnect the source or interrupt audio
+        already playing. At most one job currently preparing/rendering is kept
+        when there is no active playback for the source. Queued/ready jobs are
+        cancelled in the Core coordinator, not only the source input buffer.
+        """
         if mode not in SOURCE_NAMES:
             raise InputError("invalid Core source mode")
         with self._lock:
             if self._mode != "computer":
                 raise ValueError("Core source reset requires computer mode")
+            # Invalidate source intake and HTTP admissions already in flight.
             self._source_reset_generations[mode] += 1
             held = [(source, message) for source, message in self._pending_messages
                     if source == mode]
@@ -338,14 +345,68 @@ class ComputerRuntime:
                         and not record.get("speech_id") and not record.get("outcome")):
                         record["outcome"] = "cleared"
                         break
-            if held:
+
+            # Pending replay WAVs also belong to this source queue. Do not
+            # interrupt any replay that has already started playing.
+            queued_replays = sum(1 for _wav, job in self._replays
+                                 if self._job_workspace(job) == mode)
+            if queued_replays:
+                self._replays = deque((wav, job) for wav, job in self._replays
+                                      if self._job_workspace(job) != mode)
+
+            # A source's messages can already be translating, generating or
+            # WAV-ready even though its pending input count is zero.
+            known_ids = {record.get("speech_id")
+                         for record in self._recent_messages[mode]
+                         if record.get("speech_id")}
+            pending_states = {"queued", "preparing", "prepared", "rendering", "ready"}
+            jobs = [job for job in self.coordinator.list()
+                    if (self._job_workspace(job) == mode
+                        or job.get("speech_id") in known_ids)
+                    and job.get("state") in pending_states
+                    and job.get("speech_id")]
+            protected = (self._active_id if self._active_workspace == mode else None)
+            if protected is None:
+                # Preserve one in-flight piece of work, like Browser mode's
+                # Reset; every other accepted job is waiting in the queue.
+                for state in ("rendering", "preparing"):
+                    current = next((job for job in jobs if job["state"] == state), None)
+                    if current is not None:
+                        protected = current["speech_id"]
+                        break
+            targets = {job["speech_id"] for job in jobs
+                       if job["speech_id"] != protected}
+            # Prevent the Core playback loop from selecting any cancelled WAV
+            # while the coordinator is transitioning its jobs.
+            self._seen.update(targets)
+            for record in self._recent_messages[mode]:
+                if record.get("speech_id") in targets and not record.get("outcome"):
+                    record["outcome"] = "cleared"
+            if held or targets or queued_replays:
                 self._recent_revision += 1
                 self._revision += 1
                 self._changed.set()
+
+        # Do not hold the runtime lock while cancelling: rendering/translation
+        # workers may be finishing concurrently. A cancelled job cannot play.
+        cancelled = 0
+        for speech_id in targets:
+            try:
+                self.coordinator.cancel(speech_id)
+                cancelled += 1
+            except (JobMissing, ValueError, KeyError):
+                pass
         upstream = self.sources.clear_core_pending(mode)
-        return {"mode": mode, "cleared": len(held) + upstream["cleared"],
-                "pending": 0, "connected": self.sources.status(mode).get("state")
-                in ("running", "connecting", "retrying")}
+        return {
+            "mode": mode,
+            "cleared": len(held) + upstream["cleared"] + cancelled + queued_replays,
+            "cancelled_jobs": cancelled,
+            "replay_jobs_cleared": queued_replays,
+            "preserved_active_jobs": int(protected is not None),
+            "pending": 0,
+            "connected": self.sources.status(mode).get("state")
+            in ("running", "connecting", "retrying"),
+        }
 
     def stop_source(self, mode: str, *, stop_input: bool = True) -> dict[str, Any]:
         """Stop this source, its pending Core jobs and active audio only.
@@ -473,7 +534,7 @@ class ComputerRuntime:
             entries = records[name]
             stages = {"queued": 0, "preparing": 0, "prepared": 0,
                       "rendering": 0, "ready": 0, "reading": 0,
-                      "read": 0, "failed": 0, "skipped": 0, "stopped": 0,
+                      "read": 0, "displayed": 0, "failed": 0, "skipped": 0, "stopped": 0,
                        "cleared": 0}
             decorated = []
             cached_model_inputs = {
@@ -495,6 +556,9 @@ class ComputerRuntime:
                     "message_id": record.get("message_id"),
                     "author": record.get("author", ""),
                     "text": record.get("text", ""),
+                    "processed_text": (record.get("processed_text") or
+                                       ((job or {}).get("display_text", "")
+                                        if state == "displayed" else "")),
                     "state": state,
                     "speech_id": record.get("speech_id"),
                     "error": ((job or {}).get("error") or record.get("error", "")) if state == "failed"
@@ -531,9 +595,11 @@ class ComputerRuntime:
                     "inputs": [self._dashboard_input(part) for part in inputs],
                 })
             read_history = [item for item in reversed(decorated)
-                            if item["state"] == "read"][:100]
+                            if item["state"] in ("read", "displayed")][:100]
             model_history = []
             for item in read_history[:100]:
+                if item.get("state") != "read":
+                    continue  # Text-only mode sent nothing to a TTS model.
                 model_history.append({
                     "speech_id": item.get("speech_id"),
                     "message_id": item.get("message_id"),
@@ -584,7 +650,7 @@ class ComputerRuntime:
         speech_id = job.get("speech_id")
         outcome = ("stopped" if job.get("state") == "cancelled"
                    else job.get("state"))
-        if not speech_id or outcome not in ("failed", "skipped", "stopped"):
+        if not speech_id or outcome not in ("failed", "skipped", "stopped", "displayed"):
             return
         with self._lock:
             for history in self._recent_messages.values():
@@ -594,6 +660,8 @@ class ComputerRuntime:
                         record["outcome"] = outcome
                         if outcome == "failed":
                             record["error"] = str(job.get("error") or "")[:190]
+                        if outcome == "displayed":
+                            record["processed_text"] = str(job.get("display_text") or "")[:8000]
                         self._recent_revision += 1
 
     def max_outstanding_jobs(self) -> int:
@@ -823,9 +891,10 @@ class ComputerRuntime:
                             "discord_client", "tiktok", "stt_api"}:
             workspace = "studio"
         wav = self.coordinator.audio(speech_id)
-        return self._play_audio(wav, job, workspace)
+        return self._play_audio(wav, job, workspace, from_queue=True)
 
-    def _play_audio(self, wav: bytes, job: dict[str, Any], workspace: str) -> bool | None:
+    def _play_audio(self, wav: bytes, job: dict[str, Any], workspace: str,
+                    *, from_queue: bool = False) -> bool | None:
         speech_id = job["speech_id"]
         duration_ms = job["audio"]["duration_ms"]
         session_id = uuid4().hex
@@ -845,7 +914,10 @@ class ComputerRuntime:
                 pass
         with self._lock:
             if (self._playback_paused or workspace in self._stopped_sources
-                or self._mode != "computer"):
+                or self._mode != "computer"
+                or (from_queue and speech_id in self._seen)):
+                # Reset can cancel a WAV after the playback worker selected it
+                # but before the stream starts. Never play that stale job.
                 return False
             self._active_id = speech_id
             self._active_workspace = workspace
@@ -974,7 +1046,7 @@ class ComputerRuntime:
                             if started is not False:
                                 self._seen.add(job_id)
                             break
-                        elif state in {"failed", "skipped", "cancelled"}:
+                        elif state in {"displayed", "failed", "skipped", "cancelled"}:
                             self._remember_terminal_job(job)
                             self._seen.add(job_id)
                         elif state in {"preparing", "queued", "rendering"}:

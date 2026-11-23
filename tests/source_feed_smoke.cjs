@@ -126,6 +126,16 @@ async function main(){
  assert.equal(feed.connected,true,"queue reset must keep the live source connected");
  assert.equal(feed.visible.length,1,"only the currently playing item remains");
  assert.equal(feed.visible[0].message_id,"x2");
+ // Text-only processing shows the Core/AI result instead of original chat,
+ // without adding a fake TTS/model history entry.
+ el("liveFeedKeepRead").value="20";
+ feed.setSpeechDiagnostic({message_id:"x2",stage:"displayed",text:"สวัสดี แปลแล้ว",error:""});
+ feed.setMessageState("x2","displayed");
+ assert.equal(feed.visible[0].state,"displayed");
+ assert.equal(feed.visible[0].processed_text,"สวัสดี แปลแล้ว");
+ assert.equal(el("liveFeedItems").children[0].children[1].textContent,"สวัสดี แปลแล้ว");
+ assert.match(el("liveFeedReadItems").children[0].textContent,/สวัสดี แปลแล้ว/);
+ assert.equal(el("liveFeedTtsReadItems").children.length,0,"no fake TTS history");
  assert.ok(requested.some(x=>x.path==="/v1/sources/reset"),
    "reset must clear the authenticated server-side pending queue");
  active=false;

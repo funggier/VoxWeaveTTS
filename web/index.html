@@ -1099,6 +1099,19 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 </details>
 <hr style="border:0;border-top:1px solid #32425b;margin:20px 0">
 
+<h2>การประมวลผลข้อความ (ไม่สร้างเสียง) — ตั้งค่ากลาง</h2>
+<p class="small">เลือกโหมดที่ต้องการรับแชทและแสดงข้อความโดย <strong>ไม่สร้างเสียง</strong> · ใช้กฎกรองและการแปล AI ตามที่กำหนดด้านล่าง · หากปิด AI จะแสดงข้อความหลังกรองโดยไม่แปล · ค่าเริ่มต้นปิดทุกโหมด และมีผลกับข้อความใหม่หลังบันทึก</p>
+<div class="voice-grid" id="aiNoSpeechModes">
+<label><input type="checkbox" id="aiNoSpeechLive"> ไม่สร้างเสียง · YouTube LIVE (API)</label>
+<label><input type="checkbox" id="aiNoSpeechYoutubeBrowser"> ไม่สร้างเสียง · YouTube LIVE (Browser)</label>
+<label><input type="checkbox" id="aiNoSpeechTiktok"> ไม่สร้างเสียง · TikTok LIVE (TikFinity)</label>
+<label><input type="checkbox" id="aiNoSpeechTiktokBrowser"> ไม่สร้างเสียง · TikTok LIVE (Extension)</label>
+<label><input type="checkbox" id="aiNoSpeechDiscord"> ไม่สร้างเสียง · Discord</label>
+<label><input type="checkbox" id="aiNoSpeechDiscordClient"> ไม่สร้างเสียง · Discord Client</label>
+<label><input type="checkbox" id="aiNoSpeechSttApi"> ไม่สร้างเสียง · VoxWeaveSTT (API)</label>
+</div>
+<p id="aiNoSpeechHint" class="small" role="status">โหมดที่เลือกจะยังรับและกรองข้อความตามปกติ แต่ไม่มี WAV และไม่ส่งงานเข้าโมเดลเสียง</p>
+<hr style="border:0;border-top:1px solid #32425b;margin:16px 0">
 <h2>AI Processing &amp; Translation — ตั้งค่ากลางทุกโหมด</h2>
 <p class="small">ค่าเริ่มต้นปิด ไม่กระทบระบบอ่านเดิม · ใช้โมเดลภายในเครื่องเท่านั้น · โมเดลที่ยังไม่พร้อมจะแจ้งสถานะจริง</p>
 <label><input id="aiEnabled" type="checkbox"> เปิดใช้งาน AI Processing สำหรับงานเสียงใหม่ทุกโหมด</label>

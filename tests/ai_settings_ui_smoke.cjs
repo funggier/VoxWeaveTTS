@@ -252,5 +252,18 @@ const tick=async()=>{for(let n=0;n<10;n++)await Promise.resolve();};
   await tick();
   assert.match(el("aiSearchTestResult").textContent,/Bangkok/);
   assert.equal(calls.filter(c=>c.url==="/v1/ai/search/test").length,1);
-  console.log("PASS: provider dropdown, direct search testing, encrypted-key controls and profile import/export");
+  // Global Settings keeps the speechless source choices separate from AI
+  // enable/translate. It must also survive save and reload.
+  assert.equal(el("aiNoSpeechDiscord").checked,false);
+  el("aiNoSpeechDiscord").checked=true;
+  el("aiNoSpeechSttApi").checked=true;
+  el("aiSave").click();
+  await tick();
+  assert.deepEqual(settings.no_speech_modes,["discord","stt_api"]);
+  assert.deepEqual(app.readFields().no_speech_modes,["discord","stt_api"]);
+  await app.load();
+  assert.equal(el("aiNoSpeechDiscord").checked,true);
+  assert.equal(el("aiNoSpeechSttApi").checked,true);
+  assert.equal(el("aiNoSpeechLive").checked,false);
+  console.log("PASS: AI settings, no-speech per-source toggles persist after reload, secure search profiles");
 })().catch(e=>{console.error(e);process.exitCode=1;});

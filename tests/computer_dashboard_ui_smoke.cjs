@@ -153,6 +153,27 @@ const pause=()=>new Promise(resolve=>setTimeout(resolve,20));
   assert.equal(document.getElementById("liveFeedAuto").disabled,false,
     "offline auto-read setting remains editable for next Connect");
   assert.equal(document.getElementById("liveFeedReset").disabled,true,
-    "empty source input queue has nothing to reset");
-  console.log("PASS: computer dashboard hydrate/refresh, truthful stages/history, Core controls after reconnect/disconnect, zero new loops");
+    "empty Core source and TTS backlog has nothing to reset");
+  // An empty input buffer does NOT mean the queue is empty: accepted audio
+  // may still be waiting for playback. Reset must remain clickable.
+  activeDashboard=makeDashboard();
+  activeDashboard.sources.live.source_pending=0;
+  activeDashboard.sources.live.buffered_count=0;
+  activeDashboard.sources.live.counts={
+    queued:0,preparing:0,prepared:0,rendering:0,ready:3,reading:0,
+    read:0,failed:0,
+  };
+  window.VoxCoreDashboard.onRuntimeState({mode:"computer",dashboard_cursor:"6:1:1:1"});
+  await pause();
+  assert.equal(document.getElementById("liveFeedReset").disabled,false,
+    "accepted WAV-ready backlog must enable Core Reset even with zero raw messages");
+  activeDashboard.sources.live.counts={
+    queued:0,preparing:0,prepared:0,rendering:0,ready:0,reading:1,
+    read:0,failed:0,
+  };
+  window.VoxCoreDashboard.onRuntimeState({mode:"computer",dashboard_cursor:"7:1:1:1"});
+  await pause();
+  assert.equal(document.getElementById("liveFeedReset").disabled,true,
+    "only a currently playing job must not present a removable backlog");
+  console.log("PASS: computer dashboard hydrate/refresh, truthful stages/history and resettable accepted TTS backlog");
 })().catch(error=>{console.error(error);process.exitCode=1});

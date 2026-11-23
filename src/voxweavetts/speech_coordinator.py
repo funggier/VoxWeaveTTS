@@ -29,7 +29,7 @@ MAX_TOTAL_AUDIO_BYTES = 512_000_000  # bounded global WAV cache, not per source
 JOB_TTL_SECONDS = 900
 TRANSLATION_GATHER_SECONDS = 0.15
 MAX_BATCH_TEXT_CHARS = 12_000
-_TERMINAL = frozenset({"ready", "failed", "cancelled", "skipped"})
+_TERMINAL = frozenset({"ready", "displayed", "failed", "cancelled", "skipped"})
 
 
 class QueueFull(Exception):
@@ -72,6 +72,7 @@ class _Job:
     prepare: Callable[[], tuple[dict[str, Any], dict[str, Any]]] | None = None
     hold_for_render: bool = False
     translation: LiveTranslation | None = None
+    text_only: bool = False
     state: str = "queued"
     created_at: str = field(default_factory=_now_utc)
     created_mono: float = field(default_factory=time.monotonic)
@@ -322,6 +323,7 @@ class SpeechCoordinator:
         source: str, engine_id: str = "pending", voice_id: str = "pending",
         source_message_id: str | None = None, hold_for_render: bool = False,
         live_translation: LiveTranslation | None = None,
+        text_only: bool = False,
     ) -> dict[str, Any]:
         """Reserve stable speech ID; prepare on a separate worker.
 
@@ -330,6 +332,8 @@ class SpeechCoordinator:
         """
         if not callable(prepare):
             raise InputError("prepare must be callable")
+        if type(text_only) is not bool:
+            raise InputError("text_only must be boolean")
         if not isinstance(source, str) or not 1 <= len(source) <= 80:
             raise InputError("invalid deferred speech source")
         if not isinstance(engine_id, str) or not isinstance(voice_id, str):
@@ -356,6 +360,7 @@ class SpeechCoordinator:
                 display_text="", engine_id=engine_id, voice_id=voice_id,
                 plan=None, render_args={}, prepare=prepare if live_translation is None else None,
                 hold_for_render=hold_for_render, translation=live_translation,
+                text_only=text_only,
             )
             self._jobs[job.id] = job
             if key is not None:
@@ -494,6 +499,24 @@ class SpeechCoordinator:
                 job.engine_id = arguments["engine_id"]
                 job.voice_id = arguments["voice_id"]
                 job.display_text = plan["display_text"]
+                if job.text_only:
+                    # Preserve all rules/AI processing but never enqueue audio.
+                    # The user-visible text comes from the post-AI result,
+                    # before TTS-specific pronunciation substitution.
+                    processed = plan.get("processing", {}).get("post_ai_text")
+                    if not plan.get("spoken_text", "").strip():
+                        job.display_text = ""
+                        job.plan = None
+                        job.render_args = {}
+                        self._transition(job, "skipped")
+                    else:
+                        job.display_text = (processed if isinstance(processed, str)
+                                            else plan["display_text"])[:8000]
+                        job.plan = None
+                        job.render_args = {}
+                        self._transition(job, "displayed")
+                    self._cv.notify_all()
+                    return
                 if not plan.get("spoken_text", "").strip() and not any(
                         x.get("kind") == "silence" for x in plan["segments"]):
                     job.plan = None

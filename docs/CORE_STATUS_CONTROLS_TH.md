@@ -9,7 +9,7 @@
 - ทุก Source ที่ Core รองรับต้องมีข้อมูลสถานะครบ รวม `stt_api`; Source ที่ยังไม่เริ่มต้องคืนคิวว่าง ไม่ทำให้ Dashboard ทั้งระบบพัง
 - หน้าเว็บเรียก Dashboard เมื่อ `dashboard_cursor` เปลี่ยนตามการรีเฟรชสถานะที่มีอยู่เดิมเท่านั้น ไม่มี Poller/Worker เพิ่ม ไม่เปิดแหล่งข้อความใหม่ขณะ Refresh
 - ข้อความที่ยัง **กำลังแปล/เตรียม** แสดงเป็น **ต้นฉบับ (ไม่ใช่ผลแปล)**; เมื่อเตรียมโมเดลเสร็จจึงแสดงข้อความที่ผ่านการแปล/กฎ/แยกภาษาจาก Core จริง และเมื่อเล่นเสียงแสดงงาน `reading` ก่อนงานคิวเก่า
-- งานที่ถูก `failed`, `skipped`, `stopped` หรือ `cleared` ยังแสดงตามผลจริงในประวัติ RAM ของ Core รวมถึงหลัง Coordinator ลบ Job ที่หมดอายุ
+- งานที่ถูก `displayed` (ไม่สร้างเสียง), `failed`, `skipped`, `stopped` หรือ `cleared` ยังแสดงตามผลจริงในประวัติ RAM ของ Core รวมถึงหลัง Coordinator ลบ Job ที่หมดอายุ
 - หาก Dashboard ส่วนตัวล้มเหลว UI จะไม่ลบข้อความผิดพลาดทิ้งจากสถานะสาธารณะทุกครั้งที่ Poll; จะพยายามใหม่ตามนโยบายป้องกัน Retry Loop เดิม
 
 ## การควบคุมจาก Browser หลังรีเฟรช
@@ -19,7 +19,7 @@
 - **เริ่มรับข้อความ:** ต้องกด Connect เองและผ่านการขอสิทธิ์ Source แบบเดิม การเปิดเว็บจะไม่เริ่มแหล่งข้อความใหม่
 - **หยุดรับข้อความ:** `POST /v1/runtime/source/stop` ทำงานกับ Source และ Job ของ Core แม้ Browser ที่เปิดใหม่ไม่มี Owner Token เดิม
 - **อ่านอัตโนมัติ:** `POST /v1/runtime/source/options` ส่ง `{"mode":"stt_api","runtime_auto_read":true}` พร้อม Intent `set-core-source-options` เพื่อปรับสถานะ Source จริง; UI โหลดค่าเดิมได้หลัง Refresh ขณะ Source เชื่อมต่อ ถ้ายังไม่เชื่อมต่อจะเก็บเป็นค่าเตรียมไว้สำหรับการกด Connect ครั้งต่อไปโดยไม่ยิงคำสั่งผิดพลาด
-- **รีเซ็ตคิว:** `POST /v1/runtime/source/reset` ส่ง `{"mode":"stt_api"}` พร้อม Intent `reset-core-source-queue` ล้างเฉพาะ Source Pending กับ Buffer ที่ยังไม่เริ่มนำส่ง TTS; งานแปล/สร้างเสียง/เล่นเสียงที่รับเข้า Coordinator แล้วไม่ถูกลบ คำสั่งจะแยกแข่งกับการนำข้อความเข้า Core เพื่อไม่ให้ข้อความที่กดล้างก่อนยอมรับหลุดกลับมาทีหลัง
+- **รีเซ็ตคิว:** `POST /v1/runtime/source/reset` ส่ง `{"mode":"stt_api"}` พร้อม Intent `reset-core-source-queue` ล้าง Source Pending, Buffer, งานแปล/สร้างเสียง/เสียงรอเล่นใน Coordinator และ Replay ที่ยังไม่ได้เริ่มของโหมดนั้น โดย **คงเสียงที่กำลังเล่นและงานปัจจุบันไว้** พร้อมป้องกันงาน HTTP ที่รับระหว่างกด Reset หลุดกลับเข้าคิว; ดู [คู่มือไม่สร้างเสียงและรีเซ็ตคิว](NO_SPEECH_MODE_TH.md)
 - **หยุด/อ่านต่อทั้งระบบ:** คง `POST /v1/runtime/playback` ตามเดิม การหยุดพักและการเริ่มใหม่จาก Core เป็นแหล่งข้อมูลสถานะเดียว
 
 ทุกคำสั่ง Core แบบไม่มี Owner Token ต้องเป็น Same-Origin POST, มี Intent ที่ถูกต้องและรูปแบบข้อมูลจำกัด ไม่อนุญาตให้เว็บไซต์อื่นสั่งเปลี่ยนสถานะอัตโนมัติ การเชื่อมต่อจาก Browser ในโหมด Browser เดิมยังใช้ Owner Token ตามเดิม
@@ -27,7 +27,7 @@
 ## ตรวจสอบ
 
 - `tests/test_live_status_observability.py` — Dashboard ของทุกโหมด, Source STT, งานที่กำลังเล่นจริง, ผลล้มเหลว
-- `tests/test_core_source_browser_controls.py` — Core API, Origin/Intent, อ่านอัตโนมัติ, ล้างคิวขณะรับข้อความ, รักษางานเสียงที่กำลังทำ
+- `tests/test_core_source_browser_controls.py` — Core API, Origin/Intent, อ่านอัตโนมัติ, ล้างคิวแปล/สร้างเสียง/รอเล่น, ป้องกันการแข่งขันและรักษางานเสียงปัจจุบัน
 - `tests/computer_dashboard_ui_smoke.cjs` — หน้าเว็บหลัง Refresh, แสดงอินพุตโมเดล, ปุ่ม Connect/Stop, Auto, Reset ตามสถานะ Core
 - `tests/core_source_controls_ui_smoke.cjs` — ปุ่มอ่านอัตโนมัติ/รีเซ็ตคิว/หยุดทำงานโดยไม่ต้องมี Owner Token เดิม และไม่เพิ่ม Polling
 

@@ -36,6 +36,8 @@ DEFAULTS: dict[str, Any] = {
     "ollama_base_url": "http://127.0.0.1:11434",
     "model": "",
     "operation": "translate",
+    # Global Settings: live workspaces that show processed text without TTS.
+    "no_speech_modes": [],
     "source_language": "auto",
     "target_language": "th",
     "translation_mode": "whole_message",
@@ -145,6 +147,15 @@ def validate_settings(value: Any) -> dict[str, Any]:
     from .ai_engine_registry import ai_engines
     if not isinstance(value["engine"], str) or not ai_engines().is_registered(value["engine"]):
         raise InputError("unknown AI engine")
+    no_speech_modes = value["no_speech_modes"]
+    allowed_no_speech = {"live", "youtube_browser", "tiktok",
+                         "tiktok_browser", "discord", "discord_client", "stt_api"}
+    if (not isinstance(no_speech_modes, list)
+            or len(no_speech_modes) > len(allowed_no_speech)
+            or any(type(mode) is not str or mode not in allowed_no_speech
+                   for mode in no_speech_modes)
+            or len(no_speech_modes) != len(set(no_speech_modes))):
+        raise InputError("no_speech_modes must be unique supported Live workspaces")
     if value["operation"] not in {"translate", "custom", "none"}:
         raise InputError("operation must be translate, custom or none")
     if value["source_language"] not in LANGUAGES | {"auto"}:

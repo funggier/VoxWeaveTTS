@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Main branch (not yet released):** New per-source **No Speech** text/translation display mode in Settings and full Core queue reset across pending, translation, synthesis and unplayed audio (preserving active playback). [Thai guide](docs/NO_SPEECH_MODE_TH.md).
+
 **v0.12.17 — Thai/English voice routing and strict manual output:** Edit existing language routes without deleting saved tuning, refresh newly installed Universal v4 voices, and enforce manually selected Sample Rate/Channels. [Release notes](docs/RELEASE_NOTES_v0.12.17_TH.md) · [Audio guide](docs/AUDIO_ROUTE_OUTPUT_TH.md).
 
 **Core Live status and Browser controls:** Core reports real incoming, preparation/translation, synthesis, playback and queue stages for every Live source including STT. Connect/Stop/Auto-read/Reset controls resynchronize after refresh without a second Browser worker. [Core status guide](docs/CORE_STATUS_CONTROLS_TH.md).

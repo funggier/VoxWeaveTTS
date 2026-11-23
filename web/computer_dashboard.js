@@ -18,7 +18,7 @@ const labels=Object.freeze({
   queued:"รอเข้า TTS",preparing:"กำลังเตรียมข้อความ/แปล",
   prepared:"แปล/แยกแล้ว · รอสร้างเสียง",rendering:"กำลังสร้างเสียง",
   ready:"มีไฟล์เสียง · รอเล่น",reading:"กำลังเล่นเสียงจาก Core",
-  read:"อ่านจบแล้ว",failed:"ผิดพลาด",skipped:"ข้ามข้อความ",
+  read:"อ่านจบแล้ว",displayed:"แสดงข้อความแล้ว (ไม่สร้างเสียง)",failed:"ผิดพลาด",skipped:"ข้ามข้อความ",
   stopped:"หยุดก่อนอ่านจบ",cleared:"ล้างออกจากคิวก่อนประมวลผล"
 });
 let feeds={},enabled=false,loadedCursor=null,inFlight=false,pendingCursor=null;
@@ -73,6 +73,7 @@ function renderSource(mode,prefix,source,server){
     ||stageList.find(x=>x.state==="ready")
     ||stageList.find(x=>x.state==="queued");
   const failed=seen.find(x=>x.state==="failed");
+  const latestText=seen.find(x=>x.state==="displayed");
   const live=["running","connecting","retrying"].includes(state.state);
   const startButton=node(prefix+"FeedStart");
   if(startButton)startButton.disabled=live;
@@ -104,7 +105,14 @@ function renderSource(mode,prefix,source,server){
     if(sourceId&&root.document?.activeElement!==sourceId)sourceId.value=target;
   }
   const resetButton=node(prefix+"FeedReset");
-  if(resetButton)resetButton.disabled=!count(source.source_pending)&&!count(source.buffered_count);
+  if(resetButton){
+    // Already-accepted speech jobs are also queue backlog. A source with no
+    // raw pending messages can still have many translated or WAV-ready jobs.
+    const waitingJobs=["queued","preparing","prepared","rendering","ready"]
+      .some(stage=>count(counts[stage])>0);
+    resetButton.disabled=!(count(source.source_pending)>0 ||
+      count(source.buffered_count)>0 || waitingJobs);
+  }
   const stopButton=node(prefix+"FeedStop");
   if(stopButton){
     const live=["running","connecting","retrying"].includes(state.state);
@@ -129,6 +137,7 @@ function renderSource(mode,prefix,source,server){
       " · สร้างเสียง "+count(counts.rendering)+
       " · เสียงรอเล่น "+count(counts.ready)+
       " · อ่านจบ "+count(counts.read)+"/"+readLimit+
+      " · ไม่สร้างเสียง "+count(counts.displayed)+
       " (ประวัติใน RAM ของ Core) · ผิดพลาด "+count(counts.failed);
   }
   const incoming=[];
@@ -139,7 +148,8 @@ function renderSource(mode,prefix,source,server){
   const bufferedIds=new Set((source.buffered||[]).map(x=>safe(x.message_id)));
   for(const item of seen.slice(0,80)){
     incoming.push("["+headline(item.state)+"] "+
-      (item.author?safe(item.author)+": ":"")+safe(item.text));
+      (item.author?safe(item.author)+": ":"")+
+      safe(item.state==="displayed"?item.processed_text:item.text));
   }
   fillList(prefix+"FeedItems",incoming,
     "ยังไม่มีข้อความที่ Core รับไว้ (ข้อมูลที่แสดงเป็นประวัติชั่วคราวใน Server)");
@@ -163,6 +173,7 @@ function renderSource(mode,prefix,source,server){
       ?"Core Server · หยุดเสียงแล้ว · พักคิวจนกดอ่านอัตโนมัติต่อ"
       :active
       ?"Core Server · "+headline(active.state)
+      :latestText?"Core Server · แสดงข้อความแล้ว · ไม่สร้างเสียง"
       :failed?"Core Server · ข้อผิดพลาดล่าสุด: "+safe(failed.error||"การสร้างเสียงผิดพลาด")
       :"Core Server · ยังไม่มีงานสร้างเสียงที่กำลังดำเนินการ";
   }
@@ -174,12 +185,14 @@ function renderSource(mode,prefix,source,server){
          ?"ต้นฉบับที่ Core กำลังเตรียม/แปล (ยังไม่ใช่ผลแปล): "+
            (active.author?safe(active.author)+": ":"")+safe(active.text)
          :"Core ยังไม่ยืนยันข้อความที่จะส่งเข้าโมเดล · "+headline(active.state)):
-      "";
+      (latestText?safe(latestText.processed_text):"");
   }
   const finished=(source.read_history||[]).slice(0,readLimit);
   fillList(prefix+"FeedReadItems",finished.map(item=>
-    (item.author?safe(item.author)+": ":"")+safe(item.text)),
-    "ยังไม่มีข้อความที่ Core ยืนยันว่าเล่นเสียงจบ");
+    (item.state==="displayed"?"[ไม่สร้างเสียง] ":"")+
+    (item.author?safe(item.author)+": ":"")+
+    safe(item.state==="displayed"?item.processed_text:item.text)),
+    "ยังไม่มีข้อความที่อ่านจบหรือแสดงแบบไม่สร้างเสียง");
   const history=(source.model_history||[]).slice(0,readLimit);
   fillList(prefix+"FeedTtsReadItems",history.map(item=>{
     const inputs=Array.isArray(item.inputs)?item.inputs:[];

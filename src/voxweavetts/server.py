@@ -1614,6 +1614,8 @@ class Handler(BaseHTTPRequestHandler):
                         raise QueueFull("computer Live speech backlog is at capacity")
                     hold_for_render = True
                 ai_settings = load_ai_settings()["settings"]
+                text_only = (data.get("source") in _LIVE_SPEECH_SOURCES
+                             and data.get("mode") in ai_settings.get("no_speech_modes", []))
                 should_prepare = (
                     ai_settings["enabled"] and ai_settings["operation"] != "none"
                     and not (
@@ -1622,7 +1624,7 @@ class Handler(BaseHTTPRequestHandler):
                         and ai_settings["target_language"] == "unspecified"
                     )
                 )
-                if should_prepare:
+                if should_prepare or text_only:
                     # Capture rules, pronunciations and AI configuration at
                     # submission, not after potentially waiting in the queue.
                     # The HTTP handler does not block for local AI inference.
@@ -1640,14 +1642,16 @@ class Handler(BaseHTTPRequestHandler):
                     def prepare():
                         plan = (pipeline.process() if pipeline is not None
                                 else self._text_plan(queued_data, ai_settings=ai_settings))
-                        params = self._queue_params(queued_data, plan)
+                        params = ({"engine_id": "none", "voice_id": "none"}
+                                  if text_only else self._queue_params(queued_data, plan))
                         return plan, params
                     translation = None
                     if (pipeline is not None and ai_settings["live_ollama_parallel_enabled"]
                             and pipeline.needs_ollama_translation()):
                         def finish_translation(result):
                             plan = pipeline.finish(result)
-                            return plan, self._queue_params(queued_data, plan)
+                            return plan, ({"engine_id": "none", "voice_id": "none"}
+                                          if text_only else self._queue_params(queued_data, plan))
 
                         translation = LiveTranslation(pipeline.text, pipeline.settings, finish_translation)
                     job = self._coordinator().submit_deferred(
@@ -1657,6 +1661,7 @@ class Handler(BaseHTTPRequestHandler):
                         source_message_id=data.get("source_message_id"),
                         hold_for_render=hold_for_render,
                         live_translation=translation,
+                        text_only=text_only,
                     )
                 else:
                     plan = self._text_plan(data, ai_settings=ai_settings)

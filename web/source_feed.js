@@ -96,7 +96,7 @@ function downloadSettingsFile(content, filename){
   }
 }
 const STATE_LABELS={
-  queued:"รอประมวลผล",preparing:"กำลังแปล/แยก",prepared:"แปล/แยกแล้ว",rendering:"กำลังสร้างเสียง",ready:"เสียงพร้อมรอเล่น",reading:"กำลังอ่าน",read:"อ่านแล้ว",
+  queued:"รอประมวลผล",preparing:"กำลังแปล/แยก",prepared:"แปล/แยกแล้ว",rendering:"กำลังสร้างเสียง",ready:"เสียงพร้อมรอเล่น",reading:"กำลังอ่าน",read:"อ่านแล้ว",displayed:"แสดงข้อความแล้ว · ไม่สร้างเสียง",
   skipped:"ข้ามการอ่าน",random_removed:"สุ่มลบจากคิว",manual:"เลือกอ่านเอง",
 };
 const RPC_PHASE_NAMES={
@@ -371,7 +371,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     // Newest-first; never prune a queued or currently reading message.
     visible=visible.filter(entry=>{
       if(["queued","preparing","prepared","rendering","ready","reading"].includes(entry.state))return true;
-      if(entry.state==="read")return ++read<=keep;
+      if(entry.state==="read"||entry.state==="displayed")return ++read<=keep;
       return ++passive<=MAX_PASSIVE;
     });
   }
@@ -379,7 +379,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     if(root.VoxOutputMode?.current==="computer")return;
     const queued=visible.filter(x=>x.state==="queued").length;
     const reading=visible.filter(x=>["preparing","prepared","rendering","ready","reading"].includes(x.state)).length;
-    const read=visible.filter(x=>x.state==="read").length;
+    const read=visible.filter(x=>x.state==="read"||x.state==="displayed").length;
     get("FeedQueueStatus").textContent=
       "คิวรออ่าน "+queued+
       " · กำลังเตรียม/อ่าน "+reading+
@@ -415,7 +415,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
       details.className="source-author";
       details.textContent=(data.author||"ไม่ระบุชื่อ")+": ";
       const body=document.createElement("span");
-      body.textContent=data.text;
+      body.textContent=data.state==="displayed"?(data.processed_text||""):data.text;
       if(data.level||data.rank||data.badges?.length){
         const meta=document.createElement("small");
         meta.className="source-message-state";
@@ -526,8 +526,12 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
   function setSpeechDiagnostic(record){
     if(root.VoxOutputMode?.current==="computer")return;
     if(!record||typeof record!=="object")return;
-    if(!["preparing","ready","reading","failed","skipped","read"].includes(record.stage))return;
+    if(!["preparing","ready","reading","failed","skipped","read","displayed"].includes(record.stage))return;
     const text=String(record.text||"").slice(0,9000);
+    if(record.stage==="displayed" && record.message_id!=null){
+      const entry=visible.find(x=>String(x.message_id)===String(record.message_id));
+      if(entry)entry.processed_text=text;
+    }
     const error=String(record.error||"").slice(0,240);
     currentSpeech={message_id:record.message_id==null?null:String(record.message_id),
                    text,stage:record.stage,error};
@@ -540,6 +544,7 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     if(status){
       const labels={preparing:"กำลังแปลงข้อความเป็นเสียง",ready:"สร้างเสียงเสร็จแล้ว",
                     reading:"กำลังอ่านออกเสียง",read:"อ่านสำเร็จแล้ว",
+                    displayed:"แสดงข้อความหลังแปล/กรองแล้ว · ไม่สร้างเสียง",
                     skipped:"ข้ามข้อความ",failed:"สร้างเสียง/เล่นเสียงผิดพลาด"};
       status.textContent=(labels[record.stage]||record.stage)+(error?" · "+error:"");
     }
@@ -610,17 +615,19 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     if(state==="random_removed"&&entry.state!=="random_removed")randomRemoved++;
     if(state==="skipped"||state==="random_removed")
       pendingModelInputs.delete(String(messageId));
-    if(state==="read"&&entry.state!=="read"){
-      const spoken=currentSpeech?.message_id===String(messageId)
-        ?currentSpeech.text:entry.text;
+    if((state==="read"||state==="displayed")&&entry.state!==state){
+      const spoken=state==="displayed"
+        ?(entry.processed_text||"")
+        :(currentSpeech?.message_id===String(messageId)
+          ?currentSpeech.text:entry.text);
       spokenHistory.unshift({text:spoken,author:entry.author||""});
       const modelItems=pendingModelInputs.get(String(messageId))||[];
       pendingModelInputs.delete(String(messageId));
-      modelHistory.unshift({message_id:String(messageId),items:modelItems});
+      if(state==="read")modelHistory.unshift({message_id:String(messageId),items:modelItems});
       trimSpokenHistory();
       trimModelHistory();
       if(currentSpeech?.message_id===String(messageId))
-        setSpeechDiagnostic({...currentSpeech,stage:"read",error:currentSpeech.error||""});
+        setSpeechDiagnostic({...currentSpeech,stage:state,error:currentSpeech.error||""});
     }
     if((state==="preparing"||state==="reading")
        && currentSpeech?.message_id===String(messageId)){
@@ -1090,8 +1097,9 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
         });
         const result=await response.json();
         if(!response.ok)throw Error(result.error||"Core queue reset failed");
-        message("Core ล้างข้อความที่ยังไม่ได้เข้า TTS "+Number(result.cleared||0)+
-          " รายการ · งานที่เริ่มแปล/สร้างเสียง/เล่นแล้วจะยังทำต่อ");
+        message("Core รีเซ็ตคิวข้อความแล้ว · ล้าง "+Number(result.cleared||0)+
+          " รายการ (รวมคิวแปล/สร้างเสียง/รอเล่น "+Number(result.cancelled_jobs||0)+
+          " งาน) · คงเสียงที่กำลังเล่นและงานปัจจุบันไว้");
       }catch(error){
         message("คำสั่งล้างคิว Core ไม่สำเร็จ: "+String(error.message||error));
       }finally{resetting=false;button.disabled=false;}
