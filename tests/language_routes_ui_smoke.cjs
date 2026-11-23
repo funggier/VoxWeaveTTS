@@ -48,6 +48,9 @@ const engines=[
   {id:"personal-nc-wayu-paxa-edge-cpu",label:"[NC / NonCommercial] Wayu Paxa Edge",
    language:"th",supported_languages:["th","en"],assets_ready:true,runtime_ready:true,
    voices:[{id:"f_young_warm",label:"Warm"},{id:"m_mid_warm",label:"Male"}]},
+  {id:"model-wayu-paxa-edge-nc-1_0_0",label:"[NC / NonCommercial] Wayu Paxa Edge",
+   language:"th",supported_languages:["th","en"],assets_ready:true,runtime_ready:true,
+   voices:[{id:"f_young_clear",label:"Female clear"},{id:"m_young_clear",label:"Male clear"}]},
   {id:engine,label:"Kokoro INT8",language:"multi",assets_ready:true,runtime_ready:true,
    voices:[{id:"af_heart",label:"English"},{id:"ff_siwis",label:"French"},
            {id:"jf_alpha",label:"Japanese"}]},
@@ -232,5 +235,46 @@ async function tick(){for(let i=0;i<30;i++)await Promise.resolve();}
   assert.equal(stored.routes.th.voice_id,"f_young_warm");
   assert.equal(stored.routes.en.engine_id,wayuId);
   assert.equal(stored.routes.th.engine_id,wayuId);
-  console.log("PASS: English on all installed engine families, existing per-voice language routing preserved");
+  // Existing Thai was previously hidden from Add and could only be changed
+  // by deleting its saved route (losing tuning). Editing must be direct.
+  assert.ok(stored.routes.th,"Thai is already assigned on the server");
+  await app.load();await tick();
+  const thaiRow=ids.languageRouteList.children.find(row=>
+    row.children?.[1]?.textContent?.includes("(th)"));
+  assert.ok(thaiRow,"restored Thai route must be visible as an editable row");
+  assert.equal(ids.languageRouteLanguage.options.some(o=>o.value==="th"),false,
+    "assigned Thai still stays out of the Add-only list");
+  assert.equal(thaiRow.children[3].textContent,"แก้ไขโมเดล / เสียง");
+  thaiRow.children[3].click();
+  assert.equal(ids.languageRouteLanguage.value,"th");
+  assert.ok(ids.languageRouteEngine.options.some(o=>
+    o.value==="model-wayu-paxa-edge-nc-1_0_0"),"installed v4 Wayu appears for Thai");
+  ids.languageRouteEngine.value="model-wayu-paxa-edge-nc-1_0_0";
+  ids.languageRouteEngine.change();
+  assert.equal(ids.languageRouteVoice.value,"f_young_clear");
+  ids.languageRouteVoice.value="m_young_clear";
+  ids.languageRouteSet.click();
+  const editedThai=ids.languageRouteList.children.find(row=>
+    row.children?.[1]?.textContent?.includes("(th)"));
+  assert.ok(editedThai.children[1].textContent.includes("Wayu Paxa Edge"));
+  assert.ok(editedThai.children[1].textContent.includes("m_young_clear"));
+  assert.equal(ids.languageRouteLanguage.options.some(o=>o.value==="th"),false,
+    "edited Thai leaves the Add-only selector again");
+  const thaiGrid=editedThai.children[2].children[2];
+  thaiGrid.children[0].children[2].value="1.38";
+  thaiGrid.children[1].children[2].value="4.50";
+  ids.languageRouteSave.click();await tick();
+  assert.equal(stored.routes.th.engine_id,"model-wayu-paxa-edge-nc-1_0_0");
+  assert.equal(stored.routes.th.voice_id,"m_young_clear");
+  assert.equal(stored.routes.th.speed,1.38);
+  assert.equal(stored.routes.th.voice_controls.gain_db,4.5);
+  // Re-selecting another voice in the same language keeps the other tuning.
+  editedThai.children[3].click();
+  ids.languageRouteVoice.value="f_young_clear";
+  ids.languageRouteSet.click();
+  ids.languageRouteSave.click();await tick();
+  assert.equal(stored.routes.th.voice_id,"f_young_clear");
+  assert.equal(stored.routes.th.speed,1.38);
+  assert.equal(stored.routes.th.voice_controls.gain_db,4.5);
+  console.log("PASS: assigned Thai/English route editing, Wayu v4 voices and saved tuning survive browser refresh");
 })().catch(e=>{console.error(e);process.exitCode=1;});

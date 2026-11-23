@@ -39,6 +39,18 @@ function attach({document,engines,getDefault}){
   const speechControls=new Map();
   const languageRouteToggles=new Map(),languageRoutePrefs=new Map();
   const languageSplitToggles=new Map(),languageSplitPrefs=new Map();
+  const effectiveVoiceNotices=new Map();
+  function refreshEffectiveVoiceNotice(mode){
+    const note=effectiveVoiceNotices.get(mode);
+    if(!note)return;
+    const routed=languageRouteToggles.get(mode)?.checkbox.checked;
+    const split=languageSplitToggles.get(mode)?.checkbox.checked;
+    note.textContent=split
+      ?"กำลังแยกข้อความตามภาษา: Engine/เสียง/Speed/DSP ตามภาษาจะทับค่า Default เมื่อมีรายการสำหรับภาษานั้น · ค่า Default ใช้กับภาษาที่ไม่ได้กำหนด"
+      :routed
+        ?"กำลังใช้โมเดลตามภาษา: Engine/เสียง/Speed/DSP ตามภาษาที่กำหนดไว้จะทับค่า Default ของโหมดสำหรับงานเสียงใหม่"
+        :"กำลังใช้ค่า Default Engine/Model ของโหมด (ไม่ใช้เส้นทางเสียงตามภาษา)";
+  }
   let revision=0, serial=Promise.resolve(),presets=[];
   const create=(tag,label)=>{
     const node=document.createElement(tag);
@@ -205,6 +217,7 @@ function attach({document,engines,getDefault}){
       checkbox.disabled=true;status.textContent="กำลังบันทึก...";
       try{
         await saveLanguageRoutePreference(mode,wanted);
+        refreshEffectiveVoiceNotice(mode);
         status.textContent="บันทึกแล้ว · มีผลกับข้อความใหม่";
       }catch(error){
         checkbox.checked=Boolean(languageRoutePrefs.get(mode));
@@ -212,6 +225,12 @@ function attach({document,engines,getDefault}){
       }finally{checkbox.disabled=false;}
     });
     addLanguageSplitSwitch(mode,panel);
+    const note=create("small");
+    note.className="small";
+    note.style.display="block";
+    panel.appendChild(note);
+    effectiveVoiceNotices.set(mode,note);
+    refreshEffectiveVoiceNotice(mode);
   }
   function addLanguageSplitSwitch(mode,panel){
     const label=create("label");
@@ -231,6 +250,7 @@ function attach({document,engines,getDefault}){
       checkbox.disabled=true;status.textContent="กำลังบันทึก...";
       try{
         await saveLanguageSplitPreference(mode,wanted);
+        refreshEffectiveVoiceNotice(mode);
         status.textContent="บันทึกแล้ว · มีผลกับข้อความใหม่";
       }catch(error){
         checkbox.checked=Boolean(languageSplitPrefs.get(mode));
@@ -603,6 +623,7 @@ function attach({document,engines,getDefault}){
         ui.refreshPreview();
       }
     }
+    for(const mode of effectiveVoiceNotices.keys())refreshEffectiveVoiceNotice(mode);
     await loadPresets();
     return data;
   }

@@ -5,6 +5,7 @@ function attach(document, fetcher){
   const el=id=>document.getElementById(id);
   if(!el("languageRouteLanguage"))return null;
   let revision=0, routes={}, languages={}, engines=[];
+  let editingLanguage=null; // Edit an assigned language without deleting its settings.
   const voiceLanguage=voice=>{
     const family=String(voice||"")[0];
     return ({a:"en",b:"en",e:"es",f:"fr",h:"hi",i:"it",j:"ja",p:"pt"})[family]||"";
@@ -276,7 +277,7 @@ function attach(document, fetcher){
     const previous=select.value;
     select.replaceChildren();
     for(const [code,label] of Object.entries(languages)){
-      if(Object.hasOwn(routes,code))continue;
+      if(Object.hasOwn(routes,code)&&editingLanguage!==code)continue;
       const option=document.createElement("option");
       option.value=code;
       option.textContent=label+" ("+code+")";
@@ -318,6 +319,7 @@ function attach(document, fetcher){
         remove.type="button";
         remove.addEventListener("click",()=>{
           delete routes[language];
+          if(editingLanguage===language)editingLanguage=null;
           routeRows.delete(language);routeEditors.delete(language);
           refreshLanguageChoices();drawRoutes();
           status("ยังไม่ได้บันทึก: ลบการกำหนดภาษา "+language+" แล้ว");
@@ -325,6 +327,17 @@ function attach(document, fetcher){
         row.appendChild(remove);
         row.appendChild(title);
         row.appendChild(voiceEditor(language));
+        const edit=create("button","แก้ไขโมเดล / เสียง");
+        edit.type="button";
+        edit.addEventListener("click",()=>{
+          editingLanguage=language;
+          refreshLanguageChoices();
+          el("languageRouteLanguage").value=language;
+          selectLanguage();
+          status("กำลังแก้ไข "+(languages[language]||language)+
+            " · เลือก Engine และเสียง แล้วกดกำหนดโมเดลและบันทึก");
+        });
+        row.appendChild(edit);
         routeRows.set(language,row);
       }
       list.appendChild(row);
@@ -340,6 +353,7 @@ function attach(document, fetcher){
       request("/v1/engines"),
     ]);
     revision=config.revision;routes={...config.routes};
+    editingLanguage=null;
     routeRows.clear();routeEditors.clear();
     languages=config.languages||{};
     engines=registry.engines||[];
@@ -360,8 +374,18 @@ function attach(document, fetcher){
     if(!engine||!supports(engine,voice_id,language)){
       status("ไม่สามารถกำหนดเสียงนี้ให้ภาษาที่เลือก");return;
     }
-    routes[language]={engine_id,voice_id};
-    refreshLanguageChoices();drawRoutes();status("กำหนดแล้ว โปรดกดบันทึกการตั้งค่า");
+    // Preserve the language's tuning when changing its engine or voice.
+    // Rebuild the visible row so the displayed choice is never stale.
+    const editor=routeEditors.get(language);
+    if(editor){
+      try{routes[language]={...routes[language],...readTuning(editor)};}
+      catch(error){status(String(error.message||error));return;}
+    }
+    routes[language]={...routes[language],engine_id,voice_id};
+    routeRows.delete(language);routeEditors.delete(language);
+    editingLanguage=null;
+    refreshLanguageChoices();drawRoutes();
+    status("กำหนดแล้ว โปรดกดบันทึกการตั้งค่า");
   });
   el("languageRouteSave").addEventListener("click",async()=>{
     const button=el("languageRouteSave");button.disabled=true;
@@ -385,5 +409,5 @@ function attach(document, fetcher){
 root.VoxLanguageRoutes={attach};
 if(typeof module!=="undefined"&&module.exports)module.exports={attach};
 if(typeof document!=="undefined"&&document.getElementById("languageRouteLanguage"))
-  attach(document,root.fetch.bind(root));
+  root.VoxLanguageRoutes.current=attach(document,root.fetch.bind(root));
 })(typeof window==="undefined"?globalThis:window);

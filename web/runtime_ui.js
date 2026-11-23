@@ -89,11 +89,16 @@ function apply(data){
       control.value=String(value);
   }
   if(audioStatus){
+    const requestedRate=audio.sample_rate==="auto"?"Auto":number(audio.sample_rate)+" Hz";
+    const requestedChannels=audio.channels==="auto"?"Auto":String(audio.channels);
+    const wanted="ตั้งค่า Output: "+requestedRate+" / "+requestedChannels+
+      " ช่อง / Buffer "+number(audio.buffer_ms)+" ms";
     const f=data.actual_audio_format;
     audioStatus.textContent=f
-      ?"รูปแบบที่อุปกรณ์ใช้จริง: "+number(f.sample_rate)+" Hz / "+
-        f.channels+" ช่อง / "+f.buffer_ms+" ms (WAV "+number(f.source_rate)+" Hz)"
-      :"รูปแบบเสียงที่เลือกจะมีผลเมื่อเล่น WAV ครั้งถัดไป";
+      ?wanted+" · เสียงที่เล่นล่าสุด: WAV "+number(f.source_rate)+" Hz → อุปกรณ์ "+
+        number(f.sample_rate)+" Hz / "+f.channels+" ช่อง"+
+        (f.resampled?" (Resample เพื่อรักษาความเร็วเสียง)":" (ไม่ต้อง Resample)")
+      :wanted+" · ยังไม่มีเสียงที่เล่นด้วยค่านี้ (มีผลกับงานเสียงถัดไป)";
   }
   if(data.listen_url){
     listenLink.href=data.listen_url;
@@ -178,10 +183,15 @@ select.addEventListener("change",async()=>{
 });
 output.addEventListener("change",async()=>{
   output.disabled=true;
-  await setValue("/v1/runtime/output",
-    {output:output.value},"set-runtime-output","เปลี่ยนอุปกรณ์เสียงไม่สำเร็จ");
+  const requested=output.value;
+  const ok=await setValue("/v1/runtime/output",
+    {output:requested},"set-runtime-output","เปลี่ยนอุปกรณ์เสียงไม่สำเร็จ");
+  if(!ok){
+    output.value=root.VoxLastRuntimeSnapshot?.output||"default";
+    if(audioStatus)audioStatus.textContent="ไม่สามารถเปลี่ยนอุปกรณ์เสียงได้ · กลับไปใช้อุปกรณ์ที่ Core ยืนยันแล้ว";
+  }
   output.disabled=current!=="computer";
-  await refresh();
+  if(ok)await refresh();
 });
 saveAudio?.addEventListener("click",async()=>{
   saveAudio.disabled=true;
@@ -192,8 +202,9 @@ saveAudio?.addEventListener("click",async()=>{
   };
   const ok=await setValue("/v1/runtime/audio",options,
     "set-runtime-audio","ตั้งค่ารูปแบบเสียงไม่สำเร็จ");
-  if(ok&&audioStatus)audioStatus.textContent="บันทึกแล้ว — ใช้กับ WAV ครั้งถัดไป";
+  if(!ok&&audioStatus)audioStatus.textContent="บันทึกไม่สำเร็จ · ตรวจข้อความผิดพลาดด้านบน";
   saveAudio.disabled=false;
+  if(ok)await refresh();
 });
 replay.addEventListener("click",async()=>{
   await setValue("/v1/runtime/replay",{},"replay-computer-audio","เล่นซ้ำไม่สำเร็จ");

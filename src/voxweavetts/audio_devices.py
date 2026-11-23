@@ -163,6 +163,11 @@ class WindowsDeviceOutput:
         except ImportError:
             if device_id != "default":
                 raise OSError("sounddevice is required for named output devices")
+            # WinMM owns its stream format. It cannot promise the explicitly
+            # selected rate/channels, so never ignore a manual request.
+            if audio["sample_rate"] != "auto" or audio["channels"] != "auto":
+                raise OSError("manual Sample Rate/channels require sounddevice; "
+                              "the WinMM fallback cannot force the selected format")
             from .computer_runtime import WindowsWaveOutput
             return WindowsWaveOutput().play(wav, duration_ms, stop, progress)
 
@@ -225,6 +230,10 @@ class WindowsDeviceOutput:
                 "source_channels": channels,
                 "buffer_ms": audio["buffer_ms"],
                 "device": device_id,
+                "requested_rate": audio["sample_rate"],
+                "requested_channels": audio["channels"],
+                "resampled": output_rate != rate,
+                "channel_converted": output_channels != channels,
             }
             sample_bytes = output_channels * 2
             frame_count = len(pcm) // sample_bytes

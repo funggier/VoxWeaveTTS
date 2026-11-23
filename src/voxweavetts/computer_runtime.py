@@ -226,6 +226,8 @@ class ComputerRuntime:
                 persist_mode(self._mode, self.mode_path, output=output,
                              audio_settings=self._audio_settings)
                 self._output_id = output
+                if isinstance(self.output, WindowsDeviceOutput):
+                    self.output.last_format = None  # No new device playback yet.
                 self._stop_audio.set()
                 self._revision += 1
                 self._changed.set()
@@ -241,6 +243,8 @@ class ComputerRuntime:
                 persist_mode(self._mode, self.mode_path, output=self._output_id,
                              audio_settings=options)
                 self._audio_settings = options
+                if isinstance(self.output, WindowsDeviceOutput):
+                    self.output.last_format = None  # Current settings await next WAV.
                 self._revision += 1
                 self._changed.set()
         return self.snapshot()
@@ -402,7 +406,12 @@ class ComputerRuntime:
                 "actual_audio_format": (
                     dict(self.output.last_format)
                     if isinstance(self.output, WindowsDeviceOutput)
-                    and self.output.last_format is not None else None
+                    and self.output.last_format is not None
+                    and self.output.last_format.get("device") == self._output_id
+                    and self.output.last_format.get("requested_rate") == self._audio_settings["sample_rate"]
+                    and self.output.last_format.get("requested_channels") == self._audio_settings["channels"]
+                    and self.output.last_format.get("buffer_ms") == self._audio_settings["buffer_ms"]
+                    else None
                 ),
                 "available_outputs": available_outputs() + [
                     {"id": OUTPUT_LIVE, "label": "Live broadcast to browser", "api": "network"}],
@@ -846,6 +855,7 @@ class ComputerRuntime:
         try:
             with self._lock:
                 target = self._output_id
+                output_options = dict(self._audio_settings)
             if target == OUTPUT_LIVE:
                 finished = self.audio_hub.broadcast(
                     wav, self._stop_audio, lambda position: report("progress", position)
@@ -855,7 +865,7 @@ class ComputerRuntime:
                     finished = self.output.play(
                         wav, duration_ms, self._stop_audio,
                         lambda position: report("progress", position), target,
-                        settings=dict(self._audio_settings),
+                        settings=output_options,
                     )
                 else:
                     finished = self.output.play(

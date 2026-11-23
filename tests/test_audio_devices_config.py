@@ -84,6 +84,40 @@ def test_auto_resamples_24000_mono_to_192000_stereo(monkeypatch):
     assert done and done[-1] == 100
     assert output.last_format["sample_rate"] == 192000
     assert output.last_format["channels"] == 2
+    assert output.last_format["requested_rate"] == "auto"
+    assert output.last_format["requested_channels"] == "auto"
+    assert output.last_format["resampled"] is True
+    assert output.last_format["channel_converted"] is True
+
+
+def test_fixed_192000_rate_remains_strict_without_fallback(monkeypatch):
+    fake = FakeSoundDevice()
+    monkeypatch.setitem(sys.modules, "sounddevice", fake)
+    monkeypatch.setattr(audio_devices, "os", types.SimpleNamespace(name="nt"))
+    import threading
+    output = audio_devices.WindowsDeviceOutput()
+    assert output.play(
+        _make_wav(), 100, threading.Event(), lambda _: None,
+        "wasapi:DAC", settings={"sample_rate": 192000, "channels": 2,
+                                "buffer_ms": 100},
+    )
+    assert fake.opened == [(192000, 2, 0, {})]
+    assert output.last_format["requested_rate"] == 192000
+    assert output.last_format["sample_rate"] == 192000
+    assert output.last_format["source_rate"] == 24000
+    assert output.last_format["resampled"] is True
+
+
+def test_manual_rate_must_not_be_ignored_if_sounddevice_is_missing(monkeypatch):
+    monkeypatch.setitem(sys.modules, "sounddevice", None)
+    monkeypatch.setattr(audio_devices, "os", types.SimpleNamespace(name="nt"))
+    import threading
+    with pytest.raises(OSError, match="cannot force the selected format"):
+        audio_devices.WindowsDeviceOutput().play(
+            _make_wav(), 100, threading.Event(), lambda _: None,
+            "default", settings={"sample_rate": 48000, "channels": 2,
+                                 "buffer_ms": 50},
+        )
 
 
 def test_manual_bad_rate_reports_diagnostic(monkeypatch):

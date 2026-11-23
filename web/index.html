@@ -1240,7 +1240,7 @@ button.mode-nav-button[aria-pressed=true]{background:#314f72;color:#f3fbff;box-s
 <h2>กำหนดโมเดลเสียงตามภาษา (Multilingual TTS)</h2>
 <p class="small">กำหนด Engine และเสียงพูดประจำภาษาไว้ที่เดียวสำหรับทุกช่องทาง แต่ละโหมดสามารถเลือก “ใช้การเลือกโมเดลตามภาษา” หรือ “แยกอ่านข้อความตามภาษา (รวมเสียงเป็นไฟล์เดียว)” ได้จากหัวข้อ “กำหนดการอ่านข้อความและข้อมูลพิเศษ” ของโหมดนั้นเอง หากปิดหรือไม่พบภาษาที่กำหนดไว้ จะใช้ Default Engine / Model ของโหมด</p>
 <div class="voice-grid">
-<div><label for="languageRouteLanguage">เพิ่มภาษา (ภาษาที่กำหนดไว้แล้วจะไม่ปรากฏ)</label><select id="languageRouteLanguage"></select></div>
+<div><label for="languageRouteLanguage">เพิ่มภาษา (ภาษาที่กำหนดไว้แล้วแก้ไขโมเดลและเสียงจากรายการด้านล่างได้)</label><select id="languageRouteLanguage"></select></div>
 <div><label for="languageRouteEngine">Engine</label><select id="languageRouteEngine"></select></div>
 <div><label for="languageRouteVoice">เสียงพูด</label><select id="languageRouteVoice"></select></div>
 </div>
@@ -1923,6 +1923,9 @@ async function installModelPackages(){
         await loadModelPackages();
         await loadEngines();
         modeVoiceController?.refreshEngines();
+        // A newly installed v4 package must become selectable in the
+        // existing Thai/English route editor without reloading the page.
+        await window.VoxLanguageRoutes?.current?.load?.();
         const latest=installed.findLast(item=>
           engines.some(engine=>engine.id===item.engineId&&engine.assets_ready&&engine.runtime_ready));
         if(latest){
