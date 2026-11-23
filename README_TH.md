@@ -1,6 +1,6 @@
 # VoxWeaveTTS
 
-**โปรเจกต์หลัก (ยังไม่ออก Release):** เพิ่มตัวเลือก **ไม่สร้างเสียง** ในแท็บตั้งค่าเพื่อแสดงข้อความหลังแปล/กรองตามโหมด พร้อมแก้ **รีเซ็ตคิวข้อความ** ให้ล้างคิวที่รอแปล/สร้างเสียง/เล่นเสียงจริง โดยไม่หยุดเสียงที่กำลังเล่น ดู [คู่มือ](docs/NO_SPEECH_MODE_TH.md)
+**v0.12.18 — รีเซ็ตคิว Core และไม่สร้างเสียง:** ปุ่มรีเซ็ตล้างงานที่ค้างในคิวแปล/สร้างเสียง/รอเล่นของแหล่งนั้นได้จริง โดยไม่หยุดเสียงปัจจุบัน และในแท็บ **ตั้งค่า** สามารถเลือก **ไม่สร้างเสียง** รายโหมดเพื่อแสดงข้อความที่ผ่านการกรองหรือแปลได้โดยไม่เรียกโมเดล TTS ดู [บันทึก Release](docs/RELEASE_NOTES_v0.12.18_TH.md) และ [คู่มือ](docs/NO_SPEECH_MODE_TH.md)
 
 **v0.12.17 — ปรับปรุงการเลือกเสียง Wayu และ Sample Rate:** แก้ไข Engine/เสียงของภาษาไทยที่กำหนดไว้แล้วโดยไม่ต้องลบรายการเดิม พร้อมบังคับ Sample Rate/Channels ตามที่เลือกแบบ Manual และแสดงค่า Output ที่ใช้งานจริง ดู [บันทึก Release](docs/RELEASE_NOTES_v0.12.17_TH.md) · [คู่มือเสียง](docs/AUDIO_ROUTE_OUTPUT_TH.md)
 
@@ -24,7 +24,7 @@
 
 **v0.12.11 — Core ทำงานบนคอมต่อเนื่อง + ถ่ายทอดสดเสียงสด + Client Portable แยก** เลือกเสียงออกลำโพง/USB DAC หรือ Live Browser, เล่นซ้ำผ่าน API, ตั้ง IP/Port และ Username/Password สำหรับ LAN (ขั้นต่ำ 4 ตัวอักษร) โดยคงฟีเจอร์ V4 เดิมทั้งหมด ดู [บันทึก Release v0.12.11](docs/RELEASE_NOTES_v0.12.11_TH.md), [คู่มือ Server/Client](docs/REMOTE_CONTROL_CLIENT_TH.md) และ [ดาวน์โหลดโมเดลทั้ง 7 ตัว](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4)
 
-**Windows Portable TTS Studio v0.12.17 — Universal .vwmodel v4 เท่านั้น**
+**Windows Portable TTS Studio v0.12.18 — Universal .vwmodel v4 เท่านั้น**
 
 **อ่านแชทเมื่อแท็บอยู่เบื้องหลัง (v0.12.10)** เซิร์ฟเวอร์แจ้งสถานะงานเสียงล่วงหน้า และเล่นเสียงผ่าน HTTP บน LAN หรือ Tailnet ได้ ดู [บันทึกรีลีส](docs/RELEASE_NOTES_v0.12.10_TH.md)
 

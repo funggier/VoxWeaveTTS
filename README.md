@@ -1,6 +1,6 @@
 # VoxWeaveTTS
 
-**Main branch (not yet released):** New per-source **No Speech** text/translation display mode in Settings and full Core queue reset across pending, translation, synthesis and unplayed audio (preserving active playback). [Thai guide](docs/NO_SPEECH_MODE_TH.md).
+**v0.12.18 — Core Queue Reset & No Speech:** Reset clears this source's accepted translation, synthesis and unplayed WAV backlog without disconnecting the source or interrupting active audio. In **Settings**, select **No Speech** for any Live/STT source to display filtered or translated text with no TTS rendering. [Release notes](docs/RELEASE_NOTES_v0.12.18_TH.md) · [Guide](docs/NO_SPEECH_MODE_TH.md).
 
 **v0.12.17 — Thai/English voice routing and strict manual output:** Edit existing language routes without deleting saved tuning, refresh newly installed Universal v4 voices, and enforce manually selected Sample Rate/Channels. [Release notes](docs/RELEASE_NOTES_v0.12.17_TH.md) · [Audio guide](docs/AUDIO_ROUTE_OUTPUT_TH.md).
 
@@ -21,7 +21,7 @@
 
 **v0.12.11 — Computer-owned TTS runtime, live PCM LAN streaming and independent Remote Client ZIP.** Choose Windows speaker/USB DAC/Live Browser output; replay and stop via the central API; keep processing after closing control windows; configure IP/port and LAN username/password (minimum 4 characters). See [Thai release notes](docs/RELEASE_NOTES_v0.12.11_TH.md), [Server/Client guide](docs/REMOTE_CONTROL_CLIENT_TH.md), and the [seven V4 model packs](https://github.com/funggier/VoxWeaveTTS/releases/tag/v0.12.1-modelpacks-v4).
 
-**Windows Portable TTS Studio v0.12.17 — Universal .vwmodel v4 only**
+**Windows Portable TTS Studio v0.12.18 — Universal .vwmodel v4 only**
 
 **Background Live playback (v0.12.10).** Server events wake the staged queue in hidden tabs. Playback session IDs work on HTTP LAN and Tailnet. See the [release notes](docs/RELEASE_NOTES_v0.12.10_TH.md).
 

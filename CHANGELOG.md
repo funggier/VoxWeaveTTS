@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.12.18 — Core queue reset and per-source No Speech
+
+- Reset queued work inside the Core coordinator, including pending translation/preparation, TTS rendering, unplayed WAV and queued replay for the selected source. Preserve currently playing audio, one current preparation job, other sources and the source connection.
+- Enable the Reset button when accepted Coordinator backlog exists even if the raw source buffer is empty, with cancellation race guards and truthful completed/cleared counts.
+- Add **No Speech** per Live/Discord/TikTok/STT source in global Settings (disabled by default), applying existing mode rules and shared AI translation without voice selection, audio synthesis, WAV or playback.
+- Show processed text as a distinct `displayed` state in Core/Browser displays and history; refresh mirrors Core state without exposing chat contents via public status.
+- Regression coverage for text-only HTTP jobs, AI-off/on, skipped content, FIFO direct/prefetch, Core reset, protected active audio and source isolation.
+- [Thai release notes](docs/RELEASE_NOTES_v0.12.18_TH.md) · [No Speech & queue reset guide](docs/NO_SPEECH_MODE_TH.md).
+
+
 ## v0.12.17 — Editable language routes and strict manual audio
 
 - Allow updating assigned Thai/English model and voice without deleting route or losing per-language tuning.

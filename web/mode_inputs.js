@@ -163,7 +163,7 @@ function attach({mode,el,clockLibrary,report,getSpeechPayload,guard,onMessageSta
       " · กำลังสร้างเสียง "+count("rendering")+
       " · เสียงรอเล่น "+count("ready")+
       " · อ่านจบ "+completedReads+
-      " · แสดงข้อความไม่สร้างเสียง "+displayedCount+
+      (displayedCount>0?" · แสดงข้อความไม่สร้างเสียง "+displayedCount:"")+
       " · สุ่มลบ "+randomRemoved+
       " · ข้ามข้อผิดพลาด "+errorSkipped+
       " · ข้ามเสียงที่ Browser บล็อก "+browserBlockedSkipped,
