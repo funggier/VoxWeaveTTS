@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**ทิศทาง Browser-first:** VoxWeaveTTS และ VoxWeaveSTT จะเน้น Core เป็นผู้ทำงานจริง และใช้ Web UI เป็นหน้าควบคุมหลัก พักการพัฒนา VoxWeaveSTT-Client ก่อน โดย STT v0.1.2 รองรับการจัดการ HTTPS LAN ผ่านหน้าเว็บ Local และล็อกอิน Remote Browser ด้วยบัญชีใน .cmd ดู [คู่มือร่วม](docs/BROWSER_FIRST_STT_TTS_TH.md)
+
 **v0.12.15 — แก้ STT API รับข้อความจริง:** แก้การตรวจ session_id ให้ตรงกับ VoxWeaveSTT ที่แยก job session กับ capture session พร้อมคำอธิบาย HTTPS LAN/Fingerprint ที่เข้าใจง่าย ดู [บันทึก Release](docs/RELEASE_NOTES_v0.12.15_TH.md)
 
 **v0.12.14 — VoxWeaveSTT (API):** เพิ่มโหมดรับข้อความที่ถอดเสียงเสร็จจาก VoxWeaveSTT ผ่าน IP/Port ใช้กฎ การแปลและคิวเสียงของ Core เดิม รองรับ HTTPS LAN ที่จับคู่และตรวจ SHA-256 Fingerprint ไม่ต้องอัปเดต STT Core เพื่อใช้งานบนเครื่องเดียวกัน ดู [คู่มือเชื่อมต่อ](docs/STT_API_MODE_TH.md) และ [รายละเอียดรุ่นนี้](docs/RELEASE_NOTES_v0.12.14_TH.md)

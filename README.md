@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**Browser-first direction:** VoxWeaveTTS and VoxWeaveSTT prioritize Core-owned tasks and browser web control. VoxWeaveSTT-Client development is on hold; STT v0.1.2 adds localhost LAN management and optional HTTPS Browser account login. [Architecture note](docs/BROWSER_FIRST_STT_TTS_TH.md).
+
 **v0.12.15 — Fix STT API final transcript reception:** The API job/session ID differs from the audio capture session ID. Update validation and clarify local or paired HTTPS LAN. [Release notes](docs/RELEASE_NOTES_v0.12.15_TH.md).
 
 **v0.12.14 — VoxWeaveSTT (API):** New STT final-transcript workspace with IP/Port connection, optional pinned HTTPS LAN pairing, and reuse of the existing Core translation, voice routes, speech queues and subtitles. See the [STT API guide](docs/STT_API_MODE_TH.md) and [release notes](docs/RELEASE_NOTES_v0.12.14_TH.md).
