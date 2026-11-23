@@ -133,6 +133,11 @@ function apply(data){
     ([key,value])=>(labels[key]||key)+" "+(value.state||"idle")+
       " (รอ "+number(value.pending)+" ข้อความ)"
   ).join(" · ");
+  // Surface private-dashboard failures after public status updates; do not
+  // silently erase the useful error on every 1.5s status refresh.
+  const dashboardError=root.VoxCoreDashboard?.getLastError?.();
+  if(current==="computer"&&dashboardError)
+    sources.textContent+=" · รายละเอียดคิว Core ไม่พร้อม: "+String(dashboardError).slice(0,180);
   stop.disabled=current!=="computer"||Boolean(data.playback_paused);
   if(resume)resume.disabled=current!=="computer"||!data.playback_paused;
   replay.disabled=current!=="computer"||Boolean(data.playback_paused)||!data.last_completed_speech_id;

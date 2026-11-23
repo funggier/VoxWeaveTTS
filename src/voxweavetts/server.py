@@ -1332,6 +1332,40 @@ class Handler(BaseHTTPRequestHandler):
             except (InputError, UnicodeDecodeError, json.JSONDecodeError):
                 self.send_json(400, {"error": "invalid dashboard inspection request"})
             return
+        if route in {"/v1/runtime/source/options", "/v1/runtime/source/reset"}:
+            if self._runtime().mode() != "computer":
+                self.reject_unread_post(409, {"error": "Core source control requires computer mode"})
+                return
+            expected = ("set-core-source-options" if route.endswith("/options")
+                        else "reset-core-source-queue")
+            if not self._same_origin_action(expected):
+                self.reject_unread_post(403, {"error": "same-origin Core source control required"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                self.reject_unread_post(415, {"error": "Core source control requires JSON"})
+                return
+            try:
+                body = self._read_json(max_bytes=256)
+                if not isinstance(body, dict):
+                    raise InputError("Core source control requires an object")
+                if route.endswith("/options"):
+                    if set(body) != {"mode", "runtime_auto_read"}:
+                        raise InputError("mode and runtime_auto_read required")
+                    result = self._runtime().set_source_auto_read(
+                        body["mode"], body["runtime_auto_read"])
+                else:
+                    if set(body) != {"mode"}:
+                        raise InputError("mode required")
+                    result = self._runtime().reset_source_pending(body["mode"])
+                self.send_json(200, result)
+            except ModeConflict as exc:
+                self.send_json(409, {"error": str(exc)})
+            except ValueError as exc:
+                self.send_json(400 if isinstance(exc, InputError) else 409,
+                               {"error": str(exc)})
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc)})
+            return
         if route == "/v1/runtime/source/stop":
             if self._runtime().mode() != "computer":
                 self.reject_unread_post(409, {"error": "Core source stop requires computer mode"})

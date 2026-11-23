@@ -1074,6 +1074,29 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     }
   }
   async function resetPending(){
+    // Server-owned source queue controls work after Browser refresh without
+    // stealing the active workspace token or starting a second source.
+    if(root.VoxOutputMode?.current==="computer"){
+      if(resetting)return;
+      resetting=true;
+      const button=get("FeedReset");
+      button.disabled=true;
+      try{
+        const response=await fetch("/v1/runtime/source/reset",{
+          method:"POST",cache:"no-store",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":"reset-core-source-queue"},
+          body:JSON.stringify({mode})
+        });
+        const result=await response.json();
+        if(!response.ok)throw Error(result.error||"Core queue reset failed");
+        message("Core ล้างข้อความที่ยังไม่ได้เข้า TTS "+Number(result.cleared||0)+
+          " รายการ · งานที่เริ่มแปล/สร้างเสียง/เล่นแล้วจะยังทำต่อ");
+      }catch(error){
+        message("คำสั่งล้างคิว Core ไม่สำเร็จ: "+String(error.message||error));
+      }finally{resetting=false;button.disabled=false;}
+      return;
+    }
     if(resetting)return;
     resetting=true;
     resetEpoch++; // Ignore any pre-reset /drain response still in flight.
@@ -1236,7 +1259,39 @@ function attach({mode,el,credentials,guard,onMessage,onPick,onStop,onReset,onSen
     },1200);
     wake();
   }
-  get("FeedAuto").addEventListener("input",()=>{
+  get("FeedAuto").addEventListener("input",async()=>{
+    if(root.VoxOutputMode?.current==="computer"){
+      // An idle Source has no Core option to update yet. Preserve the draft
+      // checkbox and pass it on the next explicit Connect instead.
+      const actual=root.VoxLastRuntimeSnapshot?.sources?.[mode]?.state;
+      if(!["running","connecting","retrying"].includes(actual))return;
+      const checkbox=get("FeedAuto");
+      checkbox.disabled=true;
+      try{
+        const response=await fetch("/v1/runtime/source/options",{
+          method:"POST",cache:"no-store",
+          headers:{"Content-Type":"application/json",
+                   "X-VoxWeaveTTS-Intent":"set-core-source-options"},
+          body:JSON.stringify({mode,runtime_auto_read:Boolean(checkbox.checked)})
+        });
+        const result=await response.json();
+        if(!response.ok)throw Error(result.error||"Core source options failed");
+        checkbox.checked=Boolean(result.runtime_auto_read);
+        message("Core อ่านอัตโนมัติ: "+(checkbox.checked?"เปิด":"ปิด"));
+      }catch(error){
+        message("ปรับการอ่านอัตโนมัติไม่สำเร็จ: "+String(error.message||error));
+        try{
+          const response=await fetch("/v1/sources/status?mode="+encodeURIComponent(mode),
+                                     {cache:"no-store"});
+          if(response.ok){
+            const state=await response.json();
+            if(typeof state.runtime_auto_read==="boolean")
+              checkbox.checked=state.runtime_auto_read;
+          }
+        }catch{/* existing Runtime refresh will retry authoritative status */}
+      }finally{checkbox.disabled=false;}
+      return;
+    }
     if(!connected || mode==="tiktok" || !guard(mode))return;
     api("runtime-options",{...credentials(mode),
       runtime_auto_read:Boolean(get("FeedAuto").checked)

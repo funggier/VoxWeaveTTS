@@ -160,6 +160,7 @@ class ComputerRuntime:
         self._playback_paused = False
         self._stopped_sources: set[str] = set()
         self._source_generations = {name: 0 for name in SOURCE_NAMES}
+        self._source_reset_generations = {name: 0 for name in SOURCE_NAMES}
         self._dispatch_generation = 0
         self._seen: set[str] = set()
         self._pending_messages: deque[tuple[str, dict[str, Any]]] = deque()
@@ -307,6 +308,41 @@ class ComputerRuntime:
             "voxweave-stt": "stt_api",
         }.get(job.get("source"), job.get("source") or "studio")
 
+    def set_source_auto_read(self, mode: str, enabled: bool) -> dict[str, Any]:
+        """Apply an existing Core source option without claiming a Browser owner."""
+        if self.mode() != "computer":
+            raise ValueError("Core source options require computer mode")
+        return self.sources.set_core_auto_read(mode, enabled)
+
+    def reset_source_pending(self, mode: str) -> dict[str, Any]:
+        """Explicitly clear source-input backlog only, never active TTS jobs."""
+        if mode not in SOURCE_NAMES:
+            raise InputError("invalid Core source mode")
+        with self._lock:
+            if self._mode != "computer":
+                raise ValueError("Core source reset requires computer mode")
+            self._source_reset_generations[mode] += 1
+            held = [(source, message) for source, message in self._pending_messages
+                    if source == mode]
+            self._pending_messages = deque(
+                (source, message) for source, message in self._pending_messages
+                if source != mode)
+            for _, message in held:
+                message_id = str(message.get("message_id", ""))[:128]
+                for record in reversed(self._recent_messages[mode]):
+                    if (record.get("message_id") == message_id
+                        and not record.get("speech_id") and not record.get("outcome")):
+                        record["outcome"] = "cleared"
+                        break
+            if held:
+                self._recent_revision += 1
+                self._revision += 1
+                self._changed.set()
+        upstream = self.sources.clear_core_pending(mode)
+        return {"mode": mode, "cleared": len(held) + upstream["cleared"],
+                "pending": 0, "connected": self.sources.status(mode).get("state")
+                in ("running", "connecting", "retrying")}
+
     def stop_source(self, mode: str, *, stop_input: bool = True) -> dict[str, Any]:
         """Stop this source, its pending Core jobs and active audio only.
 
@@ -428,7 +464,8 @@ class ComputerRuntime:
             entries = records[name]
             stages = {"queued": 0, "preparing": 0, "prepared": 0,
                       "rendering": 0, "ready": 0, "reading": 0,
-                      "read": 0, "failed": 0, "skipped": 0, "stopped": 0}
+                      "read": 0, "failed": 0, "skipped": 0, "stopped": 0,
+                       "cleared": 0}
             decorated = []
             cached_model_inputs = {
                 item["speech_id"]: item["model_inputs"]
@@ -440,7 +477,8 @@ class ComputerRuntime:
                 current_state = (job.get("state") if job else None)
                 state = record.get("outcome") or (
                     "reading" if record.get("speech_id") == active else
-                    current_state or record.get("state", "queued")
+                    ("stopped" if current_state == "cancelled" else current_state)
+                    or record.get("state", "queued")
                 )
                 if state in stages:
                     stages[state] += 1
@@ -450,14 +488,19 @@ class ComputerRuntime:
                     "text": record.get("text", ""),
                     "state": state,
                     "speech_id": record.get("speech_id"),
-                    "error": (job or {}).get("error") if state == "failed"
+                    "error": ((job or {}).get("error") or record.get("error", "")) if state == "failed"
                              else record.get("error", ""),
                     "created_at": record.get("created_at", ""),
                 })
             stages["queued"] += int(preview["count"])
             active_jobs = [entry for entry in decorated
-                           if entry["state"] in ("preparing", "prepared",
+                           if entry.get("speech_id") and entry["state"] in ("queued", "preparing", "prepared",
                                                 "rendering", "ready", "reading")]
+            # Prioritize what is actually playing or being synthesized,
+            # not the first eight old prepared messages.
+            priority = {"reading": 0, "rendering": 1, "preparing": 2,
+                        "prepared": 3, "ready": 4, "queued": 5}
+            active_jobs.sort(key=lambda item: priority[item["state"]])
             pipeline = []
             for item in active_jobs[:8]:
                 job_id = item.get("speech_id")
@@ -526,6 +569,23 @@ class ComputerRuntime:
             return self.coordinator.get_model_inputs(speech_id).get("inputs", [])[:24]
         except (ValueError, KeyError, AttributeError, JobMissing, JobNotReady):
             return []
+
+    def _remember_terminal_job(self, job: dict[str, Any]) -> None:
+        """Keep failed/skipped/cancelled outcomes truthful after job TTL pruning."""
+        speech_id = job.get("speech_id")
+        outcome = ("stopped" if job.get("state") == "cancelled"
+                   else job.get("state"))
+        if not speech_id or outcome not in ("failed", "skipped", "stopped"):
+            return
+        with self._lock:
+            for history in self._recent_messages.values():
+                for record in history:
+                    if (record.get("speech_id") == speech_id
+                        and not record.get("outcome")):
+                        record["outcome"] = outcome
+                        if outcome == "failed":
+                            record["error"] = str(job.get("error") or "")[:190]
+                        self._recent_revision += 1
 
     def max_outstanding_jobs(self) -> int:
         """Bound computer Live admissions to saved prepare/ready queue limits."""
@@ -658,11 +718,16 @@ class ComputerRuntime:
         if headroom <= 0:
             return
         if len(self._pending_messages) < headroom:
+            # Capture the generation before draining the source. Messages
+            # taken during Reset must not enter the buffer afterwards.
+            with self._lock:
+                intake_resets = dict(self._source_reset_generations)
             for mode, msg in self.sources.take_for_runtime(
                 limit=min(4, headroom - len(self._pending_messages))
             ):
                 with self._lock:
-                    if mode in self._stopped_sources:
+                    if (mode in self._stopped_sources
+                        or intake_resets[mode] != self._source_reset_generations[mode]):
                         continue
                     self._pending_messages.append((mode, msg))
                     self._recent_messages[mode].append({
@@ -683,6 +748,7 @@ class ComputerRuntime:
                     self._pending_messages.popleft()
                     continue
                 generation = self._source_generations[mode]
+                reset_generation = self._source_reset_generations[mode]
                 dispatch_generation = self._dispatch_generation
             admitted = self._enqueue_via_api(mode, msg)
             with self._lock:
@@ -690,6 +756,7 @@ class ComputerRuntime:
                     generation != self._source_generations[mode]
                     or mode in self._stopped_sources
                 )
+                queue_reset = reset_generation != self._source_reset_generations[mode]
                 dispatch_stopped = (
                     dispatch_generation != self._dispatch_generation
                     or self._playback_paused or self._mode != "computer"
@@ -697,7 +764,7 @@ class ComputerRuntime:
                 # A STOP during the HTTP admission must not slip a new
                 # translation or WAV into playback. Source STOP drops the
                 # message; global Pause retains it for deliberate resume.
-                if source_stopped or dispatch_stopped:
+                if source_stopped or dispatch_stopped or queue_reset:
                     if isinstance(admitted, str) and admitted not in ("failed", "skipped"):
                         try:
                             self.coordinator.cancel(admitted)
@@ -711,6 +778,15 @@ class ComputerRuntime:
                             if record.get("message_id") == str(msg.get("message_id", ""))[:128]:
                                 record["outcome"] = "stopped"
                         self._recent_revision += 1
+                    if queue_reset and not source_stopped:
+                        if self._pending_messages and self._pending_messages[0][1] is msg:
+                            self._pending_messages.popleft()
+                        for record in reversed(self._recent_messages[mode]):
+                            if (record.get("message_id") == str(msg.get("message_id", ""))[:128]
+                                and not record.get("speech_id") and not record.get("outcome")):
+                                record["outcome"] = "cleared"
+                                self._recent_revision += 1
+                                break
                     if dispatch_stopped:
                         break
                     continue
@@ -735,7 +811,7 @@ class ComputerRuntime:
         workspace = self._job_workspace(job)
         if workspace not in {"studio", "queue", "reader", "live",
                             "youtube_browser", "tiktok_browser", "discord",
-                            "discord_client", "tiktok"}:
+                            "discord_client", "tiktok", "stt_api"}:
             workspace = "studio"
         wav = self.coordinator.audio(speech_id)
         return self._play_audio(wav, job, workspace)
@@ -889,6 +965,7 @@ class ComputerRuntime:
                                 self._seen.add(job_id)
                             break
                         elif state in {"failed", "skipped", "cancelled"}:
+                            self._remember_terminal_job(job)
                             self._seen.add(job_id)
                         elif state in {"preparing", "queued", "rendering"}:
                             # Preserve FIFO even if a newer AI job finishes first.

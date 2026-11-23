@@ -19,7 +19,7 @@ const labels=Object.freeze({
   prepared:"แปล/แยกแล้ว · รอสร้างเสียง",rendering:"กำลังสร้างเสียง",
   ready:"มีไฟล์เสียง · รอเล่น",reading:"กำลังเล่นเสียงจาก Core",
   read:"อ่านจบแล้ว",failed:"ผิดพลาด",skipped:"ข้ามข้อความ",
-  stopped:"หยุดก่อนอ่านจบ"
+  stopped:"หยุดก่อนอ่านจบ",cleared:"ล้างออกจากคิวก่อนประมวลผล"
 });
 let feeds={},enabled=false,loadedCursor=null,inFlight=false,pendingCursor=null;
 let lastError="",lastUpdate=0,lastFailureAt=0;
@@ -64,14 +64,47 @@ function renderSource(mode,prefix,source,server){
   const seen=source.recent||[];
   const stageList=source.pipeline||[];
   const waiting=stageList.filter(x=>
-    ["preparing","prepared","rendering"].includes(x.state));
+    ["preparing","prepared","rendering","queued"].includes(x.state));
   const ready=stageList.filter(x=>x.state==="ready");
   const active=stageList.find(x=>x.state==="reading")
     ||stageList.find(x=>x.state==="rendering")
     ||stageList.find(x=>x.state==="preparing")
     ||stageList.find(x=>x.state==="prepared")
-    ||stageList.find(x=>x.state==="ready");
+    ||stageList.find(x=>x.state==="ready")
+    ||stageList.find(x=>x.state==="queued");
   const failed=seen.find(x=>x.state==="failed");
+  const live=["running","connecting","retrying"].includes(state.state);
+  const startButton=node(prefix+"FeedStart");
+  if(startButton)startButton.disabled=live;
+  const autoRead=node(prefix+"FeedAuto");
+  if(autoRead){
+    if(live&&typeof state.runtime_auto_read==="boolean"&&
+       root.document?.activeElement!==autoRead)
+      autoRead.checked=state.runtime_auto_read;
+    // Keep offline choice editable: it is applied on the next explicit Connect.
+    // A connected source is synchronized and updated via Core option API.
+    autoRead.disabled=false;
+  }
+  // Connected inputs belong to the Core; keep edit drafts intact while the
+  // user focuses a field, and do not bring credentials into the Web UI.
+  if(live&&typeof state.source_id==="string"){
+    let target=state.source_id;
+    if(mode==="stt_api"){
+      try{
+        const url=new URL(target);
+        const port=node(prefix+"FeedPort"),secure=node(prefix+"FeedSecure");
+        target=url.hostname;
+        if(port&&root.document?.activeElement!==port)
+          port.value=url.port|| (url.protocol==="https:"?"443":"80");
+        if(secure&&root.document?.activeElement!==secure)
+          secure.checked=url.protocol==="https:";
+      }catch{ /* display state below still reflects the Core */ }
+    }
+    const sourceId=node(prefix+"FeedSourceId");
+    if(sourceId&&root.document?.activeElement!==sourceId)sourceId.value=target;
+  }
+  const resetButton=node(prefix+"FeedReset");
+  if(resetButton)resetButton.disabled=!count(source.source_pending)&&!count(source.buffered_count);
   const stopButton=node(prefix+"FeedStop");
   if(stopButton){
     const live=["running","connecting","retrying"].includes(state.state);
@@ -86,6 +119,7 @@ function renderSource(mode,prefix,source,server){
       safe(state.state||"idle")+
       " · รับแล้ว "+count(state.received)+" · กรอง "+count(state.discarded)+
       " · รอรับจากต้นทาง "+count(source.source_pending)+
+      (live?" · อ่านอัตโนมัติ "+(state.runtime_auto_read?"เปิด":"ปิด"):"")+
       (state.info&&state.state==="error"?" · "+safe(state.info):"");
   }
   const messageStatus=node(prefix+"FeedQueueStatus");
@@ -136,7 +170,10 @@ function renderSource(mode,prefix,source,server){
   if(currentText){
     currentText.textContent=active?
       (active.inputs?.length?jobLines(active).join("\n")
-       :"รอผลประมวลผลจาก Core (ยังไม่ใช้ข้อความแชทแทนผลแปล)"):
+       :active.state==="preparing"
+         ?"ต้นฉบับที่ Core กำลังเตรียม/แปล (ยังไม่ใช่ผลแปล): "+
+           (active.author?safe(active.author)+": ":"")+safe(active.text)
+         :"Core ยังไม่ยืนยันข้อความที่จะส่งเข้าโมเดล · "+headline(active.state)):
       "";
   }
   const finished=(source.read_history||[]).slice(0,readLimit);
@@ -226,5 +263,6 @@ function init(value){
   const state=root.VoxLastRuntimeSnapshot;
   if(state)onRuntimeState(state);
 }
-root.VoxCoreDashboard={init,onRuntimeState,onRuntimeError};
+root.VoxCoreDashboard={init,onRuntimeState,onRuntimeError,
+  getLastError:()=>lastError};
 })(typeof window==="undefined"?globalThis:window);

@@ -398,6 +398,41 @@ class SourceManager:
             self._notify_unlocked(mode)
             return session.public()
 
+    def set_core_auto_read(self, mode: str, enabled: bool) -> dict[str, Any]:
+        """Server-only option update after same-origin Core authorization.
+
+        Browser refresh does not transfer or revoke a source owner token.
+        Public HTTP routes must never invoke this without their own guard.
+        """
+        if mode not in ("live", "youtube_browser", "tiktok_browser", "tiktok",
+                        "discord", "discord_client", "stt_api"):
+            raise InputError("unsupported Core source mode")
+        if type(enabled) is not bool:
+            raise InputError("runtime_auto_read must be boolean")
+        with self._lock:
+            session = self._sessions.get(mode)
+            if session is None or session.cancelled.is_set():
+                raise ModeConflict("Core source is not connected")
+            if session.runtime_auto_read != enabled:
+                session.runtime_auto_read = enabled
+                self._notify_unlocked(mode)
+            return session.public()
+
+    def clear_core_pending(self, mode: str) -> dict[str, Any]:
+        """Clear waiting input only; never delete accepted/playing TTS jobs."""
+        if mode not in ("live", "youtube_browser", "tiktok_browser", "tiktok",
+                        "discord", "discord_client", "stt_api"):
+            raise InputError("unsupported Core source mode")
+        with self._lock:
+            session = self._sessions.get(mode)
+            if session is None or session.cancelled.is_set():
+                return {"mode": mode, "cleared": 0, "pending": 0}
+            count = len(session.pending)
+            if count:
+                session.pending.clear()
+                self._notify_unlocked(mode)
+            return {"mode": mode, "cleared": count, "pending": 0}
+
     def preview_for_runtime(self, mode: str, limit: int = 5) -> dict[str, Any]:
         """Private, read-only queue preview for the Core-owned Browser dashboard.
 
@@ -406,7 +441,7 @@ class SourceManager:
         diagnostic endpoint on the main Server.
         """
         if mode not in ("live", "youtube_browser", "tiktok_browser",
-                        "tiktok", "discord", "discord_client"):
+                        "tiktok", "discord", "discord_client", "stt_api"):
             raise InputError("invalid runtime source mode")
         if not 1 <= limit <= 5:
             raise ValueError("invalid preview limit")

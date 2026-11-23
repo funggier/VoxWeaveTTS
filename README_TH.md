@@ -1,5 +1,7 @@
 # VoxWeaveTTS
 
+**สถานะและปุ่มควบคุมจาก Core:** แก้การแสดงข้อความรับ/แปล/สร้างเสียง/เล่นจริงของทุกโหมด LIVE รวม STT และการซิงก์ปุ่มเชื่อมต่อ หยุด อ่านอัตโนมัติ และล้างคิวหลัง Refresh โดยไม่เพิ่ม Browser Worker หรือ Poller ดู [คู่มือสถานะ Core](docs/CORE_STATUS_CONTROLS_TH.md)
+
 **ทิศทาง Browser-first:** VoxWeaveTTS และ VoxWeaveSTT จะเน้น Core เป็นผู้ทำงานจริง และใช้ Web UI เป็นหน้าควบคุมหลัก พักการพัฒนา VoxWeaveSTT-Client ก่อน โดย STT v0.1.2 รองรับการจัดการ HTTPS LAN ผ่านหน้าเว็บ Local และล็อกอิน Remote Browser ด้วยบัญชีใน .cmd ดู [คู่มือร่วม](docs/BROWSER_FIRST_STT_TTS_TH.md)
 
 **v0.12.15 — แก้ STT API รับข้อความจริง:** แก้การตรวจ session_id ให้ตรงกับ VoxWeaveSTT ที่แยก job session กับ capture session พร้อมคำอธิบาย HTTPS LAN/Fingerprint ที่เข้าใจง่าย ดู [บันทึก Release](docs/RELEASE_NOTES_v0.12.15_TH.md)

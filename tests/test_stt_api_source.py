@@ -155,6 +155,10 @@ def test_source_manager_computer_runtime_queue_path(stt):
         while manager.status("stt_api")["received"] == 0 and time.monotonic() < cutoff:
             time.sleep(0.03)
         assert manager.status("stt_api")["received"] == 1
+        preview = manager.preview_for_runtime("stt_api")
+        assert preview["count"] == 1
+        assert len(preview["items"]) == 1
+        assert preview["items"][0]["text"]  # Genuine STT final payload, not a placeholder.
         got = manager.take_for_runtime()
         assert len(got) == 1
         assert got[0][0] == "stt_api"
